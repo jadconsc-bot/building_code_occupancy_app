@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
+import { plumbingChecklists } from "@/lib/plumbingData";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram } from "@/components/CodeDiagrams";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -314,6 +315,48 @@ export default function Home() {
                         {selectedGroup.plumbing?.drainage || "Standard drainage requirements apply."}
                       </p>
                     </section>
+
+                    {(selectedGroup.code.startsWith("C") || selectedGroup.code.startsWith("A-2")) && (
+                      <div className="border-t border-border pt-8 mt-8">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" /> Rough-In Checklist
+                        </h3>
+                        <Tabs defaultValue="kitchen" className="w-full">
+                          <TabsList className="w-full justify-start mb-6 bg-muted/50 p-1 h-auto flex-wrap">
+                            {plumbingChecklists.map((room) => (
+                              <TabsTrigger key={room.id} value={room.id} className="flex-1 min-w-[100px]">
+                                {room.name}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                          {plumbingChecklists.map((room) => (
+                            <TabsContent key={room.id} value={room.id} className="space-y-3 mt-0">
+                              {room.items.map((item) => (
+                                <div key={item.id} className="flex items-start space-x-3 p-4 rounded-none border border-border bg-card hover:bg-accent/50 transition-colors group">
+                                  <Checkbox id={item.id} className="mt-1" />
+                                  <div className="grid gap-1.5 leading-none w-full">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <Label
+                                        htmlFor={item.id}
+                                        className="text-sm font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                      >
+                                        {item.label}
+                                      </Label>
+                                      <Badge variant="outline" className="font-mono text-[10px] h-5 bg-muted text-muted-foreground whitespace-nowrap">
+                                        {item.codeRef}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                      {item.description}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </TabsContent>
+                          ))}
+                        </Tabs>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-6">
