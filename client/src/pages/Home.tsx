@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useTheme } from "@/components/theme-provider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
@@ -32,6 +34,11 @@ export default function Home() {
     const saved = localStorage.getItem("occupancy_search_history");
     return saved ? JSON.parse(saved) : [];
   });
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem("occupancy_notes");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     localStorage.setItem("occupancy_bookmarks", JSON.stringify(bookmarks));
@@ -40,6 +47,14 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("occupancy_search_history", JSON.stringify(searchHistory));
   }, [searchHistory]);
+
+  useEffect(() => {
+    localStorage.setItem("occupancy_notes", JSON.stringify(notes));
+  }, [notes]);
+
+  const handleNoteChange = (id: string, content: string) => {
+    setNotes(prev => ({ ...prev, [id]: content }));
+  };
 
   const addToHistory = (id: string) => {
     setSearchHistory(prev => {
@@ -51,6 +66,42 @@ export default function Home() {
   const handleGroupSelect = (group: OccupancyGroup) => {
     setSelectedGroup(group);
     addToHistory(group.id);
+    // Update URL hash for sharing
+    window.location.hash = group.code;
+  };
+
+  // Handle initial load from URL hash
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash) {
+      const group = occupancyData.find(g => g.code === hash);
+      if (group) {
+        setSelectedGroup(group);
+        addToHistory(group.id);
+      }
+    }
+  }, []);
+
+  const copyShareLink = () => {
+    if (selectedGroup) {
+      const url = `${window.location.origin}/#${selectedGroup.code}`;
+      navigator.clipboard.writeText(url);
+      alert("Link copied to clipboard!");
+    }
+  };
+
+  const exportBookmarks = () => {
+    const data = bookmarks.map(id => {
+      const group = occupancyData.find(g => g.id === id);
+      return group ? `${group.code} - ${group.name}` : null;
+    }).filter(Boolean).join("\n");
+    
+    const blob = new Blob([data], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "my-occupancy-bookmarks.txt";
+    a.click();
   };
 
   const toggleBookmark = (e: React.MouseEvent, id: string) => {
@@ -85,23 +136,27 @@ export default function Home() {
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
       
+      // Synonym mapping
+      let command = transcript;
+      if (command.includes("wiring") || command.includes("lights") || command.includes("power")) command = command.replace(/wiring|lights|power/g, "electrical");
+      if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
+      if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
+
       // Check for tab navigation commands
-      if (transcript.includes("plumbing")) {
+      if (command.includes("plumbing")) {
         setActiveTab("plumbing");
-        // If user says "Residential Plumbing", try to find Residential group
-        const cleanQuery = transcript.replace("plumbing", "").trim();
+        const cleanQuery = command.replace("plumbing", "").trim();
         if (cleanQuery) {
           setSearchQuery(cleanQuery);
-          // Auto-select if exact match found
           const match = occupancyData.find(g => 
             g.name.toLowerCase().includes(cleanQuery) || 
             g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
           );
           if (match) setSelectedGroup(match);
         }
-      } else if (transcript.includes("electrical")) {
+      } else if (command.includes("electrical")) {
         setActiveTab("electrical");
-        const cleanQuery = transcript.replace("electrical", "").trim();
+        const cleanQuery = command.replace("electrical", "").trim();
         if (cleanQuery) {
           setSearchQuery(cleanQuery);
           const match = occupancyData.find(g => 
@@ -110,12 +165,11 @@ export default function Home() {
           );
           if (match) setSelectedGroup(match);
         }
-      } else if (transcript.includes("additions") || transcript.includes("deck") || transcript.includes("garage")) {
+      } else if (command.includes("additions") || command.includes("deck") || command.includes("garage")) {
         setActiveTab("additions");
-        const cleanQuery = transcript.replace("additions", "").trim();
+        const cleanQuery = command.replace("additions", "").trim();
         if (cleanQuery) setSearchQuery(cleanQuery);
       } else {
-        // Standard search
         setSearchQuery(transcript);
       }
     };
@@ -160,24 +214,64 @@ export default function Home() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button
-              onClick={startListening}
-              className={`p-2 border border-input rounded-none transition-colors ${isListening ? "bg-red-100 text-red-600 border-red-200 animate-pulse" : "bg-background hover:bg-accent text-muted-foreground"}`}
-              title="Voice Search"
-            >
-              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={startListening}
+                    className={`p-2 border border-input rounded-none transition-all relative overflow-hidden ${isListening ? "bg-red-50 text-red-600 border-red-200" : "bg-background hover:bg-accent text-muted-foreground"}`}
+                  >
+                    {isListening ? (
+                      <div className="flex items-center justify-center w-4 h-4">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+                        <MicOff className="w-4 h-4 relative z-10" />
+                      </div>
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-bold mb-1">Voice Commands:</p>
+                  <ul className="text-xs list-disc pl-4 space-y-1">
+                    <li>"Residential Plumbing"</li>
+                    <li>"Office Electrical"</li>
+                    <li>"Deck Additions"</li>
+                    <li>"Wiring" (Electrical)</li>
+                    <li>"Drainage" (Plumbing)</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Try "Restaurant", "Hospital", "Warehouse"
-          </p>
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-xs text-muted-foreground">
+              {isListening ? "Listening..." : 'Try "Restaurant", "Hospital"'}
+            </p>
+            {isListening && (
+              <div className="flex gap-0.5 h-3 items-end">
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className="w-0.5 bg-red-500 animate-pulse" style={{height: `${Math.random() * 100}%`, animationDuration: '0.5s'}}></div>
+                ))}
+              </div>
+            )}
+          </div>
           
           <ScrollArea className="max-h-[30vh]">
             {bookmarks.length > 0 && !searchQuery && (
               <div className="mt-4 pt-4 border-t border-border">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                  <Bookmark className="w-3 h-3" /> Bookmarked
-                </h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Bookmark className="w-3 h-3" /> Bookmarked
+                  </h3>
+                  <button 
+                    onClick={exportBookmarks}
+                    className="text-[10px] flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                    title="Export list"
+                  >
+                    <Download className="w-3 h-3" /> Export
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {bookmarks.map(id => {
                     const group = occupancyData.find(g => g.id === id);
@@ -297,13 +391,22 @@ export default function Home() {
               >
                 ← Back to Search
               </button>
-              <button
-                onClick={() => window.print()}
-                className="hidden md:flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors mb-6 ml-auto"
-              >
-                <Printer className="w-4 h-4" />
-                Print Guide
-              </button>
+              <div className="hidden md:flex items-center gap-2 mb-6 ml-auto">
+                <button
+                  onClick={copyShareLink}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Guide
+                </button>
+              </div>
             </div>
             <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
               <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
@@ -341,6 +444,20 @@ export default function Home() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Notes Section */}
+            <div className="mb-8 print:hidden">
+              <div className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground">
+                <StickyNote className="w-4 h-4" />
+                <span>Project Notes</span>
+              </div>
+              <Textarea 
+                placeholder="Add private notes for this occupancy (e.g. 'Check fire rating for Project X')..."
+                className="min-h-[80px] text-sm bg-muted/30 resize-none"
+                value={notes[selectedGroup.id] || ""}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleNoteChange(selectedGroup.id, e.target.value)}
+              />
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
