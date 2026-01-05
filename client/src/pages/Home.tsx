@@ -38,8 +38,9 @@ export default function Home() {
           </div>
           
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input 
+              type="text"
               placeholder="Search building type..." 
               className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
               value={searchQuery}
