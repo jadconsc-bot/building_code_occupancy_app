@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -15,7 +15,9 @@ import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
 import { plumbingChecklists } from "@/lib/plumbingData";
 import { additionsData } from "@/lib/additionsData";
+import { sustainabilityData } from "@/lib/sustainabilityData";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
+import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
@@ -147,6 +149,7 @@ export default function Home() {
       if (command.includes("wiring") || command.includes("lights") || command.includes("power")) command = command.replace(/wiring|lights|power/g, "electrical");
       if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
       if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
+      if (command.includes("solar") || command.includes("green") || command.includes("ev") || command.includes("renewable")) command = command.replace(/solar|green|ev|renewable/g, "sustainability");
 
       // Check for tab navigation commands
       if (command.includes("plumbing")) {
@@ -174,6 +177,10 @@ export default function Home() {
       } else if (command.includes("additions") || command.includes("deck") || command.includes("garage")) {
         setActiveTab("additions");
         const cleanQuery = command.replace("additions", "").trim();
+        if (cleanQuery) setSearchQuery(cleanQuery);
+      } else if (command.includes("sustainability") || command.includes("solar") || command.includes("ev") || command.includes("tankless")) {
+        setActiveTab("sustainability");
+        const cleanQuery = command.replace("sustainability", "").trim();
         if (cleanQuery) setSearchQuery(cleanQuery);
       } else {
         setSearchQuery(transcript);
@@ -491,6 +498,12 @@ export default function Home() {
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
                 >
                   <Ruler className="w-4 h-4 mr-2" /> Additions
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="sustainability" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Leaf className="w-4 h-4 mr-2" /> Sustainability
                 </TabsTrigger>
               </TabsList>
 
@@ -1027,6 +1040,91 @@ export default function Home() {
                       ))}
                     </div>
                   </section>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="sustainability" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-8">
+                  {sustainabilityData.map((topic) => (
+                    <section key={topic.id}>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                        <Leaf className="w-4 h-4" /> {topic.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">{topic.description}</p>
+                      
+                      {/* Visual Diagrams */}
+                      {topic.id === 'solar-pv' && (
+                        <div className="mb-6">
+                          <SolarPVDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'ev-charging' && (
+                        <div className="mb-6">
+                          <EVChargingDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'tankless-heaters' && (
+                        <div className="mb-6">
+                          <TanklessHeaterDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'grid-integration' && (
+                        <div className="mb-6">
+                          <GridIntegrationDiagram />
+                        </div>
+                      )}
+
+                      {/* Code References */}
+                      <div className="mb-6">
+                        <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Code References</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {topic.codeReferences.map((ref, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs font-mono">
+                              {ref}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Requirements */}
+                      <div className="space-y-4 mb-6">
+                        {topic.requirements.map((req) => (
+                          <Card key={req.id} className="rounded-none border-border shadow-sm">
+                            <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                              <CardTitle className="text-sm font-bold uppercase tracking-wider">
+                                {req.category}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                              <ul className="space-y-2">
+                                {req.items.map((item, idx) => (
+                                  <li key={idx} className="flex items-start gap-2 text-sm">
+                                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                                    <span className="text-muted-foreground">{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* Considerations */}
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded">
+                        <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                          <Info className="w-4 h-4" /> Key Considerations
+                        </h4>
+                        <ul className="space-y-2">
+                          {topic.considerations.map((consideration, idx) => (
+                            <li key={idx} className="text-xs text-blue-800 dark:text-blue-200 flex items-start gap-2">
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span>{consideration}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </TabsContent>
 

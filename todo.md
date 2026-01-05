@@ -10,3 +10,10 @@
 ## Future Enhancements (Deferred)
 - [ ] Integrate frontend with cloud sync API (replace localStorage with API calls)
 - [ ] Implement AI Code Assistant with LLM integration
+
+## Sustainability & Energy Systems
+- [x] Create sustainability data (solar, EV charging, water heaters, grid integration)
+- [x] Create SustainabilityTools component
+- [x] Add Sustainability tab to main application
+- [x] Add visual diagrams for solar panel mounting and EV charging
+- [x] Integrate voice commands for Sustainability tab
