@@ -23,3 +23,8 @@
 - [x] Position dropdown in top-right corner on mobile screens
 - [x] Ensure all tabs (Building, Plumbing, Electrical, Additions, Sustainability) are accessible
 - [x] Test on mobile viewport sizes
+
+## Desktop Sidebar Scrolling Fix
+- [x] Add max-height to sidebar container
+- [x] Enable overflow-y scrolling for occupancy list
+- [x] Ensure search bar and bookmarks remain visible while list scrolls

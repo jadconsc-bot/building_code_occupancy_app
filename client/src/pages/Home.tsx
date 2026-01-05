@@ -206,7 +206,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
-      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-border bg-sidebar">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
@@ -271,7 +271,7 @@ export default function Home() {
             )}
           </div>
           
-          <ScrollArea className="max-h-[30vh]">
+          <div className="max-h-[30vh] overflow-y-auto">
             {bookmarks.length > 0 && !searchQuery && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex justify-between items-center mb-2">
@@ -328,10 +328,10 @@ export default function Home() {
                 </div>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-2">
             {filteredData.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -387,7 +387,7 @@ export default function Home() {
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
         
         <div className="p-4 border-t border-border text-[10px] text-muted-foreground bg-sidebar">
           Based on National Building Code - 2023 Alberta Edition
