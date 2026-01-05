@@ -286,14 +286,14 @@ export default function Home() {
                       <CardContent className="p-6 bg-white">
                         <FireSeparationDiagram />
                         <p className="text-xs text-muted-foreground mt-4 font-medium">
-                          Continuous smoke-tight barrier (min 12.7mm gypsum) required on underside of floor framing.
+                          Typical 1hr fire separation assembly for secondary suites (9.10.9.14).
                         </p>
                       </CardContent>
                     </Card>
                     <Card className="overflow-hidden border-border shadow-sm">
                       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
                         <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                          <DoorOpen className="h-4 w-4" /> Bedroom Egress Window
+                          <DoorOpen className="h-4 w-4" /> Egress Window
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-6 bg-white">
@@ -420,6 +420,28 @@ export default function Home() {
 
                     {(selectedGroup.code.startsWith("C") || selectedGroup.code.startsWith("A-2")) && (
                       <div className="border-t border-border pt-8 mt-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                          <Card className="rounded-none border-border shadow-sm overflow-hidden">
+                            <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                              <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                <Droplets className="w-4 h-4 text-blue-500" /> Wet Venting (NPC 2.5.8)
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              <div className="aspect-[4/3] w-full bg-white p-4">
+                                <WetVentingDiagram />
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                              <Calculator className="w-4 h-4" /> Plumbing Calculators
+                            </h3>
+                            <FixtureUnitCalculator />
+                            <GasLineCalculator />
+                          </div>
+                        </div>
+
                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-green-600" /> Rough-In Checklist
                         </h3>
@@ -475,99 +497,6 @@ export default function Home() {
                       </CardContent>
                     </Card>
                   </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="additions" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-8">
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                      <Ruler className="w-4 h-4" /> Zoning & Setbacks (Municipal)
-                    </h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <Card className="rounded-none border-border shadow-sm overflow-hidden">
-                        <CardHeader className="pb-2 border-b border-border bg-muted/20">
-                          <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-primary" /> Typical Setback Rules
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                          <div className="aspect-[4/3] w-full bg-white">
-                            <SetbackDiagram />
-                          </div>
-                          <div className="p-4 bg-muted/10 border-t border-border">
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Disclaimer:</strong> Setbacks (Front, Rear, Side) are determined by your local Land Use Bylaw, NOT the Building Code. Always check your Real Property Report (RPR) and city zoning maps.
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <div className="space-y-4">
-                        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg">
-                          <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                            <Info className="w-4 h-4" /> Key Definitions
-                          </h4>
-                          <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                            <li><strong>Principal Building:</strong> The main house. Additions (sunrooms, attached garages) become part of this and must meet full setbacks.</li>
-                            <li><strong>Accessory Building:</strong> Detached structures (garages, sheds). Often allowed closer to property lines (e.g., 0.6m or 1.2m).</li>
-                            <li><strong>Permitted Projections:</strong> Some items (eaves, cantilevers, low decks) may project into setbacks. Check local rules.</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                      <Building2 className="w-4 h-4" /> Building Code Requirements
-                    </h3>
-                    <div className="grid grid-cols-1 gap-6">
-                      {additionsData.map((type) => (
-                        <Card key={type.id} className="rounded-none border-border shadow-sm">
-                          <CardHeader className="pb-2 border-b border-border bg-muted/20">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-base font-bold flex items-center gap-2">
-                                {type.name}
-                              </CardTitle>
-                              <Badge variant="outline" className="bg-background">{type.id === 'deck' ? 'Part 9.8' : 'Part 9'}</Badge>
-                            </div>
-                            <CardDescription>{type.description}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="pt-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                              <div className="lg:col-span-2 space-y-4">
-                                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded text-sm text-amber-900 dark:text-amber-100 flex items-start gap-2">
-                                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                  <div>
-                                    <strong>Zoning Note:</strong> {type.zoningNotes}
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {type.requirements.map((req) => (
-                                    <div key={req.id} className="p-3 border border-border rounded bg-card hover:bg-muted/50 transition-colors">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="font-bold text-sm">{req.title}</span>
-                                        {req.codeRef && <Badge variant="secondary" className="text-[10px] h-5">{req.codeRef}</Badge>}
-                                      </div>
-                                      <p className="text-xs text-muted-foreground">{req.description}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              {type.id === 'deck' && (
-                                <div className="border border-border rounded overflow-hidden">
-                                  <div className="bg-muted/20 p-2 border-b border-border text-xs font-bold text-center uppercase">Cross Section</div>
-                                  <div className="aspect-[3/4] bg-white">
-                                    <DeckCrossSectionDiagram />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </section>
                 </div>
               </TabsContent>
 
@@ -634,7 +563,26 @@ export default function Home() {
                       </div>
                     )}
 
-
+                    <div className="flex flex-col gap-8 mt-8 pt-8 border-t border-border">
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
+                          <Zap className="w-4 h-4" /> Load Calculation
+                        </h3>
+                        <ServiceLoadCalculator />
+                      </div>
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
+                          <Activity className="w-4 h-4" /> Voltage Drop
+                        </h3>
+                        <VoltageDropCalculator />
+                      </div>
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
+                          <Layers className="w-4 h-4" /> Conduit Fill
+                        </h3>
+                        <ConduitFillCalculator />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-6">
@@ -668,28 +616,105 @@ export default function Home() {
                         </CardContent>
                       </Card>
                     )}
+                  </div>
+                </div>
+              </TabsContent>
 
-                    <div className="flex flex-col gap-8 mt-8 pt-8 border-t border-border">
-                      <div className="w-full">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
-                          <Zap className="w-4 h-4" /> Load Calculation
-                        </h3>
-                        <ServiceLoadCalculator />
-                      </div>
-                      <div className="w-full">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
-                          <Activity className="w-4 h-4" /> Voltage Drop
-                        </h3>
-                        <VoltageDropCalculator />
-                      </div>
-                      <div className="w-full">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
-                          <Layers className="w-4 h-4" /> Conduit Fill
-                        </h3>
-                        <ConduitFillCalculator />
+              <TabsContent value="additions" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Zoning & Setbacks (Municipal)
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card className="rounded-none border-border shadow-sm overflow-hidden">
+                        <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                          <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-primary" /> Typical Setback Rules
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="aspect-[4/3] w-full bg-white">
+                            <SetbackDiagram />
+                          </div>
+                          <div className="p-4 bg-muted/10 border-t border-border">
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Disclaimer:</strong> Setbacks (Front, Rear, Side) are determined by your local Land Use Bylaw, NOT the Building Code. Always check your Real Property Report (RPR) and city zoning maps.
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <div className="space-y-4">
+                        <div className="p-4 border border-border bg-card rounded-none">
+                          <h4 className="font-bold text-sm mb-2">Principal vs. Accessory</h4>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            <strong>Principal Building:</strong> The main house. Requires larger setbacks (e.g., 6m Front, 7.5m Rear).
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            <strong>Accessory Building:</strong> Detached garage, shed, gazebo. Often allows reduced setbacks (e.g., 0.6m Side/Rear) if under a certain height.
+                          </p>
+                        </div>
+                        <div className="p-4 border border-border bg-card rounded-none">
+                          <h4 className="font-bold text-sm mb-2">Permitted Projections</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Eaves, cantilevers, and fireplaces may project into setbacks by a limited amount (e.g., 0.6m). Decks under 0.6m height often have relaxed rules.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Building2 className="w-4 h-4" /> Common Additions
+                    </h3>
+                    <div className="grid grid-cols-1 gap-6">
+                      {additionsData.map((type) => (
+                        <Card key={type.id} className="rounded-none border-border shadow-sm">
+                          <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                {type.name}
+                              </CardTitle>
+                              <Badge variant="outline" className="font-mono text-xs">Part 9</Badge>
+                            </div>
+                            <CardDescription>{type.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                              <div className="lg:col-span-2 space-y-4">
+                                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded text-sm text-amber-900 dark:text-amber-100 flex items-start gap-2">
+                                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                  <div>
+                                    <strong>Zoning Note:</strong> {type.zoningNotes}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {type.requirements.map((req) => (
+                                    <div key={req.id} className="p-3 border border-border rounded bg-card hover:bg-muted/50 transition-colors">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-bold text-sm">{req.title}</span>
+                                        {req.codeRef && <Badge variant="secondary" className="text-[10px] h-5">{req.codeRef}</Badge>}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">{req.description}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              {type.id === 'deck' && (
+                                <div className="border border-border rounded overflow-hidden">
+                                  <div className="bg-muted/20 p-2 border-b border-border text-xs font-bold text-center uppercase">Cross Section</div>
+                                  <div className="aspect-[3/4] bg-white">
+                                    <DeckCrossSectionDiagram />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               </TabsContent>
 
