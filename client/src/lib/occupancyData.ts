@@ -105,7 +105,7 @@ export const occupancyData: OccupancyGroup[] = [
     electrical: {
       emergencyPower: "Required for emergency lighting and exit signs.",
       lighting: "Emergency lighting required in all public areas and exits.",
-      notes: "GFCI protection required near water sources. Special wiring for kitchen equipment."
+      notes: "GFCI protection required for receptacles within 1.5m of washbasins/sinks. Special wiring for kitchen equipment."
     }
   },
   {
@@ -310,7 +310,7 @@ export const occupancyData: OccupancyGroup[] = [
     electrical: {
       emergencyPower: "Required for public corridors and exits in multi-unit buildings.",
       lighting: "Switched outlets or ceiling fixtures in every room.",
-      notes: "AFCI protection required for most branch circuits."
+      notes: "AFCI protection required for receptacles in bedrooms and living areas. GFCI required within 1.5m of sinks/tubs."
     }
   },
   {
@@ -341,7 +341,7 @@ export const occupancyData: OccupancyGroup[] = [
     electrical: {
       emergencyPower: "Not typically required.",
       lighting: "Exterior light at entrance required.",
-      notes: "Separate electrical panel often required by utility, though code allows single service. AFCI protection mandatory."
+      notes: "AFCI protection mandatory for bedroom/living area receptacles. GFCI required within 1.5m of water sources. Separate panel often required."
     }
   },
 
