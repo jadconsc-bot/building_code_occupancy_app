@@ -265,39 +265,75 @@ export const occupancyData: OccupancyGroup[] = [
     }
   },
 
-  // Group C - Residential
+   // Group C - Residential
   {
-    id: "C",
+    id: "C-1",
     code: "C",
-    name: "Residential",
+    name: "Residential - General",
     division: "",
-    description: "Occupancy where sleeping accommodation is provided (non-institutional).",
+    description: "Occupancy for residential use.",
     examples: [
       "Apartments",
       "Boarding houses",
+      "Clubs (residential)",
+      "Colleges (residential)",
+      "Convents",
       "Dormitories",
       "Hotels",
       "Houses",
+      "Lodging houses",
+      "Monasteries",
       "Motels",
       "Schools (residential)"
     ],
     compliance: {
-      fireResistance: "45min to 1h between suites. 1h to 2h for floor assemblies.",
-      sprinklers: "Required for buildings > 3 storeys or large areas.",
-      occupantLoad: "2 persons per sleeping room or based on suite area.",
-      exits: "Direct exit or access to public corridor required.",
-      construction: "Combustible permitted up to 6 storeys (with specific protections).",
-      notes: "Smoke alarms required in every suite. CO detectors if fuel-burning appliances present."
+      fireResistance: "45min to 1h separations between suites.",
+      sprinklers: "Required for buildings > 3 storeys or > 600m² footprint.",
+      occupantLoad: "2 persons per sleeping room or based on area.",
+      exits: "Direct access to exterior or public corridor required.",
+      construction: "Combustible permitted up to 6 storeys (with specific provisions).",
+      notes: "Smoke alarms required in every sleeping room."
     },
     plumbing: {
-      fixtures: "Min 1 kitchen sink, 1 WC, 1 lavatory, 1 bathtub/shower per dwelling unit.",
-      drainage: "Separate venting systems common in multi-storey.",
-      notes: "Shut-off valves required for each suite in multi-unit buildings."
+      fixtures: "1 kitchen sink, 1 WC, 1 lavatory, 1 bathtub/shower per suite.",
+      drainage: "Separate shut-offs often required for multi-unit buildings.",
+      notes: "Laundry facilities hookups typically required."
     },
     electrical: {
       emergencyPower: "Required for public corridors and exits in multi-unit buildings.",
-      lighting: "Switched outlets or lighting outlets in every room.",
-      notes: "AFCI protection required for most branch circuits in dwelling units."
+      lighting: "Switched outlets or ceiling fixtures in every room.",
+      notes: "AFCI protection required for most branch circuits."
+    }
+  },
+  {
+    id: "C-2",
+    code: "C (Secondary Suite)",
+    name: "Residential - Secondary Suite",
+    division: "",
+    description: "A self-contained dwelling unit located within a house (max 2 units total).",
+    examples: [
+      "Basement suite",
+      "Garden suite",
+      "In-law suite",
+      "Garage suite"
+    ],
+    compliance: {
+      fireResistance: "Continuous smoke-tight barrier (min 12.7mm gypsum) required between suite and main house. 45min-1h rating if not sprinklered.",
+      sprinklers: "Not mandatory if fire separation requirements are met, but highly recommended.",
+      occupantLoad: "Based on bedroom count and living area.",
+      exits: "Separate exit required. Can share a common exit if protected by smoke-tight barrier. Window egress required in bedrooms.",
+      construction: "Ceiling height min 1.95m. Doorways min 1890mm height.",
+      notes: "Sound transmission control (STC) required between units. Interconnected smoke/CO alarms mandatory."
+    },
+    plumbing: {
+      fixtures: "Must have own kitchen sink, WC, lavatory, and bathtub/shower.",
+      drainage: "Backwater valve recommended/required on sanitary lateral.",
+      notes: "Independent hot water supply or shared system with sufficient capacity (min 65L/day/person calculation)."
+    },
+    electrical: {
+      emergencyPower: "Not typically required.",
+      lighting: "Exterior light at entrance required.",
+      notes: "Separate electrical panel often required by utility, though code allows single service. AFCI protection mandatory."
     }
   },
 
