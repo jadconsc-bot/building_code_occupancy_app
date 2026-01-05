@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
@@ -18,10 +19,15 @@ import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/c
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
+import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 export default function Home() {
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
@@ -38,7 +44,7 @@ export default function Home() {
     const saved = localStorage.getItem("occupancy_notes");
     return saved ? JSON.parse(saved) : {};
   });
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     localStorage.setItem("occupancy_bookmarks", JSON.stringify(bookmarks));
@@ -919,6 +925,15 @@ export default function Home() {
 
               <TabsContent value="additions" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Calculator className="w-4 h-4" /> Permit Fee Estimator
+                    </h3>
+                    <div className="max-w-2xl">
+                      <PermitFeeCalculator />
+                    </div>
+                  </section>
+
                   <section>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
                       <Ruler className="w-4 h-4" /> Zoning & Setbacks (Municipal)
