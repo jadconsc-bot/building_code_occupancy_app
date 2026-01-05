@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
@@ -20,7 +20,53 @@ import { Label } from "@/components/ui/label";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
+  const [bookmarks, setBookmarks] = useState<string[]>(() => {
+    const saved = localStorage.getItem("occupancy_bookmarks");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("occupancy_bookmarks", JSON.stringify(bookmarks));
+  }, [bookmarks]);
+
+  const toggleBookmark = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setBookmarks(prev => 
+      prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
+    );
+  };
+
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Voice search is not supported in this browser.");
+      return;
+    }
+
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+    };
+
+    recognition.start();
+  };
 
   const filteredData = useMemo(() => {
     if (!searchQuery) return occupancyData;
@@ -48,19 +94,52 @@ export default function Home() {
             </h1>
           </div>
           
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input 
-              type="text"
-              placeholder="Search building type..." 
-              className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="relative flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input 
+                type="text"
+                placeholder="Search building type..." 
+                className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={startListening}
+              className={`p-2 border border-input rounded-none transition-colors ${isListening ? "bg-red-100 text-red-600 border-red-200 animate-pulse" : "bg-background hover:bg-accent text-muted-foreground"}`}
+              title="Voice Search"
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Try "Restaurant", "Hospital", "Warehouse"
           </p>
+          
+          {bookmarks.length > 0 && !searchQuery && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                <Bookmark className="w-3 h-3" /> Bookmarked
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {bookmarks.map(id => {
+                  const group = occupancyData.find(g => g.id === id);
+                  if (!group) return null;
+                  return (
+                    <Badge 
+                      key={id} 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-accent hover:text-accent-foreground bg-background"
+                      onClick={() => setSelectedGroup(group)}
+                    >
+                      {group.code}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <ScrollArea className="flex-1">
@@ -85,11 +164,19 @@ export default function Home() {
                     <span className={`font-mono font-bold text-lg ${selectedGroup?.id === group.id ? "text-white" : "text-primary"}`}>
                       {group.code}
                     </span>
-                    {group.division && (
-                      <span className={`text-[10px] uppercase tracking-wider ${selectedGroup?.id === group.id ? "text-white/80" : "text-muted-foreground"}`}>
-                        {group.division}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {group.division && (
+                        <span className={`text-[10px] uppercase tracking-wider ${selectedGroup?.id === group.id ? "text-white/80" : "text-muted-foreground"}`}>
+                          {group.division}
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => toggleBookmark(e, group.id)}
+                        className={`hover:scale-110 transition-transform ${bookmarks.includes(group.id) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30 hover:text-yellow-400"}`}
+                      >
+                        <Star className={`w-4 h-4 ${bookmarks.includes(group.id) ? "fill-yellow-400" : ""}`} />
+                      </button>
+                    </div>
                   </div>
                   <h3 className="font-medium text-sm leading-tight mb-2">{group.name}</h3>
                   <div className="flex flex-wrap gap-1">
