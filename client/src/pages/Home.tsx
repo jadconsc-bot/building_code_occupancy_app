@@ -37,7 +37,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
-      <div className="w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen z-10">
+      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-border bg-sidebar">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
@@ -119,9 +119,15 @@ export default function Home() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16">
+      <div className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 ${!selectedGroup ? 'hidden md:block' : 'block'}`}>
         {selectedGroup ? (
           <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <button 
+              onClick={() => setSelectedGroup(null)}
+              className="md:hidden mb-6 flex items-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back to Search
+            </button>
             <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4">
               <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono">
                 {selectedGroup.code}
@@ -576,21 +582,21 @@ export default function Home() {
                       </Card>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 pt-8 border-t border-border">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <div className="flex flex-col gap-8 mt-8 pt-8 border-t border-border">
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
                           <Zap className="w-4 h-4" /> Load Calculation
                         </h3>
                         <ServiceLoadCalculator />
                       </div>
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
                           <Activity className="w-4 h-4" /> Voltage Drop
                         </h3>
                         <VoltageDropCalculator />
                       </div>
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <div className="w-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2 mb-4">
                           <Layers className="w-4 h-4" /> Conduit Fill
                         </h3>
                         <ConduitFillCalculator />
