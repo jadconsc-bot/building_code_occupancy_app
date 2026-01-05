@@ -13,6 +13,16 @@ export interface OccupancyGroup {
     construction: string;
     notes?: string;
   };
+  plumbing?: {
+    fixtures: string;
+    drainage: string;
+    notes: string;
+  };
+  electrical?: {
+    emergencyPower: string;
+    lighting: string;
+    notes: string;
+  };
 }
 
 export const occupancyData: OccupancyGroup[] = [
@@ -37,6 +47,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Must have sufficient aggregate width. Panic hardware often required.",
       construction: "Noncombustible construction typically required for larger/taller buildings.",
       notes: "Strict requirements for stage equipment, proscenium curtains, and fire safety systems."
+    },
+    plumbing: {
+      fixtures: "High fixture count required based on peak occupancy. Separate staff facilities often required.",
+      drainage: "Standard drainage, plus special requirements for stage areas if applicable.",
+      notes: "Drinking fountains required. Accessibility requirements apply to all public washrooms."
+    },
+    electrical: {
+      emergencyPower: "Mandatory for emergency lighting, exit signs, and fire alarm systems.",
+      lighting: "Aisle lighting required. Emergency lighting must provide min 10 lux on floor.",
+      notes: "Stage lighting systems require specialized circuits and controls."
     }
   },
   {
@@ -72,6 +92,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Minimum 2 exits for occupant loads > 60. Travel distance limits apply.",
       construction: "Combustible permitted for smaller buildings; noncombustible for larger.",
       notes: "Specific requirements for commercial cooking equipment in restaurants."
+    },
+    plumbing: {
+      fixtures: "Based on occupant load (e.g., 1 WC per 25-50 persons depending on gender/use).",
+      drainage: "Grease interceptors required for commercial kitchens (restaurants).",
+      notes: "Food preparation sinks must be separate from handwashing sinks."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting and exit signs.",
+      lighting: "Emergency lighting required in all public areas and exits.",
+      notes: "GFCI protection required near water sources. Special wiring for kitchen equipment."
     }
   },
   {
@@ -92,6 +122,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Wide distribution of exits required to prevent congestion.",
       construction: "Heavy timber or noncombustible often used for long spans.",
       notes: "Special provisions for ice plants and pool chemical storage."
+    },
+    plumbing: {
+      fixtures: "Fixture counts based on peak spectator capacity. Showers often required for athletes.",
+      drainage: "Floor drains required in dressing rooms and pool decks.",
+      notes: "Pool systems require specialized circulation and filtration plumbing."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting and life safety systems.",
+      lighting: "High-bay lighting common. Emergency lighting for ice/pool surfaces.",
+      notes: "Damp/wet location wiring methods required for pool areas."
     }
   },
   {
@@ -114,6 +154,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Multiple egress routes required to open ground.",
       construction: "Noncombustible construction preferred for large grandstands.",
       notes: "Wind load and structural stability are critical factors."
+    },
+    plumbing: {
+      fixtures: "Washrooms required within reasonable travel distance.",
+      drainage: "Storm water management is critical.",
+      notes: "Seasonal shut-off capabilities often required."
+    },
+    electrical: {
+      emergencyPower: "Emergency lighting for egress paths.",
+      lighting: "Egress lighting required for night use.",
+      notes: "Weatherproof enclosures (NEMA 3R/4) required for all outdoor equipment."
     }
   },
 
@@ -139,6 +189,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Special locking arrangements permitted with central release.",
       construction: "Noncombustible required.",
       notes: "Smoke control and emergency power systems are critical."
+    },
+    plumbing: {
+      fixtures: "Vandal-resistant fixtures required in detention areas.",
+      drainage: "Floor drains with trap primers required.",
+      notes: "Anti-ligature fixtures and fittings mandatory in secure areas."
+    },
+    electrical: {
+      emergencyPower: "Mandatory for all life safety, security, and lighting systems (min 2h duration).",
+      lighting: "Vandal-resistant fixtures. High security levels.",
+      notes: "Tamper-proof devices and plates required."
     }
   },
   {
@@ -160,6 +220,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Wide corridors (min 2.4m in hospitals) required for bed movement.",
       construction: "Noncombustible required for buildings > 1 storey.",
       notes: "Defend-in-place strategy often used; zone separations are key."
+    },
+    plumbing: {
+      fixtures: "Handwashing sinks required in all patient care areas. Accessible fixtures in patient rooms.",
+      drainage: "Special handling for medical waste/fluids may be required.",
+      notes: "Medical gas systems (oxygen, vacuum) are critical components."
+    },
+    electrical: {
+      emergencyPower: "Vital. Generator backup required for life support and critical care areas.",
+      lighting: "High CRI lighting for examination. Emergency lighting in all areas.",
+      notes: "Isolated power systems required in operating rooms (Z32 standard)."
     }
   },
   {
@@ -182,6 +252,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Barrier-free access required.",
       construction: "Combustible permitted up to 3 storeys with sprinklers.",
       notes: "Alberta has specific 'B-3' provisions differing from national code."
+    },
+    plumbing: {
+      fixtures: "Accessible fixtures required. Scald protection devices mandatory.",
+      drainage: "Standard residential-type drainage.",
+      notes: "Grab bars and accessible design standards apply to washrooms."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting and fire alarm.",
+      lighting: "Residential style but with higher illumination levels for elderly vision.",
+      notes: "Call systems (nurse call) often integrated."
     }
   },
 
@@ -208,6 +288,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Direct exit or access to public corridor required.",
       construction: "Combustible permitted up to 6 storeys (with specific protections).",
       notes: "Smoke alarms required in every suite. CO detectors if fuel-burning appliances present."
+    },
+    plumbing: {
+      fixtures: "Min 1 kitchen sink, 1 WC, 1 lavatory, 1 bathtub/shower per dwelling unit.",
+      drainage: "Separate venting systems common in multi-storey.",
+      notes: "Shut-off valves required for each suite in multi-unit buildings."
+    },
+    electrical: {
+      emergencyPower: "Required for public corridors and exits in multi-unit buildings.",
+      lighting: "Switched outlets or lighting outlets in every room.",
+      notes: "AFCI protection required for most branch circuits in dwelling units."
     }
   },
 
@@ -234,6 +324,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Standard width requirements. Travel distance max 40m (unsprinklered).",
       construction: "Combustible permitted for low-rise.",
       notes: "Often found in mixed-use buildings with Mercantile or Residential."
+    },
+    plumbing: {
+      fixtures: "Based on employee/public count. Separate staff washrooms often provided.",
+      drainage: "Standard commercial drainage.",
+      notes: "Dental/Medical offices require special waste handling (amalgam separators, etc.)."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting and exit signs.",
+      lighting: "Energy efficiency codes (NECB) strictly apply to lighting power density.",
+      notes: "Structured cabling for data/comms is a major component."
     }
   },
 
@@ -258,6 +358,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Must handle high occupant loads. Panic hardware required on main doors.",
       construction: "Combustible permitted for smaller buildings.",
       notes: "High fire load due to stock; strict storage height limits."
+    },
+    plumbing: {
+      fixtures: "Public washrooms required based on floor area/occupancy.",
+      drainage: "Floor drains in public washrooms.",
+      notes: "Staff facilities must be separate from public facilities in large stores."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting and exit signs.",
+      lighting: "High illumination levels for display. Energy code limits apply.",
+      notes: "Special outlets for POS systems and security gates."
     }
   },
 
@@ -283,6 +393,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Short travel distances (max 25m).",
       construction: "Noncombustible required.",
       notes: "Strict control of ignition sources and ventilation."
+    },
+    plumbing: {
+      fixtures: "Emergency eyewash and shower stations mandatory.",
+      drainage: "Oil/grit interceptors and chemical neutralization tanks often required.",
+      notes: "Spill containment systems required for hazardous liquids."
+    },
+    electrical: {
+      emergencyPower: "Critical for ventilation and safety systems.",
+      lighting: "Explosion-proof fixtures (Class I/II Div 1/2) required in hazardous areas.",
+      notes: "Hazardous location wiring methods (sealed conduits, intrinsic safety) mandatory."
     }
   },
   {
@@ -307,6 +427,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Standard industrial requirements.",
       construction: "Combustible permitted for smaller buildings.",
       notes: "Storage height and commodity class affect sprinkler design."
+    },
+    plumbing: {
+      fixtures: "Industrial wash fountains common. Emergency showers may be required.",
+      drainage: "Oil interceptors required for garages/service stations.",
+      notes: "Floor drains required in production areas."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting.",
+      lighting: "High-bay industrial lighting.",
+      notes: "Motor control centers (MCCs) and higher voltage distribution common."
     }
   },
   {
@@ -328,6 +458,16 @@ export const occupancyData: OccupancyGroup[] = [
       exits: "Standard requirements.",
       construction: "Combustible permitted.",
       notes: "Least restrictive industrial classification."
+    },
+    plumbing: {
+      fixtures: "Basic staff facilities.",
+      drainage: "Standard drainage.",
+      notes: "Floor drains for washdown areas."
+    },
+    electrical: {
+      emergencyPower: "Required for emergency lighting.",
+      lighting: "Standard industrial lighting.",
+      notes: "Basic power distribution."
     }
   }
 ];

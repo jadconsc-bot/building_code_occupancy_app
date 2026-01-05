@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 
 export default function Home() {
@@ -123,95 +124,194 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-              {/* Left Column: Description & Examples */}
-              <div className="lg:col-span-2 space-y-8">
-                <section>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                    <Info className="w-4 h-4" /> Definition
-                  </h3>
-                  <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
-                    {selectedGroup.description}
-                  </p>
-                </section>
+            <Tabs defaultValue="building" className="mt-8">
+              <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+                <TabsTrigger 
+                  value="building" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Building2 className="w-4 h-4 mr-2" /> Building Code
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="plumbing" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Droplets className="w-4 h-4 mr-2" /> Plumbing
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="electrical" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Zap className="w-4 h-4 mr-2" /> Electrical
+                </TabsTrigger>
+              </TabsList>
 
-                <section>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                    <Building2 className="w-4 h-4" /> Common Examples
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedGroup.examples.map((ex, i) => (
-                      <Badge 
-                        key={i} 
-                        variant="secondary" 
-                        className="rounded-none px-3 py-1.5 text-sm font-normal border border-border bg-secondary/50 hover:bg-secondary"
-                      >
-                        {ex}
-                      </Badge>
-                    ))}
+              <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: Description & Examples */}
+                  <div className="lg:col-span-2 space-y-8">
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                        <Info className="w-4 h-4" /> Definition
+                      </h3>
+                      <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
+                        {selectedGroup.description}
+                      </p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                        <Building2 className="w-4 h-4" /> Common Examples
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedGroup.examples.map((ex, i) => (
+                          <Badge 
+                            key={i} 
+                            variant="secondary" 
+                            className="rounded-none px-3 py-1.5 text-sm font-normal border border-border bg-secondary/50 hover:bg-secondary"
+                          >
+                            {ex}
+                          </Badge>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="bg-muted/30 p-6 border border-border">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" /> Key Compliance Notes
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed font-mono">
+                        {selectedGroup.compliance.notes}
+                      </p>
+                    </section>
                   </div>
-                </section>
 
-                <section className="bg-muted/30 p-6 border border-border">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" /> Key Compliance Notes
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed font-mono">
-                    {selectedGroup.compliance.notes}
-                  </p>
-                </section>
-              </div>
+                  {/* Right Column: Compliance Data */}
+                  <div className="space-y-6">
+                    <Card className="rounded-none border-border shadow-sm">
+                      <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-destructive" /> Fire Safety
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 space-y-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground uppercase block mb-1">Fire Resistance</span>
+                          <p className="text-sm font-medium">{selectedGroup.compliance.fireResistance}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground uppercase block mb-1">Sprinklers</span>
+                          <p className="text-sm font-medium">{selectedGroup.compliance.sprinklers}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-              {/* Right Column: Compliance Data */}
-              <div className="space-y-6">
-                <Card className="rounded-none border-border shadow-sm">
-                  <CardHeader className="pb-2 border-b border-border bg-muted/20">
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                      <Flame className="w-4 h-4 text-destructive" /> Fire Safety
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-4">
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase block mb-1">Fire Resistance</span>
-                      <p className="text-sm font-medium">{selectedGroup.compliance.fireResistance}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase block mb-1">Sprinklers</span>
-                      <p className="text-sm font-medium">{selectedGroup.compliance.sprinklers}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-none border-border shadow-sm">
-                  <CardHeader className="pb-2 border-b border-border bg-muted/20">
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                      <DoorOpen className="w-4 h-4 text-primary" /> Egress
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-4">
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase block mb-1">Occupant Load</span>
-                      <p className="text-sm font-medium">{selectedGroup.compliance.occupantLoad}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground uppercase block mb-1">Exits</span>
+                    <Card className="rounded-none border-border shadow-sm">
+                      <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <DoorOpen className="w-4 h-4 text-primary" /> Egress
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 space-y-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground uppercase block mb-1">Occupant Load</span>
+                          <p className="text-sm font-medium">{selectedGroup.compliance.occupantLoad}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground uppercase block mb-1">Exits</span>
                       <p className="text-sm font-medium">{selectedGroup.compliance.exits}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card className="rounded-none border-border shadow-sm">
-                  <CardHeader className="pb-2 border-b border-border bg-muted/20">
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                      <Ruler className="w-4 h-4 text-primary" /> Construction
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <p className="text-sm font-medium">{selectedGroup.compliance.construction}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                    <Card className="rounded-none border-border shadow-sm">
+                      <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <Ruler className="w-4 h-4 text-primary" /> Construction
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <p className="text-sm font-medium">{selectedGroup.compliance.construction}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="plumbing" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                        <Droplets className="w-4 h-4" /> Fixture Requirements
+                      </h3>
+                      <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
+                        {selectedGroup.plumbing?.fixtures || "Standard fixture requirements apply based on occupant load."}
+                      </p>
+                    </section>
+
+                    <section className="bg-muted/30 p-6 border border-border">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                        <Info className="w-4 h-4" /> Drainage & Systems
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed font-mono">
+                        {selectedGroup.plumbing?.drainage || "Standard drainage requirements apply."}
+                      </p>
+                    </section>
+                  </div>
+
+                  <div className="space-y-6">
+                    <Card className="rounded-none border-border shadow-sm">
+                      <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-destructive" /> Special Notes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <p className="text-sm font-medium">{selectedGroup.plumbing?.notes || "No special notes."}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="electrical" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                        <Zap className="w-4 h-4" /> Emergency Power
+                      </h3>
+                      <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
+                        {selectedGroup.electrical?.emergencyPower || "Standard emergency lighting requirements apply."}
+                      </p>
+                    </section>
+
+                    <section className="bg-muted/30 p-6 border border-border">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                        <Info className="w-4 h-4" /> Lighting & Distribution
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed font-mono">
+                        {selectedGroup.electrical?.lighting || "Standard lighting requirements apply."}
+                      </p>
+                    </section>
+                  </div>
+
+                  <div className="space-y-6">
+                    <Card className="rounded-none border-border shadow-sm">
+                      <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-destructive" /> Special Notes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <p className="text-sm font-medium">{selectedGroup.electrical?.notes || "No special notes."}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto opacity-40">
