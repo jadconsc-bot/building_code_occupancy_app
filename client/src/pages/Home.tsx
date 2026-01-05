@@ -23,6 +23,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
+  const [activeTab, setActiveTab] = useState("building");
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem("occupancy_bookmarks");
     return saved ? JSON.parse(saved) : [];
@@ -82,8 +83,41 @@ export default function Home() {
     };
 
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setSearchQuery(transcript);
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      
+      // Check for tab navigation commands
+      if (transcript.includes("plumbing")) {
+        setActiveTab("plumbing");
+        // If user says "Residential Plumbing", try to find Residential group
+        const cleanQuery = transcript.replace("plumbing", "").trim();
+        if (cleanQuery) {
+          setSearchQuery(cleanQuery);
+          // Auto-select if exact match found
+          const match = occupancyData.find(g => 
+            g.name.toLowerCase().includes(cleanQuery) || 
+            g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
+          );
+          if (match) setSelectedGroup(match);
+        }
+      } else if (transcript.includes("electrical")) {
+        setActiveTab("electrical");
+        const cleanQuery = transcript.replace("electrical", "").trim();
+        if (cleanQuery) {
+          setSearchQuery(cleanQuery);
+          const match = occupancyData.find(g => 
+            g.name.toLowerCase().includes(cleanQuery) || 
+            g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
+          );
+          if (match) setSelectedGroup(match);
+        }
+      } else if (transcript.includes("additions") || transcript.includes("deck") || transcript.includes("garage")) {
+        setActiveTab("additions");
+        const cleanQuery = transcript.replace("additions", "").trim();
+        if (cleanQuery) setSearchQuery(cleanQuery);
+      } else {
+        // Standard search
+        setSearchQuery(transcript);
+      }
     };
 
     recognition.start();
@@ -309,7 +343,7 @@ export default function Home() {
               </div>
             </div>
 
-            <Tabs defaultValue="building" className="mt-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
               <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
