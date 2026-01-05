@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
 import { plumbingChecklists } from "@/lib/plumbingData";
+import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
+import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram } from "@/components/CodeDiagrams";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -357,6 +359,22 @@ export default function Home() {
                         </Tabs>
                       </div>
                     )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t border-border">
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Calculator className="w-4 h-4" /> Sizing Calculators
+                        </h3>
+                        <FixtureUnitCalculator />
+                        <GasLineCalculator />
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Info className="w-4 h-4" /> Wet Venting Guide
+                        </h3>
+                        <WetVentingDiagram />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-6">
@@ -436,6 +454,22 @@ export default function Home() {
                         </Tabs>
                       </div>
                     )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-8 border-t border-border">
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Calculator className="w-4 h-4" /> Sizing Calculators
+                        </h3>
+                        <FixtureUnitCalculator />
+                        <GasLineCalculator />
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Info className="w-4 h-4" /> Wet Venting Guide
+                        </h3>
+                        <WetVentingDiagram />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-6">
@@ -469,6 +503,27 @@ export default function Home() {
                         </CardContent>
                       </Card>
                     )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 pt-8 border-t border-border">
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Zap className="w-4 h-4" /> Load Calculation
+                        </h3>
+                        <ServiceLoadCalculator />
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Activity className="w-4 h-4" /> Voltage Drop
+                        </h3>
+                        <VoltageDropCalculator />
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Layers className="w-4 h-4" /> Conduit Fill
+                        </h3>
+                        <ConduitFillCalculator />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
