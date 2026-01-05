@@ -6,45 +6,118 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calculator, Droplets, Flame } from "lucide-react";
 
-export const WetVentingDiagram = () => (
-  <svg viewBox="0 0 400 300" className="w-full h-auto bg-white rounded-lg border border-border">
-    <defs>
-      <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-        <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
-      </marker>
-    </defs>
-    
-    {/* Main Stack */}
-    <rect x="300" y="20" width="20" height="260" fill="#e5e7eb" stroke="#374151" />
-    <text x="310" y="290" textAnchor="middle" className="text-[10px] font-bold">STACK</text>
-    
-    {/* Wet Vent Section */}
-    <rect x="300" y="100" width="20" height="100" fill="#dbeafe" stroke="#3b82f6" strokeWidth="2" />
-    <text x="340" y="150" className="text-[10px] fill-blue-600 font-bold">WET VENT</text>
-    
-    {/* Lavatory Branch */}
-    <path d="M 300 100 L 200 100 L 200 80" fill="none" stroke="#374151" strokeWidth="4" />
-    <circle cx="200" cy="70" r="15" fill="white" stroke="#374151" />
-    <text x="200" y="75" textAnchor="middle" className="text-[10px]">LAV</text>
-    
-    {/* Toilet Branch */}
-    <path d="M 300 200 L 100 200 L 100 180" fill="none" stroke="#374151" strokeWidth="6" />
-    <rect x="80" y="150" width="40" height="30" fill="white" stroke="#374151" />
-    <text x="100" y="170" textAnchor="middle" className="text-[10px]">WC</text>
-    
-    {/* Bathtub Branch */}
-    <path d="M 200 200 L 200 180" fill="none" stroke="#374151" strokeWidth="4" />
-    <rect x="170" y="160" width="60" height="20" fill="white" stroke="#374151" />
-    <text x="200" y="175" textAnchor="middle" className="text-[10px]">TUB</text>
-    
-    {/* Labels */}
-    <text x="20" y="30" className="text-xs font-bold fill-blue-800">Wet Venting Rules (NPC 2.5.8):</text>
-    <text x="20" y="50" className="text-[10px] fill-muted-foreground">1. Wet vent extends from LAV connection</text>
-    <text x="20" y="65" className="text-[10px] fill-muted-foreground">   down to WC connection.</text>
-    <text x="20" y="80" className="text-[10px] fill-muted-foreground">2. Max 2 bathroom groups.</text>
-    <text x="20" y="95" className="text-[10px] fill-muted-foreground">3. WC must be downstream of all others.</text>
-  </svg>
-);
+export const WetVentingDiagram = () => {
+  const [activePart, setActivePart] = useState<string | null>(null);
+
+  const parts = {
+    stack: {
+      title: "Soil or Waste Stack",
+      desc: "Vertical pipe that carries discharge from fixtures. Must be sized to handle total fixture units.",
+      limit: "Min 3\" (75mm) if carrying WC."
+    },
+    wetVent: {
+      title: "Wet Vent",
+      desc: "Portion of pipe acting as both a drain for the lavatory and a vent for the WC/Tub.",
+      limit: "Max 2 bathroom groups. Min 2\" (50mm) for 3\" stack."
+    },
+    lav: {
+      title: "Lavatory (Basin)",
+      desc: "Most upstream fixture. Its dry vent protects the entire wet vented group.",
+      limit: "Trap arm max 1.2m (1-1/4\") or 1.5m (1-1/2\")."
+    },
+    wc: {
+      title: "Water Closet (Toilet)",
+      desc: "Must be the most downstream fixture in the wet vented group.",
+      limit: "Max 3m (10ft) from stack connection."
+    },
+    tub: {
+      title: "Bathtub / Shower",
+      desc: "Connects to the wet vent system between the Lav and WC, or directly to the wet vent.",
+      limit: "Trap arm max 1.5m (1-1/2\") or 2.4m (2\")."
+    }
+  };
+
+  return (
+    <div className="relative">
+      <svg viewBox="0 0 400 300" className="w-full h-auto bg-white rounded-lg border border-border select-none">
+        <defs>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+          </marker>
+        </defs>
+        
+        {/* Main Stack */}
+        <g 
+          onClick={() => setActivePart("stack")} 
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <rect x="300" y="20" width="20" height="260" fill={activePart === "stack" ? "#93c5fd" : "#e5e7eb"} stroke="#374151" />
+          <text x="310" y="290" textAnchor="middle" className="text-[10px] font-bold">STACK</text>
+        </g>
+        
+        {/* Wet Vent Section */}
+        <g 
+          onClick={() => setActivePart("wetVent")} 
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <rect x="300" y="100" width="20" height="100" fill={activePart === "wetVent" ? "#60a5fa" : "#dbeafe"} stroke="#3b82f6" strokeWidth="2" />
+          <text x="340" y="150" className="text-[10px] fill-blue-600 font-bold">WET VENT</text>
+        </g>
+        
+        {/* Lavatory Branch */}
+        <g 
+          onClick={() => setActivePart("lav")} 
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <path d="M 300 100 L 200 100 L 200 80" fill="none" stroke={activePart === "lav" ? "#3b82f6" : "#374151"} strokeWidth="4" />
+          <circle cx="200" cy="70" r="15" fill={activePart === "lav" ? "#dbeafe" : "white"} stroke="#374151" />
+          <text x="200" y="75" textAnchor="middle" className="text-[10px]">LAV</text>
+        </g>
+        
+        {/* Toilet Branch */}
+        <g 
+          onClick={() => setActivePart("wc")} 
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <path d="M 300 200 L 100 200 L 100 180" fill="none" stroke={activePart === "wc" ? "#3b82f6" : "#374151"} strokeWidth="6" />
+          <rect x="80" y="150" width="40" height="30" fill={activePart === "wc" ? "#dbeafe" : "white"} stroke="#374151" />
+          <text x="100" y="170" textAnchor="middle" className="text-[10px]">WC</text>
+        </g>
+        
+        {/* Bathtub Branch */}
+        <g 
+          onClick={() => setActivePart("tub")} 
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <path d="M 200 200 L 200 180" fill="none" stroke={activePart === "tub" ? "#3b82f6" : "#374151"} strokeWidth="4" />
+          <rect x="170" y="160" width="60" height="20" fill={activePart === "tub" ? "#dbeafe" : "white"} stroke="#374151" />
+          <text x="200" y="175" textAnchor="middle" className="text-[10px]">TUB</text>
+        </g>
+        
+        {/* Instructions */}
+        <text x="20" y="30" className="text-xs font-bold fill-blue-800">Tap components for details</text>
+      </svg>
+
+      {activePart && (
+        <div className="absolute top-2 left-2 right-2 bg-white/95 backdrop-blur border border-blue-200 p-3 rounded shadow-lg text-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-start mb-1">
+            <h4 className="font-bold text-blue-700">{parts[activePart as keyof typeof parts].title}</h4>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setActivePart(null); }}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              ×
+            </button>
+          </div>
+          <p className="text-xs text-slate-600 mb-2">{parts[activePart as keyof typeof parts].desc}</p>
+          <div className="text-xs font-mono bg-slate-100 p-1 rounded text-slate-700 border border-slate-200">
+            {parts[activePart as keyof typeof parts].limit}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const FixtureUnitCalculator = () => {
   const [fixtures, setFixtures] = useState({
