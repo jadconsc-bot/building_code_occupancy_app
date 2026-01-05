@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
@@ -474,7 +475,44 @@ export default function Home() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-              <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+              {/* Mobile Dropdown Menu */}
+              <div className="md:hidden mb-6">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="building">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4" /> Building Code
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="plumbing">
+                      <div className="flex items-center gap-2">
+                        <Droplets className="w-4 h-4" /> Plumbing
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="electrical">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4" /> Electrical
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="additions">
+                      <div className="flex items-center gap-2">
+                        <Ruler className="w-4 h-4" /> Additions
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="sustainability">
+                      <div className="flex items-center gap-2">
+                        <Leaf className="w-4 h-4" /> Sustainability
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Desktop Horizontal Tabs */}
+              <TabsList className="hidden md:flex w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"

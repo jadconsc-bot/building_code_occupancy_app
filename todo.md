@@ -17,3 +17,9 @@
 - [x] Add Sustainability tab to main application
 - [x] Add visual diagrams for solar panel mounting and EV charging
 - [x] Integrate voice commands for Sustainability tab
+
+## Mobile Navigation Fix
+- [x] Replace horizontal tab scrolling with mobile dropdown menu
+- [x] Position dropdown in top-right corner on mobile screens
+- [x] Ensure all tabs (Building, Plumbing, Electrical, Additions, Sustainability) are accessible
+- [x] Test on mobile viewport sizes
