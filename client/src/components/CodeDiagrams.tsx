@@ -76,3 +76,44 @@ export const EgressWindowDiagram = () => (
     </defs>
   </svg>
 );
+
+export const GFCIZoneDiagram = () => (
+  <svg viewBox="0 0 400 250" className="w-full h-auto bg-white rounded-lg border border-border">
+    <defs>
+      <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+      </marker>
+    </defs>
+    
+    {/* Countertop */}
+    <rect x="20" y="120" width="360" height="10" fill="#e5e7eb" stroke="#9ca3af" />
+    <rect x="20" y="130" width="360" height="80" fill="#f9fafb" stroke="#e5e7eb" />
+    
+    {/* Sink */}
+    <path d="M 160 120 L 160 150 Q 200 170 240 150 L 240 120" fill="#dbeafe" stroke="#3b82f6" />
+    <text x="200" y="145" textAnchor="middle" className="text-xs fill-blue-800 font-bold" stroke="none">SINK</text>
+    
+    {/* Faucet */}
+    <path d="M 200 120 L 200 90 Q 200 80 220 90" stroke="#9ca3af" strokeWidth="3" fill="none" />
+    
+    {/* GFCI Zone - Left */}
+    <rect x="40" y="60" width="120" height="60" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeDasharray="4 4" />
+    <path d="M 160 110 L 40 110" markerEnd="url(#arrow-blue)" stroke="#3b82f6" />
+    <text x="100" y="100" textAnchor="middle" className="text-xs fill-blue-600 font-bold" stroke="none">1.5m (5ft)</text>
+    
+    {/* GFCI Zone - Right */}
+    <rect x="240" y="60" width="120" height="60" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeDasharray="4 4" />
+    <path d="M 240 110 L 360 110" markerEnd="url(#arrow-blue)" stroke="#3b82f6" />
+    <text x="300" y="100" textAnchor="middle" className="text-xs fill-blue-600 font-bold" stroke="none">1.5m (5ft)</text>
+    
+    {/* Receptacle Icon */}
+    <rect x="80" y="70" width="20" height="30" rx="2" fill="white" stroke="#374151" />
+    <circle cx="90" cy="78" r="1" fill="#374151" stroke="none" />
+    <circle cx="90" cy="92" r="1" fill="#374151" stroke="none" />
+    <text x="90" y="55" textAnchor="middle" className="text-[10px] fill-red-600 font-bold" stroke="none">GFCI REQ.</text>
+    
+    {/* Safe Receptacle Icon */}
+    <rect x="370" y="70" width="20" height="30" rx="2" fill="white" stroke="#374151" />
+    <text x="380" y="55" textAnchor="middle" className="text-[10px] fill-green-600 font-bold" stroke="none">OK</text>
+  </svg>
+);
