@@ -3,9 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
+import { FireSeparationDiagram, EgressWindowDiagram } from "@/components/CodeDiagrams";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,6 +149,37 @@ export default function Home() {
               </TabsList>
 
               <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {selectedGroup.id === "C-2" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <Card className="overflow-hidden border-border shadow-sm">
+                      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <Ruler className="h-4 w-4" /> Fire Separation Detail
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 bg-white">
+                        <FireSeparationDiagram />
+                        <p className="text-xs text-muted-foreground mt-4 font-medium">
+                          Continuous smoke-tight barrier (min 12.7mm gypsum) required on underside of floor framing.
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="overflow-hidden border-border shadow-sm">
+                      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                          <DoorOpen className="h-4 w-4" /> Bedroom Egress Window
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 bg-white">
+                        <EgressWindowDiagram />
+                        <p className="text-xs text-muted-foreground mt-4 font-medium">
+                          Must provide unobstructed opening of min 0.35 m², with no dimension less than 380 mm.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Left Column: Description & Examples */}
                   <div className="lg:col-span-2 space-y-8">
