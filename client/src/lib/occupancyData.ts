@@ -5,6 +5,10 @@ export interface OccupancyGroup {
   division?: string;
   description: string;
   examples: string[];
+  albertaContrast?: {
+    title: string;
+    description: string;
+  };
   compliance: {
     fireResistance: string;
     sprinklers: string;
@@ -245,6 +249,10 @@ export const occupancyData: OccupancyGroup[] = [
       "Group homes",
       "Hospices without treatment"
     ],
+    albertaContrast: {
+      title: "Alberta Code Variation",
+      description: "Alberta specifically defines 'Assisted Living' under B-3, allowing for more flexible construction types (up to 3 storeys combustible) compared to the stricter National Code requirements for care facilities."
+    },
     compliance: {
       fireResistance: "Moderate to High. 45min to 1h separations.",
       sprinklers: "Mandatory throughout.",

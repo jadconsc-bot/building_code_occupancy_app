@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { FireSeparationDiagram, EgressWindowDiagram } from "@/components/CodeDiagrams";
 
@@ -120,9 +121,26 @@ export default function Home() {
                 <span className="text-sm uppercase tracking-widest text-muted-foreground font-medium">
                   {selectedGroup.division || "General"}
                 </span>
-                <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                  {selectedGroup.name}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+                    {selectedGroup.name}
+                  </h2>
+                  {selectedGroup.albertaContrast && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="cursor-help border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors gap-1.5 py-1 px-2">
+                            <MapPin className="w-3 h-3" /> AB Code
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs p-4 bg-blue-950 text-white border-blue-800">
+                          <p className="font-bold mb-1 text-blue-200">{selectedGroup.albertaContrast.title}</p>
+                          <p className="text-xs leading-relaxed">{selectedGroup.albertaContrast.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               </div>
             </div>
 
