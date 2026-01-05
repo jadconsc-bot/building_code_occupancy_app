@@ -15,6 +15,7 @@ import { additionsData } from "@/lib/additionsData";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
+import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -417,6 +418,89 @@ export default function Home() {
                         {selectedGroup.plumbing?.drainage || "Standard drainage requirements apply."}
                       </p>
                     </section>
+
+                    {(selectedGroup.code.startsWith("A")) && (
+                      <div className="border-t border-border pt-8 mt-8 col-span-full">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-blue-600" /> Barrier-Free Washroom Requirements (ABC 3.8.2.8)
+                        </h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          <Card className="rounded-none border-border shadow-sm overflow-hidden">
+                            <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                              <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                <Ruler className="w-4 h-4 text-primary" /> Universal Washroom Layout
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              <div className="aspect-[5/4] w-full bg-white p-4">
+                                <BarrierFreeWashroomDiagram />
+                              </div>
+                              <div className="p-4 bg-muted/10 border-t border-border space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Turning Space:</strong> Must provide a 1500mm diameter clear turning circle.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Door:</strong> Min 850mm clear width. Power operator required if door closer force &gt; 22N.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Transfer Space:</strong> Min 900mm wide clear space beside toilet for wheelchair transfer.
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <div className="space-y-6">
+                            <Card className="rounded-none border-border shadow-sm overflow-hidden">
+                              <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                                <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                  <Activity className="w-4 h-4 text-primary" /> Grab Bar Details
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="p-0">
+                                <div className="aspect-[2/1] w-full bg-white p-4">
+                                  <GrabBarDetailDiagram />
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="p-4 border border-border bg-card rounded-none">
+                                <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                                  <MapPin className="w-3 h-3 text-primary" /> Toilet Location
+                                </h4>
+                                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                                  <li>Centerline to side wall: <strong>460mm - 480mm</strong></li>
+                                  <li>Seat height: <strong>430mm - 460mm</strong></li>
+                                  <li>Back support required if no seat lid.</li>
+                                </ul>
+                              </div>
+                              <div className="p-4 border border-border bg-card rounded-none">
+                                <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                                  <Droplets className="w-3 h-3 text-primary" /> Lavatory
+                                </h4>
+                                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                                  <li>Max rim height: <strong>865mm</strong></li>
+                                  <li>Clear knee space: <strong>735mm high</strong></li>
+                                  <li>Faucets: Lever type or automatic (sensor).</li>
+                                  <li>Insulate exposed pipes to prevent burns.</li>
+                                </ul>
+                              </div>
+                              <div className="p-4 border border-border bg-card rounded-none col-span-full">
+                                <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                                  <Info className="w-3 h-3 text-primary" /> Accessories
+                                </h4>
+                                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                                  <li><strong>Mirror:</strong> Bottom edge max 1000mm from floor.</li>
+                                  <li><strong>Soap/Towel:</strong> Controls max 1200mm high.</li>
+                                  <li><strong>Coat Hook:</strong> One at 1200mm, one higher.</li>
+                                  <li><strong>Emergency Call:</strong> Often required in universal washrooms.</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {(selectedGroup.code.startsWith("C") || selectedGroup.code.startsWith("A-2")) && (
                       <div className="border-t border-border pt-8 mt-8">
