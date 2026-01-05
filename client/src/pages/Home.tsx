@@ -3,10 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
+import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { FireSeparationDiagram, EgressWindowDiagram } from "@/components/CodeDiagrams";
 
 export default function Home() {
@@ -360,6 +362,82 @@ export default function Home() {
                       </CardContent>
                     </Card>
                   </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="construction" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
+                    </h3>
+                    <div className="rounded-md border border-border overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-muted/20">
+                          <TableRow>
+                            <TableHead className="font-bold">Article</TableHead>
+                            <TableHead className="font-bold">Max Height</TableHead>
+                            <TableHead className="font-bold">Max Area</TableHead>
+                            <TableHead className="font-bold">Sprinklers</TableHead>
+                            <TableHead className="font-bold">Construction</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {constructionLimits[selectedGroup.code.split(' ')[0]]?.map((limit, index) => (
+                            <TableRow key={index} className="hover:bg-muted/10">
+                              <TableCell className="font-mono text-xs text-primary">{limit.article}</TableCell>
+                              <TableCell>{limit.maxHeight}</TableCell>
+                              <TableCell>{limit.maxArea}</TableCell>
+                              <TableCell>
+                                {limit.sprinklered ? (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">Required</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">Optional</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1 flex-wrap">
+                                  {limit.constructionType.map(type => (
+                                    <Badge key={type} variant="outline" className="text-[10px] border-border">
+                                      {type}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )) || (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                No specific construction limits found for this group.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" /> Fire Separation Matrix (Table 3.1.3.1)
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-destructive/20 pl-3">
+                      Required fire-resistance rating (in hours) between <strong>{selectedGroup.code}</strong> and adjacent major occupancies.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {Object.entries(separationMatrix[selectedGroup.code.split(' ')[0]] || {}).map(([adjCode, rating]) => (
+                        <div key={adjCode} className="flex items-center justify-between p-3 rounded border border-border bg-card hover:shadow-sm transition-shadow">
+                          <span className="font-mono font-bold text-sm">{adjCode}</span>
+                          <Badge 
+                            variant={rating === '-' ? 'outline' : 'destructive'} 
+                            className={rating === '-' ? 'text-muted-foreground border-dashed' : ''}
+                          >
+                            {rating === '-' ? 'None' : `${rating} h`}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               </TabsContent>
             </Tabs>
