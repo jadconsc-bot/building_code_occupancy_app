@@ -45,3 +45,14 @@
 - [x] Create visual diagrams for allowable openings
 - [x] Create visual diagrams for stair/handrail ergonomics
 - [x] Integrate new content into Building tab
+
+## Building Tab Reorganization & New Features
+- [x] Fix JSX structure errors in Building tab
+- [x] Create span tables data for structural lumber (2x8, 2x10, 2x12)
+- [x] Implement Span Tables component with species/grade/spacing filters
+- [ ] Create Code Amendment Tracker data (NBC 2019 vs 2023)
+- [ ] Implement Code Amendment Tracker component with filtering
+- [ ] Create Inspector Checklist Generator component
+- [ ] Generate checklists by occupancy type and construction phase
+- [ ] Conduct accuracy audit of all code references
+- [ ] Document audit findings and corrections

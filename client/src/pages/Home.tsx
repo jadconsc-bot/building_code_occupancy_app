@@ -23,7 +23,8 @@ import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrati
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
-import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from "@/components/BuildingRequirementsDiagrams";
+import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
+import { SpanTables } from '@/components/SpanTables';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1356,6 +1357,9 @@ export default function Home() {
                     </div>
                   </section>
 
+                </div>
+
+                <div className="space-y-8 mt-8">
                   {/* Building Height Limits */}
                   <section>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
@@ -1500,6 +1504,17 @@ export default function Home() {
                         </TableBody>
                       </Table>
                     </div>
+                  </section>
+
+                  {/* Span Tables */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Structural Span Tables
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
+                    </p>
+                    <SpanTables />
                   </section>
                 </div>
               </TabsContent>
