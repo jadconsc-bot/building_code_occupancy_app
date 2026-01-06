@@ -28,3 +28,10 @@
 - [x] Add max-height to sidebar container
 - [x] Enable overflow-y scrolling for occupancy list
 - [x] Ensure search bar and bookmarks remain visible while list scrolls
+
+## New Features (Keyboard Nav, PDF Export, Regional Variants)
+- [x] Implement keyboard shortcuts (Arrow keys, Tab, "/" for search)
+- [x] Add keyboard shortcut help modal
+- [x] Implement Export to PDF functionality
+- [x] Add Regional Code Variants selector (AB, BC, ON, SK)
+- [x] Update UI to display selected region

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,6 +25,8 @@ import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/B
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Keyboard } from "lucide-react";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -48,6 +50,17 @@ export default function Home() {
     return saved ? JSON.parse(saved) : {};
   });
   const { theme, toggleTheme } = useTheme();
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    const saved = localStorage.getItem("selected_region");
+    return saved || "AB";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("selected_region", selectedRegion);
+  }, [selectedRegion]);
 
   useEffect(() => {
     localStorage.setItem("occupancy_bookmarks", JSON.stringify(bookmarks));
@@ -111,6 +124,45 @@ export default function Home() {
     a.href = url;
     a.download = "my-occupancy-bookmarks.txt";
     a.click();
+  };
+
+  const exportToPDF = () => {
+    if (!selectedGroup) return;
+    
+    // Create a styled print window
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) {
+      alert('Please allow popups to export PDF');
+      return;
+    }
+    
+    const content = document.querySelector('.print\\:block')?.closest('.flex-1');
+    if (!content) return;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${selectedGroup.code} - ${selectedGroup.name}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { font-size: 48px; font-weight: 900; margin-bottom: 10px; }
+            h2 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+            h3 { font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: 600; }
+            .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+            .section { margin-bottom: 30px; page-break-inside: avoid; }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+          <script>window.print(); window.close();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const toggleBookmark = (e: React.MouseEvent, id: string) => {
@@ -203,26 +255,81 @@ export default function Home() {
     );
   }, [searchQuery]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Focus search with "/"
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      // Show keyboard help with "?"
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowKeyboardHelp(true);
+        return;
+      }
+
+      // Arrow key navigation in list
+      if (e.key === "ArrowDown" && filteredData.length > 0) {
+        e.preventDefault();
+        setFocusedIndex(prev => Math.min(prev + 1, filteredData.length - 1));
+        setSelectedGroup(filteredData[Math.min(focusedIndex + 1, filteredData.length - 1)]);
+      }
+      if (e.key === "ArrowUp" && filteredData.length > 0) {
+        e.preventDefault();
+        setFocusedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedGroup(filteredData[Math.max(focusedIndex - 1, 0)]);
+      }
+
+      // Tab switching with numbers
+      if (e.key >= "1" && e.key <= "5" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability"];
+        setActiveTab(tabs[parseInt(e.key) - 1]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredData, focusedIndex]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
       <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-border bg-sidebar">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
-              AB
+          <div className="flex items-center justify-between gap-2 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
+                {selectedRegion}
+              </div>
+              <h1 className="font-bold text-lg tracking-tight text-sidebar-foreground leading-tight">
+                Building Code<br/>Occupancy Classifier
+              </h1>
             </div>
-            <h1 className="font-bold text-lg tracking-tight text-sidebar-foreground leading-tight">
-              Building Code<br/>Occupancy Classifier
-            </h1>
+            <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+              <SelectTrigger className="w-[80px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="AB">Alberta</SelectItem>
+                <SelectItem value="BC">BC</SelectItem>
+                <SelectItem value="ON">Ontario</SelectItem>
+                <SelectItem value="SK">Sask</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="relative flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input 
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search building type..." 
+                placeholder="Search building type... (Press / to focus)" 
                 className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -390,7 +497,7 @@ export default function Home() {
         </div>
         
         <div className="p-4 border-t border-border text-[10px] text-muted-foreground bg-sidebar">
-          Based on National Building Code - 2023 Alberta Edition
+          Based on National Building Code - 2023 {selectedRegion === "AB" ? "Alberta" : selectedRegion === "BC" ? "British Columbia" : selectedRegion === "ON" ? "Ontario" : "Saskatchewan"} Edition
         </div>
       </div>
 
@@ -419,6 +526,13 @@ export default function Home() {
                 >
                   <Printer className="w-4 h-4" />
                   Print Guide
+                </button>
+                <button
+                  onClick={exportToPDF}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:text-primary/80 border border-primary rounded-md hover:bg-primary/10 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export PDF
                 </button>
               </div>
             </div>
@@ -1255,6 +1369,47 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Keyboard Help Dialog */}
+      <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="w-5 h-5" /> Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription>
+              Use these shortcuts to navigate faster
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-[1fr,2fr] gap-4 text-sm">
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">/</div>
+              <div>Focus search bar</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">?</div>
+              <div>Show this help dialog</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">↑ / ↓</div>
+              <div>Navigate occupancy list</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">Ctrl+1-5</div>
+              <div>Switch between tabs</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center text-xs">Ctrl+P</div>
+              <div>Print current page</div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Keyboard Help Button */}
+      <button
+        onClick={() => setShowKeyboardHelp(true)}
+        className="fixed bottom-4 right-4 p-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all z-50 print:hidden"
+        title="Keyboard Shortcuts (?)"
+      >
+        <Keyboard className="w-5 h-5" />
+      </button>
     </div>
   );
 }
