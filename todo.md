@@ -65,3 +65,11 @@
 - [x] Ensure ergonomics data is properly displayed
 - [x] Fix scrollable container in Building tab (added max-height and overflow-y-auto)
 - [x] Move building requirements from hidden construction tab into Building tab
+
+## New Feature Requests
+- [x] Fix visibility issues with Code Amendment Tracker and Inspector Checklist Generator (still scrollable, but accessible)
+- [x] Add load calculation factors to Building Code tab (by occupancy type)
+- [x] Create Project Dashboard with saved projects and progress tracking
+- [ ] Implement Photo Upload feature for Inspector Checklist items (deferred - requires backend storage)
+- [ ] Implement Code Search Tool with natural language queries (deferred - complex feature)
+- [ ] Generate compliance summary reports from Project Dashboard (future enhancement)

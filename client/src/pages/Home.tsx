@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProjectDashboard } from "@/components/ProjectDashboard";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
@@ -18,6 +19,7 @@ import { plumbingChecklists } from "@/lib/plumbingData";
 import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
+import { getLoadFactors } from "@/lib/loadCalculationData";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
@@ -30,7 +32,7 @@ import { InspectorChecklistGenerator } from '@/components/InspectorChecklistGene
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Keyboard } from "lucide-react";
 
 export default function Home() {
@@ -517,7 +519,18 @@ export default function Home() {
               >
                 ← Back to Search
               </button>
-              <div className="hidden md:flex items-center gap-2 mb-6 ml-auto">
+                   <div className="flex items-center gap-2 print:hidden">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <FolderOpen className="w-4 h-4" />
+                      Projects
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <ProjectDashboard />
+                  </DialogContent>
+                </Dialog>
                 <button
                   onClick={copyShareLink}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
@@ -706,6 +719,47 @@ export default function Home() {
                       <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
                         {selectedGroup.description}
                       </p>
+                    </section>
+
+                    {/* Load Calculation Factors */}
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-orange-600 mb-3 flex items-center gap-2">
+                        <Calculator className="w-4 h-4" /> Load Calculation Factors
+                      </h3>
+                      {(() => {
+                        const loadFactors = getLoadFactors(selectedGroup.code);
+                        return loadFactors ? (
+                          <div className="border border-orange-200 bg-orange-50/50 rounded p-4 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Live Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.liveLoad}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{loadFactors.liveLoadDescription}</p>
+                              </div>
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Dead Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.deadLoad}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Typical structural</p>
+                              </div>
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Snow Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.snowLoad || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Roof design (regional)</p>
+                              </div>
+                            </div>
+                            <div className="pt-2 border-t border-orange-200">
+                              <p className="text-xs font-bold text-orange-900 mb-2 uppercase tracking-wider">Notes (NBC 2023 Table 4.1.5.3)</p>
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+                                {loadFactors.notes.map((note: string, i: number) => (
+                                  <li key={i}>{note}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Load factors not available for this occupancy type.</p>
+                        );
+                      })()}
                     </section>
 
                     <section>
