@@ -17,11 +17,13 @@ import { electricalChecklists } from "@/lib/electricalData";
 import { plumbingChecklists } from "@/lib/plumbingData";
 import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
+import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
+import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from "@/components/BuildingRequirementsDiagrams";
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1351,6 +1353,152 @@ export default function Home() {
                           </Badge>
                         </div>
                       ))}
+                    </div>
+                  </section>
+
+                  {/* Building Height Limits */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Layers className="w-4 h-4" /> Building Height Limits
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum height and storey limits for <strong>{selectedGroup.code}</strong> by construction type.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Construction Type</TableHead>
+                            <TableHead>Max Height</TableHead>
+                            <TableHead>Max Storeys</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {heightLimitsByOccupancy[selectedGroup.code.split(' ')[0]]?.map((limit, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium">{limit.constructionType}</TableCell>
+                              <TableCell className="font-mono text-primary font-bold">{limit.maxHeight}</TableCell>
+                              <TableCell className="font-mono">{limit.maxStoreys === 999 ? 'Unlimited' : limit.maxStoreys}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{limit.notes}</TableCell>
+                            </TableRow>
+                          )) || (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
+                                Height limits vary by specific occupancy sub-classification
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Allowable Openings */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4" /> Allowable Openings in Fire-Rated Assemblies
+                    </h3>
+                    <div className="mb-6">
+                      <AllowableOpeningsDiagram />
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Assembly Rating</TableHead>
+                            <TableHead>Max Opening Area</TableHead>
+                            <TableHead>Max Single Opening</TableHead>
+                            <TableHead>Closure Required</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allowableOpenings.map((opening, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium">{opening.assemblyRating}</TableCell>
+                              <TableCell className="text-sm">{opening.maxOpeningArea}</TableCell>
+                              <TableCell className="text-sm">{opening.maxSingleOpening}</TableCell>
+                              <TableCell>
+                                <Badge variant={opening.closureRequired === "Yes" ? "destructive" : "outline"}>
+                                  {opening.closureRequired}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{opening.notes}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Ergonomic Requirements */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-600 mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Ergonomic & Accessibility Requirements
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <StairErgonomicsDiagram />
+                      <AccessibilityDiagram />
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Element</TableHead>
+                            <TableHead>Dimension</TableHead>
+                            <TableHead>Code Reference</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ergonomicRequirements.map((req, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium">{req.element}</TableCell>
+                              <TableCell className="font-mono text-green-600 font-bold">{req.dimension}</TableCell>
+                              <TableCell className="text-xs font-mono text-muted-foreground">{req.code}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{req.notes}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Setback Requirements */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" /> Property Setback Requirements
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
+                      Minimum setback distances from property lines by zoning district (Calgary Land Use Bylaw).
+                    </p>
+                    <div className="mb-6">
+                      <SetbackDiagram />
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Zone</TableHead>
+                            <TableHead>Front Setback</TableHead>
+                            <TableHead>Rear Setback</TableHead>
+                            <TableHead>Side Setback</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {setbackRequirements.map((req, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium font-mono">{req.zone}</TableCell>
+                              <TableCell className="font-mono text-blue-600 font-bold">{req.front}</TableCell>
+                              <TableCell className="font-mono text-blue-600 font-bold">{req.rear}</TableCell>
+                              <TableCell className="font-mono text-blue-600 font-bold">{req.side}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{req.notes}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </section>
                 </div>

@@ -35,3 +35,13 @@
 - [x] Implement Export to PDF functionality
 - [x] Add Regional Code Variants selector (AB, BC, ON, SK)
 - [x] Update UI to display selected region
+
+## Building Code Requirements (Height, Setbacks, Openings, Ergonomics)
+- [x] Create data for building height limits by occupancy and construction type
+- [x] Create data for property setback requirements
+- [x] Create data for allowable openings in fire-rated assemblies
+- [x] Create data for ergonomic requirements (stairs, handrails, accessibility)
+- [x] Create visual diagrams for setback requirements
+- [x] Create visual diagrams for allowable openings
+- [x] Create visual diagrams for stair/handrail ergonomics
+- [x] Integrate new content into Building tab
