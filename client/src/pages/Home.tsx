@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,6 +25,8 @@ import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDia
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { SpanTables } from '@/components/SpanTables';
+import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
+import { InspectorChecklistGenerator } from '@/components/InspectorChecklistGenerator';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -786,6 +788,60 @@ export default function Home() {
 
                 {/* Additional Building Requirements */}
                 <div className="space-y-8 mt-8 pt-8 border-t border-border">
+                  {/* Construction Limits */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
+                      Maximum building area and height permitted for <strong>{selectedGroup.code}</strong> based on NBC 2023 Article 3.2.2.
+                    </p>
+                    <div className="rounded-md border border-border overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-muted/20">
+                          <TableRow>
+                            <TableHead className="font-bold">Article</TableHead>
+                            <TableHead className="font-bold">Max Height</TableHead>
+                            <TableHead className="font-bold">Max Area</TableHead>
+                            <TableHead className="font-bold">Sprinklers</TableHead>
+                            <TableHead className="font-bold">Construction</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {constructionLimits[selectedGroup.code.split(' ')[0]]?.map((limit, index) => (
+                            <TableRow key={index} className="hover:bg-muted/10">
+                              <TableCell className="font-mono text-xs text-primary">{limit.article}</TableCell>
+                              <TableCell>{limit.maxHeight}</TableCell>
+                              <TableCell>{limit.maxArea}</TableCell>
+                              <TableCell>
+                                {limit.sprinklered ? (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">Required</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">Optional</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1 flex-wrap">
+                                  {limit.constructionType.map(type => (
+                                    <Badge key={type} variant="outline" className="text-[10px] border-border">
+                                      {type}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )) || (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                No specific construction limits found for this group.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
                   {/* Building Height Limits */}
                   <section>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
@@ -910,6 +966,31 @@ export default function Home() {
                       Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
                     </p>
                     <SpanTables />
+                  </section>
+
+                  {/* Code Amendment Tracker */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-purple-600 mb-4 flex items-center gap-2">
+                      <FileText className="w-4 h-4" /> Code Amendment Tracker (NBC 2019 → 2023)
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-purple-600/20 pl-3">
+                      Key changes between NBC 2019 and NBC 2023 affecting <strong>{selectedGroup.code}</strong> occupancy.
+                    </p>
+                    <CodeAmendmentTracker occupancyCode={selectedGroup.code} />
+                  </section>
+
+                  {/* Inspector Checklist Generator */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4" /> Inspector Checklist Generator
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
+                      Generate printable inspection checklists by construction phase for <strong>{selectedGroup.code}</strong> occupancy.
+                    </p>
+                    <InspectorChecklistGenerator 
+                      occupancyCode={selectedGroup.code} 
+                      occupancyName={selectedGroup.name}
+                    />
                   </section>
                 </div>
               </TabsContent>
