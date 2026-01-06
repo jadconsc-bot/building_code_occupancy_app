@@ -662,7 +662,7 @@ export default function Home() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
                 {selectedGroup.id === "C-2" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Card className="overflow-hidden border-border shadow-sm">
@@ -782,6 +782,135 @@ export default function Home() {
                       </CardContent>
                     </Card>
                   </div>
+                </div>
+
+                {/* Additional Building Requirements */}
+                <div className="space-y-8 mt-8 pt-8 border-t border-border">
+                  {/* Building Height Limits */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Layers className="w-4 h-4" /> Building Height Limits
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum height and storey limits for <strong>{selectedGroup.code}</strong> by construction type.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Construction Type</TableHead>
+                            <TableHead>Max Height</TableHead>
+                            <TableHead>Max Storeys</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow><TableCell>Combustible</TableCell><TableCell>18m</TableCell><TableCell>6</TableCell><TableCell>With sprinklers</TableCell></TableRow>
+                          <TableRow><TableCell>Noncombustible</TableCell><TableCell>No limit</TableCell><TableCell>No limit</TableCell><TableCell>Based on fire resistance rating</TableCell></TableRow>
+                          <TableRow><TableCell>Heavy Timber</TableCell><TableCell>18m</TableCell><TableCell>6</TableCell><TableCell>Specific requirements apply</TableCell></TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Allowable Openings */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4" /> Allowable Openings in Fire-Rated Assemblies
+                    </h3>
+                    <div className="mb-6">
+                      <AllowableOpeningsDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Fire-Rated Doors</h4>
+                        <p className="text-xs text-muted-foreground">Must have a fire-protection rating not less than that required for closures in the fire separation.</p>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Maximum Opening Size</h4>
+                        <p className="text-xs text-muted-foreground">Limited by fire separation rating and building area. Consult NBC Table 3.1.8.4.</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Ergonomic Requirements */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-600 mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Ergonomic & Accessibility Requirements
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <StairErgonomicsDiagram />
+                      <AccessibilityDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Stair Dimensions</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Rise: 125mm - 200mm</li>
+                          <li>Run: Min 210mm</li>
+                          <li>Width: Min 860mm</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Handrails</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Height: 865mm - 965mm</li>
+                          <li>Diameter: 30mm - 43mm</li>
+                          <li>Clearance: Min 50mm from wall</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Doorways</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Clear width: Min 810mm</li>
+                          <li>Barrier-free: Min 850mm</li>
+                          <li>Threshold: Max 13mm</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Property Setbacks */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" /> Property Setback Requirements
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
+                      Setback requirements are determined by municipal zoning bylaws, not the Building Code. Always verify with your local authority.
+                    </p>
+                    <div className="mb-6">
+                      <SetbackDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Typical Requirements</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Front: 6.0m (varies by zone)</li>
+                          <li>Rear: 7.5m (principal building)</li>
+                          <li>Side: 1.2m minimum</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Accessory Buildings</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Rear/Side: Often 0.6m if under height limit</li>
+                          <li>Check municipal bylaws for specifics</li>
+                          <li>Verify with Real Property Report (RPR)</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Span Tables */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Structural Span Tables
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
+                    </p>
+                    <SpanTables />
+                  </section>
                 </div>
               </TabsContent>
 
@@ -1283,241 +1412,6 @@ export default function Home() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="construction" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-8">
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                      <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
-                    </h3>
-                    <div className="rounded-md border border-border overflow-hidden">
-                      <Table>
-                        <TableHeader className="bg-muted/20">
-                          <TableRow>
-                            <TableHead className="font-bold">Article</TableHead>
-                            <TableHead className="font-bold">Max Height</TableHead>
-                            <TableHead className="font-bold">Max Area</TableHead>
-                            <TableHead className="font-bold">Sprinklers</TableHead>
-                            <TableHead className="font-bold">Construction</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {constructionLimits[selectedGroup.code.split(' ')[0]]?.map((limit, index) => (
-                            <TableRow key={index} className="hover:bg-muted/10">
-                              <TableCell className="font-mono text-xs text-primary">{limit.article}</TableCell>
-                              <TableCell>{limit.maxHeight}</TableCell>
-                              <TableCell>{limit.maxArea}</TableCell>
-                              <TableCell>
-                                {limit.sprinklered ? (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">Required</Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">Optional</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-1 flex-wrap">
-                                  {limit.constructionType.map(type => (
-                                    <Badge key={type} variant="outline" className="text-[10px] border-border">
-                                      {type}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )) || (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                No specific construction limits found for this group.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4" /> Fire Separation Matrix (Table 3.1.3.1)
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-destructive/20 pl-3">
-                      Required fire-resistance rating (in hours) between <strong>{selectedGroup.code}</strong> and adjacent major occupancies.
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {Object.entries(separationMatrix[selectedGroup.code.split(' ')[0]] || {}).map(([adjCode, rating]) => (
-                        <div key={adjCode} className="flex items-center justify-between p-3 rounded border border-border bg-card hover:shadow-sm transition-shadow">
-                          <span className="font-mono font-bold text-sm">{adjCode}</span>
-                          <Badge 
-                            variant={rating === '-' ? 'outline' : 'destructive'} 
-                            className={rating === '-' ? 'text-muted-foreground border-dashed' : ''}
-                          >
-                            {rating === '-' ? 'None' : `${rating} h`}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-
-                </div>
-
-                <div className="space-y-8 mt-8">
-                  {/* Building Height Limits */}
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                      <Layers className="w-4 h-4" /> Building Height Limits
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
-                      Maximum height and storey limits for <strong>{selectedGroup.code}</strong> by construction type.
-                    </p>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Construction Type</TableHead>
-                            <TableHead>Max Height</TableHead>
-                            <TableHead>Max Storeys</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {heightLimitsByOccupancy[selectedGroup.code.split(' ')[0]]?.map((limit, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium">{limit.constructionType}</TableCell>
-                              <TableCell className="font-mono text-primary font-bold">{limit.maxHeight}</TableCell>
-                              <TableCell className="font-mono">{limit.maxStoreys === 999 ? 'Unlimited' : limit.maxStoreys}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground">{limit.notes}</TableCell>
-                            </TableRow>
-                          )) || (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
-                                Height limits vary by specific occupancy sub-classification
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
-
-                  {/* Allowable Openings */}
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
-                      <DoorOpen className="w-4 h-4" /> Allowable Openings in Fire-Rated Assemblies
-                    </h3>
-                    <div className="mb-6">
-                      <AllowableOpeningsDiagram />
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Assembly Rating</TableHead>
-                            <TableHead>Max Opening Area</TableHead>
-                            <TableHead>Max Single Opening</TableHead>
-                            <TableHead>Closure Required</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {allowableOpenings.map((opening, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium">{opening.assemblyRating}</TableCell>
-                              <TableCell className="text-sm">{opening.maxOpeningArea}</TableCell>
-                              <TableCell className="text-sm">{opening.maxSingleOpening}</TableCell>
-                              <TableCell>
-                                <Badge variant={opening.closureRequired === "Yes" ? "destructive" : "outline"}>
-                                  {opening.closureRequired}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">{opening.notes}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
-
-                  {/* Ergonomic Requirements */}
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-600 mb-4 flex items-center gap-2">
-                      <Ruler className="w-4 h-4" /> Ergonomic & Accessibility Requirements
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <StairErgonomicsDiagram />
-                      <AccessibilityDiagram />
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Element</TableHead>
-                            <TableHead>Dimension</TableHead>
-                            <TableHead>Code Reference</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ergonomicRequirements.map((req, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium">{req.element}</TableCell>
-                              <TableCell className="font-mono text-green-600 font-bold">{req.dimension}</TableCell>
-                              <TableCell className="text-xs font-mono text-muted-foreground">{req.code}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground">{req.notes}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
-
-                  {/* Setback Requirements */}
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" /> Property Setback Requirements
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
-                      Minimum setback distances from property lines by zoning district (Calgary Land Use Bylaw).
-                    </p>
-                    <div className="mb-6">
-                      <SetbackDiagram />
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Zone</TableHead>
-                            <TableHead>Front Setback</TableHead>
-                            <TableHead>Rear Setback</TableHead>
-                            <TableHead>Side Setback</TableHead>
-                            <TableHead>Notes</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {setbackRequirements.map((req, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium font-mono">{req.zone}</TableCell>
-                              <TableCell className="font-mono text-blue-600 font-bold">{req.front}</TableCell>
-                              <TableCell className="font-mono text-blue-600 font-bold">{req.rear}</TableCell>
-                              <TableCell className="font-mono text-blue-600 font-bold">{req.side}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground">{req.notes}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
-
-                  {/* Span Tables */}
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                      <Ruler className="w-4 h-4" /> Structural Span Tables
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
-                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
-                    </p>
-                    <SpanTables />
-                  </section>
-                </div>
-              </TabsContent>
             </Tabs>
           </div>
         ) : (

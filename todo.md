@@ -56,3 +56,10 @@
 - [ ] Generate checklists by occupancy type and construction phase
 - [ ] Conduct accuracy audit of all code references
 - [ ] Document audit findings and corrections
+
+## Ergonomics Section Visibility Issue
+- [x] Verify ergonomics section is visible in Building tab
+- [x] Check if StairErgonomicsDiagram and AccessibilityDiagram are rendering
+- [x] Ensure ergonomics data is properly displayed
+- [x] Fix scrollable container in Building tab (added max-height and overflow-y-auto)
+- [x] Move building requirements from hidden construction tab into Building tab
