@@ -40,6 +40,11 @@
 - [x] Progress tracking across construction phases
 - [x] Project statistics and summaries
 
+### Mobile Features
+- [x] Enhanced mobile camera integration with permission handling
+- [x] Choice between camera capture and photo library
+- [x] Mobile-optimized photo upload UI
+
 ### Regional Support
 - [x] Alberta Building Code differences highlighted
 - [x] Region selector (Alberta/National)

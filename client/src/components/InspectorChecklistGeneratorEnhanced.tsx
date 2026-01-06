@@ -265,15 +265,17 @@ export function InspectorChecklistGeneratorEnhanced({
                   
                   {/* Photo Upload Section */}
                   <div className="mt-2 space-y-2 print:hidden">
-                    <div className="flex items-center gap-2">
-                      <label htmlFor={`photo-${item.id}`} className="cursor-pointer">
-                        <div className="flex items-center gap-1.5 px-2 py-1 text-xs border border-border rounded hover:bg-accent transition-colors">
-                          <Camera className="w-3 h-3" />
-                          {uploadingPhoto === item.id ? 'Uploading...' : 'Add Photo'}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Camera Capture Button (Mobile) */}
+                      <label htmlFor={`photo-camera-${item.id}`} className="cursor-pointer">
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors">
+                          <Camera className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{uploadingPhoto === item.id ? 'Uploading...' : 'Take Photo'}</span>
+                          <span className="sm:hidden">{uploadingPhoto === item.id ? 'Uploading...' : 'Camera'}</span>
                         </div>
                       </label>
                       <Input
-                        id={`photo-${item.id}`}
+                        id={`photo-camera-${item.id}`}
                         type="file"
                         accept="image/*"
                         capture="environment"
@@ -284,8 +286,31 @@ export function InspectorChecklistGeneratorEnhanced({
                         }}
                         disabled={uploadingPhoto === item.id}
                       />
+                      
+                      {/* Photo Library Button */}
+                      <label htmlFor={`photo-library-${item.id}`} className="cursor-pointer">
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="hidden sm:inline">Choose Photo</span>
+                          <span className="sm:hidden">Library</span>
+                        </div>
+                      </label>
+                      <Input
+                        id={`photo-library-${item.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePhotoUpload(item.id, file);
+                        }}
+                        disabled={uploadingPhoto === item.id}
+                      />
+                      
                       {itemPhotos[item.id]?.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground font-medium">
                           {itemPhotos[item.id].length} photo{itemPhotos[item.id].length > 1 ? 's' : ''}
                         </span>
                       )}
