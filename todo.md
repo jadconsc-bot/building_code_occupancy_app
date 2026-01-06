@@ -1,75 +1,112 @@
+# Building Code Occupancy Classifier - TODO
 
-## New Features (Cloud Sync, AI Assistant, Permit Calculator)
-- [x] Fix TypeScript error in Home.tsx (useAuth import)
-- [x] Implement Permit Fee Calculator
-- [x] Create database schema for bookmarks and notes
-- [x] Create backend API routes for bookmarks and notes
-- [x] Create API helper functions for frontend
-- [x] Prepare Mobile Deployment Guide
+## ✅ Completed Features
 
-## Future Enhancements (Deferred)
-- [ ] Integrate frontend with cloud sync API (replace localStorage with API calls)
-- [ ] Implement AI Code Assistant with LLM integration
+### Core Functionality
+- [x] Occupancy classification system (A-1 through F-3)
+- [x] Search and filter functionality
+- [x] Voice search integration
+- [x] Bookmark system
+- [x] Recent history tracking
+- [x] Theme toggle (light/dark mode)
+- [x] Print and PDF export
+- [x] Share functionality
+- [x] Project notes per occupancy
+- [x] Keyboard shortcuts
 
-## Sustainability & Energy Systems
-- [x] Create sustainability data (solar, EV charging, water heaters, grid integration)
-- [x] Create SustainabilityTools component
-- [x] Add Sustainability tab to main application
-- [x] Add visual diagrams for solar panel mounting and EV charging
-- [x] Integrate voice commands for Sustainability tab
+### Building Code Tab
+- [x] Definition and common examples
+- [x] Load calculation factors (NBC 2023 Table 4.1.5.3) for all occupancy types
+- [x] Key compliance notes (Fire Safety, Egress, Construction)
+- [x] Construction Limits table (Part 3.2.2)
+- [x] Building Height Limits table
+- [x] Allowable Openings in Fire-Rated Assemblies (with diagram)
+- [x] Ergonomic & Accessibility Requirements (with diagrams)
+- [x] Property Setback Requirements (with diagram)
+- [x] Structural Span Tables (with filters)
+- [x] Code Amendment Tracker (NBC 2019 vs 2023)
+- [x] Inspector Checklist Generator with 6 construction phases
+- [x] Photo upload feature for Inspector Checklist items (localStorage-based)
 
-## Mobile Navigation Fix
-- [x] Replace horizontal tab scrolling with mobile dropdown menu
-- [x] Position dropdown in top-right corner on mobile screens
-- [x] Ensure all tabs (Building, Plumbing, Electrical, Additions, Sustainability) are accessible
-- [x] Test on mobile viewport sizes
+### Other Tabs
+- [x] Plumbing tab with fixture requirements
+- [x] Electrical tab with load calculations
+- [x] Additions tab with permit requirements
+- [x] Sustainability tab with energy efficiency
 
-## Desktop Sidebar Scrolling Fix
-- [x] Add max-height to sidebar container
-- [x] Enable overflow-y scrolling for occupancy list
-- [x] Ensure search bar and bookmarks remain visible while list scrolls
+### Project Management
+- [x] Project Dashboard for tracking multiple projects
+- [x] Project creation and management
+- [x] Progress tracking across construction phases
+- [x] Project statistics and summaries
 
-## New Features (Keyboard Nav, PDF Export, Regional Variants)
-- [x] Implement keyboard shortcuts (Arrow keys, Tab, "/" for search)
-- [x] Add keyboard shortcut help modal
-- [x] Implement Export to PDF functionality
-- [x] Add Regional Code Variants selector (AB, BC, ON, SK)
-- [x] Update UI to display selected region
+### Regional Support
+- [x] Alberta Building Code differences highlighted
+- [x] Region selector (Alberta/National)
 
-## Building Code Requirements (Height, Setbacks, Openings, Ergonomics)
-- [x] Create data for building height limits by occupancy and construction type
-- [x] Create data for property setback requirements
-- [x] Create data for allowable openings in fire-rated assemblies
-- [x] Create data for ergonomic requirements (stairs, handrails, accessibility)
-- [x] Create visual diagrams for setback requirements
-- [x] Create visual diagrams for allowable openings
-- [x] Create visual diagrams for stair/handrail ergonomics
-- [x] Integrate new content into Building tab
+## 🚧 In Progress / Remaining Features
 
-## Building Tab Reorganization & New Features
-- [x] Fix JSX structure errors in Building tab
-- [x] Create span tables data for structural lumber (2x8, 2x10, 2x12)
-- [x] Implement Span Tables component with species/grade/spacing filters
-- [x] Add Construction Limits table display to Building tab
-- [x] Create Code Amendment Tracker data (NBC 2019 vs 2023)
-- [x] Implement Code Amendment Tracker component with filtering
-- [x] Create Inspector Checklist Generator component
-- [x] Generate checklists by occupancy type and construction phase
-- [x] Add print functionality to Inspector Checklist
-- [ ] Conduct accuracy audit of all code references
-- [ ] Document audit findings and corrections
+### High Priority (Next Session)
+- [ ] Quick-jump navigation within Building Code tab
+  - Add navigation bar with anchor links to major sections
+  - Implement smooth scrolling to sections
+  - Add scroll-margin for proper positioning
+  
+- [ ] Checklist progress sync with Project Dashboard
+  - Connect Inspector Checklist checked items to Project Dashboard
+  - Update project progress when checklist items are checked
+  - Sync across all phases automatically
+  
+- [ ] Comparison View for occupancy types
+  - Side-by-side comparison of two occupancy types
+  - Compare load factors, construction limits, and requirements
+  - Highlight differences between occupancies
 
-## Ergonomics Section Visibility Issue
-- [x] Verify ergonomics section is visible in Building tab
-- [x] Check if StairErgonomicsDiagram and AccessibilityDiagram are rendering
-- [x] Ensure ergonomics data is properly displayed
-- [x] Fix scrollable container in Building tab (added max-height and overflow-y-auto)
-- [x] Move building requirements from hidden construction tab into Building tab
+### Medium Priority (Future Enhancements)
+- [ ] Code Search Tool with natural language queries
+  - Search across all NBC sections
+  - Return relevant sections with visual diagrams
+  - Context-aware search results
 
-## New Feature Requests
-- [x] Fix visibility issues with Code Amendment Tracker and Inspector Checklist Generator (still scrollable, but accessible)
-- [x] Add load calculation factors to Building Code tab (by occupancy type)
-- [x] Create Project Dashboard with saved projects and progress tracking
-- [ ] Implement Photo Upload feature for Inspector Checklist items (deferred - requires backend storage)
-- [ ] Implement Code Search Tool with natural language queries (deferred - complex feature)
-- [ ] Generate compliance summary reports from Project Dashboard (future enhancement)
+- [ ] Compliance Summary Reports
+  - Generate PDF reports from Project Dashboard
+  - Include all checklist items and photos
+  - Professional formatting for client delivery
+
+- [ ] Enhanced Photo Management
+  - Cloud storage integration (S3) for photos
+  - Photo annotations and notes
+  - Photo gallery view
+
+### Low Priority (Nice to Have)
+- [ ] Offline mode with service workers
+- [ ] Multi-language support (French)
+- [ ] Integration with municipal permit systems
+- [ ] Real-time collaboration features
+- [ ] Mobile app version
+
+## 📝 Code Quality Tasks
+- [ ] Add comprehensive code comments
+- [ ] Write unit tests for key components
+- [ ] Performance optimization for large datasets
+- [ ] Accessibility audit (WCAG 2.1 AA compliance)
+- [ ] Cross-browser testing
+- [ ] Mobile responsiveness review
+
+## 🐛 Known Issues
+- None currently reported
+
+## 📚 Documentation Needs
+- [ ] User guide for Inspector Checklist
+- [ ] API documentation for data structures
+- [ ] Deployment guide
+- [ ] Contributing guidelines
+
+## 🎯 Next Session Goals
+1. Implement quick-jump navigation (30 min)
+2. Add checklist progress sync (45 min)
+3. Create comparison view component (60 min)
+4. Test all features thoroughly (30 min)
+5. Save final checkpoint and deliver (15 min)
+
+**Total estimated time: ~3 hours**

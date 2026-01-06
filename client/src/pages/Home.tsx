@@ -28,7 +28,7 @@ import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/B
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
-import { InspectorChecklistGenerator } from '@/components/InspectorChecklistGenerator';
+import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1041,7 +1041,7 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
                       Generate printable inspection checklists by construction phase for <strong>{selectedGroup.code}</strong> occupancy.
                     </p>
-                    <InspectorChecklistGenerator 
+                    <InspectorChecklistGeneratorEnhanced 
                       occupancyCode={selectedGroup.code} 
                       occupancyName={selectedGroup.name}
                     />
