@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FolderOpen, Plus, Trash2, FileText, Calendar, Building2, TrendingUp } from 'lucide-react';
 import { occupancyData } from '@/lib/occupancyData';
+import { projectTemplates, getTemplateById } from '@/lib/projectTemplates';
 
 export interface Project {
   id: string;
@@ -35,7 +36,8 @@ export function ProjectDashboard() {
     name: '',
     address: '',
     occupancyCode: '',
-    notes: ''
+    notes: '',
+    templateId: ''
   });
 
   // Load projects from localStorage on mount
@@ -80,7 +82,7 @@ export function ProjectDashboard() {
     };
 
     setProjects([...projects, project]);
-    setNewProject({ name: '', address: '', occupancyCode: '', notes: '' });
+    setNewProject({ name: '', address: '', occupancyCode: '', notes: '', templateId: '' });
     setIsCreateDialogOpen(false);
   };
 
@@ -144,23 +146,51 @@ export function ProjectDashboard() {
                   className="rounded-none"
                 />
               </div>
-              <div>
-                <Label htmlFor="project-occupancy">Occupancy Type *</Label>
-                <Select value={newProject.occupancyCode} onValueChange={(value) => setNewProject({ ...newProject, occupancyCode: value })}>
-                  <SelectTrigger className="rounded-none">
-                    <SelectValue placeholder="Select occupancy type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {occupancyData.map(occ => (
-                      <SelectItem key={occ.id} value={occ.code}>
-                        {occ.code} - {occ.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="project-notes">Notes</Label>
+
+              <div className="space-y-2">
+                <Label htmlFor="occupancy">Occupancy Type *</Label>
+                  <Select
+                    value={newProject.occupancyCode}
+                    onValueChange={(value) => setNewProject({ ...newProject, occupancyCode: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select occupancy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {occupancyData.map((occ) => (
+                        <SelectItem key={occ.code} value={occ.code}>
+                          {occ.code} - {occ.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="template">Project Template (Optional)</Label>
+                  <Select
+                    value={newProject.templateId}
+                    onValueChange={(value) => setNewProject({ ...newProject, templateId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Start from scratch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No template (blank project)</SelectItem>
+                      {projectTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name} - {template.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Templates include pre-configured inspection checklists and typical requirements
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="project-notes">Notes</Label>
                 <Input
                   id="project-notes"
                   placeholder="Optional project notes"
@@ -170,6 +200,7 @@ export function ProjectDashboard() {
                 />
               </div>
             </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="rounded-none">
                 Cancel

@@ -155,3 +155,36 @@
   - Add tooltips and help text where needed
   - Ensure consistent styling across all components
   - Add loading states and error handling
+
+## Latest Implementation (Current Session)
+- [x] Project Templates System
+  - Create template for Single-Family Home (occupancy C, typical phases)
+  - Create template for Multi-Unit Residential (occupancy C, commercial phases)
+  - Create template for Commercial Office (occupancy D, business phases)
+  - Pre-fill common inspection items and requirements
+  - Add template selection in Project Dashboard
+  
+- [ ] Code Reference Panel
+  - Create collapsible side panel for NBC article display
+  - Add click handlers to all code references (e.g., "NBC 3.2.2.47")
+  - Implement article text display with formatting
+  - Add search functionality within articles
+  - Add bookmark/favorite functionality
+  - Include related articles suggestions
+  
+- [ ] Beam Span Calculator
+  - Create component based on NBC Table 9.23.4.3
+  - Add beam type selection (headers, girders, lintels)
+  - Add species/grade selection matching floor joist calculator
+  - Add beam size and loading condition inputs
+  - Display maximum spans with safety factors
+  - Add Excel export functionality
+  - Include visual beam diagrams
+  
+- [x] Color Palette Design
+  - Research professional building/construction industry palettes
+  - Create 3-5 palette options with rationale
+  - Document primary, secondary, accent colors
+  - Include accessibility considerations (WCAG AA)
+  - Provide implementation guide for index.css
+  - Created comprehensive COLOR_PALETTE_GUIDE.md with 5 professional options
