@@ -6,7 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { occupancyData, OccupancyGroup } from '@/lib/occupancyData';
 import { getLoadFactors } from '@/lib/loadCalculationData';
 import { constructionLimits } from '@/lib/constructionData';
-import { ArrowLeftRight, AlertCircle } from 'lucide-react';
+import { ArrowLeftRight, AlertCircle, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportComparisonToExcel } from '@/lib/excelExport';
 
 export function OccupancyComparison() {
   const [leftOccupancy, setLeftOccupancy] = useState<string>('C');
@@ -30,6 +32,38 @@ export function OccupancyComparison() {
 
   return (
     <div className="space-y-6">
+      {/* Header with Export Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <ArrowLeftRight className="w-5 h-5" />
+          Occupancy Comparison
+        </h3>
+        <Button
+          onClick={() => {
+            exportComparisonToExcel(
+              leftOccupancy,
+              rightOccupancy,
+              {
+                loadFactors: {
+                  [leftOccupancy]: leftLoadFactors,
+                  [rightOccupancy]: rightLoadFactors
+                },
+                constructionLimits: {
+                  [leftOccupancy]: leftConstructionLimits,
+                  [rightOccupancy]: rightConstructionLimits
+                }
+              }
+            );
+          }}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export to Excel
+        </Button>
+      </div>
+
       {/* Selector Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

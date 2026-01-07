@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Ruler } from 'lucide-react';
+import { AlertCircle, Ruler, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportSpanTableToExcel } from '@/lib/excelExport';
 import { spanTables, spanTableNotes, applications, species, grades, spacings } from '@/lib/spanTablesData';
 
 export function SpanTables() {
@@ -29,9 +31,30 @@ export function SpanTables() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-            <Ruler className="w-4 h-4" /> Span Table Filters
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Ruler className="w-4 h-4" /> Span Table Filters
+            </CardTitle>
+            <Button
+              onClick={() => {
+                if (filteredData) {
+                  const formattedData = Object.entries(groupedData || {}).map(([size]) => ({
+                    size,
+                    spacing12: groupedData?.[size]?.find(d => d.spacing === 305)?.span || 0,
+                    spacing16: groupedData?.[size]?.find(d => d.spacing === 406)?.span || 0,
+                    spacing24: groupedData?.[size]?.find(d => d.spacing === 610)?.span || 0
+                  }));
+                  exportSpanTableToExcel(selectedApplication, selectedSpecies, selectedGrade, formattedData);
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>

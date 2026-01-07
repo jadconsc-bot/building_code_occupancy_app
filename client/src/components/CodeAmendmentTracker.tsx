@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { codeAmendments, CodeAmendment } from '@/lib/codeAmendmentsData';
-import { FileText, AlertCircle, TrendingUp } from 'lucide-react';
+import { FileText, AlertCircle, TrendingUp, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportToExcel } from '@/lib/excelExport';
 
 interface CodeAmendmentTrackerProps {
   occupancyCode?: string; // Optional: filter by occupancy
@@ -66,6 +68,41 @@ export function CodeAmendmentTracker({ occupancyCode }: CodeAmendmentTrackerProp
 
   return (
     <div className="space-y-6">
+      {/* Header with Export Button */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold">Code Amendment Tracker</h3>
+        <Button
+          onClick={() => {
+            const data: any[][] = [];
+            data.push(['Code Amendment Tracker (NBC 2019 → 2023)']);
+            data.push([]);
+            data.push(['Category', 'Section', 'Title', 'Impact', 'NBC 2019', 'NBC 2023', 'Affected Occupancies']);
+            filteredAmendments.forEach(amendment => {
+              data.push([
+                amendment.category,
+                amendment.section,
+                amendment.title,
+                amendment.impact,
+                amendment.nbc2019,
+                amendment.nbc2023,
+                amendment.occupancies.join(', ')
+              ]);
+            });
+            exportToExcel({
+              filename: `Code_Amendments_${occupancyCode || 'All'}`,
+              sheetName: 'Amendments',
+              data
+            });
+          }}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export to Excel
+        </Button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">

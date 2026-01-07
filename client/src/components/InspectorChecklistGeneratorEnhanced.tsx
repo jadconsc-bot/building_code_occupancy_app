@@ -6,7 +6,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getChecklistForOccupancy, getChecklistForPhase, getCriticalItems, ConstructionPhase, ChecklistItem } from '@/lib/inspectorChecklistData';
-import { ClipboardList, Printer, Download, AlertCircle, Camera, X } from 'lucide-react';
+import { ClipboardList, Printer, Download, AlertCircle, Camera, X, FileSpreadsheet } from 'lucide-react';
+import { exportChecklistToExcel } from '@/lib/excelExport';
 
 interface InspectorChecklistGeneratorProps {
   occupancyCode: string;
@@ -164,6 +165,27 @@ export function InspectorChecklistGeneratorEnhanced({
           >
             <Download className="w-4 h-4 mr-2" />
             Save PDF
+          </Button>
+          <Button
+            onClick={() => {
+              const items = getChecklistForPhase(occupancyCode, selectedPhase).map(item => ({
+                ...item,
+                checked: checkedItems.has(item.id)
+              }));
+              const completed = items.filter(item => item.checked).length;
+              exportChecklistToExcel(
+                occupancyCode,
+                selectedPhase,
+                items,
+                { checked: completed, total: items.length }
+              );
+            }}
+            variant="outline"
+            size="sm"
+            className="rounded-none border-border"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Export Excel
           </Button>
         </div>
       </div>
