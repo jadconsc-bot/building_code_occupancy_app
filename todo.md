@@ -195,3 +195,39 @@
 - [x] Add Excel export button to Inspector Checklist Generator
 - [x] Add Excel export button to Comparison View dialog
 - [x] Make export buttons more prominent with consistent styling
+
+
+## Next Implementation Phase (Current Session)
+
+### Structural Calculators Expansion
+- [x] Beam Span Calculator (NBC Table 9.23.4.3)
+  - Create BeamSpanCalculator component
+  - Add beam type selection (headers, girders, lintels)
+  - Add species/grade selection (Douglas Fir-Larch, Hem-Fir, S-P-F, Northern)
+  - Add beam size selection (38x140, 38x184, 38x235, 38x286, 89x140, 89x184, 89x235, 89x286)
+  - Add loading condition inputs (point load, uniform load)
+  - Display maximum spans with safety factors
+  - Add Excel export functionality
+  - Include visual beam diagrams
+
+- [x] Roof Rafter Span Calculator (NBC Part 9 Span Tables)
+  - Create RoofRafterSpanCalculator component
+  - Add species/grade selection matching other calculators
+  - Add rafter size selection (38x89, 38x140, 38x184, 38x235, 38x286)
+  - Add rafter spacing selection (300mm/12", 400mm/16", 600mm/24")
+  - Add roof pitch selection (3:12, 4:12, 5:12, 6:12, 8:12, 10:12, 12:12)
+  - Add snow load selection (Calgary/Edmonton 2.0 kPa, other regions)
+  - Display maximum spans in meters and feet
+  - Add Excel export functionality
+  - Include visual roof pitch diagrams
+
+### UI/UX Enhancement - Blueprint Professional Theme
+- [x] Apply Blueprint Professional Color Palette from COLOR_PALETTE_GUIDE.md
+  - Update client/src/index.css with new color variables
+  - Primary: Deep Blueprint Blue (#1E3A8A)
+  - Secondary: Construction Orange (#F59E0B)
+  - Accent: Safety Yellow (#FCD34D)
+  - Neutral: Concrete Gray (#6B7280)
+  - Update all components to use new color scheme
+  - Test contrast ratios for accessibility (WCAG AA)
+  - Update theme provider for light/dark mode compatibility

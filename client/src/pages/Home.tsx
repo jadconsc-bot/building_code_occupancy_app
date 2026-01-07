@@ -28,6 +28,8 @@ import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDia
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
+import { BeamSpanCalculator } from "@/components/BeamSpanCalculator";
+import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -1066,6 +1068,16 @@ export default function Home() {
                   {/* Floor Joist Span Calculator */}
                   <section className="mb-8">
                     <FloorJoistSpanCalculator />
+                  </section>
+
+                  {/* Beam Span Calculator */}
+                  <section className="mb-8">
+                    <BeamSpanCalculator />
+                  </section>
+
+                  {/* Roof Rafter Span Calculator */}
+                  <section className="mb-8">
+                    <RoofRafterSpanCalculator />
                   </section>
 
                   {/* Span Tables */}

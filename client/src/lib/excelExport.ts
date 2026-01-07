@@ -218,3 +218,106 @@ export function exportFloorJoistCalculatorToExcel(
     data
   });
 }
+
+/**
+ * Export beam span calculator results to Excel
+ */
+export function exportBeamSpanToExcel(params: {
+  species: string;
+  grade: string;
+  size: string;
+  loading: string;
+  spanMeters: number;
+  spanFeet: number;
+}) {
+  const data: any[][] = [];
+
+  // Title
+  data.push(['Beam Span Calculator Results']);
+  data.push(['Based on NBC Table 9.23.4.3']);
+  data.push([]);
+
+  // Input Parameters
+  data.push(['Input Parameters']);
+  data.push(['Species:', params.species]);
+  data.push(['Grade:', params.grade]);
+  data.push(['Beam Size:', params.size]);
+  data.push(['Loading Condition:', params.loading]);
+  data.push([]);
+
+  // Results
+  data.push(['Maximum Allowable Span']);
+  data.push(['Metric:', `${params.spanMeters.toFixed(2)} m`]);
+  data.push(['Imperial:', `${params.spanFeet} ft`]);
+  data.push([]);
+
+  // Notes
+  data.push(['Important Notes:']);
+  data.push(['• Spans assume 1.9 kPa live load + 0.5 kPa dead load']);
+  data.push(['• Based on NBC 2023 Table 9.23.4.3']);
+  data.push(['• "One Floor" = beam supporting one floor above']);
+  data.push(['• "Two Floors" = beam supporting two floors above']);
+  data.push(['• Consult a structural engineer for complex applications']);
+  data.push(['• Local building authority approval may be required']);
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  exportToExcel({
+    filename: `Beam_Span_Calculator_${params.species}_${params.grade}_${params.size}`,
+    sheetName: 'Calculator Results',
+    data
+  });
+}
+
+/**
+ * Export roof rafter span calculator results to Excel
+ */
+export function exportRoofRafterSpanToExcel(params: {
+  species: string;
+  grade: string;
+  size: string;
+  spacing: string;
+  pitch: string;
+  snowLoad: string;
+  spanMeters: number;
+  spanFeet: number;
+}) {
+  const data: any[][] = [];
+
+  // Title
+  data.push(['Roof Rafter Span Calculator Results']);
+  data.push(['Based on NBC Part 9 Span Tables']);
+  data.push([]);
+
+  // Input Parameters
+  data.push(['Input Parameters']);
+  data.push(['Species:', params.species]);
+  data.push(['Grade:', params.grade]);
+  data.push(['Rafter Size:', params.size]);
+  data.push(['Rafter Spacing:', params.spacing]);
+  data.push(['Roof Pitch:', params.pitch]);
+  data.push(['Snow Load:', params.snowLoad]);
+  data.push([]);
+
+  // Results
+  data.push(['Maximum Allowable Span']);
+  data.push(['Metric:', `${params.spanMeters.toFixed(2)} m`]);
+  data.push(['Imperial:', `${params.spanFeet} ft`]);
+  data.push([]);
+
+  // Notes
+  data.push(['Important Notes:']);
+  data.push(['• Spans based on NBC 2023 Part 9 Span Tables']);
+  data.push(['• Assumes specified snow load for roof design']);
+  data.push(['• Pitch affects load distribution and span capacity']);
+  data.push(['• Consult a structural engineer for complex roof designs']);
+  data.push(['• Local building authority approval may be required']);
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  exportToExcel({
+    filename: `Roof_Rafter_Calculator_${params.species}_${params.grade}_${params.size}`,
+    sheetName: 'Calculator Results',
+    data
+  });
+}
