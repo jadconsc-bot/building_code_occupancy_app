@@ -51,21 +51,25 @@
 
 ## 🚧 In Progress / Remaining Features
 
-### High Priority (Next Session)
-- [ ] Quick-jump navigation within Building Code tab
-  - Add navigation bar with anchor links to major sections
+### High Priority (Current Session)
+- [x] Quick-jump navigation within Building Code tab
+  - Add sticky navigation bar with anchor links to major sections
   - Implement smooth scrolling to sections
   - Add scroll-margin for proper positioning
+  - Include links to: Construction Limits, Span Tables, Code Amendments, Inspector Checklist
   
-- [ ] Checklist progress sync with Project Dashboard
+- [x] Checklist progress sync with Project Dashboard
   - Connect Inspector Checklist checked items to Project Dashboard
   - Update project progress when checklist items are checked
   - Sync across all phases automatically
+  - Store progress in localStorage with project association
   
-- [ ] Comparison View for occupancy types
+- [x] Comparison View for occupancy types
   - Side-by-side comparison of two occupancy types
   - Compare load factors, construction limits, and requirements
   - Highlight differences between occupancies
+  - Add comparison button in header
+  - Create split-screen layout with synchronized scrolling
 
 ### Medium Priority (Future Enhancements)
 - [ ] Code Search Tool with natural language queries

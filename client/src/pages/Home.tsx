@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useProject } from "@/contexts/ProjectContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +30,7 @@ import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram 
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
+import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -57,6 +59,7 @@ export default function Home() {
     return saved ? JSON.parse(saved) : {};
   });
   const { theme, toggleTheme } = useTheme();
+  const { activeProjectId, updateProjectProgress } = useProject();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -531,6 +534,23 @@ export default function Home() {
                     <ProjectDashboard />
                   </DialogContent>
                 </Dialog>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <ArrowLeftRight className="w-4 h-4" />
+                      Compare
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <DialogHeader>
+                      <DialogTitle>Occupancy Comparison</DialogTitle>
+                      <DialogDescription>
+                        Compare requirements, load factors, and construction limits between two occupancy types.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <OccupancyComparison />
+                  </DialogContent>
+                </Dialog>
                 <button
                   onClick={copyShareLink}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
@@ -678,6 +698,37 @@ export default function Home() {
               </TabsList>
 
               <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                {/* Quick Jump Navigation */}
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border mb-6 -mx-4 px-4 py-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Jump to:</span>
+                    <button
+                      onClick={() => document.getElementById('construction-limits')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Construction Limits
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('span-tables')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Span Tables
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('code-amendments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Code Amendments
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('inspector-checklist')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Inspector Checklist
+                    </button>
+                  </div>
+                </div>
+
                 {selectedGroup.id === "C-2" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Card className="overflow-hidden border-border shadow-sm">
@@ -843,7 +894,7 @@ export default function Home() {
                 {/* Additional Building Requirements */}
                 <div className="space-y-8 mt-8 pt-8 border-t border-border">
                   {/* Construction Limits */}
-                  <section>
+                  <section id="construction-limits" className="scroll-mt-20">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
                       <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
                     </h3>
@@ -1012,7 +1063,7 @@ export default function Home() {
                   </section>
 
                   {/* Span Tables */}
-                  <section>
+                  <section id="span-tables" className="scroll-mt-20">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
                       <Ruler className="w-4 h-4" /> Structural Span Tables
                     </h3>
@@ -1023,7 +1074,7 @@ export default function Home() {
                   </section>
 
                   {/* Code Amendment Tracker */}
-                  <section>
+                  <section id="code-amendments" className="scroll-mt-20">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-purple-600 mb-4 flex items-center gap-2">
                       <FileText className="w-4 h-4" /> Code Amendment Tracker (NBC 2019 → 2023)
                     </h3>
@@ -1034,7 +1085,7 @@ export default function Home() {
                   </section>
 
                   {/* Inspector Checklist Generator */}
-                  <section>
+                  <section id="inspector-checklist" className="scroll-mt-20">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
                       <ClipboardList className="w-4 h-4" /> Inspector Checklist Generator
                     </h3>
@@ -1044,6 +1095,13 @@ export default function Home() {
                     <InspectorChecklistGeneratorEnhanced 
                       occupancyCode={selectedGroup.code} 
                       occupancyName={selectedGroup.name}
+                      projectId={activeProjectId || undefined}
+                      onProgressUpdate={(phase, completed, total) => {
+                        if (activeProjectId) {
+                          const percentage = Math.round((completed / total) * 100);
+                          updateProjectProgress(activeProjectId, phase, percentage);
+                        }
+                      }}
                     />
                   </section>
                 </div>
