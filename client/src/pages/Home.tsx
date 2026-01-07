@@ -27,6 +27,7 @@ import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } f
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
+import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -1060,6 +1061,11 @@ export default function Home() {
                         </ul>
                       </div>
                     </div>
+                  </section>
+
+                  {/* Floor Joist Span Calculator */}
+                  <section className="mb-8">
+                    <FloorJoistSpanCalculator />
                   </section>
 
                   {/* Span Tables */}

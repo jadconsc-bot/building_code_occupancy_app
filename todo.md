@@ -119,3 +119,39 @@
 5. Save final checkpoint and deliver (15 min)
 
 **Total estimated time: ~3 hours**
+
+## New Feature Implementation (Current Session)
+- [x] NBC Floor Joist Span Calculator (Table 9.23.4.2-A)
+  - Create interactive calculator component
+  - Add species/grade selection (Douglas Fir-Larch, Hem-Fir, Spruce-Pine-Fir, Northern Species)
+  - Add joist size selection (38x89, 38x140, 38x184, 38x235, 38x286)
+  - Add joist spacing selection (300mm/12", 400mm/16", 600mm/24")
+  - Display maximum span in meters and feet
+  - Add visual span limit indicators
+  - Include NBC article references
+  
+- [x] Export to Excel Functionality
+  - Export comparison results to Excel
+  - Export span tables to Excel
+  - Export inspector checklists to Excel
+  - Add Excel export buttons throughout the app
+  
+- [ ] Project Templates System
+  - Create template for Single-Family Home
+  - Create template for Multi-Unit Residential
+  - Create template for Commercial Office
+  - Pre-fill occupancy codes and construction phases
+  - Allow template selection when creating new projects
+  
+- [ ] Code Reference Links
+  - Add clickable NBC article references
+  - Create side panel for detailed code sections
+  - Implement search within code references
+  - Link from all NBC citations throughout the app
+  
+- [ ] UI/UX Improvements
+  - Review and optimize navigation flow
+  - Improve mobile responsiveness
+  - Add tooltips and help text where needed
+  - Ensure consistent styling across all components
+  - Add loading states and error handling
