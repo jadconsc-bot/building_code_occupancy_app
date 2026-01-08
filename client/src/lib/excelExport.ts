@@ -321,3 +321,62 @@ export function exportRoofRafterSpanToExcel(params: {
     data
   });
 }
+
+/**
+ * Export column load calculator results to Excel
+ */
+export function exportColumnSpanToExcel(params: {
+  species: string;
+  grade: string;
+  size: string;
+  length: number;
+  loadKN: number;
+  loadLbs: number;
+}) {
+  const data: any[][] = [];
+
+  // Title
+  data.push(['Column Load Calculator Results']);
+  data.push(['Based on NBC Table 9.23.4.4']);
+  data.push([]);
+
+  // Input Parameters
+  data.push(['Input Parameters']);
+  data.push(['Species:', params.species]);
+  data.push(['Grade:', params.grade]);
+  data.push(['Column Size:', params.size]);
+  data.push(['Unsupported Length:', `${params.length.toFixed(2)} m`]);
+  data.push([]);
+
+  // Results
+  data.push(['Maximum Allowable Axial Load']);
+  data.push(['Metric:', `${params.loadKN.toFixed(1)} kN`]);
+  data.push(['Imperial:', `${params.loadLbs} lbs`]);
+  data.push([]);
+
+  // Warning if overloaded
+  if (params.loadKN <= 0) {
+    data.push(['⚠ WARNING']);
+    data.push(['Unsupported length exceeds safe capacity for this column size.']);
+    data.push(['Consider using a larger column or reducing the unsupported length.']);
+    data.push([]);
+  }
+
+  // Notes
+  data.push(['Important Notes:']);
+  data.push(['• Based on NBC 2023 Table 9.23.4.4']);
+  data.push(['• Assumes axial compression loading only']);
+  data.push(['• Unsupported length is the distance between lateral supports']);
+  data.push(['• Load capacity decreases with increasing unsupported length']);
+  data.push(['• Does not account for eccentric loads or bending moments']);
+  data.push(['• Consult a structural engineer for complex applications']);
+  data.push(['• Local building authority approval may be required']);
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  exportToExcel({
+    filename: `Column_Load_Calculator_${params.species}_${params.grade}_${params.size}`,
+    sheetName: 'Calculator Results',
+    data
+  });
+}

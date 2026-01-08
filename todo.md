@@ -231,3 +231,47 @@
   - Update all components to use new color scheme
   - Test contrast ratios for accessibility (WCAG AA)
   - Update theme provider for light/dark mode compatibility
+
+
+## Advanced Structural Calculator Features (Current Session)
+
+### Column Span Calculator
+- [x] Column Span Calculator (NBC Table 9.23.4.4)
+  - Create ColumnSpanCalculator component
+  - Add species/grade selection matching other calculators
+  - Add column size selection (89x89, 140x140, 184x184, 235x235, 286x286)
+  - Add loading type selection (point load, distributed load)
+  - Add supported length/height input
+  - Calculate maximum allowable loads
+  - Display results in kN and lbs
+  - Add Excel export functionality
+  - Include safety factor information
+
+### Interactive Beam Diagrams
+- [x] Interactive Beam Visualization Component
+  - Create BeamDiagram component with SVG rendering
+  - Show beam with support points (simple, continuous, cantilever)
+  - Display load distribution (point loads, uniform loads)
+  - Show deflection curve visualization
+  - Add dimension annotations
+  - Update dynamically based on calculator inputs
+  - Include shear and moment diagrams
+  - Add toggle for different diagram types
+  - Make diagrams responsive and printable
+
+### Saved Calculator Presets
+- [x] Calculator Preset Management System
+  - Create preset storage using localStorage
+  - Add "Save Preset" button to each calculator
+  - Create preset naming dialog
+  - Build preset library panel/dropdown
+  - Add "Load Preset" functionality
+  - Include preset categories (Residential, Commercial, Industrial)
+  - Add preset editing and deletion
+  - Show preset metadata (date created, occupancy type)
+  - Export/import presets as JSON
+  - Pre-populate common presets:
+    * "Standard Residential Floor" (2x10 @ 16" o.c.)
+    * "Heavy Commercial Beam" (6x12 Douglas Fir)
+    * "Typical Roof Rafter 4:12" (2x6 @ 24" o.c.)
+    * "Calgary Snow Load Rafter" (2x8 @ 16" o.c., 2.0 kPa)

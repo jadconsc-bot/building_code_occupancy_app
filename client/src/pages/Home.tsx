@@ -30,6 +30,8 @@ import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram 
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
 import { BeamSpanCalculator } from "@/components/BeamSpanCalculator";
 import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator";
+import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
+import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -1078,6 +1080,16 @@ export default function Home() {
                   {/* Roof Rafter Span Calculator */}
                   <section className="mb-8">
                     <RoofRafterSpanCalculator />
+                  </section>
+
+                  {/* Column Load Calculator */}
+                  <section className="mb-8">
+                    <ColumnSpanCalculator />
+                  </section>
+
+                  {/* Interactive Beam Diagram */}
+                  <section className="mb-8">
+                    <InteractiveBeamDiagram />
                   </section>
 
                   {/* Span Tables */}
