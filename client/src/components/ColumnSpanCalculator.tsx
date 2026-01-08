@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, Columns } from "lucide-react";
+import { PresetSelector } from "@/components/PresetSelector";
 import { exportColumnSpanToExcel } from "@/lib/excelExport";
 
 // NBC Table 9.23.4.4 - Column Load Capacity Data
@@ -92,6 +93,13 @@ export function ColumnSpanCalculator() {
   const [selectedSize, setSelectedSize] = useState("140 x 140 mm");
   const [unsupportedLength, setUnsupportedLength] = useState("3.0");
 
+  const handleLoadPreset = (parameters: Record<string, string | number>) => {
+    if (parameters.species) setSelectedSpecies(String(parameters.species));
+    if (parameters.grade) setSelectedGrade(String(parameters.grade));
+    if (parameters.size) setSelectedSize(String(parameters.size));
+    if (parameters.length) setUnsupportedLength(String(parameters.length));
+  };
+
   const length = parseFloat(unsupportedLength) || 0;
   const loadFunction = columnLoadData[selectedSpecies]?.[selectedGrade]?.[selectedSize];
   const maxLoad = loadFunction ? loadFunction(length) : 0;
@@ -120,15 +128,27 @@ export function ColumnSpanCalculator() {
               Calculate maximum axial loads based on NBC Table 9.23.4.4
             </CardDescription>
           </div>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <PresetSelector
+              calculatorType="column"
+              currentParameters={{
+                species: selectedSpecies,
+                grade: selectedGrade,
+                size: selectedSize,
+                length: unsupportedLength,
+              }}
+              onLoadPreset={handleLoadPreset}
+            />
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">

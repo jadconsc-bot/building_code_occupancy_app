@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Triangle } from "lucide-react";
+import { PresetSelector } from "@/components/PresetSelector";
 import { exportRoofRafterSpanToExcel } from "@/lib/excelExport";
 
 // NBC Part 9 Roof Rafter Span Data
@@ -116,6 +117,15 @@ export function RoofRafterSpanCalculator() {
   const [selectedPitch, setSelectedPitch] = useState("6:12");
   const [selectedSnowLoad, setSelectedSnowLoad] = useState("2.0");
 
+  const handleLoadPreset = (parameters: Record<string, string | number>) => {
+    if (parameters.species) setSelectedSpecies(String(parameters.species));
+    if (parameters.grade) setSelectedGrade(String(parameters.grade));
+    if (parameters.size) setSelectedSize(String(parameters.size));
+    if (parameters.spacing) setSelectedSpacing(String(parameters.spacing));
+    if (parameters.pitch) setSelectedPitch(String(parameters.pitch));
+    if (parameters.snowLoad) setSelectedSnowLoad(String(parameters.snowLoad));
+  };
+
   // Calculate adjusted span based on pitch and snow load
   const baseSpan = baseRafterSpanData[selectedSpecies]?.[selectedGrade]?.[selectedSize]?.[selectedSpacing] || 0;
   const pitchFactor = pitchFactors[selectedPitch] || 1.0;
@@ -151,15 +161,29 @@ export function RoofRafterSpanCalculator() {
               Calculate maximum spans based on NBC Part 9 Span Tables
             </CardDescription>
           </div>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <PresetSelector
+              calculatorType="roof-rafter"
+              currentParameters={{
+                species: selectedSpecies,
+                grade: selectedGrade,
+                size: selectedSize,
+                spacing: selectedSpacing,
+                pitch: selectedPitch,
+                snowLoad: selectedSnowLoad,
+              }}
+              onLoadPreset={handleLoadPreset}
+            />
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">

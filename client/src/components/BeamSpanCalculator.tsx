@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Ruler } from "lucide-react";
+import { PresetSelector } from "@/components/PresetSelector";
 import { exportBeamSpanToExcel } from "@/lib/excelExport";
 
 // NBC Table 9.23.4.3 - Beam Span Data
@@ -118,6 +119,13 @@ export function BeamSpanCalculator() {
   const [selectedSize, setSelectedSize] = useState("89 x 184 mm");
   const [selectedLoading, setSelectedLoading] = useState("One Floor");
 
+  const handleLoadPreset = (parameters: Record<string, string | number>) => {
+    if (parameters.species) setSelectedSpecies(String(parameters.species));
+    if (parameters.grade) setSelectedGrade(String(parameters.grade));
+    if (parameters.size) setSelectedSize(String(parameters.size));
+    if (parameters.loading) setSelectedLoading(String(parameters.loading));
+  };
+
   const maxSpan = beamSpanData[selectedSpecies]?.[selectedGrade]?.[selectedSize]?.[selectedLoading] || 0;
   const maxSpanFeet = (maxSpan * 3.28084).toFixed(1);
 
@@ -144,15 +152,27 @@ export function BeamSpanCalculator() {
               Calculate maximum spans based on NBC Table 9.23.4.3
             </CardDescription>
           </div>
-          <Button
-            onClick={handleExport}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Export to Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <PresetSelector
+              calculatorType="beam"
+              currentParameters={{
+                species: selectedSpecies,
+                grade: selectedGrade,
+                size: selectedSize,
+                loading: selectedLoading,
+              }}
+              onLoadPreset={handleLoadPreset}
+            />
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">

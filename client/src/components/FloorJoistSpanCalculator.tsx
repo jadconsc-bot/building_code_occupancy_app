@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Ruler, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { PresetSelector } from "@/components/PresetSelector";
 import { Button } from "@/components/ui/button";
 import { exportFloorJoistCalculatorToExcel } from "@/lib/excelExport";
 import {
@@ -19,19 +20,40 @@ export function FloorJoistSpanCalculator() {
   const [joistSize, setJoistSize] = useState<string>(joistSizeOptions[0]);
   const [spacing, setSpacing] = useState<string>("400");
 
+  const handleLoadPreset = (parameters: Record<string, string | number>) => {
+    if (parameters.species) setSpecies(String(parameters.species));
+    if (parameters.grade) setGrade(String(parameters.grade));
+    if (parameters.joistSize) setJoistSize(String(parameters.joistSize));
+    if (parameters.spacing) setSpacing(String(parameters.spacing));
+  };
+
   const maxSpan = getFloorJoistSpan(species, grade, joistSize, spacing);
   const maxSpanFeet = maxSpan ? (maxSpan * 3.28084).toFixed(1) : null;
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Calculator className="h-5 w-5 text-primary" />
-          <CardTitle>Floor Joist Span Calculator</CardTitle>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-primary" />
+              <CardTitle>Floor Joist Span Calculator</CardTitle>
+            </div>
+            <CardDescription className="mt-1">
+              Calculate maximum spans based on NBC Table 9.23.4.2-A
+            </CardDescription>
+          </div>
+          <PresetSelector
+            calculatorType="floor-joist"
+            currentParameters={{
+              species,
+              grade,
+              joistSize,
+              spacing,
+            }}
+            onLoadPreset={handleLoadPreset}
+          />
         </div>
-        <CardDescription>
-          Calculate maximum spans based on NBC Table 9.23.4.2-A
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Input Selectors */}

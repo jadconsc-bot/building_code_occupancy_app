@@ -32,6 +32,7 @@ import { BeamSpanCalculator } from "@/components/BeamSpanCalculator";
 import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator";
 import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
 import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
+import { CeilingHeightTable } from "@/components/CeilingHeightTable";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -977,6 +978,11 @@ export default function Home() {
                         </TableBody>
                       </Table>
                     </div>
+                  </section>
+
+                  {/* Ceiling Height Requirements */}
+                  <section className="mb-8">
+                    <CeilingHeightTable occupancy={selectedGroup.code} />
                   </section>
 
                   {/* Allowable Openings */}

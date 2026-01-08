@@ -275,3 +275,50 @@
     * "Heavy Commercial Beam" (6x12 Douglas Fir)
     * "Typical Roof Rafter 4:12" (2x6 @ 24" o.c.)
     * "Calgary Snow Load Rafter" (2x8 @ 16" o.c., 2.0 kPa)
+
+
+## Final Enhancement Suite (Current Session)
+
+### Preset Selector Integration
+- [x] Integrate PresetSelector into FloorJoistSpanCalculator
+- [x] Integrate PresetSelector into BeamSpanCalculator
+- [x] Integrate PresetSelector into RoofRafterSpanCalculator
+- [x] Integrate PresetSelector into ColumnSpanCalculator
+- [ ] Add onLoadPreset handlers to update calculator state
+- [ ] Test preset save/load functionality across all calculators
+- [ ] Ensure preset parameters match calculator input fields
+
+### Minimum Ceiling Heights
+- [x] Research NBC minimum ceiling height requirements by occupancy
+- [x] Add ceiling height data to ceilingHeightData.ts
+- [x] Create CeilingHeightTable component
+- [x] Integrate ceiling heights into Construction Limits section
+- [ ] Add ceiling height information to Building Height Limits table
+- [ ] Include special cases (basements, mezzanines, sloped ceilings)
+- [ ] Add visual diagram showing ceiling height measurements
+
+### Multi-Calculator Comparison View
+- [x] Create CalculatorComparison component
+- [x] Add comparison context for state management
+- [x] Build side-by-side calculator layout (2-4 columns)
+- [x] Create unified results comparison table
+- [ ] Add "Add to Comparison" button to each calculator
+- [ ] Implement comparison state management
+- [ ] Add export comparison results to Excel
+- [ ] Include visual comparison charts (bar charts for spans)
+- [ ] Add "Clear Comparison" and "Remove Item" functionality
+
+### PDF Report Generator
+- [x] Install PDF generation library (jsPDF)
+- [x] Create PDFReportGenerator component
+- [x] Design report template with header/footer
+- [x] Include project information section
+- [x] Add calculator results section with tables
+- [ ] Embed beam diagrams as images
+- [ ] Include NBC references and compliance notes
+- [ ] Add occupancy classification summary
+- [ ] Include construction limits and ceiling heights
+- [ ] Add custom notes and project details
+- [ ] Implement "Generate PDF Report" button
+- [ ] Add report preview before download
+- [ ] Include timestamp and version information
