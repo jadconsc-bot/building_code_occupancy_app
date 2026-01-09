@@ -33,6 +33,11 @@ import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator"
 import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
 import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
 import { CeilingHeightTable } from "@/components/CeilingHeightTable";
+import { FireSeparationCalculator } from "@/components/FireSeparationCalculator";
+import { OccupantLoadCalculator } from "@/components/OccupantLoadCalculator";
+import { ExitRequirementsCalculator } from "@/components/ExitRequirementsCalculator";
+import { TravelDistanceCalculator } from "@/components/TravelDistanceCalculator";
+import { ConstructionTypeSelector } from "@/components/ConstructionTypeSelector";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -301,9 +306,9 @@ export default function Home() {
       }
 
       // Tab switching with numbers
-      if (e.key >= "1" && e.key <= "5" && (e.ctrlKey || e.metaKey)) {
+      if (e.key >= "1" && e.key <= "6" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -665,6 +670,11 @@ export default function Home() {
                         <Leaf className="w-4 h-4" /> Sustainability
                       </div>
                     </SelectItem>
+                    <SelectItem value="fire-safety">
+                      <div className="flex items-center gap-2">
+                        <Flame className="w-4 h-4" /> Fire & Life Safety
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -700,6 +710,12 @@ export default function Home() {
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="fire-safety" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
                 </TabsTrigger>
               </TabsList>
 
@@ -1638,6 +1654,26 @@ export default function Home() {
                       </div>
                     </section>
                   ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="fire-safety" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Flame className="w-5 h-5" /> Fire Protection & Life Safety Calculators
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Critical NBC 2025 Part 3 calculators for fire protection, occupant safety, and egress design. These tools help determine fire separation requirements, occupant loads, exit configurations, and construction type limitations.
+                    </p>
+                    <div className="space-y-6">
+                      <FireSeparationCalculator />
+                      <OccupantLoadCalculator />
+                      <ExitRequirementsCalculator />
+                      <TravelDistanceCalculator />
+                      <ConstructionTypeSelector />
+                    </div>
+                  </section>
                 </div>
               </TabsContent>
 

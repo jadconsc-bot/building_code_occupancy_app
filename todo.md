@@ -322,3 +322,31 @@
 - [ ] Implement "Generate PDF Report" button
 - [ ] Add report preview before download
 - [ ] Include timestamp and version information
+
+
+## NBC 2025 Comprehensive Enhancement - Phase 1 (Critical Priority)
+
+### Fire Protection & Life Safety Calculators
+- [x] Fire Separation Calculator (NBC Part 3.2.3, Table 3.1.3.1)
+- [x] Occupant Load Calculator (NBC Part 3.1.17, Table 3.1.17.1)
+- [x] Exit Requirements Calculator (NBC Part 3.4.2, 3.4.3)
+- [x] Travel Distance Calculator (NBC Part 3.4.2.5)
+- [x] Construction Type Selector (NBC Part 3.2.2)
+
+### Enhanced Occupancy Classification
+- [ ] Mixed Occupancy Calculator (major vs minor occupancy determination)
+- [ ] Occupancy Separation Requirements Interactive Diagram
+- [ ] Change of Use Assessment Tool
+
+### Integration & UI
+- [x] Create "Fire & Life Safety" tab in main interface
+- [x] Add Fire Protection calculators section
+- [x] Integrate with existing occupancy classification
+- [x] Add NBC 2025 reference links for all calculators
+- [ ] Update PDF Report Generator to include fire safety calculations
+
+### Data & References
+- [ ] Digitize NBC Table 3.1.3.1 (Occupancy Classification)
+- [ ] Digitize NBC Table 3.1.17.1 (Occupant Load)
+- [ ] Digitize NBC Table 3.2.2.X (Building Height and Area)
+- [ ] Add NBC Part 3 reference documentation

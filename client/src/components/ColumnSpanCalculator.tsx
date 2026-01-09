@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileSpreadsheet, Columns } from "lucide-react";
+import { FileSpreadsheet, Building2 } from "lucide-react";
 import { PresetSelector } from "@/components/PresetSelector";
 import { exportColumnSpanToExcel } from "@/lib/excelExport";
 
@@ -122,7 +122,7 @@ export function ColumnSpanCalculator() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <Columns className="w-4 h-4 text-primary" /> Column Load Calculator
+              <Building2 className="w-4 h-4 text-primary" /> Column Load Calculator
             </CardTitle>
             <CardDescription className="text-xs mt-1">
               Calculate maximum axial loads based on NBC Table 9.23.4.4
