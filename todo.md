@@ -417,3 +417,11 @@
 - [x] Add helper text explaining button is disabled until occupancy and storeys are selected
 - [x] Add asterisk (*) to required field labels
 - [x] Add alert box with icon explaining the calculation requirements
+
+
+## Construction Limits Calculator Advanced UX (Current Session)
+- [x] Add real-time validation feedback with green checkmarks for completed required fields
+- [x] Implement calculation history with localStorage (last 5 calculations)
+- [x] Create interactive street frontage diagram with SVG visualization
+- [x] Add clickable street-facing sides to diagram that update dropdown
+- [x] Display calculation history with timestamps and quick restore functionality

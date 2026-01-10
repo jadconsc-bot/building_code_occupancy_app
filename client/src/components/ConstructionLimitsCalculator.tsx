@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Building2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Building2, CheckCircle2, AlertTriangle, Check, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StreetFrontageDiagram } from "./StreetFrontageDiagram";
 
 // NBC Table 3.2.2.X - Building Area and Height Limits by Construction Type
 // Simplified data structure for demonstration
@@ -80,6 +81,36 @@ export function ConstructionLimitsCalculator() {
     compliant: boolean;
     recommendation: string;
   } | null>(null);
+  
+  const [calculationHistory, setCalculationHistory] = useState<Array<{
+    timestamp: string;
+    occupancy: string;
+    storeys: string;
+    constructionType: string;
+    sprinklered: string;
+    streetFrontage: string;
+    maxArea: number;
+  }>>([]);
+  
+  // Load calculation history from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('constructionLimitsHistory');
+    if (saved) {
+      try {
+        setCalculationHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load calculation history:', e);
+      }
+    }
+  }, []);
+  
+  const loadFromHistory = (item: typeof calculationHistory[0]) => {
+    setOccupancy(item.occupancy);
+    setStoreys(item.storeys);
+    setConstructionType(item.constructionType);
+    setSprinklered(item.sprinklered);
+    setStreetFrontage(item.streetFrontage);
+  };
 
   const calculateMaxArea = () => {
     if (!occupancy || !storeys) {
@@ -142,6 +173,21 @@ export function ConstructionLimitsCalculator() {
       compliant,
       recommendation
     });
+    
+    // Save to calculation history
+    const newHistoryItem = {
+      timestamp: new Date().toISOString(),
+      occupancy,
+      storeys,
+      constructionType,
+      sprinklered,
+      streetFrontage,
+      maxArea
+    };
+    
+    const updatedHistory = [newHistoryItem, ...calculationHistory].slice(0, 5);
+    setCalculationHistory(updatedHistory);
+    localStorage.setItem('constructionLimitsHistory', JSON.stringify(updatedHistory));
   };
 
   return (
@@ -157,8 +203,9 @@ export function ConstructionLimitsCalculator() {
       <CardContent className="pt-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="occupancy" className="text-xs font-semibold">
+            <Label htmlFor="occupancy" className="text-xs font-semibold flex items-center gap-2">
               Major Occupancy Classification <span className="text-red-500">*</span>
+              {occupancy && <Check className="w-4 h-4 text-green-600" />}
             </Label>
             <Select value={occupancy} onValueChange={setOccupancy}>
               <SelectTrigger id="occupancy">
@@ -183,8 +230,9 @@ export function ConstructionLimitsCalculator() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="storeys" className="text-xs font-semibold">
+            <Label htmlFor="storeys" className="text-xs font-semibold flex items-center gap-2">
               Number of Storeys <span className="text-red-500">*</span>
+              {storeys && <Check className="w-4 h-4 text-green-600" />}
             </Label>
             <Input
               id="storeys"
@@ -243,6 +291,14 @@ export function ConstructionLimitsCalculator() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+        
+        {/* Interactive Street Frontage Diagram */}
+        <div className="border rounded-lg p-4 bg-muted/20">
+          <StreetFrontageDiagram 
+            selectedFrontage={streetFrontage}
+            onFrontageChange={setStreetFrontage}
+          />
         </div>
 
         {(!occupancy || !storeys) && (
@@ -323,6 +379,49 @@ export function ConstructionLimitsCalculator() {
           </div>
         )}
 
+        {calculationHistory.length > 0 && (
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <History className="w-4 h-4 text-primary" />
+              Recent Calculations
+            </div>
+            <div className="space-y-2">
+              {calculationHistory.map((item, index) => {
+                const date = new Date(item.timestamp);
+                const timeAgo = Math.floor((Date.now() - date.getTime()) / 60000); // minutes ago
+                const displayTime = timeAgo < 60 
+                  ? `${timeAgo}m ago` 
+                  : timeAgo < 1440 
+                    ? `${Math.floor(timeAgo / 60)}h ago`
+                    : date.toLocaleDateString();
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => loadFromHistory(item)}
+                    className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-muted/50 transition-colors text-xs"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 space-y-1">
+                        <div className="font-semibold">{item.occupancy} · {item.storeys} storeys</div>
+                        <div className="text-muted-foreground">
+                          {item.constructionType === "combustible" ? "Combustible" : "Non-Combustible"} · 
+                          {item.sprinklered === "yes" ? "Sprinklered" : "Non-Sprinklered"} · 
+                          {item.streetFrontage} street{parseInt(item.streetFrontage) > 1 ? "s" : ""}
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <div className="font-bold text-primary">{item.maxArea.toLocaleString()} m²</div>
+                        <div className="text-muted-foreground">{displayTime}</div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
         <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
           <p className="font-semibold">Important Notes:</p>
           <ul className="list-disc pl-5 space-y-1">
