@@ -350,3 +350,58 @@
 - [ ] Digitize NBC Table 3.1.17.1 (Occupant Load)
 - [ ] Digitize NBC Table 3.2.2.X (Building Height and Area)
 - [ ] Add NBC Part 3 reference documentation
+
+
+## Current Implementation Session - Interactive Calculators & Phase 2
+
+### Interactive Construction Limits Calculator
+- [ ] Create ConstructionLimitsCalculator component with input fields
+- [ ] Add occupancy type selector
+- [ ] Add number of storeys input
+- [ ] Add building height input (meters)
+- [ ] Add sprinkler protection toggle
+- [ ] Calculate maximum allowable building area based on NBC Table 3.2.2.X
+- [ ] Display results with construction type recommendations
+- [ ] Add visual indicators for compliance/non-compliance
+- [ ] Include NBC article references
+- [ ] Replace static Construction Limits table with interactive calculator
+
+### Fire & Life Safety Calculator Logic Implementation
+- [ ] Fire Separation Calculator - Implement NBC Table 3.1.3.1 lookup logic
+- [ ] Fire Separation Calculator - Display required fire resistance rating (FRR)
+- [ ] Occupant Load Calculator - Implement NBC Table 3.1.17.1 area factors
+- [ ] Occupant Load Calculator - Calculate total occupant load
+- [ ] Exit Requirements Calculator - Implement NBC 3.4.2 exit width calculations
+- [ ] Exit Requirements Calculator - Determine number of required exits
+- [ ] Travel Distance Calculator - Implement NBC 3.4.2.5 maximum distances
+- [ ] Travel Distance Calculator - Display compliance status
+- [ ] Construction Type Selector - Implement NBC Table 3.2.2.X logic
+- [ ] Construction Type Selector - Display allowable construction types
+- [ ] Add Excel export for all calculator results
+
+### PDF Report Generator Enhancement
+- [ ] Add Fire & Life Safety section to PDF reports
+- [ ] Include Fire Separation requirements in reports
+- [ ] Include Occupant Load calculations in reports
+- [ ] Include Exit Requirements in reports
+- [ ] Include Travel Distance analysis in reports
+- [ ] Include Construction Type recommendations in reports
+- [ ] Add NBC reference citations to PDF
+- [ ] Format fire safety data in professional tables
+
+### Phase 2 NBC Calculators
+- [x] Barrier-Free Design Calculator (NBC Part 3.8)
+- [x] Fire Alarm System Requirements Calculator (NBC Part 3.2.4)
+- [x] Emergency Lighting Calculator (NBC Part 3.2.7)
+- [x] Integrate Phase 2 calculators into Fire & Life Safety tab
+- [x] Add calculation logic for all Phase 2 calculators
+- [ ] Include Phase 2 results in PDF reports
+
+
+### Construction Limits Calculator Enhancement - Street Frontage
+- [x] Add street frontage selector (1, 2, 3, or 4 sides facing streets)
+- [x] Implement NBC 3.2.2.8 area increase factors based on street frontage
+- [x] Calculate increased allowable area for multiple street frontages
+- [x] Display area increase percentage and calculation breakdown
+- [ ] Add visual diagram showing street frontage scenarios
+- [x] Include NBC article references for street frontage provisions

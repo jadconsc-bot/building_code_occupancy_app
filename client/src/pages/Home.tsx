@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -38,6 +38,10 @@ import { OccupantLoadCalculator } from "@/components/OccupantLoadCalculator";
 import { ExitRequirementsCalculator } from "@/components/ExitRequirementsCalculator";
 import { TravelDistanceCalculator } from "@/components/TravelDistanceCalculator";
 import { ConstructionTypeSelector } from "@/components/ConstructionTypeSelector";
+import { ConstructionLimitsCalculator } from "@/components/ConstructionLimitsCalculator";
+import { BarrierFreeCalculator } from "@/components/BarrierFreeCalculator";
+import { FireAlarmCalculator } from "@/components/FireAlarmCalculator";
+import { EmergencyLightingCalculator } from "@/components/EmergencyLightingCalculator";
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
@@ -923,6 +927,14 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
                       Maximum building area and height permitted for <strong>{selectedGroup.code}</strong> based on NBC 2023 Article 3.2.2.
                     </p>
+                    
+                    {/* Interactive Construction Limits Calculator */}
+                    <div className="mb-6">
+                      <ConstructionLimitsCalculator />
+                    </div>
+
+                    {/* Static Reference Table */}
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 mt-8">Reference Table - {selectedGroup.code} Occupancy Limits</h4>
                     <div className="rounded-md border border-border overflow-hidden">
                       <Table>
                         <TableHeader className="bg-muted/20">
@@ -1672,6 +1684,20 @@ export default function Home() {
                       <ExitRequirementsCalculator />
                       <TravelDistanceCalculator />
                       <ConstructionTypeSelector />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Accessibility className="w-5 h-5" /> Accessibility & Safety Systems
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      NBC 2025 Part 3 calculators for barrier-free design, fire alarm systems, and emergency lighting requirements. Ensure compliance with accessibility standards and life safety systems.
+                    </p>
+                    <div className="space-y-6">
+                      <BarrierFreeCalculator />
+                      <FireAlarmCalculator />
+                      <EmergencyLightingCalculator />
                     </div>
                   </section>
                 </div>
