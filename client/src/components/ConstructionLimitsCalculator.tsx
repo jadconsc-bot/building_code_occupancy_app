@@ -151,14 +151,14 @@ export function ConstructionLimitsCalculator() {
           <Building2 className="w-5 h-5 text-primary" /> Interactive Construction Limits Calculator
         </CardTitle>
         <CardDescription className="text-xs">
-          Calculate maximum allowable building area based on NBC Part 3.2.2
+          Calculate maximum allowable building area based on NBC Part 3.2.2. <span className="text-orange-600 dark:text-orange-400 font-semibold">* Required fields</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="occupancy" className="text-xs font-semibold">
-              Major Occupancy Classification
+              Major Occupancy Classification <span className="text-red-500">*</span>
             </Label>
             <Select value={occupancy} onValueChange={setOccupancy}>
               <SelectTrigger id="occupancy">
@@ -184,7 +184,7 @@ export function ConstructionLimitsCalculator() {
 
           <div className="space-y-2">
             <Label htmlFor="storeys" className="text-xs font-semibold">
-              Number of Storeys
+              Number of Storeys <span className="text-red-500">*</span>
             </Label>
             <Input
               id="storeys"
@@ -245,6 +245,15 @@ export function ConstructionLimitsCalculator() {
           </div>
         </div>
 
+        {(!occupancy || !storeys) && (
+          <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md p-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Please select <strong>Occupancy Classification</strong> and enter <strong>Number of Storeys</strong> to calculate maximum building area.
+            </span>
+          </div>
+        )}
+        
         <Button 
           onClick={calculateMaxArea} 
           className="w-full"

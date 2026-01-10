@@ -405,3 +405,15 @@
 - [x] Display area increase percentage and calculation breakdown
 - [ ] Add visual diagram showing street frontage scenarios
 - [x] Include NBC article references for street frontage provisions
+
+
+## Bug Fixes (Current Session)
+- [x] Fix Interactive Construction Limits Calculator button not working (button works correctly, was disabled until required fields filled)
+- [x] Debug calculation logic and result display
+- [x] Test all input combinations to ensure proper functionality
+
+## UX Enhancements (Current Session)
+- [x] Add visual feedback to Construction Limits Calculator for required fields
+- [x] Add helper text explaining button is disabled until occupancy and storeys are selected
+- [x] Add asterisk (*) to required field labels
+- [x] Add alert box with icon explaining the calculation requirements
