@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
+import { HistoryPanel } from "@/components/HistoryPanel";
+import { useEffect } from "react";
 
 export function StairDesignCalculator() {
   const [stairType, setStairType] = useState<string>("residential");
   const [totalRise, setTotalRise] = useState<string>("");
   const [results, setResults] = useState<any>(null);
+  const { addToHistory } = useCalculationHistory();
 
   const calculateStairs = () => {
     const rise = parseFloat(totalRise);
@@ -40,7 +44,7 @@ export function StairDesignCalculator() {
     // Check compliance
     const compliant = actualRiser >= requirements.minRiser && actualRiser <= requirements.maxRiser;
 
-    setResults({
+    const calculationResults = {
       numRisers,
       actualRiser: actualRiser.toFixed(1),
       numTreads,
@@ -50,6 +54,16 @@ export function StairDesignCalculator() {
       handrailHeight,
       compliant,
       requirements
+    };
+
+    setResults(calculationResults);
+
+    // Add to history
+    addToHistory({
+      calculatorType: "stair_design",
+      inputs: { stairType, totalRise },
+      results: calculationResults,
+      preview: `${stairType === "residential" ? "Residential" : "Commercial"} - ${totalRise}mm rise → ${numRisers} risers`
     });
   };
 
@@ -84,6 +98,12 @@ export function StairDesignCalculator() {
     setTotalRise(data.totalRise);
   };
 
+  const handleLoadHistory = (item: any) => {
+    setStairType(item.inputs.stairType);
+    setTotalRise(item.inputs.totalRise);
+    setResults(item.results);
+  };
+
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
@@ -96,14 +116,20 @@ export function StairDesignCalculator() {
               NBC 3.4.6 - Calculate stair dimensions and verify code compliance
             </CardDescription>
           </div>
-          <CalculatorActions
-            calculatorId="stair_design"
-            calculatorName="Stair Design"
-            exportData={getExportData}
-            currentState={{ stairType, totalRise }}
-            onLoadPreset={handleLoadPreset}
-            hasResults={!!results}
-          />
+          <div className="flex items-center gap-2">
+            <HistoryPanel
+              calculatorType="stair_design"
+              onLoadHistory={handleLoadHistory}
+            />
+            <CalculatorActions
+              calculatorId="stair_design"
+              calculatorName="Stair Design"
+              exportData={getExportData}
+              currentState={{ stairType, totalRise }}
+              onLoadPreset={handleLoadPreset}
+              hasResults={!!results}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

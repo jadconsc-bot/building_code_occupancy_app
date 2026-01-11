@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
+import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import Home from "./pages/Home";
 
@@ -35,11 +36,13 @@ function App() {
       >
         <ProjectProvider>
           <ComparisonProvider>
-            <TooltipProvider>
-              <Toaster />
-              <OfflineIndicator />
-              <Router />
-            </TooltipProvider>
+            <CalculationHistoryProvider>
+              <TooltipProvider>
+                <Toaster />
+                <OfflineIndicator />
+                <Router />
+              </TooltipProvider>
+            </CalculationHistoryProvider>
           </ComparisonProvider>
         </ProjectProvider>
       </ThemeProvider>

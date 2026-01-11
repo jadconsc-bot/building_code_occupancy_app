@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DoorOpen, AlertCircle } from "lucide-react";
@@ -83,21 +83,20 @@ export function ExitRequirementsCalculator() {
         <div className="space-y-6">
           {/* Input Controls */}
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="occupantLoad" className="text-xs font-medium">
-                Occupant Load (persons)
-              </Label>
-              <Input
+            <div>
+              <NumericInput
                 id="occupantLoad"
-                type="number"
+                label="Occupant Load"
                 value={occupantLoad}
                 onChange={(e) => setOccupantLoad(e.target.value)}
                 placeholder="e.g., 150"
                 className="rounded-none"
-                min="0"
-                step="1"
+                min="1"
+                max="10000"
+                unit="persons"
+                showValidation={true}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-1.5">
                 Use the Occupant Load Calculator to determine this value
               </p>
             </div>

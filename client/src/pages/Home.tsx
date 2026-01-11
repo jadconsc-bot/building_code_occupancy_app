@@ -49,6 +49,7 @@ import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorCheck
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
+import { BatchStairCalculator } from "@/components/BatchStairCalculator";
 import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
 import { LateralLoadCalculator } from "@/components/LateralLoadCalculator";
 import { EnergyCodeCalculator } from "@/components/EnergyCodeCalculator";
@@ -1777,6 +1778,7 @@ export default function Home() {
                     </p>
                     <div className="space-y-6">
                       <StairDesignCalculator />
+                      <BatchStairCalculator />
                       <GuardHandrailCalculator />
                       <SnowLoadCalculator />
                       <AccessibilityRampCalculator />

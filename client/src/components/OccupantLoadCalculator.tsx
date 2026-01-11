@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Users, Calculator } from "lucide-react";
@@ -127,19 +127,18 @@ export function OccupantLoadCalculator() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="floorArea" className="text-xs font-medium">
-                Floor Area (m²)
-              </Label>
-              <Input
+            <div>
+              <NumericInput
                 id="floorArea"
-                type="number"
+                label="Floor Area"
                 value={floorArea}
                 onChange={(e) => setFloorArea(e.target.value)}
                 placeholder="e.g., 500"
                 className="rounded-none"
-                min="0"
-                step="0.1"
+                min="1"
+                max="100000"
+                unit="m²"
+                showValidation={true}
               />
             </div>
           </div>

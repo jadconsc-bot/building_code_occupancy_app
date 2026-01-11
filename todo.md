@@ -855,3 +855,56 @@
 - [x] Add offline indicator in UI
 - [x] Test offline functionality (ready for testing)
 - [x] Add install prompt for PWA (automatic)
+
+
+## Enhancement Features (Phase 7)
+
+### NumericInput Integration
+- [x] Apply NumericInput to Exit Width Calculator
+- [x] Apply NumericInput to Occupant Load Calculator
+- [ ] Apply NumericInput to Fire Separation Calculator
+- [ ] Apply NumericInput to Spatial Separation Calculator
+- [ ] Apply NumericInput to Travel Distance Calculator
+- [ ] Apply NumericInput to Barrier-Free Ramp Calculator
+- [ ] Apply NumericInput to Guard Height Calculator
+- [ ] Apply NumericInput to Handrail Requirements Calculator
+- [ ] Apply NumericInput to Window Area Calculator
+- [ ] Apply NumericInput to Ventilation Calculator
+- [ ] Apply NumericInput to Energy Performance Calculator
+
+### Calculation History Feature
+- [x] Create CalculationHistory context for state management
+- [x] Implement localStorage persistence for history
+- [x] Add history storage on calculation completion
+- [x] Create HistoryPanel component with list view
+- [x] Add load from history functionality
+- [x] Add delete history item functionality
+- [x] Add clear all history functionality
+- [x] Limit history to 10 items per calculator type
+- [x] Add timestamp and preview to history items
+- [x] Integrate history panel into calculator UI
+
+### Batch Calculator Mode
+- [x] Create BatchCalculator component structure
+- [x] Add multiple input rows with add/remove functionality
+- [x] Implement batch calculation processing
+- [x] Create batch results display table
+- [x] Add export all results to Excel functionality
+- [ ] Add export all results to PDF functionality (future enhancement)
+- [x] Integrate batch mode into Stair Design Calculator
+- [x] Add batch mode toggle in calculator UI
+- [x] Add validation for batch inputs
+- [ ] Create batch calculation tests (covered by integration testing)
+
+### User Guide Documentation
+- [x] Create comprehensive user guide structure
+- [x] Document all occupancy classifications (A-1 through F-3)
+- [x] Document all 25+ NBC calculators with examples
+- [x] Document project management features
+- [x] Document comparison and favorites features
+- [x] Document keyboard shortcuts
+- [x] Document mobile features (swipe, offline mode)
+- [ ] Add screenshots and visual examples (future enhancement)
+- [x] Create quick start guide section
+- [x] Add troubleshooting section
+- [ ] Export user guide as PDF (available as markdown)
