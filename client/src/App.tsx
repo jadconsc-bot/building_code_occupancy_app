@@ -7,7 +7,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
+import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
+import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
 
 function Router() {
@@ -37,11 +39,14 @@ function App() {
         <ProjectProvider>
           <ComparisonProvider>
             <CalculationHistoryProvider>
-              <TooltipProvider>
-                <Toaster />
-                <OfflineIndicator />
-                <Router />
-              </TooltipProvider>
+              <HelpSystemProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <OfflineIndicator />
+                  <HelpPanel />
+                  <Router />
+                </TooltipProvider>
+              </HelpSystemProvider>
             </CalculationHistoryProvider>
           </ComparisonProvider>
         </ProjectProvider>

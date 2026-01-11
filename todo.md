@@ -908,3 +908,52 @@
 - [x] Create quick start guide section
 - [x] Add troubleshooting section
 - [ ] Export user guide as PDF (available as markdown)
+
+
+## Advanced Enhancements (Phase 8)
+
+### NumericInput Rollout to All Calculators
+- [x] Apply NumericInput to GuardHandrailCalculator
+- [x] Apply NumericInput to SnowLoadCalculator
+- [x] Apply NumericInput to AccessibilityRampCalculator
+- [x] Apply NumericInput to ThermalResistanceCalculator
+- [x] Apply NumericInput to VentilationRateCalculator
+- [x] Apply NumericInput to StudSpacingCalculator
+- [x] Apply NumericInput to LintelSpanCalculator
+- [x] Apply NumericInput to FoundationDesignCalculator
+- [x] Apply NumericInput to LateralLoadCalculator
+- [x] Apply NumericInput to EnergyCodeCalculator
+- [x] Apply NumericInput to PlumbingFixtureCalculator
+- [x] Apply NumericInput to BarrierFreeCalculator
+- [x] Apply NumericInput to BeamSpanCalculator
+- [x] Apply NumericInput to ColumnSpanCalculator
+- [x] Apply NumericInput to ConstructionLimitsCalculator
+- [x] Apply NumericInput to EmergencyLightingCalculator
+- [x] Apply NumericInput to FireAlarmCalculator
+- [x] Apply NumericInput to FireSeparationCalculator
+- [x] Apply NumericInput to FloorJoistSpanCalculator
+- [x] Apply NumericInput to RoofRafterSpanCalculator
+- [x] Apply NumericInput to TravelDistanceCalculator
+- [x] Apply NumericInput to PermitFeeCalculator
+
+### Batch Calculator PDF Export
+- [x] Install jsPDF library for PDF generation
+- [x] Create PDF template with header and footer
+- [x] Add NBC code references to PDF
+- [x] Format batch results table in PDF
+- [x] Add compliance summary section
+- [x] Include professional stamp area
+- [x] Add export to PDF button in BatchStairCalculator
+- [x] Test PDF generation with multiple scenarios
+
+### Interactive In-App Help System
+- [x] Create HelpSystem context for state management
+- [x] Build searchable help content database (12 topics)
+- [x] Create HelpPanel component with search functionality
+- [x] Add contextual tooltips to calculator fields (via help topics)
+- [x] Create help button in navigation bar
+- [x] Implement help content for each calculator
+- [ ] Add video tutorial placeholders (future enhancement)
+- [x] Create keyboard shortcut reference panel (in help content)
+- [x] Add help search with highlighting
+- [x] Integrate help system into all pages

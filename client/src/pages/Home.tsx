@@ -65,7 +65,8 @@ import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Keyboard } from "lucide-react";
+import { Keyboard, HelpCircle } from "lucide-react";
+import { useHelpSystem } from "@/contexts/HelpSystemContext";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -93,6 +94,7 @@ export default function Home() {
   });
   const { theme, toggleTheme } = useTheme();
   const { activeProjectId, updateProjectProgress } = useProject();
+  const { openHelp } = useHelpSystem();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -384,17 +386,34 @@ export default function Home() {
                 Building Code<br/>Occupancy Classifier
               </h1>
             </div>
-            <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-              <SelectTrigger className="w-[80px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AB">Alberta</SelectItem>
-                <SelectItem value="BC">BC</SelectItem>
-                <SelectItem value="ON">Ontario</SelectItem>
-                <SelectItem value="SK">Sask</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => openHelp()}
+                      className="p-2 hover:bg-accent rounded-md transition-colors"
+                    >
+                      <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Help & Documentation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger className="w-[80px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AB">Alberta</SelectItem>
+                  <SelectItem value="BC">BC</SelectItem>
+                  <SelectItem value="ON">Ontario</SelectItem>
+                  <SelectItem value="SK">Sask</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <div className="relative flex gap-2">

@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calculator, Plus, Trash2, Download, FileSpreadsheet, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface BatchRow {
   id: string;
@@ -81,6 +83,156 @@ export function BatchStairCalculator() {
     toast.success(`Calculated ${updatedRows.filter(r => r.result).length} stair designs`);
   };
 
+  const exportToPDF = () => {
+    const data = rows.filter(row => row.result);
+    
+    if (data.length === 0) {
+      toast.error("No results to export. Calculate first.");
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Batch Stair Design Calculation Report", pageWidth / 2, 20, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`National Building Code of Canada 2025 - Alberta Edition`, pageWidth / 2, 28, { align: "center" });
+    doc.text(`NBC Article 3.4.6 - Stairs, Ramps and Landings`, pageWidth / 2, 34, { align: "center" });
+    doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth / 2, 40, { align: "center" });
+    
+    // Summary Box
+    const compliantCount = data.filter(r => r.result!.compliant).length;
+    doc.setFillColor(240, 248, 255);
+    doc.rect(15, 48, pageWidth - 30, 20, "F");
+    doc.setDrawColor(59, 130, 246);
+    doc.rect(15, 48, pageWidth - 30, 20);
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary:", 20, 56);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Scenarios: ${data.length}`, 20, 62);
+    doc.text(`Code Compliant: ${compliantCount} (${Math.round(compliantCount/data.length*100)}%)`, 80, 62);
+    doc.text(`Non-Compliant: ${data.length - compliantCount}`, 140, 62);
+    
+    // Table
+    const tableData = data.map((row, index) => [
+      (index + 1).toString(),
+      row.stairType === "residential" ? "Residential" : "Commercial",
+      row.totalRise,
+      row.result!.numRisers.toString(),
+      row.result!.actualRiser,
+      row.result!.numTreads.toString(),
+      row.result!.treadDepth.toString(),
+      row.result!.totalRun,
+      row.result!.compliant ? "✓ Yes" : "✗ No"
+    ]);
+    
+    autoTable(doc, {
+      startY: 75,
+      head: [[
+        "#",
+        "Stair Type",
+        "Total Rise\n(mm)",
+        "Risers",
+        "Riser Ht\n(mm)",
+        "Treads",
+        "Tread Depth\n(mm)",
+        "Total Run\n(mm)",
+        "Compliant"
+      ]],
+      body: tableData,
+      theme: "striped",
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: "bold",
+        halign: "center"
+      },
+      bodyStyles: {
+        fontSize: 9,
+        halign: "center"
+      },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 15 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 25 },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 20, fontStyle: "bold" }
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 8 && data.section === "body") {
+          if (data.cell.raw === "✓ Yes") {
+            data.cell.styles.textColor = [34, 197, 94]; // Green
+          } else if (data.cell.raw === "✗ No") {
+            data.cell.styles.textColor = [239, 68, 68]; // Red
+          }
+        }
+      }
+    });
+    
+    // Code Requirements Section
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("NBC 2025 Code Requirements", 15, finalY);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const requirements = [
+      "Residential Stairs (Group C occupancies):",
+      "  • Maximum riser height: 200 mm",
+      "  • Minimum riser height: 125 mm",
+      "  • Minimum tread depth: 235 mm",
+      "  • Handrail height: 865-965 mm",
+      "",
+      "Commercial Stairs (All other occupancies):",
+      "  • Maximum riser height: 180 mm",
+      "  • Minimum riser height: 125 mm",
+      "  • Minimum tread depth: 280 mm",
+      "  • Handrail height: 865-920 mm"
+    ];
+    
+    let yPos = finalY + 8;
+    requirements.forEach(req => {
+      doc.text(req, 15, yPos);
+      yPos += 5;
+    });
+    
+    // Professional Stamp Area
+    const stampY = pageHeight - 50;
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(15, stampY, 80, 35);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Professional Stamp/Seal", 55, stampY + 18, { align: "center" });
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      "This calculation is based on NBC 2025 requirements. Verify with local authorities having jurisdiction.",
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: "center" }
+    );
+    
+    doc.save(`Batch_Stair_Design_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success("Exported to PDF successfully");
+  };
+
   const exportToExcel = () => {
     const data = rows
       .filter(row => row.result)
@@ -141,15 +293,26 @@ export function BatchStairCalculator() {
               Calculate All
             </Button>
             {hasResults && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={exportToExcel}
-                className="gap-2"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Export Excel
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToPDF}
+                  className="gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export PDF
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={exportToExcel}
+                  className="gap-2"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Export Excel
+                </Button>
+              </>
             )}
           </div>
         </div>
