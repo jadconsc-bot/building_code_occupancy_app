@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,16 +123,17 @@ export function StairDesignCalculator() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="total-rise" className="text-sm font-medium">
-              Total Rise (mm) <span className="text-destructive">*</span>
-            </Label>
-            <Input
+          <div>
+            <NumericInput
               id="total-rise"
-              type="number"
+              label="Total Rise"
               placeholder="e.g., 2700"
               value={totalRise}
               onChange={(e) => setTotalRise(e.target.value)}
+              min="1000"
+              max="10000"
+              unit="mm"
+              showValidation={true}
             />
           </div>
         </div>

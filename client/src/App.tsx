@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 import Home from "./pages/Home";
 
 function Router() {
@@ -36,6 +37,7 @@ function App() {
           <ComparisonProvider>
             <TooltipProvider>
               <Toaster />
+              <OfflineIndicator />
               <Router />
             </TooltipProvider>
           </ComparisonProvider>
