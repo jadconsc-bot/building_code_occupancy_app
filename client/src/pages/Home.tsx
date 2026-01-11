@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -59,6 +59,7 @@ import { ThermalResistanceCalculator } from "@/components/ThermalResistanceCalcu
 import { VentilationRateCalculator } from "@/components/VentilationRateCalculator";
 import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
 import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
+import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -72,7 +73,10 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
-  const [activeTab, setActiveTab] = useState("building");
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("active_tab");
+    return saved || "building";
+  });
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem("occupancy_bookmarks");
     return saved ? JSON.parse(saved) : [];
@@ -110,6 +114,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("occupancy_notes", JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem("active_tab", activeTab);
+  }, [activeTab]);
 
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
@@ -322,9 +330,9 @@ export default function Home() {
       }
 
       // Tab switching with numbers
-      if (e.key >= "1" && e.key <= "6" && (e.ctrlKey || e.metaKey)) {
+      if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -661,6 +669,7 @@ export default function Home() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Main Tabs</div>
                     <SelectItem value="building">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4" /> Building Code
@@ -686,9 +695,16 @@ export default function Home() {
                         <Leaf className="w-4 h-4" /> Sustainability
                       </div>
                     </SelectItem>
+                    <div className="h-px bg-border my-1"></div>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Design Tools</div>
                     <SelectItem value="fire-safety">
                       <div className="flex items-center gap-2">
                         <Flame className="w-4 h-4" /> Fire & Life Safety
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="design-tools">
+                      <div className="flex items-center gap-2">
+                        <Calculator className="w-4 h-4" /> Design Tools
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -1767,6 +1783,16 @@ export default function Home() {
                       <EnergyCodeCalculator />
                       <PlumbingFixtureCalculator />
                     </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <FileImage className="w-5 h-5" /> AI-Powered Plan Analysis
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Upload architectural plans (floor plans, elevations, site plans) to automatically detect NBC 2025 code infractions using AI vision analysis. Get instant feedback on compliance issues with specific code references and recommendations.
+                    </p>
+                    <PlanAnalyzer />
                   </section>
                 </div>
               </TabsContent>
