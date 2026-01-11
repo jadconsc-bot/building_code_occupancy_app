@@ -696,7 +696,7 @@ export default function Home() {
               </div>
 
               {/* Desktop Horizontal Tabs */}
-              <TabsList className="hidden md:flex w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+              <TabsList className="hidden md:flex max-w-[75%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"

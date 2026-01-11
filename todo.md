@@ -722,3 +722,54 @@
 ✓ All NBC formula validations correct
 ✓ No TypeScript errors
 ✓ Dev server running successfully
+
+
+## Phase 4: Layout Fix & Advanced Features
+
+### Layout Improvements
+- [x] Fix tab width - make plumbing, electrical, fire safety tabs 25% narrower
+- [ ] Verify no horizontal overflow on all screen sizes
+- [ ] Test responsive behavior on mobile devices
+
+### PDF Report Generation
+- [x] Create PDF report template with professional formatting
+- [x] Add project details section (name, address, date, engineer)
+- [x] Include calculator inputs and results
+- [x] Add NBC code references for each calculation
+- [x] Include signature block for engineer/architect
+- [ ] Add company logo and branding options
+- [x] Implement "Generate PDF Report" button in CalculatorActions
+
+### Calculator Comparison Mode
+- [ ] Create comparison UI component
+- [ ] Allow side-by-side scenario comparison (2-4 scenarios)
+- [ ] Add comparison table showing key differences
+- [ ] Highlight optimal solution based on criteria
+- [ ] Support comparison for all 12 calculators
+- [ ] Add "Compare Scenarios" button to calculators
+- [ ] Save comparison results to presets
+
+### Interactive NBC Code Browser
+- [ ] Create NBC code database/index
+- [ ] Build searchable code browser component
+- [ ] Add bookmarking functionality
+- [ ] Implement text highlighting
+- [ ] Create direct links from calculator results to code sections
+- [ ] Add "View NBC Reference" links in calculator results
+- [ ] Support keyword search across all NBC sections
+- [ ] Add recent searches and frequently accessed sections
+
+
+## ✅ Phase 4 Completion Summary (Tab Fix + PDF Reports)
+
+**Completed:**
+- Fixed tab width issue - reduced horizontal space by 25% to prevent overflow
+- Implemented professional PDF report generation with jsPDF
+- Created comprehensive project details dialog for reports
+- Added NBC references, code requirements, and signature blocks to PDFs
+- Integrated PDF generation into CalculatorActions component
+- All 12 calculators now support PDF export with professional formatting
+
+**Next Session (Planned):**
+- Calculator Comparison Mode (side-by-side scenario analysis)
+- Interactive NBC Code Browser (searchable, bookmarkable code reference)
