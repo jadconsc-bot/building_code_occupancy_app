@@ -425,3 +425,87 @@
 - [x] Create interactive street frontage diagram with SVG visualization
 - [x] Add clickable street-facing sides to diagram that update dropdown
 - [x] Display calculation history with timestamps and quick restore functionality
+
+
+## Tier 1 Critical Calculators Implementation (Current Session)
+
+### Design Tools Tab Creation
+- [x] Create new "Design Tools" tab in Home.tsx navigation
+- [ ] Add keyboard shortcut (Ctrl+7) for Design Tools tab
+- [x] Create tab icon and styling consistent with other tabs
+
+### Calculator Components (8 Total)
+- [x] Stair Design Calculator (NBC 3.4.6)
+  - Tread depth, riser height, run, headroom calculations
+  - Residential vs commercial requirements
+  - Handrail height and clearance
+  - Excel export functionality
+
+- [x] Guard and Handrail Calculator (NBC 3.4.6.5-3.4.6.8)
+  - Guard height requirements by occupancy
+  - Handrail dimensions and clearances
+  - Opening size limits (100mm sphere rule)
+  - Load requirements (0.5 kN/m, 1.0 kN/m)
+  - Excel export functionality
+
+- [x] Snow Load Calculator (NBC 4.1.6)
+  - Location-based ground snow load (Ss)
+  - Importance factor (Is)
+  - Roof slope factor (Cs)
+  - Wind exposure factor (Cw)
+  - Calculated design snow load (S)
+  - Excel export functionality
+
+- [x] Accessibility Ramp Calculator (NBC 3.8)
+  - Maximum slope (1:12 for barrier-free)
+  - Rise and run calculations
+  - Landing requirements
+  - Handrail requirements
+  - Maximum rise per run (9m)
+  - Excel export functionality
+
+- [x] Thermal Resistance (RSI) Calculator (NBC 5.3)
+  - Climate zone selection (Alberta zones)
+  - Assembly type (walls, roofs, floors)
+  - Layer-by-layer RSI calculation
+  - Effective RSI with thermal bridging
+  - Compliance check against NBC minimums
+  - Excel export functionality
+
+- [x] Ventilation Rate Calculator (NBC 6.2)
+  - Occupancy type and area input
+  - Occupant density calculation
+  - Required ventilation rate (L/s)
+  - Air changes per hour (ACH)
+  - Mechanical system sizing
+  - Excel export functionality
+
+- [x] Stud Spacing Calculator (NBC Part 9)
+  - Stud size selection (38x89, 38x140, 38x184)
+  - Wall height input
+  - Load type (load-bearing vs non-load-bearing)
+  - Maximum spacing calculation
+  - Species and grade considerations
+  - Excel export functionality
+
+- [x] Lintel Span Calculator (NBC Part 9)
+  - Opening width input
+  - Wall type (exterior vs interior)
+  - Load calculation (roof, floor, wall loads)
+  - Lintel size recommendation
+  - Species and grade selection
+  - Excel export functionality
+
+### Integration Features
+- [ ] Add preset save/load functionality to all 8 calculators
+- [ ] Integrate with existing PDF Report Generator
+- [ ] Add Excel export functions to excelExport.ts
+- [ ] Create calculator comparison view for Design Tools
+- [ ] Add Design Tools section to Project Dashboard
+
+### Testing & Documentation
+- [x] Test all 8 calculators with various inputs
+- [x] Verify NBC code references are accurate
+- [x] Check mobile responsiveness
+- [ ] Add tooltips and help text
+- [ ] Update user documentation

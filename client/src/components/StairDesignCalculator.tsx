@@ -1,0 +1,165 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calculator, AlertCircle, CheckCircle2 } from "lucide-react";
+
+export function StairDesignCalculator() {
+  const [stairType, setStairType] = useState<string>("residential");
+  const [totalRise, setTotalRise] = useState<string>("");
+  const [results, setResults] = useState<any>(null);
+
+  const calculateStairs = () => {
+    const rise = parseFloat(totalRise);
+    if (isNaN(rise) || rise <= 0) return;
+
+    // NBC 3.4.6 requirements
+    const requirements = stairType === "residential" 
+      ? { minTread: 235, maxRiser: 200, minRiser: 125, minHeadroom: 1950 }
+      : { minTread: 280, maxRiser: 180, minRiser: 125, minHeadroom: 2050 };
+
+    // Calculate number of risers (round up)
+    const numRisers = Math.ceil(rise / requirements.maxRiser);
+    
+    // Calculate actual riser height
+    const actualRiser = rise / numRisers;
+    
+    // Number of treads is one less than risers
+    const numTreads = numRisers - 1;
+    
+    // Calculate total run
+    const totalRun = numTreads * requirements.minTread;
+    
+    // Handrail height (NBC 3.4.6.5)
+    const handrailHeight = stairType === "residential" ? "865-965mm" : "865-920mm";
+
+    // Check compliance
+    const compliant = actualRiser >= requirements.minRiser && actualRiser <= requirements.maxRiser;
+
+    setResults({
+      numRisers,
+      actualRiser: actualRiser.toFixed(1),
+      numTreads,
+      treadDepth: requirements.minTread,
+      totalRun: totalRun.toFixed(0),
+      headroom: requirements.minHeadroom,
+      handrailHeight,
+      compliant,
+      requirements
+    });
+  };
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
+        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+          <Calculator className="w-4 h-4 text-primary" /> Stair Design Calculator
+        </CardTitle>
+        <CardDescription className="text-xs">
+          NBC 3.4.6 - Calculate stair dimensions and verify code compliance
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="stair-type" className="text-sm font-medium">
+              Stair Type <span className="text-destructive">*</span>
+            </Label>
+            <Select value={stairType} onValueChange={setStairType}>
+              <SelectTrigger id="stair-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="residential">Residential (Group C)</SelectItem>
+                <SelectItem value="commercial">Commercial/Assembly (Group A, D, E, F)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="total-rise" className="text-sm font-medium">
+              Total Rise (mm) <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="total-rise"
+              type="number"
+              placeholder="e.g., 2700"
+              value={totalRise}
+              onChange={(e) => setTotalRise(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <Button 
+          onClick={calculateStairs} 
+          className="w-full bg-primary hover:bg-primary/90"
+          disabled={!totalRise}
+        >
+          Calculate Stair Dimensions
+        </Button>
+
+        {results && (
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-border">
+              {results.compliant ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-destructive" />
+              )}
+              <span className="font-bold text-sm">
+                {results.compliant ? "Code Compliant" : "Non-Compliant - Adjust Design"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Number of Risers</p>
+                <p className="text-lg font-bold text-primary">{results.numRisers}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Riser Height</p>
+                <p className="text-lg font-bold text-primary">{results.actualRiser} mm</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Number of Treads</p>
+                <p className="text-lg font-bold text-primary">{results.numTreads}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Tread Depth (min)</p>
+                <p className="text-lg font-bold text-primary">{results.treadDepth} mm</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Total Run</p>
+                <p className="text-lg font-bold text-primary">{results.totalRun} mm</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Min Headroom</p>
+                <p className="text-lg font-bold text-primary">{results.headroom} mm</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded">
+              <p className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Handrail Requirements (NBC 3.4.6.5)</p>
+              <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                <li>• Height: {results.handrailHeight}</li>
+                <li>• Clearance: 50mm min from wall</li>
+                <li>• Graspable diameter: 30-43mm</li>
+                <li>• Required: Both sides if width &gt; 1100mm</li>
+              </ul>
+            </div>
+
+            <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
+              <p><strong>NBC Reference:</strong> 3.4.6.4 - Risers and Treads</p>
+              <p><strong>Max Riser:</strong> {results.requirements.maxRiser}mm</p>
+              <p><strong>Min Tread:</strong> {results.requirements.minTread}mm</p>
+              <p><strong>Tolerance:</strong> ±5mm between consecutive risers/treads</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

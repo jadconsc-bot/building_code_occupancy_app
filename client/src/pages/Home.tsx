@@ -47,6 +47,14 @@ import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
+import { StairDesignCalculator } from "@/components/StairDesignCalculator";
+import { GuardHandrailCalculator } from "@/components/GuardHandrailCalculator";
+import { SnowLoadCalculator } from "@/components/SnowLoadCalculator";
+import { AccessibilityRampCalculator } from "@/components/AccessibilityRampCalculator";
+import { ThermalResistanceCalculator } from "@/components/ThermalResistanceCalculator";
+import { VentilationRateCalculator } from "@/components/VentilationRateCalculator";
+import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
+import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -720,6 +728,12 @@ export default function Home() {
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
                 >
                   <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="design-tools" 
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                >
+                  <Calculator className="w-4 h-4 mr-2" /> Design Tools
                 </TabsTrigger>
               </TabsList>
 
@@ -1698,6 +1712,40 @@ export default function Home() {
                       <BarrierFreeCalculator />
                       <FireAlarmCalculator />
                       <EmergencyLightingCalculator />
+                    </div>
+                  </section>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="design-tools" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Calculator className="w-5 h-5" /> NBC 2025 Design Tools - Tier 1 Critical Calculators
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Essential design calculators covering stairs, guards, structural loads, accessibility, thermal performance, and ventilation. These Tier 1 tools address the most frequently used NBC 2025 requirements for residential and commercial projects.
+                    </p>
+                    <div className="space-y-6">
+                      <StairDesignCalculator />
+                      <GuardHandrailCalculator />
+                      <SnowLoadCalculator />
+                      <AccessibilityRampCalculator />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Building2 className="w-5 h-5" /> Building Envelope & Systems
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Thermal performance, ventilation, and structural framing calculators for building envelope design and mechanical systems sizing.
+                    </p>
+                    <div className="space-y-6">
+                      <ThermalResistanceCalculator />
+                      <VentilationRateCalculator />
+                      <StudSpacingCalculator />
+                      <LintelSpanCalculator />
                     </div>
                   </section>
                 </div>
