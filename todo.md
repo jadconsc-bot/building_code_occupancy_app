@@ -819,3 +819,12 @@
 - Visual markers highlight infractions directly on plans
 - Each infraction includes severity, code reference, location, and recommendations
 - Compliance score calculated based on detected issues
+
+
+## Mobile UI Fixes (Urgent)
+- [x] Fix Design Tools tab not visible in mobile dropdown (already visible, verified)
+- [x] Fix calculator action buttons overlapping on mobile
+- [x] Fix calculator action buttons overflowing right on mobile
+- [x] Ensure all tabs are accessible on mobile
+- [x] Test mobile navigation flow
+- [x] Verify all calculator controls are usable on mobile

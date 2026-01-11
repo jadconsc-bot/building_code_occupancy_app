@@ -98,13 +98,13 @@ export function CalculatorActions({
   };
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex flex-col sm:flex-row gap-2">
       {/* Save Preset */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="flex items-center gap-2 w-full sm:w-auto justify-center">
             <Save className="w-4 h-4" />
-            <span className="hidden sm:inline">Save Preset</span>
+            <span>Save Preset</span>
           </Button>
         </DialogTrigger>
         <DialogContent>
@@ -140,9 +140,9 @@ export function CalculatorActions({
       {presets.length > 0 && (
         <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="flex items-center gap-2 w-full sm:w-auto justify-center">
               <FolderOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Load Preset</span>
+              <span>Load Preset</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -192,10 +192,10 @@ export function CalculatorActions({
           onClick={handleExport}
           variant="outline"
           size="sm"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Download className="w-4 h-4" />
-          <span className="hidden sm:inline">Export Excel</span>
+          <span>Export Excel</span>
         </Button>
       )}
 
@@ -203,9 +203,9 @@ export function CalculatorActions({
       {hasResults && pdfData && (
         <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
           <DialogTrigger asChild>
-            <Button variant="default" size="sm" className="flex items-center gap-2">
+            <Button variant="default" size="sm" className="flex items-center gap-2 w-full sm:w-auto justify-center">
               <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">PDF Report</span>
+              <span>PDF Report</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
