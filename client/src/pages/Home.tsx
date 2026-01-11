@@ -48,6 +48,10 @@ import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorCheck
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
+import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
+import { LateralLoadCalculator } from "@/components/LateralLoadCalculator";
+import { EnergyCodeCalculator } from "@/components/EnergyCodeCalculator";
+import { PlumbingFixtureCalculator } from "@/components/PlumbingFixtureCalculator";
 import { GuardHandrailCalculator } from "@/components/GuardHandrailCalculator";
 import { SnowLoadCalculator } from "@/components/SnowLoadCalculator";
 import { AccessibilityRampCalculator } from "@/components/AccessibilityRampCalculator";
@@ -1746,6 +1750,21 @@ export default function Home() {
                       <VentilationRateCalculator />
                       <StudSpacingCalculator />
                       <LintelSpanCalculator />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Layers className="w-5 h-5" /> Tier 2: Advanced Design Calculators
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Professional-grade calculators for foundation design, lateral loads, energy code compliance, and plumbing systems. These tools support detailed design and engineering analysis.
+                    </p>
+                    <div className="space-y-6">
+                      <FoundationDesignCalculator />
+                      <LateralLoadCalculator />
+                      <EnergyCodeCalculator />
+                      <PlumbingFixtureCalculator />
                     </div>
                   </section>
                 </div>

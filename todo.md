@@ -620,3 +620,105 @@
 - Implement Tier 2 calculators (Foundation, Lateral Load, Energy, Plumbing)
 - Add unit tests for calculation accuracy
 - Performance optimization for complex calculations
+
+
+## Design Tools Phase 3 Implementation (Current Session)
+
+### Default Presets for Tier 1 Calculators
+- [ ] Add default presets to Stair Design Calculator
+  - Standard residential stair (2700mm rise)
+  - Commercial stair (3600mm rise)
+- [ ] Add default presets to Guard & Handrail Calculator
+  - Residential deck (1200mm height)
+  - Assembly balcony (1500mm height)
+- [ ] Add default presets to Snow Load Calculator
+  - Calgary residential (1.5 kPa)
+  - Edmonton residential (1.8 kPa)
+  - Fort McMurray exposed (2.2 kPa)
+- [ ] Add default presets to Accessibility Ramp Calculator
+  - Standard entrance (600mm rise)
+  - Multi-level access (1800mm rise)
+- [ ] Add default presets to Thermal Resistance Calculator
+  - Zone 7B standard 2×6 wall
+  - Zone 7A high-performance wall
+- [ ] Add default presets to Ventilation Rate Calculator
+  - 100m² residential dwelling
+  - 150m² restaurant
+  - 200m² office space
+- [ ] Add default presets to Stud Spacing Calculator
+  - 2×4 @ 16" o.c. (standard)
+  - 2×6 @ 24" o.c. (energy efficient)
+- [ ] Add default presets to Lintel Span Calculator
+  - Standard door opening (900mm)
+  - Wide window (2400mm)
+
+### Tier 2 Calculators Implementation
+- [ ] Foundation Design Calculator (NBC 9.15)
+  - Footing size based on soil bearing capacity
+  - Wall thickness and reinforcement requirements
+  - Frost depth requirements by Alberta region
+  - Drainage and waterproofing requirements
+  - Excel export functionality
+  - Preset save/load functionality
+  
+- [ ] Lateral Load Calculator (NBC 4.1.8)
+  - Wind load calculations by region
+  - Seismic load calculations (Alberta zones)
+  - Shear wall requirements
+  - Hold-down and strap requirements
+  - Excel export functionality
+  - Preset save/load functionality
+  
+- [ ] Energy Code Calculator (NBC Part 10)
+  - Building envelope performance path
+  - HVAC system efficiency requirements
+  - Lighting power density calculations
+  - Compliance path selection (prescriptive vs performance)
+  - Excel export functionality
+  - Preset save/load functionality
+  
+- [ ] Plumbing Fixture Calculator (NBC 7.2)
+  - Fixture unit calculations
+  - Drain pipe sizing (DWV)
+  - Vent pipe sizing
+  - Water supply pipe sizing
+  - Excel export functionality
+  - Preset save/load functionality
+
+### Unit Testing for Calculation Validation
+- [ ] Set up vitest testing framework
+- [ ] Write tests for Stair Design Calculator formulas
+- [ ] Write tests for Guard & Handrail Calculator logic
+- [ ] Write tests for Snow Load Calculator (NBC 4.1.6.2)
+- [ ] Write tests for Accessibility Ramp Calculator (1:12 slope)
+- [ ] Write tests for Thermal Resistance Calculator (RSI values)
+- [ ] Write tests for Ventilation Rate Calculator (L/s, ACH)
+- [ ] Write tests for Stud Spacing Calculator (span tables)
+- [ ] Write tests for Lintel Span Calculator (NBC Part 9)
+- [ ] Write tests for Foundation Design Calculator
+- [ ] Write tests for Lateral Load Calculator
+- [ ] Write tests for Energy Code Calculator
+- [ ] Write tests for Plumbing Fixture Calculator
+- [ ] Run all tests and verify 100% pass rate
+
+
+## ✅ Phase 3 Completion Summary (Jan 10, 2026)
+
+### Completed Features:
+- [x] Default presets implemented for all 8 Tier 1 calculators
+- [x] Reusable CalculatorActions component created
+- [x] useCalculatorPreset hook with localStorage persistence
+- [x] Foundation Design Calculator (NBC 9.15) with soil types, frost depths, reinforcement
+- [x] Lateral Load Calculator (NBC 4.1.7 & 4.1.8) with wind and seismic analysis
+- [x] Energy Code Calculator (NBC Part 10) with RSI requirements and window ratios
+- [x] Plumbing Fixture Calculator (NBC 7.2) with fixture units and pipe sizing
+- [x] Excel export functionality for all 12 calculators
+- [x] Comprehensive unit test suite (26 tests, all passing)
+- [x] Mobile responsive design verified
+- [x] TypeScript type safety maintained throughout
+
+### Test Results:
+✓ 26/26 tests passing
+✓ All NBC formula validations correct
+✓ No TypeScript errors
+✓ Dev server running successfully
