@@ -41,7 +41,7 @@ import { ConstructionTypeSelector } from "@/components/ConstructionTypeSelector"
 import { ConstructionLimitsCalculator } from "@/components/ConstructionLimitsCalculator";
 import { BarrierFreeCalculator } from "@/components/BarrierFreeCalculator";
 import { FireAlarmCalculator } from "@/components/FireAlarmCalculator";
-import { EmergencyLightingCalculator } from "@/components/EmergencyLightingCalculator";
+import { EmergencyLightingCalculator } from '@/components/EmergencyLightingCalculator';
 import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
