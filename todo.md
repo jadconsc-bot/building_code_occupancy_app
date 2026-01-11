@@ -773,3 +773,10 @@
 **Next Session (Planned):**
 - Calculator Comparison Mode (side-by-side scenario analysis)
 - Interactive NBC Code Browser (searchable, bookmarkable code reference)
+
+
+## Tab Overflow Fix (Urgent)
+- [x] Fix Fire Safety and Design Tools tabs overflowing container
+- [x] Reduce tab padding or font size to fit all tabs (px-6→px-4, text-sm→text-xs, 75%→65%)
+- [x] Test on various screen sizes (1920px, 1440px, 1366px)
+- [x] Ensure responsive behavior on smaller screens
