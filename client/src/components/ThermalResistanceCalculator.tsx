@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 interface Layer {
   id: string;
@@ -117,12 +118,47 @@ export function ThermalResistanceCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Thermometer className="w-4 h-4 text-primary" /> Thermal Resistance (RSI) Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC 5.3 - Calculate effective thermal resistance for building assemblies
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Thermometer className="w-4 h-4 text-primary" /> Thermal Resistance (RSI) Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC 5.3 - Calculate effective thermal resistance for building assemblies
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="thermal_resistance"
+            calculatorName="Thermal Resistance"
+            exportData={() => ({
+              filename: `Thermal_Resistance_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Thermal Resistance",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Climate Zone", climateZone],
+                ["Assembly Type", assemblyType],
+                ["", ""],
+                ["Layer Details", ""],
+                ...layers.map((layer, idx) => [`Layer ${idx + 1}`, `${layer.material} - ${layer.thickness}mm - RSI ${layer.rValue.toFixed(2)}`]),
+                ["", ""],
+                ["Total RSI (Nominal)", results.totalRSI],
+                ["Effective RSI", results.effectiveRSI],
+                ["Minimum Required", results.minRequired],
+                ["Compliant", results.compliant ? "Yes" : "No"],
+                ["Margin", `${results.margin} RSI`],
+                ["", ""],
+                ["NBC Reference", "5.3 - Thermal Insulation"],
+              ] : []
+            })}
+            currentState={{ climateZone, assemblyType, layers }}
+            onLoadPreset={(data) => {
+              setClimateZone(data.climateZone);
+              setAssemblyType(data.assemblyType);
+              setLayers(data.layers);
+            }}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

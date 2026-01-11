@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accessibility, AlertCircle, CheckCircle2 } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function AccessibilityRampCalculator() {
   const [rise, setRise] = useState<string>("");
@@ -62,12 +63,44 @@ export function AccessibilityRampCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Accessibility className="w-4 h-4 text-primary" /> Accessibility Ramp Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC 3.8.3 - Calculate barrier-free ramp dimensions and landing requirements
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Accessibility className="w-4 h-4 text-primary" /> Accessibility Ramp Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC 3.8.3 - Calculate barrier-free ramp dimensions and landing requirements
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="accessibility_ramp"
+            calculatorName="Accessibility Ramp"
+            exportData={() => ({
+              filename: `Accessibility_Ramp_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Accessibility Ramp",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Total Rise", `${rise} mm`],
+                ["Maximum Slope", results.slope],
+                ["Minimum Run", `${results.minRun} mm`],
+                ["Number of Runs", results.numRuns],
+                ["Rise Per Section", `${results.actualRisePerRun} mm`],
+                ["Run Length Per Section", `${results.runLengthPerSection} mm`],
+                ["Number of Landings", results.numLandings],
+                ["Total Horizontal Distance", `${results.totalHorizontal} mm`],
+                ["Handrail Height", results.handrailHeight],
+                ["Handrail Extension", results.handrailExtension],
+                ["Edge Protection", results.edgeProtection],
+                ["Compliant", results.compliant ? "Yes" : "No"],
+                ["", ""],
+                ["NBC Reference", "3.8.3 - Barrier-Free Ramps"],
+              ] : []
+            })}
+            currentState={{ rise }}
+            onLoadPreset={(data) => setRise(data.rise)}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="space-y-2">

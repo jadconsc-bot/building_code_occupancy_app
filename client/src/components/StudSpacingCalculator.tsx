@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Columns, AlertCircle, CheckCircle2 } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function StudSpacingCalculator() {
   const [studSize, setStudSize] = useState<string>("38x140");
@@ -67,12 +68,42 @@ export function StudSpacingCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Columns className="w-4 h-4 text-primary" /> Stud Spacing Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC Part 9 Table 9.23.4.1 - Determine maximum stud spacing for wood-frame walls
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Columns className="w-4 h-4 text-primary" /> Stud Spacing Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC Part 9 Table 9.23.4.1 - Determine maximum stud spacing for wood-frame walls
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="stud_spacing"
+            calculatorName="Stud Spacing"
+            exportData={() => ({
+              filename: `Stud_Spacing_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Stud Spacing",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Stud Size", results.studSizeDisplay],
+                ["Wall Height", `${results.wallHeightDisplay} mm`],
+                ["Grade Note", results.gradeNote],
+                ["", ""],
+                ["Maximum Spacing", typeof results.maxSpacing === 'number' ? `${results.maxSpacing} mm` : results.maxSpacing],
+                ["Number of Studs", results.numStuds],
+                ["Compliant", results.compliant ? "Yes" : "No"],
+                ["", ""],
+                ["NBC Reference", "Part 9 Table 9.23.4.1 - Stud Spacing"],
+              ] : []
+            })}
+            currentState={{ studSize, wallHeight }}
+            onLoadPreset={(data) => {
+              setStudSize(data.studSize);
+              setWallHeight(data.wallHeight);
+            }}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

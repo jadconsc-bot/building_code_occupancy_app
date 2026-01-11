@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CloudSnow, AlertCircle } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function SnowLoadCalculator() {
   const [location, setLocation] = useState<string>("calgary");
@@ -84,12 +85,51 @@ export function SnowLoadCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <CloudSnow className="w-4 h-4 text-primary" /> Snow Load Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC 4.1.6 - Calculate design snow load for roof structures
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <CloudSnow className="w-4 h-4 text-primary" /> Snow Load Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC 4.1.6 - Calculate design snow load for roof structures
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="snow_load"
+            calculatorName="Snow Load"
+            exportData={() => ({
+              filename: `Snow_Load_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Snow Load",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Location", results.location],
+                ["Roof Type", roofType === "sloped" ? "Sloped Roof" : "Flat Roof"],
+                ["Roof Slope", `${roofSlope} degrees`],
+                ["Importance Category", importance],
+                ["Wind Exposure", exposure],
+                ["", ""],
+                ["Ground Snow Load (Ss)", `${results.Ss} kPa`],
+                ["Importance Factor (Is)", results.Is],
+                ["Slope Factor (Cs)", results.Cs],
+                ["Wind Exposure Factor (Cw)", results.Cw],
+                ["Basic Snow Load (Sr)", `${results.Sr} kPa`],
+                ["Rain Load", `${results.rainLoad} kPa`],
+                ["Total Design Load", `${results.totalLoad} kPa`],
+                ["", ""],
+                ["NBC Reference", "4.1.6.2 - Snow Load"],
+              ] : []
+            })}
+            currentState={{ location, roofType, roofSlope, importance, exposure }}
+            onLoadPreset={(data) => {
+              setLocation(data.location);
+              setRoofType(data.roofType);
+              setRoofSlope(data.roofSlope);
+              setImportance(data.importance);
+              setExposure(data.exposure);
+            }}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

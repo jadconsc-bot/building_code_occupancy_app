@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Minus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function LintelSpanCalculator() {
   const [openingWidth, setOpeningWidth] = useState<string>("");
@@ -98,12 +99,47 @@ export function LintelSpanCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Minus className="w-4 h-4 text-primary" /> Lintel Span Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC Part 9 Table 9.23.4.5 - Determine required lintel size for openings
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Minus className="w-4 h-4 text-primary" /> Lintel Span Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC Part 9 Table 9.23.4.5 - Determine required lintel size for openings
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="lintel_span"
+            calculatorName="Lintel Span"
+            exportData={() => ({
+              filename: `Lintel_Span_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Lintel Span",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Opening Width", `${results.openingWidth} mm`],
+                ["Floors Above", floorsAbove],
+                ["Roof Load", roofLoad === "yes" ? "Yes" : "No"],
+                ["", ""],
+                ["Required Lintel Size", results.lintelSize],
+                ["Load Factor", results.loadFactor],
+                ["Minimum Bearing", `${results.minBearing} mm`],
+                ["Total Length", `${results.totalLength} mm`],
+                ["Approximate Weight", results.weight !== "N/A" ? `${results.weight} kg` : "N/A"],
+                ["", ""],
+                ["NBC Reference", "Part 9 Table 9.23.4.5 - Lintel Spans"],
+              ] : []
+            })}
+            currentState={{ openingWidth, wallType, floorsAbove, roofLoad, species }}
+            onLoadPreset={(data) => {
+              setOpeningWidth(data.openingWidth);
+              setWallType(data.wallType);
+              setFloorsAbove(data.floorsAbove);
+              setRoofLoad(data.roofLoad);
+              setSpecies(data.species);
+            }}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

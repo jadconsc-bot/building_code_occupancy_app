@@ -509,3 +509,114 @@
 - [x] Check mobile responsiveness
 - [ ] Add tooltips and help text
 - [ ] Update user documentation
+
+
+## Design Tools Enhancement (Current Session - Phase 2)
+
+### Excel Export Implementation
+- [x] Add Excel export to Stair Design Calculator
+- [x] Add Excel export to Guard & Handrail Calculator
+- [x] Add Excel export to Snow Load Calculator
+- [x] Add Excel export to Accessibility Ramp Calculator
+- [x] Add Excel export to Thermal Resistance Calculator
+- [x] Add Excel export to Ventilation Rate Calculator
+- [x] Add Excel export to Stud Spacing Calculator
+- [x] Add Excel export to Lintel Span Calculator
+- [x] Create shared Excel export utility function for calculators (CalculatorActions component)
+- [x] Include NBC references and calculation details in exports
+
+### Calculator Presets System
+- [x] Create preset storage system using localStorage (useCalculatorPreset hook)
+- [x] Add "Save Preset" button to all 8 calculators
+- [x] Add "Load Preset" dropdown to all 8 calculators
+- [x] Create preset management UI (view, delete, rename)
+- [ ] Add default presets for common scenarios:
+  - Standard residential stair (2700mm rise)
+  - Calgary snow load (typical residential)
+  - 2×6 wall @ 16" o.c. (standard framing)
+  - Barrier-free ramp (600mm rise)
+  - Zone 7A wall assembly (R-20)
+  - Residential ventilation (100m² dwelling)
+
+### Tier 2 Calculators Implementation
+- [ ] Foundation Design Calculator (NBC 9.15)
+  - Footing size based on soil bearing capacity
+  - Wall thickness and reinforcement
+  - Frost depth requirements by region
+  - Drainage and waterproofing requirements
+  
+- [ ] Lateral Load Calculator (NBC 4.1.8)
+  - Wind load calculations
+  - Seismic load calculations
+  - Shear wall requirements
+  - Hold-down and strap requirements
+  
+- [ ] Energy Code Calculator (NBC Part 10)
+  - Building envelope performance
+  - HVAC system efficiency
+  - Lighting power density
+  - Compliance path selection
+  
+- [ ] Plumbing Fixture Calculator (NBC 7.2)
+  - Fixture unit calculations
+  - Drain pipe sizing
+  - Vent pipe sizing
+  - Water supply pipe sizing
+
+### Mobile Optimization
+- [ ] Review all calculator layouts on mobile devices
+- [ ] Optimize form field sizes for touch input
+- [ ] Ensure dropdowns work properly on mobile
+- [ ] Test calculator results display on small screens
+- [ ] Optimize button sizes and spacing for touch
+- [ ] Add mobile-friendly input methods (number pads)
+- [ ] Test scrolling and navigation on mobile
+- [ ] Ensure all text is readable without zooming
+
+### Thorough Testing
+- [ ] Test all 8 Tier 1 calculators with various inputs
+- [ ] Verify calculation accuracy against NBC tables
+- [ ] Test edge cases and boundary conditions
+- [ ] Test Excel export functionality
+- [ ] Test preset save/load functionality
+- [ ] Test mobile responsiveness on multiple devices
+- [ ] Test dark mode compatibility
+- [ ] Verify all NBC references are accurate
+- [ ] Test keyboard navigation and accessibility
+- [ ] Performance testing with multiple calculators open
+
+
+### Mobile Optimization & Testing (Completed)
+- [x] Verify responsive design on mobile viewports (375×667, 375×812)
+- [x] Test touch-friendly inputs and dropdowns
+- [x] Verify CalculatorActions component mobile layout
+- [x] Confirm grid layouts stack properly on mobile (grid-cols-1)
+- [x] Test full-width calculate buttons on mobile
+- [x] Verify card spacing and padding on small screens
+- [x] Create comprehensive testing guide (CALCULATOR_TESTING_GUIDE.md)
+- [x] Document all 8 calculator test cases with NBC references
+- [x] Create mobile testing summary (MOBILE_TESTING.md)
+
+### Implementation Summary (Current Session)
+**Completed**: All 8 Tier 1 Design Tools calculators now include:
+- ✅ Excel export functionality with NBC references
+- ✅ Save/Load preset functionality with localStorage
+- ✅ Mobile-responsive design (Tailwind responsive classes)
+- ✅ Professional UI with CalculatorActions component
+- ✅ TypeScript type safety and error handling
+- ✅ Real-time calculation updates
+- ✅ Compliance indicators and warnings
+- ✅ Comprehensive testing documentation
+
+**Files Created**:
+- `/home/ubuntu/building_code_occupancy_app/client/src/components/CalculatorActions.tsx`
+- `/home/ubuntu/building_code_occupancy_app/client/src/hooks/useCalculatorPreset.ts`
+- `/home/ubuntu/CALCULATOR_TESTING_GUIDE.md`
+- `/home/ubuntu/MOBILE_TESTING.md`
+- `/home/ubuntu/TESTING_SUMMARY.md`
+
+**Next Steps** (Future sessions):
+- Add default presets for common scenarios
+- Implement Tier 2 calculators (Foundation, Lateral Load, Energy, Plumbing)
+- Add unit tests for calculation accuracy
+- Performance optimization for complex calculations

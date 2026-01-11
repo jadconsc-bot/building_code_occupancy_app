@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wind, AlertCircle } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function VentilationRateCalculator() {
   const [occupancyType, setOccupancyType] = useState<string>("residential");
@@ -101,12 +102,46 @@ export function VentilationRateCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Wind className="w-4 h-4 text-primary" /> Ventilation Rate Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC 6.2 - Calculate required mechanical ventilation rates
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Wind className="w-4 h-4 text-primary" /> Ventilation Rate Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC 6.2 - Calculate required mechanical ventilation rates
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="ventilation_rate"
+            calculatorName="Ventilation Rate"
+            exportData={() => ({
+              filename: `Ventilation_Rate_${new Date().toISOString().split('T')[0]}`,
+              sheetName: "Ventilation Rate",
+              data: results ? [
+                ["Parameter", "Value"],
+                ["Occupancy Type", results.description],
+                ["Floor Area", `${floorArea} m²`],
+                ["Ceiling Height", `${ceilingHeight} m`],
+                ["Volume", `${results.volume} m³`],
+                ["Occupants", results.occupants],
+                ["", ""],
+                ["Ventilation Rate", `${results.ventilationRate} L/s`],
+                ["Air Changes Per Hour", `${results.ach} ACH`],
+                ["Per Person Rate", `${results.perPersonRate} L/s/person`],
+                ["Per Area Rate", `${results.perAreaRate} L/s/m²`],
+                ["", ""],
+                ["NBC Reference", "6.2.2.1 - Ventilation Requirements"],
+              ] : []
+            })}
+            currentState={{ occupancyType, floorArea, ceilingHeight }}
+            onLoadPreset={(data) => {
+              setOccupancyType(data.occupancyType);
+              setFloorArea(data.floorArea);
+              setCeilingHeight(data.ceilingHeight);
+            }}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

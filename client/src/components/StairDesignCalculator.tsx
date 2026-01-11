@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, AlertCircle, CheckCircle2 } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
 
 export function StairDesignCalculator() {
   const [stairType, setStairType] = useState<string>("residential");
@@ -52,15 +53,58 @@ export function StairDesignCalculator() {
     });
   };
 
+  const getExportData = () => {
+    if (!results) return { filename: "", sheetName: "", data: [] };
+    
+    return {
+      filename: `Stair_Design_${new Date().toISOString().split('T')[0]}`,
+      sheetName: "Stair Design",
+      data: [
+        ["Parameter", "Value"],
+        ["Stair Type", stairType === "residential" ? "Residential (Group C)" : "Commercial/Assembly"],
+        ["Total Rise", `${totalRise} mm`],
+        ["Number of Risers", results.numRisers],
+        ["Riser Height", `${results.actualRiser} mm`],
+        ["Number of Treads", results.numTreads],
+        ["Tread Depth", `${results.treadDepth} mm`],
+        ["Total Run", `${results.totalRun} mm`],
+        ["Min Headroom", `${results.headroom} mm`],
+        ["Handrail Height", results.handrailHeight],
+        ["Code Compliant", results.compliant ? "Yes" : "No"],
+        ["", ""],
+        ["NBC Reference", "3.4.6.4 - Risers and Treads"],
+        ["Max Riser", `${results.requirements.maxRiser} mm`],
+        ["Min Tread", `${results.requirements.minTread} mm`],
+      ],
+    };
+  };
+
+  const handleLoadPreset = (data: any) => {
+    setStairType(data.stairType);
+    setTotalRise(data.totalRise);
+  };
+
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Calculator className="w-4 h-4 text-primary" /> Stair Design Calculator
-        </CardTitle>
-        <CardDescription className="text-xs">
-          NBC 3.4.6 - Calculate stair dimensions and verify code compliance
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-primary" /> Stair Design Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              NBC 3.4.6 - Calculate stair dimensions and verify code compliance
+            </CardDescription>
+          </div>
+          <CalculatorActions
+            calculatorId="stair_design"
+            calculatorName="Stair Design"
+            exportData={getExportData}
+            currentState={{ stairType, totalRise }}
+            onLoadPreset={handleLoadPreset}
+            hasResults={!!results}
+          />
+        </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
