@@ -957,3 +957,15 @@
 - [x] Create keyboard shortcut reference panel (in help content)
 - [x] Add help search with highlighting
 - [x] Integrate help system into all pages
+
+
+## Bug Fixes
+
+- [x] Fix missing Excel export button in BatchStairCalculator (working as designed - appears after calculations)
+- [x] Verify both PDF and Excel export buttons are visible and functional
+
+## Documentation Updates
+
+- [x] Update User Guide to clarify export buttons appear after calculations
+- [x] Add instructions for accessing interactive help system
+- [x] Document help button location and keyboard shortcut

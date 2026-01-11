@@ -229,7 +229,11 @@ Users add rows to the batch calculator, each representing a different stair scen
 
 **Export Functionality:**
 
-The batch calculator includes an "Export Excel" button that generates a formatted Excel spreadsheet containing all calculation results. The exported file includes columns for scenario number, stair type, total rise, number of risers, riser height, number of treads, tread depth, total run, and code compliance status. This export feature is valuable for project documentation and submittal packages.
+The batch calculator includes both **"Export PDF"** and **"Export Excel"** buttons that appear after calculations are completed. These buttons are intentionally hidden until at least one scenario has been calculated to prevent exporting empty data.
+
+The **PDF export** generates a professional report with NBC code references, compliance summary statistics, formatted results table with color-coded compliance indicators, code requirements section, and a professional stamp/seal area suitable for permit submissions. The **Excel export** creates a formatted spreadsheet containing all calculation results with columns for scenario number, stair type, total rise, number of risers, riser height, number of treads, tread depth, total run, and code compliance status.
+
+Both export features are valuable for project documentation, submittal packages, and client presentations. To access the export buttons, users must first enter scenario data and click "Calculate All" to generate results.
 
 **Summary Statistics:**
 
@@ -588,6 +592,30 @@ The microphone icon next to the search bar activates voice search. Users can spe
 
 The region selector in the top navigation bar allows users to switch between provincial building codes. While the application is based on the National Building Code of Canada, provinces may have specific amendments or variations. Selecting a different province updates requirements and calculations to reflect regional differences.
 
+### Interactive Help System
+
+The application includes a comprehensive **Interactive Help System** with searchable documentation covering all calculators, features, occupancy classifications, and code requirements. The help system provides contextual guidance and examples to assist users in understanding and applying NBC requirements correctly.
+
+**Accessing Help:**
+
+Users can access the help system in two ways:
+1. **Help Button:** Click the question mark (?) icon in the top-right corner of the sidebar, next to the region selector
+2. **Keyboard Shortcut:** Press **Ctrl+/** or **Cmd+/** to open the help panel instantly
+
+**Using the Help System:**
+
+The help panel opens as a side drawer on the right side of the screen, featuring a **search bar** at the top for finding specific topics. Users can search by calculator name, feature, keyword, or NBC article number. The search updates in real-time, displaying matching help topics with category badges and keyword tags.
+
+**Help Content:**
+
+The help database includes 12 comprehensive topics organized into four categories:
+- **Calculators:** Detailed guides for Stair Design, Batch Calculator, Occupant Load, Exit Requirements, Guard & Handrail, Snow Load, and Accessibility Ramp calculators
+- **Features:** Documentation for Calculation History, Mobile Features, and Keyboard Shortcuts
+- **Occupancy:** Overview of occupancy classification system and how to use it
+- **Code Requirements:** Explanations of fire separation requirements and other NBC provisions
+
+Each help topic includes step-by-step instructions, code requirements, examples, and links to related topics for easy navigation between connected concepts.
+
 ### Keyboard Shortcuts
 
 Power users can navigate the application using keyboard shortcuts:
@@ -596,6 +624,7 @@ Power users can navigate the application using keyboard shortcuts:
 - **Ctrl+S** or **Cmd+S:** Save current calculation to project
 - **Ctrl+E** or **Cmd+E:** Export current calculation
 - **Ctrl+H** or **Cmd+H:** Open calculation history
+- **Ctrl+/** or **Cmd+/:** Open interactive help system
 - **Arrow keys:** Navigate between occupancy groups in sidebar
 - **Enter:** Open selected occupancy group
 - **Esc:** Close open panels and dialogs
