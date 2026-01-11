@@ -780,3 +780,11 @@
 - [x] Reduce tab padding or font size to fit all tabs (px-6→px-4, text-sm→text-xs, 75%→65%)
 - [x] Test on various screen sizes (1920px, 1440px, 1366px)
 - [x] Ensure responsive behavior on smaller screens
+
+
+## Tab Navigation Reorganization
+- [x] Remove Fire & Life Safety and Design Tools from main horizontal tabs
+- [x] Add Fire & Life Safety and Design Tools to "Jump to" section
+- [x] Keep only 5 main tabs: Building Code, Plumbing, Electrical, Additions, Sustainability
+- [x] Update tab navigation to work with new structure
+- [x] Test all tab switching functionality

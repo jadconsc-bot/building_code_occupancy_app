@@ -727,18 +727,6 @@ export default function Home() {
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="fire-safety" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
-                >
-                  <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="design-tools" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
-                >
-                  <Calculator className="w-4 h-4 mr-2" /> Design Tools
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
@@ -769,6 +757,19 @@ export default function Home() {
                       className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
                     >
                       Inspector Checklist
+                    </button>
+                    <div className="w-px h-4 bg-border"></div>
+                    <button
+                      onClick={() => setActiveTab('fire-safety')}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Flame className="w-3 h-3" /> Fire & Life Safety
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('design-tools')}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Calculator className="w-3 h-3" /> Design Tools
                     </button>
                   </div>
                 </div>
