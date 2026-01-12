@@ -273,7 +273,7 @@ export function BatchStairCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3 bg-muted/30 border-b border-border/50">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Calculator className="w-4 h-4 text-primary" /> Batch Stair Calculator
@@ -282,7 +282,7 @@ export function BatchStairCalculator() {
               Calculate multiple stair scenarios at once - NBC 3.4.6
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"

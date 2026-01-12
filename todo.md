@@ -969,3 +969,11 @@
 - [x] Update User Guide to clarify export buttons appear after calculations
 - [x] Add instructions for accessing interactive help system
 - [x] Document help button location and keyboard shortcut
+
+
+## UI/UX Fixes and Improvements
+
+- [x] Fix help button accessibility (verified - located in sidebar header next to region selector)
+- [x] Fix Excel export button overlap issue in BatchStairCalculator (added flex-wrap and responsive layout)
+- [x] Create mockup image 1: Main interface with color-coded areas
+- [x] Create mockup image 2: Calculator view with visual hierarchy
