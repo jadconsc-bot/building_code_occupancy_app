@@ -125,6 +125,15 @@
   --calculator-end: oklch(0.55 0.15 240);   /* Blue #2196F3 */
   --calculator-bg: oklch(0.92 0.04 210);    /* Light Teal #E0F7FA */
   
+  /* Individual Tab Category Colors */
+  --tab-building: oklch(0.55 0.20 240);        /* Blue */
+  --tab-plumbing: oklch(0.60 0.18 200);        /* Cyan/Teal */
+  --tab-electrical: oklch(0.75 0.15 85);       /* Yellow/Amber */
+  --tab-additions: oklch(0.60 0.20 300);       /* Purple */
+  --tab-sustainability: oklch(0.65 0.18 150);  /* Green */
+  --tab-fire: oklch(0.60 0.22 25);             /* Red */
+  --tab-design: oklch(0.62 0.17 190);          /* Teal-Blue */
+  
   /* Validation States */
   --valid-green: oklch(0.60 0.15 150);      /* Success Green */
   --invalid-red: oklch(0.55 0.22 25);       /* Error Red */

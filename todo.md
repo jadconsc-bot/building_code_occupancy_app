@@ -1016,3 +1016,17 @@
 - [x] Store tour completion in localStorage
 - [x] Add "Restart Tour" option accessible via context
 - [x] Implement smooth transitions between tour steps
+
+
+## Tab Color Implementation (Match Mockup)
+
+- [x] Define CSS variables for each tab category color
+- [x] Apply blue color to Building Code tab
+- [x] Apply cyan/teal color to Plumbing tab
+- [x] Apply yellow/amber color to Electrical tab
+- [x] Apply purple color to Additions tab
+- [x] Apply green color to Sustainability tab
+- [x] Apply red color to Fire & Life Safety tab
+- [x] Apply teal-blue color to Design Tools tab
+- [ ] Update mobile dropdown to show tab colors (optional enhancement)
+- [x] Ensure active tab indicators match category colors
