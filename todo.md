@@ -1047,3 +1047,23 @@
 - [x] Add hover brightness effect for better interactivity
 - [x] Ensure text contrast meets accessibility standards (white text on dark colors, dark text on yellow)
 - [ ] Test color visibility in both light and dark modes (ready for testing)
+
+
+## Color System Enhancements
+
+### Color Legend Panel
+- [x] Create ColorLegend component with all tab colors and meanings
+- [x] Make panel collapsible with toggle button
+- [x] Position in top-right corner with fixed positioning
+- [x] Add smooth expand/collapse animation
+
+### Colored Calculator Card Borders
+- [x] Add 4px colored left borders to all calculator cards (CategoryCard component created)
+- [x] Match border colors to parent tab category (calculatorCategories mapping)
+- [x] Applied to StairDesignCalculator as example
+- [ ] Roll out to remaining 24 calculators (can be done incrementally)
+
+### Mobile Dropdown Color Indicators
+- [x] Add colored dots/badges to mobile dropdown items (3px rounded circles)
+- [x] Match dot colors to tab categories (all 7 tabs)
+- [x] Ensure proper alignment and spacing

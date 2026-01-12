@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { CategoryCard } from "@/components/ui/category-card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -105,7 +106,7 @@ export function StairDesignCalculator() {
   };
 
   return (
-    <Card className="border-border shadow-sm">
+    <CategoryCard calculatorId="stair_design" className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
         <div className="flex items-start justify-between">
           <div>
@@ -231,6 +232,6 @@ export function StairDesignCalculator() {
           </div>
         )}
       </CardContent>
-    </Card>
+    </CategoryCard>
   );
 }

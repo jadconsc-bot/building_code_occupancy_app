@@ -48,6 +48,7 @@ import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
+import { ColorLegend } from "@/components/ColorLegend";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";
 import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
@@ -378,6 +379,7 @@ export default function Home() {
   return (
     <>
     <FloatingHelpButton />
+    <ColorLegend />
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
       <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`} style={{ backgroundColor: 'var(--nav-bg)' }}>
@@ -725,26 +727,31 @@ export default function Home() {
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Main Tabs</div>
                     <SelectItem value="building">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-building)' }} />
                         <Building2 className="w-4 h-4" /> Building Code
                       </div>
                     </SelectItem>
                     <SelectItem value="plumbing">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-plumbing)' }} />
                         <Droplets className="w-4 h-4" /> Plumbing
                       </div>
                     </SelectItem>
                     <SelectItem value="electrical">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-electrical)' }} />
                         <Zap className="w-4 h-4" /> Electrical
                       </div>
                     </SelectItem>
                     <SelectItem value="additions">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-additions)' }} />
                         <Ruler className="w-4 h-4" /> Additions
                       </div>
                     </SelectItem>
                     <SelectItem value="sustainability">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-sustainability)' }} />
                         <Leaf className="w-4 h-4" /> Sustainability
                       </div>
                     </SelectItem>
@@ -752,11 +759,13 @@ export default function Home() {
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Design Tools</div>
                     <SelectItem value="fire-safety">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-fire)' }} />
                         <Flame className="w-4 h-4" /> Fire & Life Safety
                       </div>
                     </SelectItem>
                     <SelectItem value="design-tools">
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-design)' }} />
                         <Calculator className="w-4 h-4" /> Design Tools
                       </div>
                     </SelectItem>
