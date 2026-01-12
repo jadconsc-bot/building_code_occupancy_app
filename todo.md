@@ -977,3 +977,42 @@
 - [x] Fix Excel export button overlap issue in BatchStairCalculator (added flex-wrap and responsive layout)
 - [x] Create mockup image 1: Main interface with color-coded areas
 - [x] Create mockup image 2: Calculator view with visual hierarchy
+
+
+## Color-Coded UI Theme Implementation
+
+### Color System
+- [x] Create CSS variables for semantic color tokens
+- [x] Define color palette with accessibility in mind (WCAG AA)
+- [x] Implement blue theme for navigation and search areas
+- [x] Implement orange theme for occupancy code badges
+- [x] Implement green theme for requirements sections
+- [x] Implement red theme for fire safety sections
+- [x] Implement purple theme for construction sections
+- [x] Implement teal-blue gradient for calculator tools
+
+### Component Updates
+- [x] Apply blue background to sidebar navigation
+- [x] Style occupancy badges with orange color scheme
+- [ ] Color-code requirement cards with green headers (partially applied)
+- [x] Color-code fire separation tables with red headers
+- [x] Color-code construction limit tables with purple headers
+- [x] Apply gradient to calculator tab navigation
+- [ ] Update button colors to match functional areas (ongoing)
+
+### Floating Action Button (FAB)
+- [x] Create FloatingHelpButton component
+- [x] Position FAB in bottom-right corner with fixed positioning
+- [x] Add smooth animations (hover, click, entrance)
+- [x] Ensure FAB stays above all content (z-index management)
+- [x] Make FAB responsive (visible on all screens)
+- [x] Add tooltip showing keyboard shortcut
+
+### Interactive UI Tour
+- [x] Create UITour context for managing tour state
+- [x] Build TourStep component with spotlight effect
+- [x] Create tour steps explaining color-coded areas (6 steps)
+- [x] Add "Skip Tour" and "Next" navigation buttons
+- [x] Store tour completion in localStorage
+- [x] Add "Restart Tour" option accessible via context
+- [x] Implement smooth transitions between tour steps

@@ -67,6 +67,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
+import { useUITour } from "@/contexts/UITourContext";
+import { FloatingHelpButton } from "@/components/FloatingHelpButton";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -95,6 +97,7 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const { activeProjectId, updateProjectProgress } = useProject();
   const { openHelp } = useHelpSystem();
+  const { startTour } = useUITour();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -373,10 +376,12 @@ export default function Home() {
   }, [filteredData, focusedIndex]);
 
   return (
+    <>
+    <FloatingHelpButton />
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
-      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-6 border-b border-border bg-sidebar">
+      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`} style={{ backgroundColor: 'var(--nav-bg)' }}>
+        <div className="p-6 border-b border-border" style={{ backgroundColor: 'var(--nav-bg)' }}>
           <div className="flex items-center justify-between gap-2 mb-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
@@ -657,8 +662,8 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
+            <div className="flex items-baseline gap-4 mb-2 border-b-4 pb-4 print:border-black" style={{ borderColor: 'var(--occupancy-badge)' }}>
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter font-mono print:text-black" style={{ color: 'var(--occupancy-badge)' }}>
                 {selectedGroup.code}
               </h1>
               <div className="flex flex-col">
@@ -760,10 +765,10 @@ export default function Home() {
               </div>
 
               {/* Desktop Horizontal Tabs */}
-              <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+              <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none p-0 h-auto mb-8" style={{ background: 'linear-gradient(90deg, var(--calculator-start), var(--calculator-end))' }}>
                 <TabsTrigger 
                   value="building" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-white data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/10"
                 >
                   <Building2 className="w-4 h-4 mr-2" /> Building Code
                 </TabsTrigger>
@@ -841,8 +846,8 @@ export default function Home() {
                 {selectedGroup.id === "C-2" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Card className="overflow-hidden border-border shadow-sm">
-                      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                      <CardHeader className="pb-2 border-b border-border/50" style={{ backgroundColor: 'var(--fire-bg)' }}>
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--fire-header)' }}>
                           <Ruler className="h-4 w-4" /> Fire Separation Detail
                         </CardTitle>
                       </CardHeader>
@@ -1004,7 +1009,7 @@ export default function Home() {
                 <div className="space-y-8 mt-8 pt-8 border-t border-border">
                   {/* Construction Limits */}
                   <section id="construction-limits" className="scroll-mt-20">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'var(--construction-header)' }}>
                       <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
@@ -1902,5 +1907,6 @@ export default function Home() {
         <Keyboard className="w-5 h-5" />
       </button>
     </div>
+    </>
   );
 }

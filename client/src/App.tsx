@@ -8,8 +8,10 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
+import { UITourProvider } from "./contexts/UITourContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
+import { UITour } from "./components/UITour";
 import Home from "./pages/Home";
 
 function Router() {
@@ -40,12 +42,15 @@ function App() {
           <ComparisonProvider>
             <CalculationHistoryProvider>
               <HelpSystemProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <OfflineIndicator />
-                  <HelpPanel />
-                  <Router />
-                </TooltipProvider>
+                <UITourProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <OfflineIndicator />
+                    <HelpPanel />
+                    <UITour />
+                    <Router />
+                  </TooltipProvider>
+                </UITourProvider>
               </HelpSystemProvider>
             </CalculationHistoryProvider>
           </ComparisonProvider>
