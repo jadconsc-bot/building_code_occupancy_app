@@ -768,49 +768,49 @@ export default function Home() {
               <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-building)' }}
                 >
                   <Building2 className="w-4 h-4 mr-2" /> Building Code
                 </TabsTrigger>
                 <TabsTrigger 
                   value="plumbing" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-plumbing)' }}
                 >
                   <Droplets className="w-4 h-4 mr-2" /> Plumbing
                 </TabsTrigger>
                 <TabsTrigger 
                   value="electrical" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-900 transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-gray-900 data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-900 transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-electrical)' }}
                 >
                   <Zap className="w-4 h-4 mr-2" /> Electrical
                 </TabsTrigger>
                 <TabsTrigger 
                   value="additions" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-additions)' }}
                 >
                   <Ruler className="w-4 h-4 mr-2" /> Additions
                 </TabsTrigger>
                 <TabsTrigger 
                   value="sustainability" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-sustainability)' }}
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
                 </TabsTrigger>
                 <TabsTrigger 
                   value="fire-safety" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-fire)' }}
                 >
                   <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
                 </TabsTrigger>
                 <TabsTrigger 
                   value="design-tools" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
                   style={{ backgroundColor: 'var(--tab-design)' }}
                 >
                   <Calculator className="w-4 h-4 mr-2" /> Design Tools
