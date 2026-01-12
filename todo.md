@@ -1030,3 +1030,11 @@
 - [x] Apply teal-blue color to Design Tools tab
 - [ ] Update mobile dropdown to show tab colors (optional enhancement)
 - [x] Ensure active tab indicators match category colors
+
+
+## Bug Fixes - Thermal Resistance Calculator
+
+- [x] Fix text overlap issue where input box appears on top of label text
+- [x] Ensure proper spacing between labels and input fields (increased from space-y-1 to space-y-2)
+- [x] Added block display to labels and font-medium for better visibility
+- [ ] Verify layout on both desktop and mobile (ready for testing)
