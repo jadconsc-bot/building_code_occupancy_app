@@ -8,6 +8,12 @@ interface ProjectContextType {
   updateProjectProgress: (projectId: string, phase: ConstructionPhase, percentage: number) => void;
   getProject: (id: string) => Project | undefined;
   getAllProjects: () => Project[];
+  saveProject: (project: Project) => void;
+  deleteProject: (id: string) => void;
+  exportProject: (id: string) => string | null;
+  importProject: (jsonData: string) => boolean;
+  exportAllProjects: () => string;
+  importAllProjects: (jsonData: string) => boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -65,13 +71,100 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return projects;
   };
 
+  const saveProject = (project: Project) => {
+    const projectsList = [...projects];
+    const existingIndex = projectsList.findIndex(p => p.id === project.id);
+    
+    if (existingIndex >= 0) {
+      projectsList[existingIndex] = { ...project, lastModified: new Date().toISOString() };
+    } else {
+      projectsList.push({ ...project, lastModified: new Date().toISOString() });
+    }
+    
+    localStorage.setItem('buildingCodeProjects', JSON.stringify(projectsList));
+    setProjects(projectsList);
+  };
+
+  const deleteProject = (id: string) => {
+    const projectsList = projects.filter(p => p.id !== id);
+    localStorage.setItem('buildingCodeProjects', JSON.stringify(projectsList));
+    setProjects(projectsList);
+    
+    if (activeProjectId === id) {
+      setActiveProjectId(null);
+    }
+  };
+
+  const exportProject = (id: string): string | null => {
+    const project = projects.find(p => p.id === id);
+    if (!project) return null;
+    
+    return JSON.stringify(project, null, 2);
+  };
+
+  const importProject = (jsonData: string): boolean => {
+    try {
+      const project: Project = JSON.parse(jsonData);
+      
+      // Validate required fields
+      if (!project.id || !project.name || !project.address) {
+        return false;
+      }
+      
+      saveProject(project);
+      return true;
+    } catch (error) {
+      console.error('Failed to import project:', error);
+      return false;
+    }
+  };
+
+  const exportAllProjects = (): string => {
+    return JSON.stringify(projects, null, 2);
+  };
+
+  const importAllProjects = (jsonData: string): boolean => {
+    try {
+      const importedProjects: Project[] = JSON.parse(jsonData);
+      
+      // Validate it's an array
+      if (!Array.isArray(importedProjects)) {
+        return false;
+      }
+      
+      // Merge with existing projects (avoid duplicates by ID)
+      const mergedProjects = [...projects];
+      importedProjects.forEach(importedProject => {
+        const existingIndex = mergedProjects.findIndex(p => p.id === importedProject.id);
+        if (existingIndex >= 0) {
+          mergedProjects[existingIndex] = importedProject;
+        } else {
+          mergedProjects.push(importedProject);
+        }
+      });
+      
+      localStorage.setItem('buildingCodeProjects', JSON.stringify(mergedProjects));
+      setProjects(mergedProjects);
+      return true;
+    } catch (error) {
+      console.error('Failed to import projects:', error);
+      return false;
+    }
+  };
+
   return (
     <ProjectContext.Provider value={{
       activeProjectId,
       setActiveProjectId,
       updateProjectProgress,
       getProject,
-      getAllProjects
+      getAllProjects,
+      saveProject,
+      deleteProject,
+      exportProject,
+      importProject,
+      exportAllProjects,
+      importAllProjects
     }}>
       {children}
     </ProjectContext.Provider>

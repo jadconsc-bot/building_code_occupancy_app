@@ -1117,3 +1117,19 @@
 - [ ] Add Excel export to RoofRafterSpanCalculator
 - [x] Create construction types visual diagram (Type I-VI)
 - [x] Implement PDF report generation system
+
+- [ ] Add Excel export to FloorJoistSpanCalculator
+- [ ] Add Excel export to RoofRafterSpanCalculator  
+- [ ] Add Excel export to BarrierFreeCalculator
+- [ ] Add Excel export to ConstructionLimitsCalculator
+- [ ] Add Excel export to EmergencyLightingCalculator
+- [ ] Add Excel export to FireAlarmCalculator
+- [ ] Add Excel export to BatchStairCalculator (update existing)
+- [ ] Add Excel export to PermitFeeCalculator
+- [x] Create wall assembly diagram with R-values
+- [x] Create roof assembly diagram with R-values
+- [x] Create foundation detail diagram with R-values
+- [x] Implement project save to localStorage
+- [x] Implement project load from localStorage
+- [x] Implement project export as JSON
+- [x] Implement project import from JSON
