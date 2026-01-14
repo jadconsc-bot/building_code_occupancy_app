@@ -29,6 +29,7 @@ import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDia
 import { FireSeparationDiagrams } from "@/components/FireSeparationDiagrams";
 import { EgressPathDiagram } from "@/components/EgressPathDiagram";
 import { SprinklerCoverageDiagram } from "@/components/SprinklerCoverageDiagram";
+import { ConstructionTypesDiagram } from "@/components/ConstructionTypesDiagram";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
@@ -1801,6 +1802,7 @@ export default function Home() {
                       <FireSeparationDiagrams />
                       <EgressPathDiagram />
                       <SprinklerCoverageDiagram />
+                      <ConstructionTypesDiagram />
                       <FireSeparationCalculator />
                       <OccupantLoadCalculator />
                       <ExitRequirementsCalculator />

@@ -134,7 +134,7 @@ export function BatchStairCalculator() {
       row.result!.compliant ? "✓ Yes" : "✗ No"
     ]);
     
-    autoTable(doc, {
+    (doc as any).autoTable({
       startY: 75,
       head: [[
         "#",
@@ -171,7 +171,7 @@ export function BatchStairCalculator() {
         7: { cellWidth: 20 },
         8: { cellWidth: 20, fontStyle: "bold" }
       },
-      didParseCell: (data) => {
+      didParseCell: (data: any) => {
         if (data.column.index === 8 && data.section === "body") {
           if (data.cell.raw === "✓ Yes") {
             data.cell.styles.textColor = [34, 197, 94]; // Green

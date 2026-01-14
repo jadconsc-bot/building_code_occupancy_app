@@ -8,10 +8,22 @@ import { FileText, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { ComparisonItem } from "./CalculatorComparison";
+import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckCircle2 } from "lucide-react";
 
 interface PDFReportGeneratorProps {
   occupancyCode?: string;
   occupancyName?: string;
+  occupancyDescription?: string;
+  occupancyCompliance?: {
+    fireResistance: string;
+    sprinklers: string;
+    occupantLoad: string;
+    exits: string;
+    construction: string;
+    notes: string;
+  };
   comparisonItems?: ComparisonItem[];
 }
 
