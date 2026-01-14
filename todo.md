@@ -1067,3 +1067,30 @@
 - [x] Add colored dots/badges to mobile dropdown items (3px rounded circles)
 - [x] Match dot colors to tab categories (all 7 tabs)
 - [x] Ensure proper alignment and spacing
+
+
+## Critical Bug - Tab Colors Not Visible
+
+- [ ] Investigate why tab colors are not showing in the application
+- [ ] Check if CSS variables are properly defined
+- [ ] Verify tab styling is correctly applied
+- [ ] Test color visibility after fix
+
+
+## Egress Calculator Review
+
+- [ ] Review ExitRequirementsCalculator for means of egress calculations
+- [ ] Review TravelDistanceCalculator for travel distance calculations
+- [ ] Verify NBC 2025 code compliance for egress requirements
+- [ ] Check calculation formulas and logic
+- [ ] Fix any inaccuracies found
+
+
+## Exit Stair Dimensions Enhancement
+
+- [x] Review current StairDesignCalculator for exit stair support
+- [x] Add private/residential exit stair dimensions (NBC 3.4.6)
+- [x] Add public/commercial exit stair dimensions (NBC 3.4.6)
+- [x] Include minimum width requirements for exit stairs (860mm private, 1100mm exit)
+- [x] Add handrail and guard requirements for exit stairs
+- [x] Test exit stair calculations for compliance (14/14 tests passing)
