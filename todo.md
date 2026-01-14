@@ -1108,7 +1108,7 @@
 - [ ] Add Excel export to BarrierFreeCalculator
 - [ ] Add Excel export to BatchStairCalculator
 - [x] Add Excel export to BeamSpanCalculator
-- [ ] Add Excel export to ColumnSpanCalculator
+- [x] Add Excel export to ColumnSpanCalculator
 - [ ] Add Excel export to ConstructionLimitsCalculator
 - [ ] Add Excel export to EmergencyLightingCalculator
 - [ ] Add Excel export to FireAlarmCalculator
