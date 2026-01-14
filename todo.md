@@ -1094,3 +1094,5 @@
 - [x] Include minimum width requirements for exit stairs (860mm private, 1100mm exit)
 - [x] Add handrail and guard requirements for exit stairs
 - [x] Test exit stair calculations for compliance (14/14 tests passing)
+
+- [x] Add visual fire separation diagrams showing different occupancy combinations in Fire Safety tab

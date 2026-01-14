@@ -26,6 +26,7 @@ import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/c
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
+import { FireSeparationDiagrams } from "@/components/FireSeparationDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
@@ -1795,6 +1796,7 @@ export default function Home() {
                       Critical NBC 2025 Part 3 calculators for fire protection, occupant safety, and egress design. These tools help determine fire separation requirements, occupant loads, exit configurations, and construction type limitations.
                     </p>
                     <div className="space-y-6">
+                      <FireSeparationDiagrams />
                       <FireSeparationCalculator />
                       <OccupantLoadCalculator />
                       <ExitRequirementsCalculator />
