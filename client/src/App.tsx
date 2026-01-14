@@ -4,10 +4,18 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { ProjectProvider } from "./contexts/ProjectContext";
+import { ComparisonProvider } from "./contexts/ComparisonContext";
+import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
+import { HelpSystemProvider } from "./contexts/HelpSystemContext";
+import { UITourProvider } from "./contexts/UITourContext";
+import { OfflineIndicator } from "./components/OfflineIndicator";
+import { HelpPanel } from "./components/HelpPanel";
+import { UITour } from "./components/UITour";
 import Home from "./pages/Home";
 
-
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Home} />
@@ -30,10 +38,23 @@ function App() {
         defaultTheme="light"
         // switchable
       >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <ProjectProvider>
+          <ComparisonProvider>
+            <CalculationHistoryProvider>
+              <HelpSystemProvider>
+                <UITourProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <OfflineIndicator />
+                    <HelpPanel />
+                    <UITour />
+                    <Router />
+                  </TooltipProvider>
+                </UITourProvider>
+              </HelpSystemProvider>
+            </CalculationHistoryProvider>
+          </ComparisonProvider>
+        </ProjectProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

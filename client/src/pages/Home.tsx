@@ -1,31 +1,88 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSwipeable } from "react-swipeable";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useProject } from "@/contexts/ProjectContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProjectDashboard } from "@/components/ProjectDashboard";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
 import { plumbingChecklists } from "@/lib/plumbingData";
 import { additionsData } from "@/lib/additionsData";
+import { sustainabilityData } from "@/lib/sustainabilityData";
+import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
+import { getLoadFactors } from "@/lib/loadCalculationData";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
+import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
+import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
+import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
+import { BeamSpanCalculator } from "@/components/BeamSpanCalculator";
+import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator";
+import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
+import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
+import { CeilingHeightTable } from "@/components/CeilingHeightTable";
+import { FireSeparationCalculator } from "@/components/FireSeparationCalculator";
+import { OccupantLoadCalculator } from "@/components/OccupantLoadCalculator";
+import { ExitRequirementsCalculator } from "@/components/ExitRequirementsCalculator";
+import { TravelDistanceCalculator } from "@/components/TravelDistanceCalculator";
+import { ConstructionTypeSelector } from "@/components/ConstructionTypeSelector";
+import { ConstructionLimitsCalculator } from "@/components/ConstructionLimitsCalculator";
+import { BarrierFreeCalculator } from "@/components/BarrierFreeCalculator";
+import { FireAlarmCalculator } from "@/components/FireAlarmCalculator";
+import { EmergencyLightingCalculator } from '@/components/EmergencyLightingCalculator';
+import { SpanTables } from '@/components/SpanTables';
+import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
+import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
+import { OccupancyComparison } from '@/components/OccupancyComparison';
+import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
+import { ColorLegend } from "@/components/ColorLegend";
+import { StairDesignCalculator } from "@/components/StairDesignCalculator";
+import { BatchStairCalculator } from "@/components/BatchStairCalculator";
+import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
+import { LateralLoadCalculator } from "@/components/LateralLoadCalculator";
+import { EnergyCodeCalculator } from "@/components/EnergyCodeCalculator";
+import { PlumbingFixtureCalculator } from "@/components/PlumbingFixtureCalculator";
+import { GuardHandrailCalculator } from "@/components/GuardHandrailCalculator";
+import { SnowLoadCalculator } from "@/components/SnowLoadCalculator";
+import { AccessibilityRampCalculator } from "@/components/AccessibilityRampCalculator";
+import { ThermalResistanceCalculator } from "@/components/ThermalResistanceCalculator";
+import { VentilationRateCalculator } from "@/components/VentilationRateCalculator";
+import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
+import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
+import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Keyboard, HelpCircle } from "lucide-react";
+import { useHelpSystem } from "@/contexts/HelpSystemContext";
+import { useUITour } from "@/contexts/UITourContext";
+import { FloatingHelpButton } from "@/components/FloatingHelpButton";
 
 export default function Home() {
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
-  const [activeTab, setActiveTab] = useState("building");
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("active_tab");
+    return saved || "building";
+  });
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     const saved = localStorage.getItem("occupancy_bookmarks");
     return saved ? JSON.parse(saved) : [];
@@ -38,7 +95,48 @@ export default function Home() {
     const saved = localStorage.getItem("occupancy_notes");
     return saved ? JSON.parse(saved) : {};
   });
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
+  const { activeProjectId, updateProjectProgress } = useProject();
+  const { openHelp } = useHelpSystem();
+  const { startTour } = useUITour();
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    const saved = localStorage.getItem("selected_region");
+    return saved || "AB";
+  });
+
+  // Tab order for swipe navigation
+  const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
+  
+  // Swipe handlers for mobile tab navigation
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const currentIndex = tabOrder.indexOf(activeTab);
+      if (currentIndex < tabOrder.length - 1) {
+        const nextTab = tabOrder[currentIndex + 1];
+        setActiveTab(nextTab);
+        localStorage.setItem("active_tab", nextTab);
+      }
+    },
+    onSwipedRight: () => {
+      const currentIndex = tabOrder.indexOf(activeTab);
+      if (currentIndex > 0) {
+        const prevTab = tabOrder[currentIndex - 1];
+        setActiveTab(prevTab);
+        localStorage.setItem("active_tab", prevTab);
+      }
+    },
+    trackMouse: false,
+    trackTouch: true,
+    preventScrollOnSwipe: false,
+    delta: 50,
+  });
+
+  useEffect(() => {
+    localStorage.setItem("selected_region", selectedRegion);
+  }, [selectedRegion]);
 
   useEffect(() => {
     localStorage.setItem("occupancy_bookmarks", JSON.stringify(bookmarks));
@@ -51,6 +149,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("occupancy_notes", JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem("active_tab", activeTab);
+  }, [activeTab]);
 
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
@@ -104,6 +206,45 @@ export default function Home() {
     a.click();
   };
 
+  const exportToPDF = () => {
+    if (!selectedGroup) return;
+    
+    // Create a styled print window
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) {
+      alert('Please allow popups to export PDF');
+      return;
+    }
+    
+    const content = document.querySelector('.print\\:block')?.closest('.flex-1');
+    if (!content) return;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${selectedGroup.code} - ${selectedGroup.name}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { font-size: 48px; font-weight: 900; margin-bottom: 10px; }
+            h2 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+            h3 { font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: 600; }
+            .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+            .section { margin-bottom: 30px; page-break-inside: avoid; }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+          <script>window.print(); window.close();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const toggleBookmark = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setBookmarks(prev => 
@@ -141,6 +282,7 @@ export default function Home() {
       if (command.includes("wiring") || command.includes("lights") || command.includes("power")) command = command.replace(/wiring|lights|power/g, "electrical");
       if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
       if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
+      if (command.includes("solar") || command.includes("green") || command.includes("ev") || command.includes("renewable")) command = command.replace(/solar|green|ev|renewable/g, "sustainability");
 
       // Check for tab navigation commands
       if (command.includes("plumbing")) {
@@ -169,6 +311,10 @@ export default function Home() {
         setActiveTab("additions");
         const cleanQuery = command.replace("additions", "").trim();
         if (cleanQuery) setSearchQuery(cleanQuery);
+      } else if (command.includes("sustainability") || command.includes("solar") || command.includes("ev") || command.includes("tankless")) {
+        setActiveTab("sustainability");
+        const cleanQuery = command.replace("sustainability", "").trim();
+        if (cleanQuery) setSearchQuery(cleanQuery);
       } else {
         setSearchQuery(transcript);
       }
@@ -189,26 +335,101 @@ export default function Home() {
     );
   }, [searchQuery]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Focus search with "/"
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      // Show keyboard help with "?"
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowKeyboardHelp(true);
+        return;
+      }
+
+      // Arrow key navigation in list
+      if (e.key === "ArrowDown" && filteredData.length > 0) {
+        e.preventDefault();
+        setFocusedIndex(prev => Math.min(prev + 1, filteredData.length - 1));
+        setSelectedGroup(filteredData[Math.min(focusedIndex + 1, filteredData.length - 1)]);
+      }
+      if (e.key === "ArrowUp" && filteredData.length > 0) {
+        e.preventDefault();
+        setFocusedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedGroup(filteredData[Math.max(focusedIndex - 1, 0)]);
+      }
+
+      // Tab switching with numbers
+      if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
+        setActiveTab(tabs[parseInt(e.key) - 1]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredData, focusedIndex]);
+
   return (
+    <>
+    <FloatingHelpButton />
+    <ColorLegend />
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
-      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-6 border-b border-border bg-sidebar">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
-              AB
+      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`} style={{ backgroundColor: 'var(--nav-bg)' }}>
+        <div className="p-6 border-b border-border" style={{ backgroundColor: 'var(--nav-bg)' }}>
+          <div className="flex items-center justify-between gap-2 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
+                {selectedRegion}
+              </div>
+              <h1 className="font-bold text-lg tracking-tight text-sidebar-foreground leading-tight">
+                Building Code<br/>Occupancy Classifier
+              </h1>
             </div>
-            <h1 className="font-bold text-lg tracking-tight text-sidebar-foreground leading-tight">
-              Building Code<br/>Occupancy Classifier
-            </h1>
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => openHelp()}
+                      className="p-2 hover:bg-accent rounded-md transition-colors"
+                    >
+                      <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Help & Documentation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger className="w-[80px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AB">Alberta</SelectItem>
+                  <SelectItem value="BC">BC</SelectItem>
+                  <SelectItem value="ON">Ontario</SelectItem>
+                  <SelectItem value="SK">Sask</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <div className="relative flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input 
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search building type..." 
+                placeholder="Search building type... (Press / to focus)" 
                 className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -257,7 +478,7 @@ export default function Home() {
             )}
           </div>
           
-          <ScrollArea className="max-h-[30vh]">
+          <div className="max-h-[30vh] overflow-y-auto">
             {bookmarks.length > 0 && !searchQuery && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex justify-between items-center mb-2">
@@ -314,10 +535,10 @@ export default function Home() {
                 </div>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-2">
             {filteredData.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -373,10 +594,10 @@ export default function Home() {
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
         
         <div className="p-4 border-t border-border text-[10px] text-muted-foreground bg-sidebar">
-          Based on National Building Code - 2023 Alberta Edition
+          Based on National Building Code - 2023 {selectedRegion === "AB" ? "Alberta" : selectedRegion === "BC" ? "British Columbia" : selectedRegion === "ON" ? "Ontario" : "Saskatchewan"} Edition
         </div>
       </div>
 
@@ -391,7 +612,35 @@ export default function Home() {
               >
                 ← Back to Search
               </button>
-              <div className="hidden md:flex items-center gap-2 mb-6 ml-auto">
+                   <div className="flex items-center gap-2 print:hidden">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <FolderOpen className="w-4 h-4" />
+                      Projects
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <ProjectDashboard />
+                  </DialogContent>
+                </Dialog>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <ArrowLeftRight className="w-4 h-4" />
+                      Compare
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <DialogHeader>
+                      <DialogTitle>Occupancy Comparison</DialogTitle>
+                      <DialogDescription>
+                        Compare requirements, load factors, and construction limits between two occupancy types.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <OccupancyComparison />
+                  </DialogContent>
+                </Dialog>
                 <button
                   onClick={copyShareLink}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
@@ -406,10 +655,17 @@ export default function Home() {
                   <Printer className="w-4 h-4" />
                   Print Guide
                 </button>
+                <button
+                  onClick={exportToPDF}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:text-primary/80 border border-primary rounded-md hover:bg-primary/10 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export PDF
+                </button>
               </div>
             </div>
-            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
+            <div className="flex items-baseline gap-4 mb-2 border-b-4 pb-4 print:border-black" style={{ borderColor: 'var(--occupancy-badge)' }}>
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter font-mono print:text-black" style={{ color: 'var(--occupancy-badge)' }}>
                 {selectedGroup.code}
               </h1>
               <div className="flex flex-col">
@@ -460,40 +716,166 @@ export default function Home() {
               />
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-              <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8" {...swipeHandlers}>
+              {/* Mobile Dropdown Menu */}
+              <div className="md:hidden mb-6">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Main Tabs</div>
+                    <SelectItem value="building">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-building)' }} />
+                        <Building2 className="w-4 h-4" /> Building Code
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="plumbing">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-plumbing)' }} />
+                        <Droplets className="w-4 h-4" /> Plumbing
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="electrical">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-electrical)' }} />
+                        <Zap className="w-4 h-4" /> Electrical
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="additions">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-additions)' }} />
+                        <Ruler className="w-4 h-4" /> Additions
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="sustainability">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-sustainability)' }} />
+                        <Leaf className="w-4 h-4" /> Sustainability
+                      </div>
+                    </SelectItem>
+                    <div className="h-px bg-border my-1"></div>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Design Tools</div>
+                    <SelectItem value="fire-safety">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-fire)' }} />
+                        <Flame className="w-4 h-4" /> Fire & Life Safety
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="design-tools">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-design)' }} />
+                        <Calculator className="w-4 h-4" /> Design Tools
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Desktop Horizontal Tabs */}
+              <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-building)' }}
                 >
                   <Building2 className="w-4 h-4 mr-2" /> Building Code
                 </TabsTrigger>
                 <TabsTrigger 
                   value="plumbing" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-plumbing)' }}
                 >
                   <Droplets className="w-4 h-4 mr-2" /> Plumbing
                 </TabsTrigger>
                 <TabsTrigger 
                   value="electrical" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-gray-900 data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-900 transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-electrical)' }}
                 >
                   <Zap className="w-4 h-4 mr-2" /> Electrical
                 </TabsTrigger>
                 <TabsTrigger 
                   value="additions" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-bold uppercase tracking-wider"
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-additions)' }}
                 >
                   <Ruler className="w-4 h-4 mr-2" /> Additions
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="sustainability" 
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-sustainability)' }}
+                >
+                  <Leaf className="w-4 h-4 mr-2" /> Sustainability
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="fire-safety" 
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-fire)' }}
+                >
+                  <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="design-tools" 
+                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
+                  style={{ backgroundColor: 'var(--tab-design)' }}
+                >
+                  <Calculator className="w-4 h-4 mr-2" /> Design Tools
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                {/* Quick Jump Navigation */}
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border mb-6 -mx-4 px-4 py-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Jump to:</span>
+                    <button
+                      onClick={() => document.getElementById('construction-limits')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Construction Limits
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('span-tables')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Span Tables
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('code-amendments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Code Amendments
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('inspector-checklist')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      Inspector Checklist
+                    </button>
+                    <div className="w-px h-4 bg-border"></div>
+                    <button
+                      onClick={() => setActiveTab('fire-safety')}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Flame className="w-3 h-3" /> Fire & Life Safety
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('design-tools')}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Calculator className="w-3 h-3" /> Design Tools
+                    </button>
+                  </div>
+                </div>
+
                 {selectedGroup.id === "C-2" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Card className="overflow-hidden border-border shadow-sm">
-                      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                      <CardHeader className="pb-2 border-b border-border/50" style={{ backgroundColor: 'var(--fire-bg)' }}>
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--fire-header)' }}>
                           <Ruler className="h-4 w-4" /> Fire Separation Detail
                         </CardTitle>
                       </CardHeader>
@@ -530,6 +912,47 @@ export default function Home() {
                       <p className="text-lg leading-relaxed border-l-2 border-accent pl-4">
                         {selectedGroup.description}
                       </p>
+                    </section>
+
+                    {/* Load Calculation Factors */}
+                    <section>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-orange-600 mb-3 flex items-center gap-2">
+                        <Calculator className="w-4 h-4" /> Load Calculation Factors
+                      </h3>
+                      {(() => {
+                        const loadFactors = getLoadFactors(selectedGroup.code);
+                        return loadFactors ? (
+                          <div className="border border-orange-200 bg-orange-50/50 rounded p-4 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Live Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.liveLoad}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{loadFactors.liveLoadDescription}</p>
+                              </div>
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Dead Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.deadLoad}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Typical structural</p>
+                              </div>
+                              <div className="p-3 bg-white border border-orange-200 rounded">
+                                <p className="text-xs font-bold text-orange-900 mb-1 uppercase tracking-wider">Snow Load</p>
+                                <p className="text-2xl font-bold text-orange-600">{loadFactors.snowLoad || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Roof design (regional)</p>
+                              </div>
+                            </div>
+                            <div className="pt-2 border-t border-orange-200">
+                              <p className="text-xs font-bold text-orange-900 mb-2 uppercase tracking-wider">Notes (NBC 2023 Table 4.1.5.3)</p>
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+                                {loadFactors.notes.map((note: string, i: number) => (
+                                  <li key={i}>{note}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Load factors not available for this occupancy type.</p>
+                        );
+                      })()}
                     </section>
 
                     <section>
@@ -608,6 +1031,259 @@ export default function Home() {
                       </CardContent>
                     </Card>
                   </div>
+                </div>
+
+                {/* Additional Building Requirements */}
+                <div className="space-y-8 mt-8 pt-8 border-t border-border">
+                  {/* Construction Limits */}
+                  <section id="construction-limits" className="scroll-mt-20">
+                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'var(--construction-header)' }}>
+                      <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
+                      Maximum building area and height permitted for <strong>{selectedGroup.code}</strong> based on NBC 2023 Article 3.2.2.
+                    </p>
+                    
+                    {/* Interactive Construction Limits Calculator */}
+                    <div className="mb-6">
+                      <ConstructionLimitsCalculator />
+                    </div>
+
+                    {/* Static Reference Table */}
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 mt-8">Reference Table - {selectedGroup.code} Occupancy Limits</h4>
+                    <div className="rounded-md border border-border overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-muted/20">
+                          <TableRow>
+                            <TableHead className="font-bold">Article</TableHead>
+                            <TableHead className="font-bold">Max Height</TableHead>
+                            <TableHead className="font-bold">Max Area</TableHead>
+                            <TableHead className="font-bold">Sprinklers</TableHead>
+                            <TableHead className="font-bold">Construction</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {constructionLimits[selectedGroup.code.split(' ')[0]]?.map((limit, index) => (
+                            <TableRow key={index} className="hover:bg-muted/10">
+                              <TableCell className="font-mono text-xs text-primary">{limit.article}</TableCell>
+                              <TableCell>{limit.maxHeight}</TableCell>
+                              <TableCell>{limit.maxArea}</TableCell>
+                              <TableCell>
+                                {limit.sprinklered ? (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">Required</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">Optional</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1 flex-wrap">
+                                  {limit.constructionType.map(type => (
+                                    <Badge key={type} variant="outline" className="text-[10px] border-border">
+                                      {type}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )) || (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                No specific construction limits found for this group.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Building Height Limits */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Layers className="w-4 h-4" /> Building Height Limits
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum height and storey limits for <strong>{selectedGroup.code}</strong> by construction type.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Construction Type</TableHead>
+                            <TableHead>Max Height</TableHead>
+                            <TableHead>Max Storeys</TableHead>
+                            <TableHead>Notes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow><TableCell>Combustible</TableCell><TableCell>18m</TableCell><TableCell>6</TableCell><TableCell>With sprinklers</TableCell></TableRow>
+                          <TableRow><TableCell>Noncombustible</TableCell><TableCell>No limit</TableCell><TableCell>No limit</TableCell><TableCell>Based on fire resistance rating</TableCell></TableRow>
+                          <TableRow><TableCell>Heavy Timber</TableCell><TableCell>18m</TableCell><TableCell>6</TableCell><TableCell>Specific requirements apply</TableCell></TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+
+                  {/* Ceiling Height Requirements */}
+                  <section className="mb-8">
+                    <CeilingHeightTable occupancy={selectedGroup.code} />
+                  </section>
+
+                  {/* Allowable Openings */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4" /> Allowable Openings in Fire-Rated Assemblies
+                    </h3>
+                    <div className="mb-6">
+                      <AllowableOpeningsDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Fire-Rated Doors</h4>
+                        <p className="text-xs text-muted-foreground">Must have a fire-protection rating not less than that required for closures in the fire separation.</p>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Maximum Opening Size</h4>
+                        <p className="text-xs text-muted-foreground">Limited by fire separation rating and building area. Consult NBC Table 3.1.8.4.</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Ergonomic Requirements */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-green-600 mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Ergonomic & Accessibility Requirements
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <StairErgonomicsDiagram />
+                      <AccessibilityDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Stair Dimensions</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Rise: 125mm - 200mm</li>
+                          <li>Run: Min 210mm</li>
+                          <li>Width: Min 860mm</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Handrails</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Height: 865mm - 965mm</li>
+                          <li>Diameter: 30mm - 43mm</li>
+                          <li>Clearance: Min 50mm from wall</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Doorways</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Clear width: Min 810mm</li>
+                          <li>Barrier-free: Min 850mm</li>
+                          <li>Threshold: Max 13mm</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Property Setbacks */}
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" /> Property Setback Requirements
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
+                      Setback requirements are determined by municipal zoning bylaws, not the Building Code. Always verify with your local authority.
+                    </p>
+                    <div className="mb-6">
+                      <SetbackDiagram />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Typical Requirements</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Front: 6.0m (varies by zone)</li>
+                          <li>Rear: 7.5m (principal building)</li>
+                          <li>Side: 1.2m minimum</li>
+                        </ul>
+                      </div>
+                      <div className="p-4 border border-border bg-card rounded-none">
+                        <h4 className="font-bold text-sm mb-2">Accessory Buildings</h4>
+                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                          <li>Rear/Side: Often 0.6m if under height limit</li>
+                          <li>Check municipal bylaws for specifics</li>
+                          <li>Verify with Real Property Report (RPR)</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Floor Joist Span Calculator */}
+                  <section className="mb-8">
+                    <FloorJoistSpanCalculator />
+                  </section>
+
+                  {/* Beam Span Calculator */}
+                  <section className="mb-8">
+                    <BeamSpanCalculator />
+                  </section>
+
+                  {/* Roof Rafter Span Calculator */}
+                  <section className="mb-8">
+                    <RoofRafterSpanCalculator />
+                  </section>
+
+                  {/* Column Load Calculator */}
+                  <section className="mb-8">
+                    <ColumnSpanCalculator />
+                  </section>
+
+                  {/* Interactive Beam Diagram */}
+                  <section className="mb-8">
+                    <InteractiveBeamDiagram />
+                  </section>
+
+                  {/* Span Tables */}
+                  <section id="span-tables" className="scroll-mt-20">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
+                      <Ruler className="w-4 h-4" /> Structural Span Tables
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
+                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
+                    </p>
+                    <SpanTables />
+                  </section>
+
+                  {/* Code Amendment Tracker */}
+                  <section id="code-amendments" className="scroll-mt-20">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-purple-600 mb-4 flex items-center gap-2">
+                      <FileText className="w-4 h-4" /> Code Amendment Tracker (NBC 2019 → 2023)
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-purple-600/20 pl-3">
+                      Key changes between NBC 2019 and NBC 2023 affecting <strong>{selectedGroup.code}</strong> occupancy.
+                    </p>
+                    <CodeAmendmentTracker occupancyCode={selectedGroup.code} />
+                  </section>
+
+                  {/* Inspector Checklist Generator */}
+                  <section id="inspector-checklist" className="scroll-mt-20">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4" /> Inspector Checklist Generator
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-blue-600/20 pl-3">
+                      Generate printable inspection checklists by construction phase for <strong>{selectedGroup.code}</strong> occupancy.
+                    </p>
+                    <InspectorChecklistGeneratorEnhanced 
+                      occupancyCode={selectedGroup.code} 
+                      occupancyName={selectedGroup.name}
+                      projectId={activeProjectId || undefined}
+                      onProgressUpdate={(phase, completed, total) => {
+                        if (activeProjectId) {
+                          const percentage = Math.round((completed / total) * 100);
+                          updateProjectProgress(activeProjectId, phase, percentage);
+                        }
+                      }}
+                    />
+                  </section>
                 </div>
               </TabsContent>
 
@@ -921,6 +1597,15 @@ export default function Home() {
                 <div className="space-y-8">
                   <section>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Calculator className="w-4 h-4" /> Permit Fee Estimator
+                    </h3>
+                    <div className="max-w-2xl">
+                      <PermitFeeCalculator />
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
                       <Ruler className="w-4 h-4" /> Zoning & Setbacks (Municipal)
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1015,81 +1700,185 @@ export default function Home() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="construction" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <TabsContent value="sustainability" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-8">
+                  {sustainabilityData.map((topic) => (
+                    <section key={topic.id}>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                        <Leaf className="w-4 h-4" /> {topic.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">{topic.description}</p>
+                      
+                      {/* Visual Diagrams */}
+                      {topic.id === 'solar-pv' && (
+                        <div className="mb-6">
+                          <SolarPVDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'ev-charging' && (
+                        <div className="mb-6">
+                          <EVChargingDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'tankless-heaters' && (
+                        <div className="mb-6">
+                          <TanklessHeaterDiagram />
+                        </div>
+                      )}
+                      {topic.id === 'grid-integration' && (
+                        <div className="mb-6">
+                          <GridIntegrationDiagram />
+                        </div>
+                      )}
+
+                      {/* Code References */}
+                      <div className="mb-6">
+                        <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2">Code References</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {topic.codeReferences.map((ref, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs font-mono">
+                              {ref}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Requirements */}
+                      <div className="space-y-4 mb-6">
+                        {topic.requirements.map((req) => (
+                          <Card key={req.id} className="rounded-none border-border shadow-sm">
+                            <CardHeader className="pb-2 border-b border-border bg-muted/20">
+                              <CardTitle className="text-sm font-bold uppercase tracking-wider">
+                                {req.category}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                              <ul className="space-y-2">
+                                {req.items.map((item, idx) => (
+                                  <li key={idx} className="flex items-start gap-2 text-sm">
+                                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                                    <span className="text-muted-foreground">{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {/* Considerations */}
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded">
+                        <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                          <Info className="w-4 h-4" /> Key Considerations
+                        </h4>
+                        <ul className="space-y-2">
+                          {topic.considerations.map((consideration, idx) => (
+                            <li key={idx} className="text-xs text-blue-800 dark:text-blue-200 flex items-start gap-2">
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span>{consideration}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="fire-safety" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
                 <div className="space-y-8">
                   <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                      <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Flame className="w-5 h-5" /> Fire Protection & Life Safety Calculators
                     </h3>
-                    <div className="rounded-md border border-border overflow-hidden">
-                      <Table>
-                        <TableHeader className="bg-muted/20">
-                          <TableRow>
-                            <TableHead className="font-bold">Article</TableHead>
-                            <TableHead className="font-bold">Max Height</TableHead>
-                            <TableHead className="font-bold">Max Area</TableHead>
-                            <TableHead className="font-bold">Sprinklers</TableHead>
-                            <TableHead className="font-bold">Construction</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {constructionLimits[selectedGroup.code.split(' ')[0]]?.map((limit, index) => (
-                            <TableRow key={index} className="hover:bg-muted/10">
-                              <TableCell className="font-mono text-xs text-primary">{limit.article}</TableCell>
-                              <TableCell>{limit.maxHeight}</TableCell>
-                              <TableCell>{limit.maxArea}</TableCell>
-                              <TableCell>
-                                {limit.sprinklered ? (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">Required</Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">Optional</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-1 flex-wrap">
-                                  {limit.constructionType.map(type => (
-                                    <Badge key={type} variant="outline" className="text-[10px] border-border">
-                                      {type}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )) || (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                No specific construction limits found for this group.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Critical NBC 2025 Part 3 calculators for fire protection, occupant safety, and egress design. These tools help determine fire separation requirements, occupant loads, exit configurations, and construction type limitations.
+                    </p>
+                    <div className="space-y-6">
+                      <FireSeparationCalculator />
+                      <OccupantLoadCalculator />
+                      <ExitRequirementsCalculator />
+                      <TravelDistanceCalculator />
+                      <ConstructionTypeSelector />
                     </div>
                   </section>
 
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-destructive mb-4 flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4" /> Fire Separation Matrix (Table 3.1.3.1)
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Accessibility className="w-5 h-5" /> Accessibility & Safety Systems
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-destructive/20 pl-3">
-                      Required fire-resistance rating (in hours) between <strong>{selectedGroup.code}</strong> and adjacent major occupancies.
+                    <p className="text-sm text-muted-foreground mb-6">
+                      NBC 2025 Part 3 calculators for barrier-free design, fire alarm systems, and emergency lighting requirements. Ensure compliance with accessibility standards and life safety systems.
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {Object.entries(separationMatrix[selectedGroup.code.split(' ')[0]] || {}).map(([adjCode, rating]) => (
-                        <div key={adjCode} className="flex items-center justify-between p-3 rounded border border-border bg-card hover:shadow-sm transition-shadow">
-                          <span className="font-mono font-bold text-sm">{adjCode}</span>
-                          <Badge 
-                            variant={rating === '-' ? 'outline' : 'destructive'} 
-                            className={rating === '-' ? 'text-muted-foreground border-dashed' : ''}
-                          >
-                            {rating === '-' ? 'None' : `${rating} h`}
-                          </Badge>
-                        </div>
-                      ))}
+                    <div className="space-y-6">
+                      <BarrierFreeCalculator />
+                      <FireAlarmCalculator />
+                      <EmergencyLightingCalculator />
                     </div>
                   </section>
                 </div>
               </TabsContent>
+
+              <TabsContent value="design-tools" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Calculator className="w-5 h-5" /> NBC 2025 Design Tools - Tier 1 Critical Calculators
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Essential design calculators covering stairs, guards, structural loads, accessibility, thermal performance, and ventilation. These Tier 1 tools address the most frequently used NBC 2025 requirements for residential and commercial projects.
+                    </p>
+                    <div className="space-y-6">
+                      <StairDesignCalculator />
+                      <BatchStairCalculator />
+                      <GuardHandrailCalculator />
+                      <SnowLoadCalculator />
+                      <AccessibilityRampCalculator />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Building2 className="w-5 h-5" /> Building Envelope & Systems
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Thermal performance, ventilation, and structural framing calculators for building envelope design and mechanical systems sizing.
+                    </p>
+                    <div className="space-y-6">
+                      <ThermalResistanceCalculator />
+                      <VentilationRateCalculator />
+                      <StudSpacingCalculator />
+                      <LintelSpanCalculator />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Layers className="w-5 h-5" /> Tier 2: Advanced Design Calculators
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Professional-grade calculators for foundation design, lateral loads, energy code compliance, and plumbing systems. These tools support detailed design and engineering analysis.
+                    </p>
+                    <div className="space-y-6">
+                      <FoundationDesignCalculator />
+                      <LateralLoadCalculator />
+                      <EnergyCodeCalculator />
+                      <PlumbingFixtureCalculator />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <FileImage className="w-5 h-5" /> AI-Powered Plan Analysis
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Upload architectural plans (floor plans, elevations, site plans) to automatically detect NBC 2025 code infractions using AI vision analysis. Get instant feedback on compliance issues with specific code references and recommendations.
+                    </p>
+                    <PlanAnalyzer />
+                  </section>
+                </div>
+              </TabsContent>
+
             </Tabs>
           </div>
         ) : (
@@ -1104,6 +1893,48 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Keyboard Help Dialog */}
+      <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="w-5 h-5" /> Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription>
+              Use these shortcuts to navigate faster
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-[1fr,2fr] gap-4 text-sm">
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">/</div>
+              <div>Focus search bar</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">?</div>
+              <div>Show this help dialog</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">↑ / ↓</div>
+              <div>Navigate occupancy list</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center">Ctrl+1-5</div>
+              <div>Switch between tabs</div>
+              
+              <div className="font-mono bg-muted px-2 py-1 rounded text-center text-xs">Ctrl+P</div>
+              <div>Print current page</div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Keyboard Help Button */}
+      <button
+        onClick={() => setShowKeyboardHelp(true)}
+        className="fixed bottom-4 right-4 p-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all z-50 print:hidden"
+        title="Keyboard Shortcuts (?)"
+      >
+        <Keyboard className="w-5 h-5" />
+      </button>
     </div>
+    </>
   );
 }
