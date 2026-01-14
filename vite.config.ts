@@ -15,64 +15,23 @@ const plugins = [
   VitePWA({
     registerType: 'autoUpdate',
     includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-    workbox: {
-      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB limit for large calculator bundles
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-      runtimeCaching: [
-        {
-          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'google-fonts-cache',
-            expiration: {
-              maxEntries: 10,
-              maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-            },
-            cacheableResponse: {
-              statuses: [0, 200]
-            }
-          }
-        },
-        {
-          urlPattern: /\/api\/trpc\/.*/i,
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'api-cache',
-            networkTimeoutSeconds: 10,
-            expiration: {
-              maxEntries: 50,
-              maxAgeSeconds: 60 * 5 // 5 minutes
-            }
-          }
-        }
-      ]
-    },
     manifest: {
       name: 'Building Code Occupancy Classifier',
       short_name: 'Code Classifier',
-      description: 'Alberta Building Code Occupancy Classification Tool with NBC 2025 calculators',
-      theme_color: '#1E3A8A',
-      background_color: '#ffffff',
-      display: 'standalone',
-      start_url: '/',
-      scope: '/',
+      description: 'Alberta Building Code Occupancy Classification Tool',
+      theme_color: '#ffffff',
       icons: [
         {
           src: 'pwa-192x192.png',
           sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any maskable'
+          type: 'image/png'
         },
         {
           src: 'pwa-512x512.png',
           sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any maskable'
+          type: 'image/png'
         }
       ]
-    },
-    devOptions: {
-      enabled: true
     }
   })
 ];
@@ -88,12 +47,13 @@ export default defineConfig({
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
-  publicDir: path.resolve(import.meta.dirname, "client", "public"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
   server: {
+    port: 3000,
+    strictPort: false, // Will find next available port if 3000 is busy
     host: true,
     allowedHosts: [
       ".manuspre.computer",

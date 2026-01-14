@@ -43,105 +43,55 @@
 }
 
 :root {
-  /* Blueprint Professional Palette */
-  /* Deep Blueprint Blue #1E3A8A -> oklch(0.35 0.12 260) */
-  /* Construction Orange #F59E0B -> oklch(0.72 0.15 75) */
-  /* Safety Green #10B981 -> oklch(0.65 0.17 165) */
+  /* Swiss Style Palette */
+  /* Regulatory Blue #0F172A -> oklch(0.2 0.04 260) */
+  /* Safety Orange #F97316 -> oklch(0.68 0.2 40) */
   
-  --primary: oklch(0.35 0.12 260); /* Deep Blueprint Blue */
+  --primary: oklch(0.2 0.04 260);
   --primary-foreground: oklch(0.98 0 0);
   
-  --sidebar-primary: oklch(0.35 0.12 260);
+  --sidebar-primary: oklch(0.2 0.04 260);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   
-  --chart-1: oklch(0.35 0.12 260); /* Blueprint Blue */
-  --chart-2: oklch(0.72 0.15 75);  /* Construction Orange */
-  --chart-3: oklch(0.65 0.17 165); /* Safety Green */
-  --chart-4: oklch(0.45 0.08 260); /* Lighter Blue */
-  --chart-5: oklch(0.55 0.04 260); /* Slate Gray */
+  --chart-1: oklch(0.2 0.04 260);
+  --chart-2: oklch(0.68 0.2 40);
+  --chart-3: oklch(0.4 0.04 260);
+  --chart-4: oklch(0.8 0.04 260);
+  --chart-5: oklch(0.6 0.04 260);
   
-  --radius: 0rem; /* Sharp corners for professional look */
+  --radius: 0rem; /* Sharp corners for Swiss style */
   
-  --background: oklch(0.985 0.002 240); /* Cool White #F8FAFC */
-  --foreground: oklch(0.18 0.02 260);   /* Near Black #0F172A */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.15 0 0);
   
-  --card: oklch(1 0 0);                 /* Pure White */
-  --card-foreground: oklch(0.18 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0 0);
   
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 260);
+  --popover-foreground: oklch(0.15 0 0);
   
-  --secondary: oklch(0.42 0.02 260);    /* Slate Gray #475569 */
-  --secondary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.2 0.04 260);
   
-  --muted: oklch(0.92 0.005 240);       /* Light Slate #E2E8F0 */
-  --muted-foreground: oklch(0.52 0.02 240); /* Medium Slate #64748B */
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.5 0 0);
   
-  --accent: oklch(0.72 0.15 75);        /* Construction Orange */
-  --accent-foreground: oklch(0.18 0.02 260);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0.2 0.04 260);
   
-  --destructive: oklch(0.55 0.22 25);   /* Safety Red #DC2626 */
+  --destructive: oklch(0.68 0.2 40); /* Safety Orange for destructive/warning */
   --destructive-foreground: oklch(0.98 0 0);
   
-  --border: oklch(0.92 0.005 240);
-  --input: oklch(0.92 0.005 240);
-  --ring: oklch(0.35 0.12 260);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.2 0.04 260);
   
-  --sidebar: oklch(0.985 0.002 240);
-  --sidebar-foreground: oklch(0.18 0.02 260);
-  --sidebar-accent: oklch(0.92 0.005 240);
-  --sidebar-accent-foreground: oklch(0.35 0.12 260);
-  --sidebar-border: oklch(0.92 0.005 240);
-  --sidebar-ring: oklch(0.35 0.12 260);
-
-  /* Semantic Color Tokens for Functional Areas */
-  /* Navigation & Search - Blue Tones */
-  --nav-bg: oklch(0.92 0.04 240);           /* Light Blue #E3F2FD */
-  --nav-fg: oklch(0.25 0.08 240);           /* Dark Blue #1565C0 */
-  --nav-accent: oklch(0.55 0.15 240);       /* Medium Blue #2196F3 */
-  
-  /* Occupancy Codes - Orange Tones */
-  --occupancy-bg: oklch(0.90 0.08 75);      /* Light Orange #FFE0B2 */
-  --occupancy-fg: oklch(0.40 0.12 65);      /* Dark Orange #E65100 */
-  --occupancy-badge: oklch(0.72 0.15 75);   /* Orange #FF9800 */
-  
-  /* Requirements - Green Tones */
-  --requirements-bg: oklch(0.92 0.08 150);  /* Light Green #E8F5E9 */
-  --requirements-fg: oklch(0.30 0.10 150);  /* Dark Green #1B5E20 */
-  --requirements-header: oklch(0.60 0.15 150); /* Green #4CAF50 */
-  
-  /* Fire Safety - Red Tones */
-  --fire-bg: oklch(0.92 0.06 25);           /* Light Red #FFEBEE */
-  --fire-fg: oklch(0.35 0.15 25);           /* Dark Red #B71C1C */
-  --fire-header: oklch(0.55 0.22 25);       /* Red #F44336 */
-  
-  /* Construction - Purple Tones */
-  --construction-bg: oklch(0.92 0.04 300);  /* Light Purple #F3E5F5 */
-  --construction-fg: oklch(0.30 0.10 300);  /* Dark Purple #4A148C */
-  --construction-header: oklch(0.50 0.15 300); /* Purple #9C27B0 */
-  
-  /* Calculator Tools - Teal-Blue Gradient */
-  --calculator-start: oklch(0.65 0.12 200); /* Teal #00BCD4 */
-  --calculator-end: oklch(0.55 0.15 240);   /* Blue #2196F3 */
-  --calculator-bg: oklch(0.92 0.04 210);    /* Light Teal #E0F7FA */
-  
-  /* Individual Tab Category Colors */
-  --tab-building: oklch(0.55 0.20 240);        /* Blue */
-  --tab-plumbing: oklch(0.60 0.18 200);        /* Cyan/Teal */
-  --tab-electrical: oklch(0.75 0.15 85);       /* Yellow/Amber */
-  --tab-additions: oklch(0.60 0.20 300);       /* Purple */
-  --tab-sustainability: oklch(0.65 0.18 150);  /* Green */
-  --tab-fire: oklch(0.60 0.22 25);             /* Red */
-  --tab-design: oklch(0.62 0.17 190);          /* Teal-Blue */
-  
-  /* Validation States */
-  --valid-green: oklch(0.60 0.15 150);      /* Success Green */
-  --invalid-red: oklch(0.55 0.22 25);       /* Error Red */
-  --warning-yellow: oklch(0.75 0.12 90);    /* Warning Yellow #FFC107 */
-  
-  /* History & Secondary Features */
-  --history-bg: oklch(0.95 0.04 90);        /* Light Yellow #FFF9C4 */
-  --history-fg: oklch(0.35 0.08 80);        /* Dark Yellow #F57F17 */
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.2 0.04 260);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.2 0.04 260);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.2 0.04 260);
 }
 
 .dark {
