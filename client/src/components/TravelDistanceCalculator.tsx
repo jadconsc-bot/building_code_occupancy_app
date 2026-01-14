@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Route, CheckCircle, XCircle } from "lucide-react";
+import { CalculatorActions } from "@/components/CalculatorActions";
+import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
+import { HistoryPanel } from "@/components/HistoryPanel";
 
 // NBC 3.4.2.5 - Maximum Travel Distance
 const travelDistanceLimits: Record<string, { sprinklered: number; unsprinklered: number }> = {
@@ -44,6 +47,8 @@ export function TravelDistanceCalculator() {
   const [sprinklered, setSprinklered] = useState<string>("no");
   const [actualDistance, setActualDistance] = useState<string>("");
   const [deadEndCorridor, setDeadEndCorridor] = useState<string>("no");
+  const [results, setResults] = useState<any>(null);
+  const { addToHistory } = useCalculationHistory();
 
   const calculateCompliance = (): {
     maxAllowed: number;
@@ -73,15 +78,89 @@ export function TravelDistanceCalculator() {
   const actualFeet = result.actual * 3.281;
   const marginFeet = result.margin * 3.281;
 
+  // Auto-save results when calculation is performed
+  useEffect(() => {
+    if (result && result.maxAllowed > 0) {
+      setResults(result);
+      addToHistory({
+        calculatorType: "travel_distance",
+        inputs: { occupancy, sprinklered, actualDistance, deadEndCorridor },
+        results: result,
+        preview: `Travel Distance: ${result.actual}m ${result.compliant ? 'Compliant' : 'Non-compliant'} for ${occupancyNames[occupancy]}`
+      });
+    }
+  }, [occupancy, sprinklered, actualDistance, deadEndCorridor, result.maxAllowed]);
+
+  // Export function
+  const getExportData = () => {
+    if (!results) return { filename: "", sheetName: "", data: [] };
+    
+    const data = [
+      ["Parameter", "Value"],
+      ["Occupancy", `${occupancy} - ${occupancyNames[occupancy]}`],
+      ["Sprinklered", sprinklered === "yes" ? "Yes" : "No"],
+      ["Actual Travel Distance", `${actualDistance} m (${actualFeet.toFixed(1)} ft)`],
+      ["Dead-End Corridor", deadEndCorridor === "yes" ? "Yes" : "No"],
+      ["", ""],
+      ["Results", ""],
+      ["Maximum Allowed", `${results.maxAllowed} m (${maxAllowedFeet.toFixed(1)} ft)`],
+      ["Compliance Status", results.compliant ? "COMPLIANT" : "NON-COMPLIANT"],
+      ["Margin", `${results.margin > 0 ? '+' : ''}${results.margin.toFixed(1)} m (${marginFeet > 0 ? '+' : ''}${marginFeet.toFixed(1)} ft)`],
+      ["Dead-End Corridor Limit", `${results.deadEndLimit} m`],
+      ["", ""],
+      ["Code Reference", "NBC 3.4.2.5 - Maximum Travel Distance"],
+    ];
+    
+    return {
+      filename: `Travel_Distance_${new Date().toISOString().split('T')[0]}`,
+      sheetName: "Travel Distance",
+      data,
+    };
+  };
+
+  // Load handlers
+  const handleLoadPreset = (data: any) => {
+    setOccupancy(data.occupancy);
+    setSprinklered(data.sprinklered);
+    setActualDistance(data.actualDistance);
+    setDeadEndCorridor(data.deadEndCorridor);
+  };
+
+  const handleLoadHistory = (item: any) => {
+    setOccupancy(item.inputs.occupancy);
+    setSprinklered(item.inputs.sprinklered);
+    setActualDistance(item.inputs.actualDistance);
+    setDeadEndCorridor(item.inputs.deadEndCorridor);
+    setResults(item.results);
+  };
+
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Route className="w-4 h-4 text-primary" /> Travel Distance Calculator
-        </CardTitle>
-        <CardDescription className="text-xs mt-1">
-          Verify maximum travel distance to exits (NBC Part 3.4.2.5)
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Route className="w-4 h-4 text-primary" /> Travel Distance Calculator
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              Verify maximum travel distance to exits (NBC Part 3.4.2.5)
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <HistoryPanel
+              calculatorType="travel_distance"
+              onLoadHistory={handleLoadHistory}
+            />
+            <CalculatorActions
+              calculatorId="travel_distance"
+              calculatorName="Travel Distance"
+              exportData={getExportData}
+              currentState={{ occupancy, sprinklered, actualDistance, deadEndCorridor }}
+              onLoadPreset={handleLoadPreset}
+              hasResults={!!results}
+            />
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="space-y-6">

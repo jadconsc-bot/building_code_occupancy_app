@@ -1096,3 +1096,11 @@
 - [x] Test exit stair calculations for compliance (14/14 tests passing)
 
 - [x] Add visual fire separation diagrams showing different occupancy combinations in Fire Safety tab
+
+- [x] Add Excel export functionality to ExitRequirementsCalculator
+- [x] Add Excel export functionality to FireSeparationCalculator
+- [x] Add Excel export functionality to OccupantLoadCalculator
+- [x] Add Excel export functionality to TravelDistanceCalculator
+- [x] Add 3 new fire separation scenarios (Industrial/Residential, Healthcare/Business, Parking/Residential)
+- [x] Create egress path analysis visual diagram
+- [x] Create sprinkler coverage zones visual diagram

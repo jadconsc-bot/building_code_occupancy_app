@@ -27,6 +27,8 @@ import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrati
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
 import { FireSeparationDiagrams } from "@/components/FireSeparationDiagrams";
+import { EgressPathDiagram } from "@/components/EgressPathDiagram";
+import { SprinklerCoverageDiagram } from "@/components/SprinklerCoverageDiagram";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
@@ -1797,6 +1799,8 @@ export default function Home() {
                     </p>
                     <div className="space-y-6">
                       <FireSeparationDiagrams />
+                      <EgressPathDiagram />
+                      <SprinklerCoverageDiagram />
                       <FireSeparationCalculator />
                       <OccupantLoadCalculator />
                       <ExitRequirementsCalculator />

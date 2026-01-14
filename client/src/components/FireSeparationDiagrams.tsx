@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Building2, ShoppingBag, Users, Home, Briefcase } from "lucide-react";
+import { Flame, Building2, ShoppingBag, Users, Home, Briefcase, Factory, Hospital, Car } from "lucide-react";
 
 interface SeparationExample {
   id: string;
@@ -121,6 +121,81 @@ const examples: SeparationExample[] = [
       "Fire-rated doors with self-closers required",
       "Storage height restrictions may apply"
     ]
+  },
+  {
+    id: "industrial-residential",
+    title: "Industrial & Residential",
+    occupancy1: {
+      code: "F-2",
+      name: "Industrial - Medium Hazard",
+      color: "#f97316",
+      icon: Factory
+    },
+    occupancy2: {
+      code: "C",
+      name: "Residential",
+      color: "#3b82f6",
+      icon: Home
+    },
+    rating: "2 hours",
+    description: "Light manufacturing or warehouse adjacent to residential units",
+    notes: [
+      "2-hour fire-resistance rated wall required between occupancies",
+      "Higher hazard industrial uses require stricter separation",
+      "Consider noise, vibration, and air quality impacts on residents",
+      "Separate HVAC systems typically required to prevent cross-contamination",
+      "Loading docks and truck access should be separated from residential areas"
+    ]
+  },
+  {
+    id: "healthcare-business",
+    title: "Healthcare & Business",
+    occupancy1: {
+      code: "B-2",
+      name: "Institutional - Treatment/Care",
+      color: "#dc2626",
+      icon: Hospital
+    },
+    occupancy2: {
+      code: "D",
+      name: "Business & Personal Services",
+      color: "#8b5cf6",
+      icon: Briefcase
+    },
+    rating: "1 hour",
+    description: "Medical clinic or care facility with adjacent office space",
+    notes: [
+      "1-hour fire-resistance rated separation required",
+      "May be reduced to 45 minutes if fully sprinklered (verify NBC 3.2.3.7)",
+      "Maintain separate egress paths for healthcare occupants",
+      "Consider infection control and patient privacy requirements",
+      "Emergency power requirements may differ between occupancies"
+    ]
+  },
+  {
+    id: "parking-residential",
+    title: "Parking & Residential",
+    occupancy1: {
+      code: "F-3",
+      name: "Parking Garage (Low Hazard)",
+      color: "#6b7280",
+      icon: Car
+    },
+    occupancy2: {
+      code: "C",
+      name: "Residential",
+      color: "#3b82f6",
+      icon: Home
+    },
+    rating: "1 hour",
+    description: "Underground or podium parking below residential tower",
+    notes: [
+      "1-hour fire-resistance rated floor/ceiling assembly required",
+      "Parking garage must have adequate ventilation (natural or mechanical)",
+      "Carbon monoxide detection required in enclosed parking areas",
+      "Sprinklers typically required in parking garage",
+      "Drainage system must prevent fuel spills from reaching residential areas"
+    ]
   }
 ];
 
@@ -145,7 +220,7 @@ export function FireSeparationDiagrams() {
         const example = examples.find(e => e.id === id);
         if (example) setSelectedExample(example);
       }}>
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 h-auto">
           {examples.map((ex) => (
             <TabsTrigger key={ex.id} value={ex.id} className="flex-col h-auto py-3 px-2">
               <span className="text-xs font-bold">{ex.title}</span>
