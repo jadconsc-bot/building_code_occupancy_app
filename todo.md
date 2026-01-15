@@ -1045,3 +1045,4 @@
 - [ ] Verify all components are properly closed and nested
 - [ ] Test fix in dev environment
 - [ ] Save checkpoint and guide user to republish
+- [x] Apply distinct colors to main tabs (Building Code, Plumbing, Electrical, Additions, Sustainability)
