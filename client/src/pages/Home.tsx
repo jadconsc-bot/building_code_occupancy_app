@@ -922,34 +922,34 @@ export default function Home() {
               </div>
 
               {/* Desktop Horizontal Tabs */}
-              <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
+              <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-muted/50 p-1 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Building2 className="w-4 h-4 mr-2" /> Building Code
                 </TabsTrigger>
                 <TabsTrigger 
                   value="plumbing" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Droplets className="w-4 h-4 mr-2" /> Plumbing
                 </TabsTrigger>
                 <TabsTrigger 
                   value="electrical" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Zap className="w-4 h-4 mr-2" /> Electrical
                 </TabsTrigger>
                 <TabsTrigger 
                   value="additions" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Ruler className="w-4 h-4 mr-2" /> Additions
                 </TabsTrigger>
                 <TabsTrigger 
                   value="sustainability" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
                 </TabsTrigger>

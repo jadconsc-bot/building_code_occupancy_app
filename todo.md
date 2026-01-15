@@ -103,7 +103,7 @@
 - [ ] Mobile responsiveness review
 
 ## 🐛 Known Issues
-- None currently reported
+- [x] Fix main tabs background color that was lost during React error #185 fix
 
 ## 📚 Documentation Needs
 - [ ] User guide for Inspector Checklist
