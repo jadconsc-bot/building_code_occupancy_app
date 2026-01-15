@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useSwipeable } from "react-swipeable";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -108,32 +107,8 @@ export default function Home() {
     return saved || "AB";
   });
 
-  // Tab order for swipe navigation
+  // Tab order for navigation
   const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
-  
-  // Swipe handlers for mobile tab navigation
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => {
-      const currentIndex = tabOrder.indexOf(activeTab);
-      if (currentIndex < tabOrder.length - 1) {
-        const nextTab = tabOrder[currentIndex + 1];
-        setActiveTab(nextTab);
-        localStorage.setItem("active_tab", nextTab);
-      }
-    },
-    onSwipedRight: () => {
-      const currentIndex = tabOrder.indexOf(activeTab);
-      if (currentIndex > 0) {
-        const prevTab = tabOrder[currentIndex - 1];
-        setActiveTab(prevTab);
-        localStorage.setItem("active_tab", prevTab);
-      }
-    },
-    trackMouse: false,
-    trackTouch: true,
-    preventScrollOnSwipe: false,
-    delta: 50,
-  });
 
   useEffect(() => {
     localStorage.setItem("selected_region", selectedRegion);
