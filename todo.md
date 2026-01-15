@@ -1018,3 +1018,21 @@
 - [ ] Configure app visibility settings in Management UI
 - [ ] Create private beta link for testers
 - [ ] Document beta testing instructions
+
+
+## Mobile Layout Fix (Current Session)
+- [ ] Identify overlapping sections in mobile view
+- [ ] Implement accordion menu for content sections on mobile
+- [ ] Keep "Back to Search" button in fixed position
+- [ ] Ensure accordion sections are collapsible/expandable
+- [ ] Test accordion functionality on mobile devices
+- [ ] Verify no overlapping content remains
+
+
+## Mobile Layout Fix (Completed)
+
+- [x] Identified overlapping sections in mobile view (action buttons area)
+- [x] Implemented accordion menu for mobile content sections
+- [x] Kept Back to Search button in fixed position
+- [x] Verified desktop layout remains unchanged with `hidden md:flex` classes
+- [x] Mobile accordion shows on devices < 768px width with all action buttons
