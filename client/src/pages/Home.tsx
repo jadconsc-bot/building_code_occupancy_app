@@ -63,7 +63,7 @@ import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
 import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
-import { MobileAccordionContent } from "@/components/MobileAccordionContent";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -689,15 +689,16 @@ export default function Home() {
       <div className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`}>
         {selectedGroup ? (
           <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 print:max-w-none print:animate-none">
-            <div className="flex justify-between items-start print:hidden">
-              <button 
-                onClick={() => setSelectedGroup(null)}
-                className="md:hidden mb-6 flex items-center text-sm text-muted-foreground hover:text-foreground"
-              >
-                ← Back to Search
-              </button>
-              {/* Desktop Action Buttons */}
-              <div className="hidden md:flex items-center gap-2 print:hidden">
+            {/* Back to Search Button - Always Visible on Mobile */}
+            <button 
+              onClick={() => setSelectedGroup(null)}
+              className="md:hidden mb-4 flex items-center text-sm text-muted-foreground hover:text-foreground print:hidden"
+            >
+              ← Back to Search
+            </button>
+            
+            {/* Desktop Action Buttons */}
+            <div className="hidden md:flex items-center gap-2 mb-6 ml-auto print:hidden">
                 <Dialog>
                   <DialogTrigger asChild>
                     <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
@@ -761,48 +762,10 @@ export default function Home() {
                   <HelpCircle className="w-4 h-4" />
                   Beta Feedback
                 </button>
-              </div>
             </div>
-            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
-                {selectedGroup.code}
-              </h1>
-              <div className="flex flex-col">
-                <span className="text-sm uppercase tracking-widest text-muted-foreground font-medium print:text-black">
-                  {selectedGroup.division || "General"}
-                </span>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl md:text-3xl font-bold text-foreground print:text-black">
-                    {selectedGroup.name}
-                  </h2>
-                  {selectedGroup.albertaContrast && (
-                    <div className="print:hidden">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className="cursor-help border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors gap-1.5 py-1 px-2">
-                              <MapPin className="w-3 h-3" /> AB Code
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs p-4 bg-blue-950 text-white border-blue-800">
-                            <p className="font-bold mb-1 text-blue-200">{selectedGroup.albertaContrast.title}</p>
-                            <p className="text-xs leading-relaxed">{selectedGroup.albertaContrast.description}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
-                  {selectedGroup.albertaContrast && (
-                    <div className="hidden print:block border border-black p-2 text-xs">
-                      <strong>{selectedGroup.albertaContrast.title}:</strong> {selectedGroup.albertaContrast.description}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
+            
             {/* Mobile Action Buttons Accordion */}
-            <div className="md:hidden mb-6">
+            <div className="md:hidden mb-6 print:hidden">
               <Accordion type="single" collapsible className="w-full border border-border rounded-md">
                 <AccordionItem value="actions" className="border-0">
                   <AccordionTrigger className="text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground px-4 py-3 hover:no-underline">
@@ -878,6 +841,46 @@ export default function Home() {
                 </AccordionItem>
               </Accordion>
             </div>
+            
+            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
+                {selectedGroup.code}
+              </h1>
+              <div className="flex flex-col">
+                <span className="text-sm uppercase tracking-widest text-muted-foreground font-medium print:text-black">
+                  {selectedGroup.division || "General"}
+                </span>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl md:text-3xl font-bold text-foreground print:text-black">
+                    {selectedGroup.name}
+                  </h2>
+                  {selectedGroup.albertaContrast && (
+                    <div className="print:hidden">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="cursor-help border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors gap-1.5 py-1 px-2">
+                              <MapPin className="w-3 h-3" /> AB Code
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-4 bg-blue-950 text-white border-blue-800">
+                            <p className="font-bold mb-1 text-blue-200">{selectedGroup.albertaContrast.title}</p>
+                            <p className="text-xs leading-relaxed">{selectedGroup.albertaContrast.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
+                  {selectedGroup.albertaContrast && (
+                    <div className="hidden print:block border border-black p-2 text-xs">
+                      <strong>{selectedGroup.albertaContrast.title}:</strong> {selectedGroup.albertaContrast.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+
 
             {/* Desktop Notes Section */}
             <div className="hidden md:block mb-8 print:hidden">
