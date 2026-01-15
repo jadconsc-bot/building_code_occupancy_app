@@ -62,6 +62,7 @@ import { VentilationRateCalculator } from "@/components/VentilationRateCalculato
 import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
 import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { PlanAnalyzer } from "@/components/PlanAnalyzer";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -98,6 +99,7 @@ export default function Home() {
   const { openHelp } = useHelpSystem();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -748,6 +750,13 @@ export default function Home() {
                 >
                   <ClipboardList className="w-4 h-4" />
                   Export Checklist
+                </button>
+                <button
+                  onClick={() => setShowFeedbackDialog(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 hover:text-blue-800 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Beta Feedback
                 </button>
               </div>
             </div>
@@ -1995,6 +2004,12 @@ export default function Home() {
       >
         <Keyboard className="w-5 h-5" />
       </button>
+
+      {/* Feedback Dialog */}
+      <FeedbackDialog 
+        open={showFeedbackDialog} 
+        onOpenChange={setShowFeedbackDialog} 
+      />
     </div>
   );
 }

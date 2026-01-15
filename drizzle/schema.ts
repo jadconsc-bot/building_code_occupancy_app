@@ -52,3 +52,27 @@ export const notes = mysqlTable("notes", {
 
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = typeof notes.$inferInsert;
+
+/**
+ * User feedback submissions for beta testing
+ */
+export const feedbacks = mysqlTable("feedbacks", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 320 }),
+  rating: int("rating").notNull(), // 1-5 star rating
+  feedbackType: mysqlEnum("feedbackType", ["bug", "feature", "improvement", "other"]).notNull(),
+  category: varchar("category", { length: 50 }), // e.g., "calculators", "ui", "data-accuracy"
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  currentPage: varchar("currentPage", { length: 255 }), // URL or page identifier
+  browserInfo: text("browserInfo"), // User agent string
+  resolved: int("resolved").default(0).notNull(), // 0 = open, 1 = resolved
+  adminNotes: text("adminNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Feedback = typeof feedbacks.$inferSelect;
+export type InsertFeedback = typeof feedbacks.$inferInsert;

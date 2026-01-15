@@ -4,6 +4,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
+import { feedbacks } from "../drizzle/schema";
+import { getDb } from "./db";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -116,6 +118,52 @@ If no infractions are found, return an empty array: []`;
         };
       }
     }),
+
+  // Feedback submission for beta testing
+  feedback: router({
+    submit: publicProcedure
+      .input(
+        z.object({
+          rating: z.number().min(1).max(5),
+          feedbackType: z.enum(["bug", "feature", "improvement", "other"]),
+          category: z.string().optional(),
+          title: z.string().min(1).max(255),
+          description: z.string().min(1),
+          name: z.string().optional(),
+          email: z.string().email().optional(),
+          currentPage: z.string().optional(),
+          browserInfo: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        try {
+          const db = await getDb();
+          if (!db) throw new Error("Database not available");
+          
+          await db.insert(feedbacks).values({
+            userId: ctx.user?.id,
+            name: input.name,
+            email: input.email,
+            rating: input.rating,
+            feedbackType: input.feedbackType,
+            category: input.category,
+            title: input.title,
+            description: input.description,
+            currentPage: input.currentPage,
+            browserInfo: input.browserInfo,
+            resolved: 0,
+          });
+
+          return {
+            success: true,
+            message: "Feedback submitted successfully",
+          };
+        } catch (error) {
+          console.error("Feedback submission error:", error);
+          throw new Error("Failed to submit feedback");
+        }
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

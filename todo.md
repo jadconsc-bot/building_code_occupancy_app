@@ -985,3 +985,36 @@
 - [x] Support batch export of multiple checklists
 - [x] Add company logo/header customization option
 - [x] Include project information in PDF header
+
+
+## Beta Testing Features (Current Session)
+
+### Feedback Form System
+- [ ] Create feedback database schema (feedbacks table)
+- [ ] Create feedback form component with rating and comments
+- [ ] Add feedback button in app header
+- [ ] Create tRPC mutation for submitting feedback
+- [ ] Add feedback success/error notifications
+- [ ] Create admin view to review feedback submissions
+
+### Private Beta Access
+- [ ] Configure app visibility settings for private beta
+- [ ] Generate shareable private beta link
+- [ ] Document beta testing instructions for users
+
+
+## Beta Testing Features (Current Session)
+
+### Beta Feedback Form
+- [x] Create feedback database schema with ratings and categories
+- [x] Build feedback form component with star rating system
+- [x] Add feedback types (Bug, Feature, Improvement, General)
+- [x] Include optional category selection (Calculators, UI, Data Accuracy, etc.)
+- [x] Capture user context (current page, browser info)
+- [x] Add feedback button to main UI
+- [x] Store feedback in database for review
+
+### Private Beta Access
+- [ ] Configure app visibility settings in Management UI
+- [ ] Create private beta link for testers
+- [ ] Document beta testing instructions
