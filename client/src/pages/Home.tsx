@@ -896,7 +896,8 @@ export default function Home() {
               />
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8" {...swipeHandlers}>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+              <div {...swipeHandlers}>
               {/* Mobile Dropdown Menu */}
               <div className="md:hidden mb-6">
                 <Select value={activeTab} onValueChange={setActiveTab}>
@@ -2032,7 +2033,7 @@ export default function Home() {
                   </section>
                 </div>
               </TabsContent>
-
+              </div>
             </Tabs>
           </div>
         ) : (
