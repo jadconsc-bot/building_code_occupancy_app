@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
-import { WifiOff, Wifi } from "lucide-react";
+import { WifiOff, Wifi, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { setupOfflineListener, clearCache } from "@/lib/serviceWorkerRegistration";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOfflineMessage, setShowOfflineMessage] = useState(false);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+  const [cacheCleared, setCacheCleared] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -17,12 +21,26 @@ export function OfflineIndicator() {
       setShowOfflineMessage(true);
     };
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    // Set up online/offline listeners with cleanup
+    const cleanup = setupOfflineListener(handleOnline, handleOffline);
+
+    // Listen for service worker updates
+    const handleSWUpdated = () => {
+      setShowUpdateNotification(true);
+    };
+
+    const handleCacheCleared = () => {
+      setCacheCleared(true);
+      setTimeout(() => setCacheCleared(false), 3000);
+    };
+
+    window.addEventListener('swUpdated', handleSWUpdated);
+    window.addEventListener('CACHE_CLEARED', handleCacheCleared);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      cleanup();
+      window.removeEventListener('swUpdated', handleSWUpdated);
+      window.removeEventListener('CACHE_CLEARED', handleCacheCleared);
     };
   }, []);
 
@@ -36,28 +54,82 @@ export function OfflineIndicator() {
     }
   }, [isOnline, showOfflineMessage]);
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Show cache cleared message
+  if (cacheCleared) {
+    return (
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-2 duration-300">
+        <Badge className="px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2 bg-green-600">
+          <RefreshCw className="w-4 h-4" />
+          Cache Cleared
+        </Badge>
+      </div>
+    );
+  }
+
+  // Show update notification
+  if (showUpdateNotification) {
+    return (
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-2 duration-300">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                className="px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2 bg-blue-600 cursor-pointer hover:bg-blue-700"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="w-4 h-4" />
+                Update Available - Click to Refresh
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>New version available. Click to update.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    );
+  }
+
   if (!showOfflineMessage && isOnline) {
     return null;
   }
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-2 duration-300">
-      <Badge
-        variant={isOnline ? "default" : "destructive"}
-        className="px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2"
-      >
-        {isOnline ? (
-          <>
-            <Wifi className="w-4 h-4" />
-            Back online
-          </>
-        ) : (
-          <>
-            <WifiOff className="w-4 h-4" />
-            Offline mode - Using cached data
-          </>
-        )}
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant={isOnline ? "default" : "destructive"}
+              className="px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2 cursor-pointer"
+              onClick={isOnline ? handleClearCache : undefined}
+            >
+              {isOnline ? (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  Back online
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4" />
+                  Offline mode - Using cached data
+                </>
+              )}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{isOnline ? 'Click to clear cache' : 'Cached content available offline'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }

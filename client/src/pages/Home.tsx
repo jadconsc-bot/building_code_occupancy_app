@@ -67,6 +67,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
+import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenerator";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -241,6 +242,68 @@ export default function Home() {
     printWindow.document.close();
   };
 
+  const exportChecklistPDF = async () => {
+    if (!selectedGroup) return;
+
+    // Prepare checklist sections based on active tab
+    const sections: ChecklistSection[] = [];
+
+    if (activeTab === 'plumbing' && selectedGroup.code.startsWith('C') || selectedGroup.code.startsWith('A-2')) {
+      sections.push(...plumbingChecklists);
+    }
+
+    if (activeTab === 'electrical' && (selectedGroup.code.startsWith('C') || selectedGroup.code.startsWith('A-2'))) {
+      sections.push(...electricalChecklists);
+    }
+
+    // If no specific checklists, create a general one
+    if (sections.length === 0) {
+      sections.push({
+        id: 'general',
+        name: 'General Requirements',
+        items: [
+          {
+            id: '1',
+            label: 'Fire Resistance Rating',
+            description: selectedGroup.compliance.fireResistance,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '2',
+            label: 'Sprinkler Requirements',
+            description: selectedGroup.compliance.sprinklers,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '3',
+            label: 'Occupant Load',
+            description: selectedGroup.compliance.occupantLoad,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '4',
+            label: 'Exit Requirements',
+            description: selectedGroup.compliance.exits,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '5',
+            label: 'Construction Type',
+            description: selectedGroup.compliance.construction,
+            codeRef: 'Part 3',
+          },
+        ],
+      });
+    }
+
+    await generatePDFChecklist({
+      occupancyCode: selectedGroup.code,
+      occupancyName: selectedGroup.name,
+      sections,
+      includeQRCode: true,
+    });
+  };
+
   const toggleBookmark = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setBookmarks(prev => 
@@ -250,7 +313,7 @@ export default function Home() {
 
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Voice search is not supported in this browser.");
+      alert("Voice search is not supported in this browser. Please try Chrome, Edge, or Safari.");
       return;
     }
 
@@ -270,6 +333,18 @@ export default function Home() {
       setIsListening(false);
     };
 
+    recognition.onerror = (event: any) => {
+      setIsListening(false);
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        alert('No speech detected. Please try again.');
+      } else if (event.error === 'network') {
+        alert('Network error. Please check your connection.');
+      } else if (event.error !== 'aborted') {
+        alert(`Voice recognition error: ${event.error}`);
+      }
+    };
+
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
       
@@ -279,6 +354,8 @@ export default function Home() {
       if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
       if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
       if (command.includes("solar") || command.includes("green") || command.includes("ev") || command.includes("renewable")) command = command.replace(/solar|green|ev|renewable/g, "sustainability");
+      if (command.includes("fire") || command.includes("safety") || command.includes("sprinkler") || command.includes("alarm")) command = command.replace(/fire|safety|sprinkler|alarm/g, "fire");
+      if (command.includes("design") || command.includes("calculator") || command.includes("tool")) command = command.replace(/design|calculator|tool/g, "design");
 
       // Check for tab navigation commands
       if (command.includes("plumbing")) {
@@ -310,6 +387,14 @@ export default function Home() {
       } else if (command.includes("sustainability") || command.includes("solar") || command.includes("ev") || command.includes("tankless")) {
         setActiveTab("sustainability");
         const cleanQuery = command.replace("sustainability", "").trim();
+        if (cleanQuery) setSearchQuery(cleanQuery);
+      } else if (command.includes("fire") || command.includes("safety")) {
+        setActiveTab("fire");
+        const cleanQuery = command.replace(/fire|safety/g, "").trim();
+        if (cleanQuery) setSearchQuery(cleanQuery);
+      } else if (command.includes("design") || command.includes("calculator")) {
+        setActiveTab("design");
+        const cleanQuery = command.replace(/design|calculator/g, "").trim();
         if (cleanQuery) setSearchQuery(cleanQuery);
       } else {
         setSearchQuery(transcript);
@@ -451,8 +536,10 @@ export default function Home() {
                     <li>"Residential Plumbing"</li>
                     <li>"Office Electrical"</li>
                     <li>"Deck Additions"</li>
-                    <li>"Wiring" (Electrical)</li>
-                    <li>"Drainage" (Plumbing)</li>
+                    <li>"Fire Safety" or "Sprinkler"</li>
+                    <li>"Design Calculator" or "Tools"</li>
+                    <li>"Wiring" → Electrical</li>
+                    <li>"Drainage" → Plumbing</li>
                   </ul>
                 </TooltipContent>
               </Tooltip>
@@ -654,6 +741,13 @@ export default function Home() {
                 >
                   <Download className="w-4 h-4" />
                   Export PDF
+                </button>
+                <button
+                  onClick={exportChecklistPDF}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 hover:text-green-800 border border-green-600 rounded-md hover:bg-green-50 transition-colors"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Export Checklist
                 </button>
               </div>
             </div>

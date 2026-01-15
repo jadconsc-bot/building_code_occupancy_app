@@ -957,3 +957,31 @@
 - [x] Create keyboard shortcut reference panel (in help content)
 - [x] Add help search with highlighting
 - [x] Integrate help system into all pages
+
+
+## Advanced Features Implementation (Current Session - Options 2 & 3)
+
+### Voice Input for Search Enhancement
+- [x] Enhance existing voice search with Web Speech API improvements
+- [x] Add voice command shortcuts for tab navigation (e.g., "plumbing", "electrical", "fire safety", "design")
+- [x] Add visual feedback for listening state with animation
+- [x] Handle speech recognition errors with user-friendly messages
+- [x] Add voice command help tooltip
+
+### Offline Mode with Service Worker
+- [x] Create service worker for caching strategy
+- [x] Cache static assets (HTML, CSS, JS, images)
+- [x] Cache occupancy data and calculator logic for offline access
+- [x] Add offline indicator in UI with tooltips
+- [x] Implement cache-first with network fallback strategy
+- [x] Add manual cache clear button (click online badge)
+- [x] Show update available notification
+
+### Printable PDF Checklists with QR Codes
+- [x] Create enhanced PDF export for inspection checklists
+- [x] Generate QR codes linking to specific occupancy pages
+- [x] Include NBC code references in PDF footer
+- [x] Add print-optimized styling (page breaks, margins)
+- [x] Support batch export of multiple checklists
+- [x] Add company logo/header customization option
+- [x] Include project information in PDF header
