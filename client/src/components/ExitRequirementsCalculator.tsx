@@ -1,20 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DoorOpen, AlertCircle } from "lucide-react";
-import { CalculatorActions } from "@/components/CalculatorActions";
-import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
-import { HistoryPanel } from "@/components/HistoryPanel";
 
 export function ExitRequirementsCalculator() {
   const [occupantLoad, setOccupantLoad] = useState<string>("");
   const [buildingHeight, setBuildingHeight] = useState<string>("1-3");
   const [sprinklered, setSprinklered] = useState<string>("no");
-  const [results, setResults] = useState<any>(null);
-  const { addToHistory } = useCalculationHistory();
 
   const calculateExitRequirements = (): {
     numExits: number;
@@ -74,86 +69,15 @@ export function ExitRequirementsCalculator() {
   const minWidthInches = result.minWidthPerExit * 39.37; // Convert meters to inches
   const totalWidthInches = result.totalExitWidth * 39.37;
 
-  // Auto-save results when calculation is performed
-  useEffect(() => {
-    if (result && result.numExits > 0) {
-      setResults(result);
-      addToHistory({
-        calculatorType: "exit_requirements",
-        inputs: { occupantLoad, buildingHeight, sprinklered },
-        results: result,
-        preview: `Exit Requirements: ${result.numExits} exits for ${occupantLoad} occupants`
-      });
-    }
-  }, [occupantLoad, buildingHeight, sprinklered, result.numExits]);
-
-  // Export function
-  const getExportData = () => {
-    if (!results) return { filename: "", sheetName: "", data: [] };
-    
-    const data = [
-      ["Parameter", "Value"],
-      ["Occupant Load", occupantLoad + " persons"],
-      ["Building Height", buildingHeight + " storeys"],
-      ["Sprinklered", sprinklered === "yes" ? "Yes" : "No"],
-      ["", ""],
-      ["Results", ""],
-      ["Number of Exits Required", String(results.numExits)],
-      ["Minimum Width Per Exit", `${results.minWidthPerExit.toFixed(2)} m (${minWidthInches.toFixed(1)} in)`],
-      ["Total Exit Width Required", `${results.totalExitWidth.toFixed(2)} m (${totalWidthInches.toFixed(1)} in)`],
-      ["Width Per Person", `${(results.widthPerPerson * 1000).toFixed(1)} mm`],
-      ["", ""],
-      ["Code Reference", results.reasoning],
-    ];
-    
-    return {
-      filename: `Exit_Requirements_${new Date().toISOString().split('T')[0]}`,
-      sheetName: "Exit Requirements",
-      data,
-    };
-  };
-
-  // Load handlers
-  const handleLoadPreset = (data: any) => {
-    setOccupantLoad(data.occupantLoad);
-    setBuildingHeight(data.buildingHeight);
-    setSprinklered(data.sprinklered);
-  };
-
-  const handleLoadHistory = (item: any) => {
-    setOccupantLoad(item.inputs.occupantLoad);
-    setBuildingHeight(item.inputs.buildingHeight);
-    setSprinklered(item.inputs.sprinklered);
-    setResults(item.results);
-  };
-
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <DoorOpen className="w-4 h-4 text-primary" /> Exit Requirements Calculator
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              Calculate number and width of required exits (NBC Part 3.4.2, 3.4.3)
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <HistoryPanel
-              calculatorType="exit_requirements"
-              onLoadHistory={handleLoadHistory}
-            />
-            <CalculatorActions
-              calculatorId="exit_requirements"
-              calculatorName="Exit Requirements"
-              exportData={getExportData}
-              currentState={{ occupantLoad, buildingHeight, sprinklered }}
-              onLoadPreset={handleLoadPreset}
-              hasResults={!!results}
-            />
-          </div>
-        </div>
+        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+          <DoorOpen className="w-4 h-4 text-primary" /> Exit Requirements Calculator
+        </CardTitle>
+        <CardDescription className="text-xs mt-1">
+          Calculate number and width of required exits (NBC Part 3.4.2, 3.4.3)
+        </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="space-y-6">

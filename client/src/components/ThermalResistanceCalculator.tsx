@@ -205,8 +205,8 @@ export function ThermalResistanceCalculator() {
 
           {layers.map((layer, index) => (
             <div key={layer.id} className="grid grid-cols-12 gap-2 items-end p-3 bg-muted/30 rounded border border-border">
-              <div className="col-span-6 space-y-2">
-                <Label className="text-xs font-medium">Material</Label>
+              <div className="col-span-6 space-y-1">
+                <Label className="text-xs">Material</Label>
                 <Select value={layer.material} onValueChange={(val) => updateLayer(layer.id, "material", val)}>
                   <SelectTrigger className="h-9">
                     <SelectValue />
@@ -218,8 +218,8 @@ export function ThermalResistanceCalculator() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-3 space-y-2">
-                <Label className="text-xs font-medium block">Thickness (mm)</Label>
+              <div className="col-span-3 space-y-1">
+                <Label className="text-xs">Thickness (mm)</Label>
                 <Input
                   type="number"
                   className="h-9"
@@ -227,8 +227,8 @@ export function ThermalResistanceCalculator() {
                   onChange={(e) => updateLayer(layer.id, "thickness", e.target.value)}
                 />
               </div>
-              <div className="col-span-2 space-y-2">
-                <Label className="text-xs font-medium block">RSI</Label>
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">RSI</Label>
                 <div className="h-9 flex items-center justify-center bg-primary/10 rounded px-2 font-bold text-sm text-primary">
                   {layer.rValue.toFixed(2)}
                 </div>

@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2 } from "lucide-react";
+import { FileSpreadsheet, Building2 } from "lucide-react";
 import { PresetSelector } from "@/components/PresetSelector";
-import { CalculatorActions } from "@/components/CalculatorActions";
-import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
+import { exportColumnSpanToExcel } from "@/lib/excelExport";
 
 // NBC Table 9.23.4.4 - Column Load Capacity Data
 // Maximum axial loads for wood columns (kN)
@@ -93,8 +92,6 @@ export function ColumnSpanCalculator() {
   const [selectedGrade, setSelectedGrade] = useState("Select Structural");
   const [selectedSize, setSelectedSize] = useState("140 x 140 mm");
   const [unsupportedLength, setUnsupportedLength] = useState("3.0");
-  const [results, setResults] = useState<Record<string, any> | null>(null);
-  const { addToHistory } = useCalculationHistory();
 
   const handleLoadPreset = (parameters: Record<string, string | number>) => {
     if (parameters.species) setSelectedSpecies(String(parameters.species));
@@ -108,62 +105,15 @@ export function ColumnSpanCalculator() {
   const maxLoad = loadFunction ? loadFunction(length) : 0;
   const maxLoadLbs = (maxLoad * 224.809).toFixed(0); // Convert kN to lbs
 
-  // Update results when inputs change
-  useEffect(() => {
-    const newResults = {
+  const handleExport = () => {
+    exportColumnSpanToExcel({
       species: selectedSpecies,
       grade: selectedGrade,
       size: selectedSize,
-      length,
-      maxLoadKN: maxLoad.toFixed(2),
-      maxLoadLbs,
-    };
-    setResults(newResults);
-    
-    if (length > 0 && maxLoad > 0) {
-      addToHistory({
-        calculatorType: "column-span",
-        inputs: { species: selectedSpecies, grade: selectedGrade, size: selectedSize, length },
-        results: newResults,
-        preview: `${selectedSize} ${selectedSpecies} - ${maxLoad.toFixed(1)} kN`,
-      });
-    }
-  }, [selectedSpecies, selectedGrade, selectedSize, length, maxLoad, maxLoadLbs, addToHistory]);
-
-  const getExportData = () => {
-    if (!results) return () => ({ filename: "Column_Load", sheetName: "Column Load", data: [] });
-    
-    const data = [
-      ["Column Load Calculator"],
-      ["Generated:", new Date().toLocaleString()],
-      [""],
-      ["Input Parameters"],
-      ["Species", results.species],
-      ["Grade", results.grade],
-      ["Column Size", results.size],
-      ["Unsupported Length", `${results.length} m`],
-      [""],
-      ["Results"],
-      ["Maximum Axial Load (kN)", results.maxLoadKN],
-      ["Maximum Axial Load (lbs)", results.maxLoadLbs],
-      [""],
-      ["Code Reference", "NBC Table 9.23.4.4"],
-    ];
-    
-    return () => ({
-      filename: `Column_Load_${new Date().toISOString().split('T')[0]}`,
-      sheetName: "Column Load",
-      data,
+      length: length,
+      loadKN: maxLoad,
+      loadLbs: parseFloat(maxLoadLbs),
     });
-  };
-
-  const handleLoadFromHistory = (data: any) => {
-    if (data.inputs) {
-      setSelectedSpecies(data.inputs.species || "Douglas Fir - Larch");
-      setSelectedGrade(data.inputs.grade || "Select Structural");
-      setSelectedSize(data.inputs.size || "140 x 140 mm");
-      setUnsupportedLength(String(data.inputs.length || "3.0"));
-    }
   };
 
   return (
@@ -189,18 +139,15 @@ export function ColumnSpanCalculator() {
               }}
               onLoadPreset={handleLoadPreset}
             />
-            <CalculatorActions
-              calculatorId="column-span"
-              calculatorName="Column Load Calculator"
-              exportData={getExportData()}
-              currentState={{
-                species: selectedSpecies,
-                grade: selectedGrade,
-                size: selectedSize,
-                length: unsupportedLength,
-              }}
-              onLoadPreset={handleLoadPreset}
-            />
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export to Excel
+            </Button>
           </div>
         </div>
       </CardHeader>

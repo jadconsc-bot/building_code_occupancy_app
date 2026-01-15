@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CategoryCard } from "@/components/ui/category-card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +12,7 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { useEffect } from "react";
 
 export function StairDesignCalculator() {
-  const [stairType, setStairType] = useState<string>("private-residential");
+  const [stairType, setStairType] = useState<string>("residential");
   const [totalRise, setTotalRise] = useState<string>("");
   const [results, setResults] = useState<any>(null);
   const { addToHistory } = useCalculationHistory();
@@ -22,35 +21,10 @@ export function StairDesignCalculator() {
     const rise = parseFloat(totalRise);
     if (isNaN(rise) || rise <= 0) return;
 
-    // NBC 3.4.6 requirements for different stair types
-    let requirements;
-    let stairDescription;
-    let minWidth;
-    
-    switch (stairType) {
-      case "private-residential":
-        // Private stairs within dwelling units (NBC 3.4.6.4)
-        requirements = { minTread: 235, maxRiser: 200, minRiser: 125, minHeadroom: 1950 };
-        stairDescription = "Private Residential (within dwelling unit)";
-        minWidth = 860; // mm
-        break;
-      case "exit-group-c":
-        // Exit stairs serving Group C occupancies (NBC 3.4.6.4)
-        requirements = { minTread: 280, maxRiser: 180, minRiser: 125, minHeadroom: 2050 };
-        stairDescription = "Exit Stair - Group C (residential common areas)";
-        minWidth = 1100; // mm minimum for exit stairs
-        break;
-      case "exit-public":
-        // Exit stairs serving other occupancies (NBC 3.4.6.4)
-        requirements = { minTread: 280, maxRiser: 180, minRiser: 125, minHeadroom: 2050 };
-        stairDescription = "Exit Stair - Public/Commercial/Assembly";
-        minWidth = 1100; // mm minimum for exit stairs
-        break;
-      default:
-        requirements = { minTread: 280, maxRiser: 180, minRiser: 125, minHeadroom: 2050 };
-        stairDescription = "Commercial/Assembly";
-        minWidth = 1100;
-    }
+    // NBC 3.4.6 requirements
+    const requirements = stairType === "residential" 
+      ? { minTread: 235, maxRiser: 200, minRiser: 125, minHeadroom: 1950 }
+      : { minTread: 280, maxRiser: 180, minRiser: 125, minHeadroom: 2050 };
 
     // Calculate number of risers (round up)
     const numRisers = Math.ceil(rise / requirements.maxRiser);
@@ -65,10 +39,7 @@ export function StairDesignCalculator() {
     const totalRun = numTreads * requirements.minTread;
     
     // Handrail height (NBC 3.4.6.5)
-    const handrailHeight = stairType === "private-residential" ? "865-965mm" : "865-920mm";
-    
-    // Guard height (NBC 3.3.4.7)
-    const guardHeight = stairType === "private-residential" ? 900 : 1070; // mm
+    const handrailHeight = stairType === "residential" ? "865-965mm" : "865-920mm";
 
     // Check compliance
     const compliant = actualRiser >= requirements.minRiser && actualRiser <= requirements.maxRiser;
@@ -81,9 +52,6 @@ export function StairDesignCalculator() {
       totalRun: totalRun.toFixed(0),
       headroom: requirements.minHeadroom,
       handrailHeight,
-      guardHeight,
-      minWidth,
-      stairDescription,
       compliant,
       requirements
     };
@@ -95,7 +63,7 @@ export function StairDesignCalculator() {
       calculatorType: "stair_design",
       inputs: { stairType, totalRise },
       results: calculationResults,
-      preview: `${stairDescription} - ${totalRise}mm rise → ${numRisers} risers`
+      preview: `${stairType === "residential" ? "Residential" : "Commercial"} - ${totalRise}mm rise → ${numRisers} risers`
     });
   };
 
@@ -107,7 +75,7 @@ export function StairDesignCalculator() {
       sheetName: "Stair Design",
       data: [
         ["Parameter", "Value"],
-        ["Stair Type", results.stairDescription],
+        ["Stair Type", stairType === "residential" ? "Residential (Group C)" : "Commercial/Assembly"],
         ["Total Rise", `${totalRise} mm`],
         ["Number of Risers", results.numRisers],
         ["Riser Height", `${results.actualRiser} mm`],
@@ -116,8 +84,6 @@ export function StairDesignCalculator() {
         ["Total Run", `${results.totalRun} mm`],
         ["Min Headroom", `${results.headroom} mm`],
         ["Handrail Height", results.handrailHeight],
-        ["Guard Height", `${results.guardHeight} mm`],
-        ["Min Width", `${results.minWidth} mm`],
         ["Code Compliant", results.compliant ? "Yes" : "No"],
         ["", ""],
         ["NBC Reference", "3.4.6.4 - Risers and Treads"],
@@ -139,7 +105,7 @@ export function StairDesignCalculator() {
   };
 
   return (
-    <CategoryCard calculatorId="stair_design" className="border-border shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
         <div className="flex items-start justify-between">
           <div>
@@ -177,9 +143,8 @@ export function StairDesignCalculator() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="private-residential">Private Residential (within dwelling unit)</SelectItem>
-                <SelectItem value="exit-group-c">Exit Stair - Group C (residential common areas)</SelectItem>
-                <SelectItem value="exit-public">Exit Stair - Public/Commercial/Assembly</SelectItem>
+                <SelectItem value="residential">Residential (Group C)</SelectItem>
+                <SelectItem value="commercial">Commercial/Assembly (Group A, D, E, F)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -245,19 +210,6 @@ export function StairDesignCalculator() {
                 <p className="text-xs text-muted-foreground mb-1">Min Headroom</p>
                 <p className="text-lg font-bold text-primary">{results.headroom} mm</p>
               </div>
-              <div className="p-3 bg-muted/50 rounded border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Min Width</p>
-                <p className="text-lg font-bold text-primary">{results.minWidth} mm</p>
-              </div>
-              <div className="p-3 bg-muted/50 rounded border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Guard Height</p>
-                <p className="text-lg font-bold text-primary">{results.guardHeight} mm</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded">
-              <p className="text-xs font-bold text-green-900 dark:text-green-100 mb-2">Stair Classification</p>
-              <p className="text-sm text-green-800 dark:text-green-200">{results.stairDescription}</p>
             </div>
 
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded">
@@ -279,6 +231,6 @@ export function StairDesignCalculator() {
           </div>
         )}
       </CardContent>
-    </CategoryCard>
+    </Card>
   );
 }

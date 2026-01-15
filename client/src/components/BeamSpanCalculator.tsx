@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Ruler } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileSpreadsheet, Ruler } from "lucide-react";
 import { PresetSelector } from "@/components/PresetSelector";
-import { CalculatorActions } from "@/components/CalculatorActions";
-import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
 import { exportBeamSpanToExcel } from "@/lib/excelExport";
 
 // NBC Table 9.23.4.3 - Beam Span Data
@@ -115,8 +114,6 @@ const beamSizes = [
 const loadingConditions = ["One Floor", "Two Floors"];
 
 export function BeamSpanCalculator() {
-  const [results, setResults] = useState<any>(null);
-  const { addToHistory } = useCalculationHistory();
   const [selectedSpecies, setSelectedSpecies] = useState("Douglas Fir - Larch");
   const [selectedGrade, setSelectedGrade] = useState("Select Structural");
   const [selectedSize, setSelectedSize] = useState("89 x 184 mm");
@@ -132,47 +129,16 @@ export function BeamSpanCalculator() {
   const maxSpan = beamSpanData[selectedSpecies]?.[selectedGrade]?.[selectedSize]?.[selectedLoading] || 0;
   const maxSpanFeet = (maxSpan * 3.28084).toFixed(1);
 
-  useEffect(() => {
-    const newResults = {
+  const handleExport = () => {
+    exportBeamSpanToExcel({
       species: selectedSpecies,
       grade: selectedGrade,
       size: selectedSize,
       loading: selectedLoading,
       spanMeters: maxSpan,
       spanFeet: parseFloat(maxSpanFeet),
-    };
-    setResults(newResults);
-    addToHistory({
-      calculatorType: 'beam-span',
-      preview: `${selectedSize} ${selectedSpecies} - ${maxSpan.toFixed(2)}m span`,
-      inputs: { species: selectedSpecies, grade: selectedGrade, size: selectedSize, loading: selectedLoading },
-      results: newResults,
     });
-  }, [selectedSpecies, selectedGrade, selectedSize, selectedLoading, maxSpan, maxSpanFeet]);
-
-  const getExportData = () => {
-    const data = [
-      ["Parameter", "Value"],
-      ["Species", selectedSpecies],
-      ["Grade", selectedGrade],
-      ["Size", selectedSize],
-      ["Loading Condition", selectedLoading],
-      ["", ""],
-      ["Results", ""],
-      ["Maximum Span (m)", maxSpan.toFixed(2)],
-      ["Maximum Span (ft)", maxSpanFeet],
-      ["", ""],
-      ["NBC Reference", "Table 9.23.4.3"],
-    ];
-    
-    return {
-      filename: `Beam_Span_${selectedSize.replace(/ /g, '_')}_${Date.now()}.xlsx`,
-      sheetName: "Beam Span",
-      data,
-    };
   };
-
-
 
   return (
     <Card className="rounded-none border-border shadow-sm">
@@ -197,13 +163,15 @@ export function BeamSpanCalculator() {
               }}
               onLoadPreset={handleLoadPreset}
             />
-            <CalculatorActions
-              calculatorId="beam_span"
-              calculatorName="Beam Span"
-              exportData={getExportData}
-              currentState={{ species: selectedSpecies, grade: selectedGrade, size: selectedSize, loading: selectedLoading }}
-              onLoadPreset={handleLoadPreset}
-            />
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export to Excel
+            </Button>
           </div>
         </div>
       </CardHeader>

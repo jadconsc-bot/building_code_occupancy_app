@@ -1,13 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Users, Calculator } from "lucide-react";
-import { CalculatorActions } from "@/components/CalculatorActions";
-import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
-import { HistoryPanel } from "@/components/HistoryPanel";
 
 // NBC Table 3.1.17.1 - Occupant Load
 interface OccupantLoadData {
@@ -53,8 +50,6 @@ export function OccupantLoadCalculator() {
   const [category, setCategory] = useState<string>("");
   const [spaceType, setSpaceType] = useState<string>("");
   const [floorArea, setFloorArea] = useState<string>("");
-  const [results, setResults] = useState<any>(null);
-  const { addToHistory } = useCalculationHistory();
 
   const getSpaceTypes = (): OccupantLoadData[] => {
     return occupantLoadTable[category] || [];
@@ -79,85 +74,15 @@ export function OccupantLoadCalculator() {
   const result = calculateOccupantLoad();
   const areaInFeet = result.areaPerPerson * 10.764; // Convert m² to ft²
 
-  // Auto-save results when calculation is performed
-  useEffect(() => {
-    if (result && result.occupantLoad > 0) {
-      setResults(result);
-      addToHistory({
-        calculatorType: "occupant_load",
-        inputs: { category, spaceType, floorArea },
-        results: result,
-        preview: `Occupant Load: ${result.occupantLoad} persons for ${floorArea} m² ${category}`
-      });
-    }
-  }, [category, spaceType, floorArea, result.occupantLoad]);
-
-  // Export function
-  const getExportData = () => {
-    if (!results) return { filename: "", sheetName: "", data: [] };
-    
-    const spaceData = getSpaceTypes().find(s => s.area.toString() === spaceType);
-    const data = [
-      ["Parameter", "Value"],
-      ["Occupancy Category", category],
-      ["Space Type", spaceData?.description || "N/A"],
-      ["Floor Area", `${floorArea} m²`],
-      ["Area Per Person", `${results.areaPerPerson} m² (${areaInFeet.toFixed(1)} ft²)`],
-      ["", ""],
-      ["Results", ""],
-      ["Occupant Load", `${results.occupantLoad} persons`],
-      ["", ""],
-      ["Code Reference", "NBC Table 3.1.17.1 - Occupant Load"],
-    ];
-    
-    return {
-      filename: `Occupant_Load_${new Date().toISOString().split('T')[0]}`,
-      sheetName: "Occupant Load",
-      data,
-    };
-  };
-
-  // Load handlers
-  const handleLoadPreset = (data: any) => {
-    setCategory(data.category);
-    setSpaceType(data.spaceType);
-    setFloorArea(data.floorArea);
-  };
-
-  const handleLoadHistory = (item: any) => {
-    setCategory(item.inputs.category);
-    setSpaceType(item.inputs.spaceType);
-    setFloorArea(item.inputs.floorArea);
-    setResults(item.results);
-  };
-
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" /> Occupant Load Calculator
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              Calculate required occupant load for egress design (NBC Part 3.1.17, Table 3.1.17.1)
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <HistoryPanel
-              calculatorType="occupant_load"
-              onLoadHistory={handleLoadHistory}
-            />
-            <CalculatorActions
-              calculatorId="occupant_load"
-              calculatorName="Occupant Load"
-              exportData={getExportData}
-              currentState={{ category, spaceType, floorArea }}
-              onLoadPreset={handleLoadPreset}
-              hasResults={!!results}
-            />
-          </div>
-        </div>
+        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" /> Occupant Load Calculator
+        </CardTitle>
+        <CardDescription className="text-xs mt-1">
+          Calculate required occupant load for egress design (NBC Part 3.1.17, Table 3.1.17.1)
+        </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="space-y-6">

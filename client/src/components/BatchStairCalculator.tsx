@@ -134,7 +134,7 @@ export function BatchStairCalculator() {
       row.result!.compliant ? "✓ Yes" : "✗ No"
     ]);
     
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 75,
       head: [[
         "#",
@@ -171,7 +171,7 @@ export function BatchStairCalculator() {
         7: { cellWidth: 20 },
         8: { cellWidth: 20, fontStyle: "bold" }
       },
-      didParseCell: (data: any) => {
+      didParseCell: (data) => {
         if (data.column.index === 8 && data.section === "body") {
           if (data.cell.raw === "✓ Yes") {
             data.cell.styles.textColor = [34, 197, 94]; // Green
@@ -273,7 +273,7 @@ export function BatchStairCalculator() {
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="pb-3 bg-muted/30 border-b border-border/50">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Calculator className="w-4 h-4 text-primary" /> Batch Stair Calculator
@@ -282,7 +282,7 @@ export function BatchStairCalculator() {
               Calculate multiple stair scenarios at once - NBC 3.4.6
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"

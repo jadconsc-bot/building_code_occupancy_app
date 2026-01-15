@@ -26,11 +26,6 @@ import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/c
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
 import { FireSeparationDiagram, EgressWindowDiagram, GFCIZoneDiagram, SetbackDiagram, DeckCrossSectionDiagram } from "@/components/CodeDiagrams";
-import { FireSeparationDiagrams } from "@/components/FireSeparationDiagrams";
-import { EgressPathDiagram } from "@/components/EgressPathDiagram";
-import { SprinklerCoverageDiagram } from "@/components/SprinklerCoverageDiagram";
-import { ConstructionTypesDiagram } from "@/components/ConstructionTypesDiagram";
-import { BuildingEnvelopeDiagrams } from "@/components/BuildingEnvelopeDiagrams";
 import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/BarrierFreeDiagrams";
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
@@ -53,7 +48,6 @@ import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
-import { ColorLegend } from "@/components/ColorLegend";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";
 import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
@@ -73,13 +67,6 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
-import { useUITour } from "@/contexts/UITourContext";
-import { FloatingHelpButton } from "@/components/FloatingHelpButton";
-import { useKeyboardShortcuts, GLOBAL_SHORTCUTS } from "@/hooks/useKeyboardShortcuts";
-import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
-import { useHighContrast } from "@/contexts/HighContrastContext";
-import { Contrast } from "lucide-react";
-import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -108,8 +95,6 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const { activeProjectId, updateProjectProgress } = useProject();
   const { openHelp } = useHelpSystem();
-  const { startTour } = useUITour();
-  const { isHighContrast, toggleHighContrast } = useHighContrast();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -164,56 +149,6 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("active_tab", activeTab);
   }, [activeTab]);
-
-  // Keyboard shortcuts
-  useKeyboardShortcuts([
-    {
-      key: GLOBAL_SHORTCUTS.SEARCH.key,
-      ctrl: GLOBAL_SHORTCUTS.SEARCH.ctrl,
-      description: GLOBAL_SHORTCUTS.SEARCH.description,
-      action: () => searchInputRef.current?.focus(),
-    },
-    {
-      key: GLOBAL_SHORTCUTS.BOOKMARKS.key,
-      ctrl: GLOBAL_SHORTCUTS.BOOKMARKS.ctrl,
-      description: GLOBAL_SHORTCUTS.BOOKMARKS.description,
-      action: () => {
-        // Scroll to bookmarks section
-        const bookmarksEl = document.getElementById('bookmarks-section');
-        bookmarksEl?.scrollIntoView({ behavior: 'smooth' });
-      },
-    },
-    {
-      key: GLOBAL_SHORTCUTS.HELP.key,
-      ctrl: GLOBAL_SHORTCUTS.HELP.ctrl,
-      description: GLOBAL_SHORTCUTS.HELP.description,
-      action: () => openHelp(),
-    },
-    {
-      key: GLOBAL_SHORTCUTS.SHORTCUTS.key,
-      ctrl: GLOBAL_SHORTCUTS.SHORTCUTS.ctrl,
-      description: GLOBAL_SHORTCUTS.SHORTCUTS.description,
-      action: () => setShowKeyboardHelp(true),
-    },
-    {
-      key: GLOBAL_SHORTCUTS.THEME.key,
-      ctrl: GLOBAL_SHORTCUTS.THEME.ctrl,
-      description: GLOBAL_SHORTCUTS.THEME.description,
-      action: () => toggleTheme?.(),
-    },
-    {
-      key: GLOBAL_SHORTCUTS.CONTRAST.key,
-      ctrl: GLOBAL_SHORTCUTS.CONTRAST.ctrl,
-      shift: GLOBAL_SHORTCUTS.CONTRAST.shift,
-      description: GLOBAL_SHORTCUTS.CONTRAST.description,
-      action: () => toggleHighContrast(),
-    },
-    {
-      key: GLOBAL_SHORTCUTS.ESCAPE.key,
-      description: GLOBAL_SHORTCUTS.ESCAPE.description,
-      action: () => setShowKeyboardHelp(false),
-    },
-  ]);
 
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
@@ -438,13 +373,10 @@ export default function Home() {
   }, [filteredData, focusedIndex]);
 
   return (
-    <>
-    <FloatingHelpButton />
-    <ColorLegend />
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
-      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`} style={{ backgroundColor: 'var(--nav-bg)' }}>
-        <div className="p-6 border-b border-border" style={{ backgroundColor: 'var(--nav-bg)' }}>
+      <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-6 border-b border-border bg-sidebar">
           <div className="flex items-center justify-between gap-2 mb-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
@@ -661,14 +593,9 @@ export default function Home() {
           Based on National Building Code - 2023 {selectedRegion === "AB" ? "Alberta" : selectedRegion === "BC" ? "British Columbia" : selectedRegion === "ON" ? "Ontario" : "Saskatchewan"} Edition
         </div>
       </div>
+
       {/* Main Content Area */}
-      <main 
-        id="main-content" 
-        className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`} 
-        {...swipeHandlers}
-        role="main"
-        aria-label="Building code occupancy details"
-      >
+      <div className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`}>
         {selectedGroup ? (
           <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 print:max-w-none print:animate-none">
             <div className="flex justify-between items-start print:hidden">
@@ -728,46 +655,10 @@ export default function Home() {
                   <Download className="w-4 h-4" />
                   Export PDF
                 </button>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={toggleHighContrast}
-                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border rounded-md transition-colors ${
-                          isHighContrast
-                            ? 'bg-foreground text-background border-foreground'
-                            : 'text-muted-foreground hover:text-foreground border-border hover:bg-accent'
-                        }`}
-                        aria-label="Toggle high contrast mode"
-                      >
-                        <Contrast className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>High Contrast Mode (Ctrl+Shift+C)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => setShowKeyboardHelp(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
-                        aria-label="Show keyboard shortcuts"
-                      >
-                        <Keyboard className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Keyboard Shortcuts (Ctrl+/)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
               </div>
             </div>
-            <div className="flex items-baseline gap-4 mb-2 border-b-4 pb-4 print:border-black" style={{ borderColor: 'var(--occupancy-badge)' }}>
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter font-mono print:text-black" style={{ color: 'var(--occupancy-badge)' }}>
+            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
                 {selectedGroup.code}
               </h1>
               <div className="flex flex-col">
@@ -829,31 +720,26 @@ export default function Home() {
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Main Tabs</div>
                     <SelectItem value="building">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-building)' }} />
                         <Building2 className="w-4 h-4" /> Building Code
                       </div>
                     </SelectItem>
                     <SelectItem value="plumbing">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-plumbing)' }} />
                         <Droplets className="w-4 h-4" /> Plumbing
                       </div>
                     </SelectItem>
                     <SelectItem value="electrical">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-electrical)' }} />
                         <Zap className="w-4 h-4" /> Electrical
                       </div>
                     </SelectItem>
                     <SelectItem value="additions">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-additions)' }} />
                         <Ruler className="w-4 h-4" /> Additions
                       </div>
                     </SelectItem>
                     <SelectItem value="sustainability">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-sustainability)' }} />
                         <Leaf className="w-4 h-4" /> Sustainability
                       </div>
                     </SelectItem>
@@ -861,13 +747,11 @@ export default function Home() {
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Design Tools</div>
                     <SelectItem value="fire-safety">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-fire)' }} />
                         <Flame className="w-4 h-4" /> Fire & Life Safety
                       </div>
                     </SelectItem>
                     <SelectItem value="design-tools">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--tab-design)' }} />
                         <Calculator className="w-4 h-4" /> Design Tools
                       </div>
                     </SelectItem>
@@ -879,52 +763,33 @@ export default function Home() {
               <TabsList className="hidden md:flex max-w-[65%] justify-start border-b border-border rounded-none bg-transparent p-0 h-auto mb-8">
                 <TabsTrigger 
                   value="building" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-building)' }}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Building2 className="w-4 h-4 mr-2" /> Building Code
                 </TabsTrigger>
                 <TabsTrigger 
                   value="plumbing" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-plumbing)' }}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Droplets className="w-4 h-4 mr-2" /> Plumbing
                 </TabsTrigger>
                 <TabsTrigger 
                   value="electrical" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-gray-900 data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-900 transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-electrical)' }}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Zap className="w-4 h-4 mr-2" /> Electrical
                 </TabsTrigger>
                 <TabsTrigger 
                   value="additions" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-additions)' }}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Ruler className="w-4 h-4 mr-2" /> Additions
                 </TabsTrigger>
                 <TabsTrigger 
                   value="sustainability" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-sustainability)' }}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-xs font-bold uppercase tracking-wider"
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="fire-safety" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-fire)' }}
-                >
-                  <Flame className="w-4 h-4 mr-2" /> Fire & Life Safety
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="design-tools" 
-                  className="rounded-none border-b-4 border-transparent data-[state=active]:border-white data-[state=active]:shadow-lg data-[state=active]:scale-105 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white transition-all duration-200 hover:brightness-110"
-                  style={{ backgroundColor: 'var(--tab-design)' }}
-                >
-                  <Calculator className="w-4 h-4 mr-2" /> Design Tools
                 </TabsTrigger>
               </TabsList>
 
@@ -976,8 +841,8 @@ export default function Home() {
                 {selectedGroup.id === "C-2" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <Card className="overflow-hidden border-border shadow-sm">
-                      <CardHeader className="pb-2 border-b border-border/50" style={{ backgroundColor: 'var(--fire-bg)' }}>
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--fire-header)' }}>
+                      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                           <Ruler className="h-4 w-4" /> Fire Separation Detail
                         </CardTitle>
                       </CardHeader>
@@ -1139,7 +1004,7 @@ export default function Home() {
                 <div className="space-y-8 mt-8 pt-8 border-t border-border">
                   {/* Construction Limits */}
                   <section id="construction-limits" className="scroll-mt-20">
-                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'var(--construction-header)' }}>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
                       <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
@@ -1897,11 +1762,6 @@ export default function Home() {
                       Critical NBC 2025 Part 3 calculators for fire protection, occupant safety, and egress design. These tools help determine fire separation requirements, occupant loads, exit configurations, and construction type limitations.
                     </p>
                     <div className="space-y-6">
-                      <FireSeparationDiagrams />
-                      <EgressPathDiagram />
-                      <SprinklerCoverageDiagram />
-                      <ConstructionTypesDiagram />
-                      <BuildingEnvelopeDiagrams />
                       <FireSeparationCalculator />
                       <OccupantLoadCalculator />
                       <ExitRequirementsCalculator />
@@ -1999,7 +1859,7 @@ export default function Home() {
             </p>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Keyboard Help Dialog */}
       <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
@@ -2041,27 +1901,6 @@ export default function Home() {
       >
         <Keyboard className="w-5 h-5" />
       </button>
-      
-      {/* Skip navigation link for screen readers */}
-      <a href="#main-content" className="skip-nav">
-        Skip to main content
-      </a>
-      
-      {/* Keyboard shortcuts dialog */}
-      <KeyboardShortcutsDialog 
-        open={showKeyboardHelp} 
-        onOpenChange={setShowKeyboardHelp} 
-      />
-      
-      {/* Mobile bottom navigation */}
-      <MobileBottomNav 
-        activeTab={activeTab} 
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          localStorage.setItem("active_tab", tab);
-        }} 
-      />
     </div>
-    </>
   );
 }

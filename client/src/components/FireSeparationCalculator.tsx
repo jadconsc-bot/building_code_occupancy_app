@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Flame, AlertTriangle } from "lucide-react";
-import { CalculatorActions } from "@/components/CalculatorActions";
-import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
-import { HistoryPanel } from "@/components/HistoryPanel";
 
 // NBC Table 3.1.3.1 - Fire Separation Requirements
 const fireSeparationData: Record<string, Record<string, string>> = {
@@ -179,8 +176,6 @@ export function FireSeparationCalculator() {
   const [occupancy1, setOccupancy1] = useState<string>("");
   const [occupancy2, setOccupancy2] = useState<string>("");
   const [sprinklered, setSprinklered] = useState<string>("no");
-  const [results, setResults] = useState<any>(null);
-  const { addToHistory } = useCalculationHistory();
 
   const calculateSeparation = (): { rating: string; description: string; severity: "low" | "medium" | "high" } => {
     if (!occupancy1 || !occupancy2) {
@@ -206,85 +201,15 @@ export function FireSeparationCalculator() {
 
   const result = calculateSeparation();
 
-  // Auto-save results when calculation is performed
-  useEffect(() => {
-    if (result && occupancy1 && occupancy2 && result.rating !== "Select occupancies") {
-      setResults(result);
-      addToHistory({
-        calculatorType: "fire_separation",
-        inputs: { occupancy1, occupancy2, sprinklered },
-        results: result,
-        preview: `Fire Separation: ${occupancyNames[occupancy1]} to ${occupancyNames[occupancy2]} - ${result.rating}`
-      });
-    }
-  }, [occupancy1, occupancy2, sprinklered]);
-
-  // Export function
-  const getExportData = () => {
-    if (!results) return { filename: "", sheetName: "", data: [] };
-    
-    const data = [
-      ["Parameter", "Value"],
-      ["Occupancy 1", `${occupancy1} - ${occupancyNames[occupancy1]}`],
-      ["Occupancy 2", `${occupancy2} - ${occupancyNames[occupancy2]}`],
-      ["Sprinklered", sprinklered === "yes" ? "Yes" : "No"],
-      ["", ""],
-      ["Results", ""],
-      ["Fire Resistance Rating", results.rating],
-      ["Description", results.description || "N/A"],
-      ["Severity", results.severity],
-      ["", ""],
-      ["Code Reference", "NBC Table 3.1.3.1 - Fire Separation Requirements"],
-    ];
-    
-    return {
-      filename: `Fire_Separation_${new Date().toISOString().split('T')[0]}`,
-      sheetName: "Fire Separation",
-      data,
-    };
-  };
-
-  // Load handlers
-  const handleLoadPreset = (data: any) => {
-    setOccupancy1(data.occupancy1);
-    setOccupancy2(data.occupancy2);
-    setSprinklered(data.sprinklered);
-  };
-
-  const handleLoadHistory = (item: any) => {
-    setOccupancy1(item.inputs.occupancy1);
-    setOccupancy2(item.inputs.occupancy2);
-    setSprinklered(item.inputs.sprinklered);
-    setResults(item.results);
-  };
-
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <Flame className="w-4 h-4 text-destructive" /> Fire Separation Calculator
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              Determine required fire resistance rating between occupancies (NBC Part 3.2.3)
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <HistoryPanel
-              calculatorType="fire_separation"
-              onLoadHistory={handleLoadHistory}
-            />
-            <CalculatorActions
-              calculatorId="fire_separation"
-              calculatorName="Fire Separation"
-              exportData={getExportData}
-              currentState={{ occupancy1, occupancy2, sprinklered }}
-              onLoadPreset={handleLoadPreset}
-              hasResults={!!results}
-            />
-          </div>
-        </div>
+        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+          <Flame className="w-4 h-4 text-destructive" /> Fire Separation Calculator
+        </CardTitle>
+        <CardDescription className="text-xs mt-1">
+          Determine required fire resistance rating between occupancies (NBC Part 3.2.3)
+        </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="space-y-6">
