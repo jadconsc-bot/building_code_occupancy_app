@@ -1046,3 +1046,4 @@
 - [ ] Test fix in dev environment
 - [ ] Save checkpoint and guide user to republish
 - [x] Apply distinct colors to main tabs (Building Code, Plumbing, Electrical, Additions, Sustainability)
+- [x] Fix mobile layout for C (Secondary Suite) header - text cut off and overlapping

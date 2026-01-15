@@ -817,16 +817,16 @@ export default function Home() {
               </Accordion>
             </div>
             
-            <div className="flex items-baseline gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black">
+            <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
+              <h1 className="text-4xl sm:text-5xl md:text-8xl font-black tracking-tighter text-primary font-mono print:text-black break-words max-w-full">
                 {selectedGroup.code}
               </h1>
               <div className="flex flex-col">
-                <span className="text-sm uppercase tracking-widest text-muted-foreground font-medium print:text-black">
+                <span className="text-xs sm:text-sm uppercase tracking-widest text-muted-foreground font-medium print:text-black">
                   {selectedGroup.division || "General"}
                 </span>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl md:text-3xl font-bold text-foreground print:text-black">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground print:text-black">
                     {selectedGroup.name}
                   </h2>
                   {selectedGroup.albertaContrast && (
