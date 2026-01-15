@@ -144,6 +144,78 @@
   --history-fg: oklch(0.35 0.08 80);        /* Dark Yellow #F57F17 */
 }
 
+/* High Contrast Mode - WCAG AAA Compliant (7:1 contrast ratio) */
+.high-contrast {
+  --primary: oklch(0.20 0.15 260);      /* Darker Blue for AAA contrast */
+  --primary-foreground: oklch(1 0 0);   /* Pure White */
+  
+  --background: oklch(1 0 0);           /* Pure White Background */
+  --foreground: oklch(0 0 0);           /* Pure Black Text */
+  
+  --card: oklch(1 0 0);                 /* Pure White */
+  --card-foreground: oklch(0 0 0);      /* Pure Black */
+  
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0 0 0);
+  
+  --secondary: oklch(0.20 0.02 260);    /* Very Dark Gray */
+  --secondary-foreground: oklch(1 0 0);
+  
+  --muted: oklch(0.95 0 0);             /* Very Light Gray */
+  --muted-foreground: oklch(0.20 0 0);  /* Very Dark Gray */
+  
+  --accent: oklch(0.30 0.20 75);        /* Dark Orange for AAA contrast */
+  --accent-foreground: oklch(1 0 0);
+  
+  --destructive: oklch(0.35 0.25 25);   /* Dark Red for AAA contrast */
+  --destructive-foreground: oklch(1 0 0);
+  
+  --border: oklch(0 0 0);               /* Pure Black Borders */
+  --input: oklch(0 0 0);                /* Pure Black Input Borders */
+  --ring: oklch(0.20 0.15 260);         /* Dark Blue Focus Ring */
+  
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.95 0 0);
+  --sidebar-accent-foreground: oklch(0 0 0);
+  --sidebar-border: oklch(0 0 0);
+  --sidebar-ring: oklch(0.20 0.15 260);
+  
+  /* High contrast semantic colors */
+  --nav-bg: oklch(0.95 0 0);
+  --nav-fg: oklch(0 0 0);
+  --nav-accent: oklch(0.20 0.15 240);
+  
+  --occupancy-bg: oklch(0.95 0 0);
+  --occupancy-fg: oklch(0 0 0);
+  --occupancy-badge: oklch(0.30 0.20 75);
+  
+  --requirements-bg: oklch(0.95 0 0);
+  --requirements-fg: oklch(0 0 0);
+  --requirements-header: oklch(0.25 0.20 150);
+  
+  --fire-bg: oklch(0.95 0 0);
+  --fire-fg: oklch(0 0 0);
+  --fire-header: oklch(0.35 0.25 25);
+  
+  --construction-bg: oklch(0.95 0 0);
+  --construction-fg: oklch(0 0 0);
+  --construction-header: oklch(0.25 0.20 300);
+  
+  --calculator-start: oklch(0.25 0.20 200);
+  --calculator-end: oklch(0.20 0.20 240);
+  --calculator-bg: oklch(0.95 0 0);
+  
+  /* Tab colors with AAA contrast */
+  --tab-building: oklch(0.20 0.25 240);
+  --tab-plumbing: oklch(0.25 0.22 200);
+  --tab-electrical: oklch(0.35 0.20 85);
+  --tab-additions: oklch(0.25 0.25 300);
+  --tab-sustainability: oklch(0.25 0.22 150);
+  --tab-fire: oklch(0.30 0.25 25);
+  --tab-design: oklch(0.25 0.22 190);
+}
+
 .dark {
   --primary: var(--color-blue-700);
   --primary-foreground: var(--color-blue-50);
@@ -185,6 +257,16 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Enhanced keyboard navigation focus indicators */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  
+  /* Skip navigation link for screen readers */
+  .skip-nav {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -238,6 +320,72 @@
       padding-left: 2rem; /* 32px - desktop padding */
       padding-right: 2rem;
       max-width: 1280px; /* Standard content width */
+    }
+  }
+  
+  /* Mobile-responsive improvements */
+  @media (max-width: 768px) {
+    /* Stack calculator inputs vertically on mobile */
+    .calculator-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    /* Increase touch target sizes for mobile (minimum 44x44px) */
+    button, 
+    [role="button"],
+    input[type="checkbox"],
+    input[type="radio"],
+    select {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Optimize input fields for mobile */
+    input[type="number"],
+    input[type="text"],
+    select {
+      font-size: 16px; /* Prevents zoom on iOS */
+      padding: 0.75rem;
+    }
+    
+    /* Collapsible section styles */
+    .collapsible-section {
+      border: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+    
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      cursor: pointer;
+      background: var(--card);
+      user-select: none;
+    }
+    
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    
+    .collapsible-content.expanded {
+      max-height: 5000px;
+      transition: max-height 0.5s ease-in;
+    }
+    
+    /* Mobile-optimized spacing */
+    .mobile-spacing {
+      padding: 1rem;
+    }
+    
+    /* Mobile-friendly table scrolling */
+    .mobile-table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
   }
 }

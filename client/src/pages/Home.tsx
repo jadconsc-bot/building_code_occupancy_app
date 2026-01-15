@@ -75,6 +75,11 @@ import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
 import { useUITour } from "@/contexts/UITourContext";
 import { FloatingHelpButton } from "@/components/FloatingHelpButton";
+import { useKeyboardShortcuts, GLOBAL_SHORTCUTS } from "@/hooks/useKeyboardShortcuts";
+import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
+import { useHighContrast } from "@/contexts/HighContrastContext";
+import { Contrast } from "lucide-react";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -104,6 +109,7 @@ export default function Home() {
   const { activeProjectId, updateProjectProgress } = useProject();
   const { openHelp } = useHelpSystem();
   const { startTour } = useUITour();
+  const { isHighContrast, toggleHighContrast } = useHighContrast();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +164,56 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("active_tab", activeTab);
   }, [activeTab]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: GLOBAL_SHORTCUTS.SEARCH.key,
+      ctrl: GLOBAL_SHORTCUTS.SEARCH.ctrl,
+      description: GLOBAL_SHORTCUTS.SEARCH.description,
+      action: () => searchInputRef.current?.focus(),
+    },
+    {
+      key: GLOBAL_SHORTCUTS.BOOKMARKS.key,
+      ctrl: GLOBAL_SHORTCUTS.BOOKMARKS.ctrl,
+      description: GLOBAL_SHORTCUTS.BOOKMARKS.description,
+      action: () => {
+        // Scroll to bookmarks section
+        const bookmarksEl = document.getElementById('bookmarks-section');
+        bookmarksEl?.scrollIntoView({ behavior: 'smooth' });
+      },
+    },
+    {
+      key: GLOBAL_SHORTCUTS.HELP.key,
+      ctrl: GLOBAL_SHORTCUTS.HELP.ctrl,
+      description: GLOBAL_SHORTCUTS.HELP.description,
+      action: () => openHelp(),
+    },
+    {
+      key: GLOBAL_SHORTCUTS.SHORTCUTS.key,
+      ctrl: GLOBAL_SHORTCUTS.SHORTCUTS.ctrl,
+      description: GLOBAL_SHORTCUTS.SHORTCUTS.description,
+      action: () => setShowKeyboardHelp(true),
+    },
+    {
+      key: GLOBAL_SHORTCUTS.THEME.key,
+      ctrl: GLOBAL_SHORTCUTS.THEME.ctrl,
+      description: GLOBAL_SHORTCUTS.THEME.description,
+      action: () => toggleTheme?.(),
+    },
+    {
+      key: GLOBAL_SHORTCUTS.CONTRAST.key,
+      ctrl: GLOBAL_SHORTCUTS.CONTRAST.ctrl,
+      shift: GLOBAL_SHORTCUTS.CONTRAST.shift,
+      description: GLOBAL_SHORTCUTS.CONTRAST.description,
+      action: () => toggleHighContrast(),
+    },
+    {
+      key: GLOBAL_SHORTCUTS.ESCAPE.key,
+      description: GLOBAL_SHORTCUTS.ESCAPE.description,
+      action: () => setShowKeyboardHelp(false),
+    },
+  ]);
 
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
@@ -605,9 +661,14 @@ export default function Home() {
           Based on National Building Code - 2023 {selectedRegion === "AB" ? "Alberta" : selectedRegion === "BC" ? "British Columbia" : selectedRegion === "ON" ? "Ontario" : "Saskatchewan"} Edition
         </div>
       </div>
-
       {/* Main Content Area */}
-      <div className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`}>
+      <main 
+        id="main-content" 
+        className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`} 
+        {...swipeHandlers}
+        role="main"
+        aria-label="Building code occupancy details"
+      >
         {selectedGroup ? (
           <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 print:max-w-none print:animate-none">
             <div className="flex justify-between items-start print:hidden">
@@ -667,6 +728,42 @@ export default function Home() {
                   <Download className="w-4 h-4" />
                   Export PDF
                 </button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={toggleHighContrast}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border rounded-md transition-colors ${
+                          isHighContrast
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'text-muted-foreground hover:text-foreground border-border hover:bg-accent'
+                        }`}
+                        aria-label="Toggle high contrast mode"
+                      >
+                        <Contrast className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>High Contrast Mode (Ctrl+Shift+C)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setShowKeyboardHelp(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                        aria-label="Show keyboard shortcuts"
+                      >
+                        <Keyboard className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Keyboard Shortcuts (Ctrl+/)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <div className="flex items-baseline gap-4 mb-2 border-b-4 pb-4 print:border-black" style={{ borderColor: 'var(--occupancy-badge)' }}>
@@ -1902,7 +1999,7 @@ export default function Home() {
             </p>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Keyboard Help Dialog */}
       <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
@@ -1944,6 +2041,26 @@ export default function Home() {
       >
         <Keyboard className="w-5 h-5" />
       </button>
+      
+      {/* Skip navigation link for screen readers */}
+      <a href="#main-content" className="skip-nav">
+        Skip to main content
+      </a>
+      
+      {/* Keyboard shortcuts dialog */}
+      <KeyboardShortcutsDialog 
+        open={showKeyboardHelp} 
+        onOpenChange={setShowKeyboardHelp} 
+      />
+      
+      {/* Mobile bottom navigation */}
+      <MobileBottomNav 
+        activeTab={activeTab} 
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          localStorage.setItem("active_tab", tab);
+        }} 
+      />
     </div>
     </>
   );

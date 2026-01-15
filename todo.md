@@ -1133,3 +1133,57 @@
 - [x] Implement project load from localStorage
 - [x] Implement project export as JSON
 - [x] Implement project import from JSON
+
+
+## Accessibility & Mobile Improvements (Current Session)
+
+### Accessibility Features
+- [x] Keyboard shortcuts system
+  - Add global keyboard shortcut handler
+  - Implement shortcuts: Ctrl+K (search), Ctrl+B (bookmarks), Ctrl+H (help), Ctrl+/ (shortcuts menu)
+  - Add Escape key to close modals/dialogs
+  - Add Tab navigation improvements for all interactive elements
+  - Display keyboard shortcuts in help dialog
+  
+- [x] Screen reader support
+  - Add ARIA labels to all interactive elements
+  - Add ARIA live regions for dynamic content updates
+  - Add descriptive alt text to all diagrams and images
+  - Add skip navigation links
+  - Add focus indicators for keyboard navigation
+  - Test with screen reader software
+  
+- [x] High-contrast mode toggle
+  - Create high-contrast theme variant
+  - Add toggle button in header
+  - Ensure WCAG AAA contrast ratios (7:1 for normal text, 4.5:1 for large text)
+  - Store preference in localStorage
+  - Apply to all components and diagrams
+
+### Mobile-Responsive Improvements
+- [x] Optimize calculator layouts for mobile
+  - Make all calculator input fields stack vertically on mobile
+  - Increase touch target sizes to minimum 44x44px
+  - Add mobile-friendly number inputs with proper keyboards
+  - Optimize result displays for small screens
+  - Add collapsible sections for calculator results
+  
+- [x] Swipe gestures for tab navigation
+  - Implement touch event handlers for horizontal swipes
+  - Add swipe left/right to navigate between tabs
+  - Add visual feedback for swipe actions
+  - Make gestures work on Building Code, Plumbing, Electrical, Additions tabs
+  
+- [x] Collapsible sections for mobile
+  - Make all major sections collapsible on mobile devices
+  - Add expand/collapse icons
+  - Save collapsed state in localStorage
+  - Optimize spacing and padding for mobile
+  - Add smooth animations for expand/collapse
+  
+- [x] Mobile navigation improvements
+  - Add bottom navigation bar for mobile devices
+  - Make sidebar collapsible with hamburger menu
+  - Optimize search bar for mobile keyboards
+  - Add pull-to-refresh functionality
+  - Improve mobile header with compact layout
