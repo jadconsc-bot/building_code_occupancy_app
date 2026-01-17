@@ -268,6 +268,51 @@ export function FireSeparationCalculator() {
           </div>
 
           {/* Result Display */}
+          {/* Visual Diagram - Side by Side Occupancies */}
+          {occupancy1 && occupancy2 && (
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-border p-4 mb-4">
+              <svg viewBox="0 0 400 200" className="w-full h-auto">
+                {/* Floor */}
+                <rect x="20" y="160" width="360" height="10" fill="#6b7280" />
+                <text x="200" y="185" textAnchor="middle" className="text-[10px] fill-gray-500" style={{fontSize: '10px'}}>FLOOR ASSEMBLY</text>
+                
+                {/* Left Occupancy Box */}
+                <rect x="30" y="40" width="150" height="120" fill="#dbeafe" stroke="#3b82f6" strokeWidth="2" />
+                <text x="105" y="70" textAnchor="middle" className="text-sm font-bold fill-blue-700" style={{fontSize: '14px', fontWeight: 'bold'}}>{occupancy1}</text>
+                <text x="105" y="90" textAnchor="middle" className="text-[10px] fill-blue-600" style={{fontSize: '10px'}}>{occupancyNames[occupancy1] || ''}</text>
+                
+                {/* Fire Separation Wall */}
+                <rect x="185" y="30" width="30" height="130" fill={result.severity === 'high' ? '#fecaca' : result.severity === 'medium' ? '#fed7aa' : '#d1fae5'} stroke={result.severity === 'high' ? '#dc2626' : result.severity === 'medium' ? '#f97316' : '#10b981'} strokeWidth="3" />
+                <text x="200" y="100" textAnchor="middle" className="text-[9px] font-bold" style={{fontSize: '9px', fontWeight: 'bold'}} fill={result.severity === 'high' ? '#dc2626' : result.severity === 'medium' ? '#f97316' : '#10b981'}>
+                  {result.rating.includes('hour') ? result.rating.replace(' ', '') : 'NONE'}
+                </text>
+                <text x="200" y="115" textAnchor="middle" className="text-[8px]" style={{fontSize: '8px'}} fill="#6b7280">FIRE</text>
+                <text x="200" y="125" textAnchor="middle" className="text-[8px]" style={{fontSize: '8px'}} fill="#6b7280">SEP.</text>
+                
+                {/* Right Occupancy Box */}
+                <rect x="220" y="40" width="150" height="120" fill="#fef3c7" stroke="#f59e0b" strokeWidth="2" />
+                <text x="295" y="70" textAnchor="middle" className="text-sm font-bold fill-amber-700" style={{fontSize: '14px', fontWeight: 'bold'}}>{occupancy2}</text>
+                <text x="295" y="90" textAnchor="middle" className="text-[10px] fill-amber-600" style={{fontSize: '10px'}}>{occupancyNames[occupancy2] || ''}</text>
+                
+                {/* Ceiling/Roof */}
+                <rect x="20" y="25" width="360" height="10" fill="#6b7280" />
+                <text x="200" y="18" textAnchor="middle" className="text-[10px] fill-gray-500" style={{fontSize: '10px'}}>ROOF/FLOOR ABOVE</text>
+                
+                {/* Arrows pointing to fire separation */}
+                <path d="M 140 130 L 175 130" stroke="#374151" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
+                <path d="M 260 130 L 225 130" stroke="#374151" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
+                
+                {/* Arrow marker definition */}
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#374151" />
+                  </marker>
+                </defs>
+              </svg>
+            </div>
+          )}
+
+          {/* Result Display */}
           {occupancy1 && occupancy2 && (
             <div className={`p-6 border-l-4 ${
               result.severity === "high" ? "border-destructive bg-destructive/5" :
