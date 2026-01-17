@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -739,82 +739,97 @@ export default function Home() {
                 </button>
             </div>
             
-            {/* Mobile Action Buttons Accordion */}
+            {/* Mobile Action Buttons - Select Dropdown */}
             <div className="md:hidden mb-6 print:hidden">
-              <Accordion type="single" collapsible className="w-full border border-border rounded-md">
-                <AccordionItem value="actions" className="border-0">
-                  <AccordionTrigger className="text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground px-4 py-3 hover:no-underline">
-                    Actions & Tools
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4">
-                    <div className="flex flex-col gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors w-full">
-                            <FolderOpen className="w-4 h-4" />
-                            Projects
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
-                          <ProjectDashboard />
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors w-full">
-                            <ArrowLeftRight className="w-4 h-4" />
-                            Compare
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto rounded-none">
-                          <DialogHeader>
-                            <DialogTitle>Occupancy Comparison</DialogTitle>
-                            <DialogDescription>
-                              Compare requirements, load factors, and construction limits between two occupancy types.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <OccupancyComparison />
-                        </DialogContent>
-                      </Dialog>
-                      <button
-                        onClick={copyShareLink}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors w-full"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        Share
-                      </button>
-                      <button
-                        onClick={() => window.print()}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors w-full"
-                      >
-                        <Printer className="w-4 h-4" />
-                        Print Guide
-                      </button>
-                      <button
-                        onClick={exportToPDF}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:text-primary/80 border border-primary rounded-md hover:bg-primary/10 transition-colors w-full"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export PDF
-                      </button>
-                      <button
-                        onClick={exportChecklistPDF}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 hover:text-green-800 border border-green-600 rounded-md hover:bg-green-50 transition-colors w-full"
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                        Export Checklist
-                      </button>
-                      <button
-                        onClick={() => setShowFeedbackDialog(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 hover:text-blue-800 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors w-full"
-                      >
-                        <HelpCircle className="w-4 h-4" />
-                        Beta Feedback
-                      </button>
+              <Select
+                onValueChange={(value) => {
+                  if (value === "projects") {
+                    // Open projects dialog - handled separately
+                  } else if (value === "compare") {
+                    // Open compare dialog - handled separately
+                  } else if (value === "share") {
+                    copyShareLink();
+                  } else if (value === "print") {
+                    window.print();
+                  } else if (value === "export-pdf") {
+                    exportToPDF();
+                  } else if (value === "export-checklist") {
+                    exportChecklistPDF();
+                  } else if (value === "feedback") {
+                    setShowFeedbackDialog(true);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <div className="flex items-center gap-2">
+                    <Menu className="w-4 h-4" />
+                    <SelectValue placeholder="Actions & Tools" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="share">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="w-4 h-4" />
+                      Share Link
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                  </SelectItem>
+                  <SelectItem value="print">
+                    <div className="flex items-center gap-2">
+                      <Printer className="w-4 h-4" />
+                      Print Guide
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="export-pdf">
+                    <div className="flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Export PDF
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="export-checklist">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4" />
+                      Export Checklist
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="feedback">
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4" />
+                      Beta Feedback
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Dialog triggers for Projects and Compare - separate buttons */}
+              <div className="flex gap-2 mt-2">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <FolderOpen className="w-4 h-4" />
+                      Projects
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <ProjectDashboard />
+                  </DialogContent>
+                </Dialog>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                      <ArrowLeftRight className="w-4 h-4" />
+                      Compare
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto rounded-none">
+                    <DialogHeader>
+                      <DialogTitle>Occupancy Comparison</DialogTitle>
+                      <DialogDescription>
+                        Compare requirements, load factors, and construction limits between two occupancy types.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <OccupancyComparison />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
             
             <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4 mb-2 border-b-4 border-primary pb-4 print:border-black">
