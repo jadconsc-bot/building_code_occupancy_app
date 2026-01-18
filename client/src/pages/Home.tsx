@@ -210,11 +210,18 @@ export default function Home() {
             th { background-color: #f5f5f5; font-weight: 600; }
             .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
             .section { margin-bottom: 30px; page-break-inside: avoid; }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
           </style>
         </head>
         <body>
           ${content.innerHTML}
-          <script>window.print(); window.close();</script>
+          <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #1E3A8A; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Print / Save as PDF</button>
+            <button onclick="window.close()" style="padding: 10px 20px; background: #6B7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Close</button>
+          </div>
         </body>
       </html>
     `);

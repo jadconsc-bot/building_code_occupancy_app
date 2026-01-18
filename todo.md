@@ -1051,3 +1051,5 @@
 - [x] Fix mobile menu - Back to Search stays visible, other action buttons go into Select dropdown
 - [x] Restore Fire Separation Matrix diagram showing side-by-side occupancy classifications with fire separation requirements
 - [ ] Fix mobile menu - Back to Search stays visible, other action buttons go into accordion
+- [x] Add Excel export button to Interactive Construction Limit Calculator
+- [x] Fix PDF export window disappearing too quickly

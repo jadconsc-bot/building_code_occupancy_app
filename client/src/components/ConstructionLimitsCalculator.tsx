@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Building2, CheckCircle2, AlertTriangle, Check, History } from "lucide-react";
+import { Building2, CheckCircle2, AlertTriangle, Check, History, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StreetFrontageDiagram } from "./StreetFrontageDiagram";
 
@@ -310,13 +310,55 @@ export function ConstructionLimitsCalculator() {
           </div>
         )}
         
-        <Button 
-          onClick={calculateMaxArea} 
-          className="w-full"
-          disabled={!occupancy || !storeys}
-        >
-          Calculate Maximum Building Area
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={calculateMaxArea} 
+            className="flex-1"
+            disabled={!occupancy || !storeys}
+          >
+            Calculate Maximum Building Area
+          </Button>
+          {result && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const data = [
+                  ['Construction Limits Calculator Results'],
+                  [''],
+                  ['Input Parameters'],
+                  ['Occupancy Classification', occupancy],
+                  ['Number of Storeys', storeys],
+                  ['Construction Type', constructionType === 'combustible' ? 'Combustible' : 'Non-Combustible'],
+                  ['Sprinkler Protection', sprinklered === 'yes' ? 'Yes' : 'No'],
+                  ['Street Frontages', streetFrontage],
+                  [''],
+                  ['Results'],
+                  ['Base Area (m²)', result.baseArea.toString()],
+                  ['Area Increase (%)', result.areaIncrease.toString()],
+                  ['Maximum Building Area (m²)', result.maxArea.toString()],
+                  ['Compliance Status', result.compliant ? 'Compliant' : 'Review Required'],
+                  [''],
+                  ['Recommendation'],
+                  [result.recommendation],
+                  [''],
+                  ['Reference: NBC Part 3.2.2']
+                ];
+                const csvContent = data.map(row => row.join(',')).join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `construction-limits-${occupancy}-${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="gap-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export
+            </Button>
+          )}
+        </div>
 
         {result && (
           <div className={`p-4 rounded-lg border-2 ${result.compliant ? 'border-green-500 bg-green-50 dark:bg-green-950' : 'border-orange-500 bg-orange-50 dark:bg-orange-950'}`}>
