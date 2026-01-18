@@ -70,6 +70,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
 import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenerator";
+import { toast } from "sonner";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -756,11 +757,15 @@ export default function Home() {
                     // Open compare dialog - handled separately
                   } else if (value === "share") {
                     copyShareLink();
+                    toast.success("Link copied to clipboard!");
                   } else if (value === "print") {
+                    toast.info("Opening print dialog...");
                     window.print();
                   } else if (value === "export-pdf") {
+                    toast.info("Preparing PDF export...");
                     exportToPDF();
                   } else if (value === "export-checklist") {
+                    toast.info("Generating checklist PDF...");
                     exportChecklistPDF();
                   } else if (value === "feedback") {
                     setShowFeedbackDialog(true);
@@ -810,7 +815,7 @@ export default function Home() {
               <div className="flex gap-2 mt-2">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors">
                       <FolderOpen className="w-4 h-4" />
                       Projects
                     </button>
@@ -821,7 +826,7 @@ export default function Home() {
                 </Dialog>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
+                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 hover:text-orange-800 border border-orange-300 rounded-md hover:bg-orange-50 bg-orange-50/50 transition-colors">
                       <ArrowLeftRight className="w-4 h-4" />
                       Compare
                     </button>

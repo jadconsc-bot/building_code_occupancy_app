@@ -1053,3 +1053,6 @@
 - [ ] Fix mobile menu - Back to Search stays visible, other action buttons go into accordion
 - [x] Add Excel export button to Interactive Construction Limit Calculator
 - [x] Fix PDF export window disappearing too quickly
+- [x] Add toast notifications for dropdown actions (Share, Print, Export PDF, Export Checklist)
+- [x] Style Projects/Compare buttons with icons and matching colors
+- [x] Test and verify all mobile dropdown actions work correctly
