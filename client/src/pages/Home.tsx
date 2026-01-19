@@ -21,6 +21,7 @@ import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { getLoadFactors } from "@/lib/loadCalculationData";
+import { searchKeywords, getMatchingOccupancyIds } from "@/lib/searchKeywords";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
@@ -395,13 +396,27 @@ export default function Home() {
   const filteredData = useMemo(() => {
     if (!searchQuery) return occupancyData;
     
-    const lowerQuery = searchQuery.toLowerCase();
-    return occupancyData.filter(group => 
-      group.code.toLowerCase().includes(lowerQuery) ||
-      group.name.toLowerCase().includes(lowerQuery) ||
-      group.description.toLowerCase().includes(lowerQuery) ||
-      group.examples.some(ex => ex.toLowerCase().includes(lowerQuery))
-    );
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    
+    // Get matching IDs from keyword search
+    const keywordMatchIds = getMatchingOccupancyIds(lowerQuery);
+    
+    return occupancyData.filter(group => {
+      // Check keyword matches first
+      if (keywordMatchIds.includes(group.id)) return true;
+      
+      // Then check original search criteria
+      return (
+        group.code.toLowerCase().includes(lowerQuery) ||
+        group.name.toLowerCase().includes(lowerQuery) ||
+        group.description.toLowerCase().includes(lowerQuery) ||
+        group.examples.some(ex => ex.toLowerCase().includes(lowerQuery)) ||
+        // Also check keywords directly for partial matches
+        (searchKeywords[group.id] && searchKeywords[group.id].some(kw => 
+          kw.includes(lowerQuery) || lowerQuery.includes(kw)
+        ))
+      );
+    });
   }, [searchQuery]);
 
   // Keyboard navigation
@@ -807,40 +822,40 @@ export default function Home() {
                     <div className="flex flex-col gap-1">
                       <button
                         onClick={() => {
-                          toast.info("Opening print dialog...");
+                          toast.success("✓ Opening print dialog...");
                           window.print();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-blue-50 rounded-md transition-colors"
                       >
-                        <Printer className="w-4 h-4" />
-                        Print Guide
+                        <Printer className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700">Print Guide</span>
                       </button>
                       <button
                         onClick={() => {
-                          toast.info("Preparing PDF export...");
+                          toast.success("✓ Preparing PDF export...");
                           exportToPDF();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 rounded-md transition-colors"
                       >
-                        <Download className="w-4 h-4" />
-                        Export PDF
+                        <Download className="w-4 h-4 text-red-600" />
+                        <span className="text-red-700">Export PDF</span>
                       </button>
                       <button
                         onClick={() => {
-                          toast.info("Generating checklist PDF...");
+                          toast.success("✓ Generating checklist PDF...");
                           exportChecklistPDF();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 rounded-md transition-colors"
                       >
-                        <ClipboardList className="w-4 h-4" />
-                        Export Checklist
+                        <ClipboardList className="w-4 h-4 text-amber-600" />
+                        <span className="text-amber-700">Export Checklist</span>
                       </button>
                       <button
                         onClick={() => setShowFeedbackDialog(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-purple-50 rounded-md transition-colors"
                       >
-                        <HelpCircle className="w-4 h-4" />
-                        Beta Feedback
+                        <HelpCircle className="w-4 h-4 text-purple-600" />
+                        <span className="text-purple-700">Beta Feedback</span>
                       </button>
                     </div>
                   </PopoverContent>

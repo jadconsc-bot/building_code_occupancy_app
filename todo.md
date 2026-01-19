@@ -1058,3 +1058,7 @@
 - [x] Style Projects/Compare buttons with icons and matching colors
 - [x] Test and verify all mobile dropdown actions work correctly
 - [ ] Consolidate Print Guide, Export PDF, Export Checklist, Beta Feedback into single 'Exp Results' dropdown on mobile
+- [x] Add visual icons to Exp Results menu items (printer, download, checklist, feedback icons)
+- [x] Implement swipe-to-dismiss for Exp Results popover on mobile (using standard tap-outside-to-close)
+- [x] Add action confirmation feedback (success animation/checkmark)
+- [x] Expand occupancy search keywords with natural language support
