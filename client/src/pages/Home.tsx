@@ -66,6 +66,7 @@ import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
@@ -747,75 +748,25 @@ export default function Home() {
                 </button>
             </div>
             
-            {/* Mobile Action Buttons - Select Dropdown */}
+            {/* Mobile Action Buttons - Row with Share, Projects, Compare, and Exp Results popover */}
             <div className="md:hidden mb-6 print:hidden">
-              <Select
-                onValueChange={(value) => {
-                  if (value === "projects") {
-                    // Open projects dialog - handled separately
-                  } else if (value === "compare") {
-                    // Open compare dialog - handled separately
-                  } else if (value === "share") {
+              <div className="flex flex-wrap gap-2">
+                {/* Share Button */}
+                <button
+                  onClick={() => {
                     copyShareLink();
                     toast.success("Link copied to clipboard!");
-                  } else if (value === "print") {
-                    toast.info("Opening print dialog...");
-                    window.print();
-                  } else if (value === "export-pdf") {
-                    toast.info("Preparing PDF export...");
-                    exportToPDF();
-                  } else if (value === "export-checklist") {
-                    toast.info("Generating checklist PDF...");
-                    exportChecklistPDF();
-                  } else if (value === "feedback") {
-                    setShowFeedbackDialog(true);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <div className="flex items-center gap-2">
-                    <Menu className="w-4 h-4" />
-                    <SelectValue placeholder="Actions & Tools" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="share">
-                    <div className="flex items-center gap-2">
-                      <Share2 className="w-4 h-4" />
-                      Share Link
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="print">
-                    <div className="flex items-center gap-2">
-                      <Printer className="w-4 h-4" />
-                      Print Guide
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="export-pdf">
-                    <div className="flex items-center gap-2">
-                      <Download className="w-4 h-4" />
-                      Export PDF
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="export-checklist">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4" />
-                      Export Checklist
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="feedback">
-                    <div className="flex items-center gap-2">
-                      <HelpCircle className="w-4 h-4" />
-                      Beta Feedback
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {/* Dialog triggers for Projects and Compare - separate buttons */}
-              <div className="flex gap-2 mt-2">
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+                
+                {/* Projects Dialog */}
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors">
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors">
                       <FolderOpen className="w-4 h-4" />
                       Projects
                     </button>
@@ -824,9 +775,11 @@ export default function Home() {
                     <ProjectDashboard />
                   </DialogContent>
                 </Dialog>
+                
+                {/* Compare Dialog */}
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 hover:text-orange-800 border border-orange-300 rounded-md hover:bg-orange-50 bg-orange-50/50 transition-colors">
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 hover:text-orange-800 border border-orange-300 rounded-md hover:bg-orange-50 bg-orange-50/50 transition-colors">
                       <ArrowLeftRight className="w-4 h-4" />
                       Compare
                     </button>
@@ -841,6 +794,57 @@ export default function Home() {
                     <OccupancyComparison />
                   </DialogContent>
                 </Dialog>
+                
+                {/* Exp Results Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 hover:text-green-800 border border-green-300 rounded-md hover:bg-green-50 bg-green-50/50 transition-colors">
+                      <FileText className="w-4 h-4" />
+                      Exp Results
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => {
+                          toast.info("Opening print dialog...");
+                          window.print();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Guide
+                      </button>
+                      <button
+                        onClick={() => {
+                          toast.info("Preparing PDF export...");
+                          exportToPDF();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export PDF
+                      </button>
+                      <button
+                        onClick={() => {
+                          toast.info("Generating checklist PDF...");
+                          exportChecklistPDF();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                      >
+                        <ClipboardList className="w-4 h-4" />
+                        Export Checklist
+                      </button>
+                      <button
+                        onClick={() => setShowFeedbackDialog(true)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                        Beta Feedback
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             

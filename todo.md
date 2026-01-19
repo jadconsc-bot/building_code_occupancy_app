@@ -104,6 +104,7 @@
 
 ## 🐛 Known Issues
 - [x] Fix main tabs background color that was lost during React error #185 fix
+- [x] Consolidate Print Guide, Export PDF, Export Checklist, Beta Feedback into single 'Exp Results' popover on mobile
 
 ## 📚 Documentation Needs
 - [ ] User guide for Inspector Checklist
@@ -1056,3 +1057,4 @@
 - [x] Add toast notifications for dropdown actions (Share, Print, Export PDF, Export Checklist)
 - [x] Style Projects/Compare buttons with icons and matching colors
 - [x] Test and verify all mobile dropdown actions work correctly
+- [ ] Consolidate Print Guide, Export PDF, Export Checklist, Beta Feedback into single 'Exp Results' dropdown on mobile
