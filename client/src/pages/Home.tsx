@@ -21,7 +21,6 @@ import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { getLoadFactors } from "@/lib/loadCalculationData";
-import { searchKeywords, getMatchingOccupancyIds } from "@/lib/searchKeywords";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
@@ -72,6 +71,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
 import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenerator";
+import { searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions } from "@/lib/searchKeywords";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -393,6 +393,12 @@ export default function Home() {
     recognition.start();
   };
 
+  // Autocomplete suggestions state
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const autocompleteSuggestions = useMemo(() => {
+    return getAutocompleteSuggestions(searchQuery, 6);
+  }, [searchQuery]);
+
   const filteredData = useMemo(() => {
     if (!searchQuery) return occupancyData;
     
@@ -418,6 +424,12 @@ export default function Home() {
       );
     });
   }, [searchQuery]);
+
+  // "Did you mean?" suggestions when no results
+  const didYouMeanSuggestions = useMemo(() => {
+    if (filteredData.length > 0 || !searchQuery) return [];
+    return getDidYouMeanSuggestions(searchQuery, 3);
+  }, [filteredData.length, searchQuery]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -506,15 +518,42 @@ export default function Home() {
           
           <div className="relative flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
               <Input 
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search building type... (Press / to focus)" 
                 className="pl-9 bg-background border-input focus-visible:ring-1 rounded-none"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowAutocomplete(e.target.value.length >= 2);
+                }}
+                onFocus={() => setShowAutocomplete(searchQuery.length >= 2)}
+                onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
               />
+              {/* Autocomplete Dropdown */}
+              {showAutocomplete && autocompleteSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                  <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">
+                    Suggestions
+                  </div>
+                  {autocompleteSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSearchQuery(suggestion);
+                        setShowAutocomplete(false);
+                      }}
+                    >
+                      <Search className="w-3 h-3 text-muted-foreground" />
+                      <span className="capitalize">{suggestion}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <TooltipProvider>
               <Tooltip>
@@ -625,7 +664,25 @@ export default function Home() {
           <div className="p-4 space-y-2">
             {filteredData.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No results found.</p>
+                <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p className="font-medium">No results found for "{searchQuery}"</p>
+                {didYouMeanSuggestions.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm mb-2">Did you mean:</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {didYouMeanSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSearchQuery(suggestion)}
+                          className="px-3 py-1.5 text-sm bg-primary/10 text-primary hover:bg-primary/20 rounded-md transition-colors capitalize"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs mt-4 opacity-70">Try searching for building types like "church", "gym", "hospital", or "basement suite"</p>
               </div>
             ) : (
               filteredData.map((group) => (
@@ -822,40 +879,40 @@ export default function Home() {
                     <div className="flex flex-col gap-1">
                       <button
                         onClick={() => {
-                          toast.success("✓ Opening print dialog...");
+                          toast.info("Opening print dialog...");
                           window.print();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-blue-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
                       >
-                        <Printer className="w-4 h-4 text-blue-600" />
-                        <span className="text-blue-700">Print Guide</span>
+                        <Printer className="w-4 h-4" />
+                        Print Guide
                       </button>
                       <button
                         onClick={() => {
-                          toast.success("✓ Preparing PDF export...");
+                          toast.info("Preparing PDF export...");
                           exportToPDF();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
                       >
-                        <Download className="w-4 h-4 text-red-600" />
-                        <span className="text-red-700">Export PDF</span>
+                        <Download className="w-4 h-4" />
+                        Export PDF
                       </button>
                       <button
                         onClick={() => {
-                          toast.success("✓ Generating checklist PDF...");
+                          toast.info("Generating checklist PDF...");
                           exportChecklistPDF();
                         }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
                       >
-                        <ClipboardList className="w-4 h-4 text-amber-600" />
-                        <span className="text-amber-700">Export Checklist</span>
+                        <ClipboardList className="w-4 h-4" />
+                        Export Checklist
                       </button>
                       <button
                         onClick={() => setShowFeedbackDialog(true)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-purple-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
                       >
-                        <HelpCircle className="w-4 h-4 text-purple-600" />
-                        <span className="text-purple-700">Beta Feedback</span>
+                        <HelpCircle className="w-4 h-4" />
+                        Beta Feedback
                       </button>
                     </div>
                   </PopoverContent>

@@ -1062,3 +1062,8 @@
 - [x] Implement swipe-to-dismiss for Exp Results popover on mobile (using standard tap-outside-to-close)
 - [x] Add action confirmation feedback (success animation/checkmark)
 - [x] Expand occupancy search keywords with natural language support
+
+## Phase 12: UX Improvements
+- [x] Add search autocomplete suggestions showing matching keywords as users type
+- [x] Create print-friendly stylesheet for cleaner PDF exports
+- [x] Add "Did you mean?" suggestions when no search results found

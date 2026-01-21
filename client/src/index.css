@@ -192,3 +192,234 @@
     }
   }
 }
+
+/* Print-Friendly Stylesheet */
+@media print {
+  /* Reset colors for print */
+  :root {
+    --background: white;
+    --foreground: black;
+    --primary: black;
+    --primary-foreground: white;
+    --muted: #f5f5f5;
+    --muted-foreground: #666;
+    --border: #ddd;
+  }
+
+  /* Hide non-essential UI elements */
+  .print\\:hidden,
+  [class*="print:hidden"],
+  button:not(.print\\:block),
+  nav,
+  .sidebar,
+  [role="navigation"],
+  [data-radix-popper-content-wrapper],
+  .popover,
+  .dialog,
+  .toast,
+  .tooltip,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print\\:block,
+  [class*="print:block"] {
+    display: block !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: letter;
+    margin: 0.75in;
+  }
+
+  /* Body and container styles */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  .container,
+  main,
+  article {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Typography for print */
+  h1 {
+    font-size: 24pt !important;
+    page-break-after: avoid;
+  }
+
+  h2 {
+    font-size: 18pt !important;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 14pt !important;
+    page-break-after: avoid;
+  }
+
+  h4, h5, h6 {
+    font-size: 12pt !important;
+    page-break-after: avoid;
+  }
+
+  p, li, td, th {
+    font-size: 10pt !important;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th, td {
+    border: 1px solid #333 !important;
+    padding: 6px 8px !important;
+    text-align: left !important;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    font-weight: bold !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Cards and sections */
+  .card,
+  [class*="card"] {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    background: white !important;
+    margin-bottom: 12pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* Badges */
+  .badge,
+  [class*="badge"] {
+    border: 1px solid #666 !important;
+    background: #f5f5f5 !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Links */
+  a {
+    color: black !important;
+    text-decoration: underline !important;
+  }
+
+  a[href^="http"]:after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #666;
+  }
+
+  /* Diagrams and images */
+  svg,
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Code blocks */
+  pre, code {
+    background: #f5f5f5 !important;
+    border: 1px solid #ddd !important;
+    font-size: 9pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* Accordion content - show all */
+  [data-state="closed"] > [data-radix-accordion-content] {
+    display: block !important;
+    height: auto !important;
+  }
+
+  /* Tabs content - show active only */
+  [role="tabpanel"][data-state="inactive"] {
+    display: none !important;
+  }
+
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+
+  /* Print header/footer */
+  .print-header {
+    position: running(header);
+  }
+
+  .print-footer {
+    position: running(footer);
+  }
+
+  /* Ensure proper spacing */
+  section,
+  article,
+  .section {
+    margin-bottom: 16pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* Calculator results - ensure visibility */
+  .calculator-result,
+  [class*="result"] {
+    border: 2px solid #333 !important;
+    padding: 8pt !important;
+    background: #fafafa !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Checklist items */
+  input[type="checkbox"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove shadows and rounded corners */
+  * {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure text is black */
+  * {
+    color: black !important;
+  }
+
+  /* Exception for colored badges/indicators that need to show */
+  .print-color,
+  [class*="print:text-"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
