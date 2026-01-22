@@ -1067,3 +1067,11 @@
 - [x] Add search autocomplete suggestions showing matching keywords as users type
 - [x] Create print-friendly stylesheet for cleaner PDF exports
 - [x] Add "Did you mean?" suggestions when no search results found
+
+
+## Bug Fix - Mobile Exp Results (Current Session)
+- [ ] Fix mobile view showing old-style separate buttons instead of Exp Results popover
+- [ ] Verify the md:hidden class is properly applied to mobile action buttons
+- [ ] Test on actual mobile viewport
+
+- [ ] Fix mobile view showing old-style separate buttons instead of Exp Results popover
