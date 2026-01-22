@@ -1124,3 +1124,26 @@
 - [x] Include where FSR rules apply by occupancy and location
 - [x] Integrate all new components into the application
 - [x] Test all new features (273 tests passing)
+
+
+## Phase 18: Comprehensive Search Enhancement
+- [ ] Add calculator keywords (stair calculator, beam span, fire separation, etc.)
+- [ ] Add NBC code section keywords (Part 3, Part 9, Table 3.1.17.1, etc.)
+- [ ] Add plumbing fixture keywords (water closet, lavatory, urinal, drinking fountain, etc.)
+- [ ] Add fire safety keywords (FSR, flame spread, fire resistance, sprinkler, etc.)
+- [ ] Add structural keywords (joist, rafter, beam, column, foundation, etc.)
+- [ ] Add accessibility keywords (barrier-free, ramp, grab bar, accessible, etc.)
+- [ ] Add energy code keywords (thermal resistance, RSI, insulation, etc.)
+- [ ] Expand occupancy classification keywords with more synonyms
+- [ ] Update search logic to navigate to relevant sections/tabs
+- [ ] Test comprehensive search functionality
+
+
+## Phase 18: Comprehensive Search Enhancement (COMPLETED)
+- [x] Expand searchKeywords.ts with calculator keywords (fire, structural, plumbing, electrical)
+- [x] Add code section keywords (NBC Part 3, Part 9, Part 10, key tables)
+- [x] Add general building terms (sprinkler, HVAC, permit, inspection)
+- [x] Add more occupancy classification synonyms (500+ keywords total)
+- [x] Update search logic to handle new keyword categories
+- [x] Add tab navigation for non-occupancy search results
+- [x] Test enhanced search with various queries (306 tests passing)

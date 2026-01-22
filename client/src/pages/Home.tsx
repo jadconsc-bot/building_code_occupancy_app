@@ -76,7 +76,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Keyboard, HelpCircle } from "lucide-react";
 import { useHelpSystem } from "@/contexts/HelpSystemContext";
 import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenerator";
-import { searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions } from "@/lib/searchKeywords";
+import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions, getComprehensiveSearchResults, getTabForKeyword } from "@/lib/searchKeywords";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -401,7 +401,12 @@ export default function Home() {
   // Autocomplete suggestions state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const autocompleteSuggestions = useMemo(() => {
-    return getAutocompleteSuggestions(searchQuery, 6);
+    return getAutocompleteSuggestions(searchQuery, 10);
+  }, [searchQuery]);
+
+  // Comprehensive search results for non-occupancy matches
+  const comprehensiveResults = useMemo(() => {
+    return getComprehensiveSearchResults(searchQuery);
   }, [searchQuery]);
 
   const filteredData = useMemo(() => {
@@ -549,12 +554,22 @@ export default function Home() {
                       className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        setSearchQuery(suggestion);
+                        setSearchQuery(suggestion.keyword);
                         setShowAutocomplete(false);
+                        // Navigate to relevant tab for non-occupancy results
+                        if (suggestion.type !== 'occupancy' && suggestion.tab) {
+                          setActiveTab(suggestion.tab);
+                          toast.success(`Navigating to ${suggestion.tab.replace('-', ' ')} tab`);
+                        }
                       }}
                     >
                       <Search className="w-3 h-3 text-muted-foreground" />
-                      <span className="capitalize">{suggestion}</span>
+                      <span className="capitalize">{suggestion.keyword}</span>
+                      {suggestion.type && suggestion.type !== 'occupancy' && (
+                        <span className="ml-auto text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {suggestion.type === 'calculator' ? 'Tool' : suggestion.type === 'code' ? 'NBC' : 'Topic'}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

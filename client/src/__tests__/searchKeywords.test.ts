@@ -73,13 +73,13 @@ describe('searchKeywords', () => {
     it('should return suggestions for partial input "chu"', () => {
       const result = getAutocompleteSuggestions('chu');
       expect(result.length).toBeGreaterThan(0);
-      expect(result.some(s => s.includes('church'))).toBe(true);
+      expect(result.some(s => s.keyword.includes('church'))).toBe(true);
     });
 
     it('should return suggestions for partial input "hos"', () => {
       const result = getAutocompleteSuggestions('hos');
       expect(result.length).toBeGreaterThan(0);
-      expect(result.some(s => s.includes('hospital') || s.includes('hostel') || s.includes('hospice'))).toBe(true);
+      expect(result.some(s => s.keyword.includes('hospital') || s.keyword.includes('hostel') || s.keyword.includes('hospice'))).toBe(true);
     });
 
     it('should return empty array for very short input', () => {
@@ -95,7 +95,7 @@ describe('searchKeywords', () => {
     it('should prioritize prefix matches', () => {
       const result = getAutocompleteSuggestions('church');
       if (result.length > 0) {
-        expect(result[0]).toBe('church');
+        expect(result[0].keyword).toBe('church');
       }
     });
   });
