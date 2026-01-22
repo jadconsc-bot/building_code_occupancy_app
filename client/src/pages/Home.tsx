@@ -196,50 +196,295 @@ export default function Home() {
     if (!selectedGroup) return;
     
     // Create a styled print window
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open('', '', 'width=900,height=700');
     if (!printWindow) {
-      alert('Please allow popups to export PDF');
+      toast.error('Please allow popups to export PDF');
       return;
     }
     
-    const content = document.querySelector('.print\\:block')?.closest('.flex-1');
-    if (!content) return;
+    // Get load factors for this occupancy
+    const loadFactors = getLoadFactors(selectedGroup.code);
     
-    printWindow.document.write(`
+    // Get construction limits for this occupancy (it's a Record, not an array)
+    const constructionLimitData = constructionLimits[selectedGroup.code];
+    
+    // Get height limits - it's a Record keyed by group (e.g., "Group A", "Group C")
+    const groupKey = selectedGroup.code.startsWith('A') ? 'Group A' : 
+                     selectedGroup.code.startsWith('B') ? 'Group B' :
+                     selectedGroup.code.startsWith('C') ? 'Group C' :
+                     selectedGroup.code.startsWith('D') ? 'Group D' :
+                     selectedGroup.code.startsWith('E') ? 'Group E' : 'Group F';
+    const heightLimitData = heightLimitsByOccupancy[groupKey];
+    
+    // Generate PDF content directly from occupancy data
+    const pdfContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${selectedGroup.code} - ${selectedGroup.name}</title>
+          <title>${selectedGroup.code} - ${selectedGroup.name} | Building Code Reference</title>
           <style>
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-            h1 { font-size: 48px; font-weight: 900; margin-bottom: 10px; }
-            h2 { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
-            h3 { font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; font-weight: 600; }
-            .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-            .section { margin-bottom: 30px; page-break-inside: avoid; }
+            * { box-sizing: border-box; }
+            body { 
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              padding: 40px; 
+              max-width: 900px; 
+              margin: 0 auto; 
+              color: #1f2937;
+              line-height: 1.6;
+            }
+            .header { 
+              border-bottom: 3px solid #1E3A8A; 
+              padding-bottom: 20px; 
+              margin-bottom: 30px; 
+            }
+            .code-badge { 
+              display: inline-block; 
+              font-size: 72px; 
+              font-weight: 900; 
+              color: #1E3A8A; 
+              margin-bottom: 10px; 
+            }
+            .division { 
+              font-size: 14px; 
+              text-transform: uppercase; 
+              color: #6B7280; 
+              letter-spacing: 1px; 
+              margin-bottom: 5px; 
+            }
+            .name { 
+              font-size: 28px; 
+              font-weight: 700; 
+              color: #111827; 
+              margin-bottom: 15px; 
+            }
+            .description { 
+              font-size: 16px; 
+              color: #4B5563; 
+              margin-bottom: 20px; 
+            }
+            .examples { 
+              display: flex; 
+              flex-wrap: wrap; 
+              gap: 8px; 
+              margin-bottom: 20px; 
+            }
+            .example-badge { 
+              background: #EFF6FF; 
+              color: #1E40AF; 
+              padding: 6px 12px; 
+              border-radius: 6px; 
+              font-size: 13px; 
+              font-weight: 500; 
+            }
+            h2 { 
+              font-size: 20px; 
+              font-weight: 700; 
+              color: #1E3A8A; 
+              margin-top: 35px; 
+              margin-bottom: 15px; 
+              padding-bottom: 8px; 
+              border-bottom: 2px solid #E5E7EB; 
+            }
+            h3 { 
+              font-size: 16px; 
+              font-weight: 600; 
+              color: #374151; 
+              margin-top: 25px; 
+              margin-bottom: 10px; 
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 15px 0 25px 0; 
+              font-size: 14px; 
+            }
+            th { 
+              background-color: #F3F4F6; 
+              font-weight: 600; 
+              text-align: left; 
+              padding: 12px; 
+              border: 1px solid #E5E7EB; 
+            }
+            td { 
+              padding: 10px 12px; 
+              border: 1px solid #E5E7EB; 
+            }
+            tr:nth-child(even) { background-color: #F9FAFB; }
+            .section { 
+              margin-bottom: 30px; 
+              page-break-inside: avoid; 
+            }
+            .compliance-note { 
+              background: #FEF3C7; 
+              border-left: 4px solid #F59E0B; 
+              padding: 12px 16px; 
+              margin: 15px 0; 
+              font-size: 14px; 
+            }
+            .compliance-note strong { color: #92400E; }
+            .footer { 
+              margin-top: 40px; 
+              padding-top: 20px; 
+              border-top: 1px solid #E5E7EB; 
+              font-size: 12px; 
+              color: #6B7280; 
+              text-align: center; 
+            }
+            .no-print { 
+              position: fixed; 
+              bottom: 20px; 
+              right: 20px; 
+              display: flex; 
+              gap: 10px; 
+              z-index: 1000; 
+            }
+            .btn { 
+              padding: 12px 24px; 
+              border: none; 
+              border-radius: 6px; 
+              cursor: pointer; 
+              font-weight: 600; 
+              font-size: 14px; 
+            }
+            .btn-primary { background: #1E3A8A; color: white; }
+            .btn-primary:hover { background: #1E40AF; }
+            .btn-secondary { background: #6B7280; color: white; }
+            .btn-secondary:hover { background: #4B5563; }
             @media print {
-              body { padding: 0; }
-              .no-print { display: none; }
+              body { padding: 20px; }
+              .no-print { display: none !important; }
+              .section { page-break-inside: avoid; }
             }
           </style>
         </head>
         <body>
-          ${content.innerHTML}
-          <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #1E3A8A; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Print / Save as PDF</button>
-            <button onclick="window.close()" style="padding: 10px 20px; background: #6B7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Close</button>
+          <div class="header">
+            <div class="code-badge">${selectedGroup.code}</div>
+            ${selectedGroup.division ? `<div class="division">Division ${selectedGroup.division.replace('Division ', '')}</div>` : ''}
+            <div class="name">${selectedGroup.name}</div>
+            <div class="description">${selectedGroup.description}</div>
+            <div class="examples">
+              ${selectedGroup.examples.map(ex => `<span class="example-badge">${ex}</span>`).join('')}
+            </div>
+          </div>
+          
+          <div class="section">
+            <h2>📊 Load Calculation Factors (NBC 2023 Table 4.1.5.3)</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Load Type</th>
+                  <th>Value</th>
+                  <th>Unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Dead Load</td><td>${loadFactors?.deadLoad || 'N/A'}</td><td>kPa</td></tr>
+                <tr><td>Live Load</td><td>${loadFactors?.liveLoad || 'N/A'}</td><td>kPa</td></tr>
+                <tr><td>Snow Load (Calgary/Edmonton)</td><td>${loadFactors?.snowLoad || '2.0 kPa'}</td><td>kPa</td></tr>
+                <tr><td>Description</td><td colspan="2">${loadFactors?.liveLoadDescription || 'N/A'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          
+          ${constructionLimitData && constructionLimitData.length > 0 ? `
+          <div class="section">
+            <h2>🏗️ Construction Limits (NBC Part 3.2.2)</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>NBC Article</th>
+                  <th>Max Height</th>
+                  <th>Max Area</th>
+                  <th>Sprinklered</th>
+                  <th>Construction Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${constructionLimitData.map((limit: { article: string; maxHeight: string; maxArea: string; sprinklered: boolean; constructionType: string[] }) => `
+                  <tr>
+                    <td>${limit.article}</td>
+                    <td>${limit.maxHeight}</td>
+                    <td>${limit.maxArea}</td>
+                    <td>${limit.sprinklered ? 'Yes' : 'No'}</td>
+                    <td>${limit.constructionType.join(', ')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          ${heightLimitData && heightLimitData.length > 0 ? `
+          <div class="section">
+            <h2>📏 Building Height Limits</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Construction Type</th>
+                  <th>Max Height</th>
+                  <th>Max Storeys</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${heightLimitData.map((h: { constructionType: string; maxHeight: string; maxStoreys: number; notes: string }) => `
+                  <tr>
+                    <td>${h.constructionType}</td>
+                    <td>${h.maxHeight}</td>
+                    <td>${h.maxStoreys === 999 ? 'Unlimited' : h.maxStoreys}</td>
+                    <td>${h.notes}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          <div class="section">
+            <h2>🔥 Key Compliance Notes</h2>
+            
+            <h3>Fire Safety Requirements</h3>
+            <div class="compliance-note">
+              <strong>Fire Separation:</strong> ${selectedGroup.code.startsWith('A') ? 'Assembly occupancies require minimum 1-hour fire separation from other major occupancies. Stages and platforms require special fire protection.' : selectedGroup.code.startsWith('B') ? 'Institutional occupancies require minimum 2-hour fire separation. Patient/resident rooms require fire-rated construction.' : selectedGroup.code.startsWith('C') ? 'Residential occupancies require minimum 1-hour fire separation between dwelling units. Suites require fire-rated construction.' : selectedGroup.code.startsWith('D') ? 'Business occupancies require minimum 1-hour fire separation from other major occupancies.' : selectedGroup.code.startsWith('E') ? 'Mercantile occupancies require minimum 1-hour fire separation. Storage areas may require additional protection.' : 'Industrial occupancies require fire separation based on hazard classification. High hazard areas require 2-hour minimum.'}
+            </div>
+            
+            <h3>Egress Requirements</h3>
+            <div class="compliance-note">
+              <strong>Exit Requirements:</strong> ${selectedGroup.code.startsWith('A') ? 'Minimum 2 exits required. Exit width based on occupant load (7.6mm per person for stairs). Maximum travel distance: 45m (60m if sprinklered).' : selectedGroup.code.startsWith('B') ? 'Minimum 2 exits required. Horizontal exits may be used. Maximum travel distance: 25m (40m if sprinklered).' : selectedGroup.code.startsWith('C') ? 'Minimum 2 exits required for buildings over 2 storeys. Maximum travel distance: 40m (45m if sprinklered).' : 'Minimum 2 exits required. Exit width based on occupant load. Maximum travel distance varies by occupancy.'}
+            </div>
+            
+            <h3>Accessibility Requirements</h3>
+            <div class="compliance-note">
+              <strong>Barrier-Free Design:</strong> ${selectedGroup.code.startsWith('A') || selectedGroup.code.startsWith('D') || selectedGroup.code.startsWith('E') ? 'Barrier-free path of travel required to all public areas. Accessible washrooms required on each floor. Accessible parking required.' : selectedGroup.code.startsWith('B') ? 'Barrier-free path of travel required throughout. Patient/resident rooms must be accessible. Accessible washrooms on each floor.' : selectedGroup.code.startsWith('C') ? 'Common areas must be accessible. Minimum 10% of dwelling units must be adaptable. Accessible entrances required.' : 'Barrier-free path of travel required to public areas.'}
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>Generated from Building Code Occupancy Classifier | Based on National Building Code of Canada 2023 (Alberta Edition)</p>
+            <p>Generated on: ${new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            <p><em>This document is for reference only. Always verify requirements with the current building code and local authority having jurisdiction.</em></p>
+          </div>
+          
+          <div class="no-print">
+            <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+            <button class="btn btn-secondary" onclick="window.close()">Close</button>
           </div>
         </body>
       </html>
-    `);
+    `;
+    
+    printWindow.document.write(pdfContent);
     printWindow.document.close();
+    toast.success('PDF preview opened - click Print to save');
   };
 
   const exportChecklistPDF = async () => {
-    if (!selectedGroup) return;
+    console.log('exportChecklistPDF called, selectedGroup:', selectedGroup);
+    if (!selectedGroup) {
+      console.log('No selectedGroup, returning early');
+      return;
+    }
 
     // Prepare checklist sections based on active tab
     const sections: ChecklistSection[] = [];
@@ -292,12 +537,19 @@ export default function Home() {
       });
     }
 
-    await generatePDFChecklist({
-      occupancyCode: selectedGroup.code,
-      occupancyName: selectedGroup.name,
-      sections,
-      includeQRCode: true,
-    });
+    console.log('Calling generatePDFChecklist with sections:', sections);
+    try {
+      await generatePDFChecklist({
+        occupancyCode: selectedGroup.code,
+        occupancyName: selectedGroup.name,
+        sections,
+        includeQRCode: true,
+      });
+      console.log('generatePDFChecklist completed successfully');
+    } catch (error) {
+      console.error('Error in exportChecklistPDF:', error);
+      toast.error('Failed to generate checklist PDF');
+    }
   };
 
   const toggleBookmark = (e: React.MouseEvent, id: string) => {
