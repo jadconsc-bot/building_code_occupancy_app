@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -67,6 +67,7 @@ import { OccupantLoadSection } from "@/components/OccupantLoadFactors";
 import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
 import { PlumbingFixtureCalculators } from "@/components/PlumbingFixtureCalculators";
 import { FlameSpreadRatingSection } from "@/components/FlameSpreadRating";
+import { UserManual } from "@/components/UserManual";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -109,6 +110,7 @@ export default function Home() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [showUserManual, setShowUserManual] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -501,14 +503,15 @@ export default function Home() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={() => openHelp()}
-                      className="p-2 hover:bg-accent rounded-md transition-colors"
+                      onClick={() => setShowUserManual(true)}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5"
                     >
-                      <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                      <Book className="w-4 h-4" />
+                      Manual
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Help & Documentation</p>
+                    <p>User Manual & Documentation</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -565,6 +568,15 @@ export default function Home() {
                           }
                           setActiveTab(suggestion.tab);
                           toast.success(`Navigating to ${suggestion.tab.replace('-', ' ')} tab`);
+                          // Scroll to specific section if available
+                          if (suggestion.section) {
+                            setTimeout(() => {
+                              const element = document.getElementById(suggestion.section!);
+                              if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }
+                            }, 300);
+                          }
                         }
                       }}
                     >
@@ -2232,6 +2244,12 @@ export default function Home() {
       <FeedbackDialog 
         open={showFeedbackDialog} 
         onOpenChange={setShowFeedbackDialog} 
+      />
+
+      {/* User Manual */}
+      <UserManual 
+        isOpen={showUserManual} 
+        onClose={() => setShowUserManual(false)} 
       />
     </div>
   );

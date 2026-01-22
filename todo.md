@@ -1151,3 +1151,21 @@
 
 ## Bug Fix - Search Not Navigating to Fire Safety Tab
 - [ ] Fix 'flame spread' search not navigating to Fire Safety tab
+
+
+## Phase 19: UX Enhancements & User Manual
+- [ ] Add scroll-to-section functionality for search results (auto-scroll to FSR section when selected)
+- [ ] Create FSR quick reference card for common materials lookup
+- [ ] Create permit fee calculator for Alberta municipalities
+- [ ] Create comprehensive user manual component
+- [ ] Add solid green "User Manual" button to interface header
+- [ ] Test all new features
+
+
+## Phase 19: UX Enhancements & User Manual (Completed)
+- [x] Add scroll-to-section functionality for search results
+- [x] Create FSR quick reference card component
+- [x] Create permit fee calculator for Alberta municipalities (already existed)
+- [x] Create comprehensive user manual component with 9 sections
+- [x] Add solid green User Manual button to interface header
+- [x] Test all new features - no TypeScript errors

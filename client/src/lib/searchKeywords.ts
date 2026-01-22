@@ -767,18 +767,18 @@ export function getComprehensiveSearchResults(query: string): SearchResult[] {
 }
 
 // Get autocomplete suggestions based on partial input
-export function getAutocompleteSuggestions(query: string, maxResults: number = 10): Array<{ keyword: string; type: string; tab?: string }> {
+export function getAutocompleteSuggestions(query: string, maxResults: number = 10): Array<{ keyword: string; type: string; tab?: string; section?: string }> {
   if (!query || query.length < 2) return [];
   
   const lowerQuery = query.toLowerCase().trim();
-  const suggestions: Array<{ keyword: string; type: string; tab?: string; priority: number }> = [];
+  const suggestions: Array<{ keyword: string; type: string; tab?: string; section?: string; priority: number }> = [];
 
   // Search all keyword sources
   const sources = [
-    { data: occupancyKeywords, type: 'occupancy', tab: 'building' },
-    { data: Object.fromEntries(Object.entries(calculatorKeywords).map(([k, v]) => [k, v.keywords])), type: 'calculator', tabMap: calculatorKeywords },
-    { data: Object.fromEntries(Object.entries(codeKeywords).map(([k, v]) => [k, v.keywords])), type: 'code', tabMap: codeKeywords },
-    { data: Object.fromEntries(Object.entries(generalKeywords).map(([k, v]) => [k, v.keywords])), type: 'general', tabMap: generalKeywords }
+    { data: occupancyKeywords, type: 'occupancy', tab: 'building', hasSection: false },
+    { data: Object.fromEntries(Object.entries(calculatorKeywords).map(([k, v]) => [k, v.keywords])), type: 'calculator', tabMap: calculatorKeywords, hasSection: true },
+    { data: Object.fromEntries(Object.entries(codeKeywords).map(([k, v]) => [k, v.keywords])), type: 'code', tabMap: codeKeywords, hasSection: false },
+    { data: Object.fromEntries(Object.entries(generalKeywords).map(([k, v]) => [k, v.keywords])), type: 'general', tabMap: generalKeywords, hasSection: false }
   ];
 
   for (const source of sources) {
@@ -787,10 +787,12 @@ export function getAutocompleteSuggestions(query: string, maxResults: number = 1
       for (const keyword of keywordArray) {
         if (keyword.startsWith(lowerQuery)) {
           const tab = source.tabMap ? (source.tabMap as any)[id]?.tab : source.tab;
-          suggestions.push({ keyword, type: source.type, tab, priority: 1 });
+          const section = source.hasSection && source.tabMap ? (source.tabMap as any)[id]?.section : undefined;
+          suggestions.push({ keyword, type: source.type, tab, section, priority: 1 });
         } else if (keyword.includes(lowerQuery)) {
           const tab = source.tabMap ? (source.tabMap as any)[id]?.tab : source.tab;
-          suggestions.push({ keyword, type: source.type, tab, priority: 2 });
+          const section = source.hasSection && source.tabMap ? (source.tabMap as any)[id]?.section : undefined;
+          suggestions.push({ keyword, type: source.type, tab, section, priority: 2 });
         }
       }
     }
@@ -803,7 +805,7 @@ export function getAutocompleteSuggestions(query: string, maxResults: number = 1
       return a.keyword.localeCompare(b.keyword);
     })
     .slice(0, maxResults)
-    .map(({ keyword, type, tab }) => ({ keyword, type, tab }));
+    .map(({ keyword, type, tab, section }) => ({ keyword, type, tab, section }));
 }
 
 // Get "Did you mean?" suggestions when no results found
