@@ -1075,3 +1075,14 @@
 - [ ] Test on actual mobile viewport
 
 - [ ] Fix mobile view showing old-style separate buttons instead of Exp Results popover
+
+
+## Phase 13: Safety Codes Act Integration
+- [x] Create Safety Codes data file with permit requirements per occupancy type
+- [x] Create Permit Requirements component showing Building, Electrical, Plumbing, Gas, Fire permits
+- [x] Enhance Inspector Checklist with pre-inspection requirements and officer powers
+- [x] Add Variance Information section explaining when/how to request variances
+- [x] Add Certificate Requirements section for trade certifications
+- [x] Integrate new Safety Codes accordion section into Building Code tab
+- [x] Add Appeals Process information
+- [x] Test all new features

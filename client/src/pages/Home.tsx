@@ -62,6 +62,7 @@ import { StudSpacingCalculator } from "@/components/StudSpacingCalculator";
 import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { SafetyCodesSection } from "@/components/SafetyCodesComponents";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1087,6 +1088,12 @@ export default function Home() {
                     >
                       Inspector Checklist
                     </button>
+                    <button
+                      onClick={() => document.getElementById('safety-codes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                    >
+                      Safety Codes Act
+                    </button>
                     <div className="w-px h-4 bg-border"></div>
                     <button
                       onClick={() => setActiveTab('fire-safety')}
@@ -1514,6 +1521,14 @@ export default function Home() {
                           updateProjectProgress(activeProjectId, phase, percentage);
                         }
                       }}
+                    />
+                  </section>
+
+                  {/* Safety Codes Act Requirements */}
+                  <section id="safety-codes" className="scroll-mt-20 mt-8">
+                    <SafetyCodesSection 
+                      occupancyCode={selectedGroup.code} 
+                      occupancyName={selectedGroup.name}
                     />
                   </section>
                 </div>
