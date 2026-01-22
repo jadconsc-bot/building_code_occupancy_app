@@ -1113,3 +1113,14 @@
 - [x] Include NBC reference table with expandable accordion
 - [x] Integrate into Building Code tab with quick jump navigation
 - [x] Test calculator with various floor areas and use types
+
+
+## Phase 17: Enhanced Plumbing & Fire Safety Features
+- [x] Add shower/bathtub requirements calculator (NBC 3.7.2.6)
+- [x] Add service sink requirements calculator (NBC 3.7.2.7)
+- [x] Create printable fixture schedule PDF generator
+- [x] Create Flame Spread Rating (FSR) component for Fire Safety tab
+- [x] Add FSR data for common building materials (NBC Part 3.1.13)
+- [x] Include where FSR rules apply by occupancy and location
+- [x] Integrate all new components into the application
+- [x] Test all new features (273 tests passing)

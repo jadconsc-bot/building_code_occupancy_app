@@ -66,6 +66,7 @@ import { SafetyCodesSection } from "@/components/SafetyCodesComponents";
 import { OccupantLoadSection } from "@/components/OccupantLoadFactors";
 import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
 import { PlumbingFixtureCalculators } from "@/components/PlumbingFixtureCalculators";
+import { FlameSpreadRatingSection } from "@/components/FlameSpreadRating";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -2072,6 +2073,7 @@ export default function Home() {
                       <ExitRequirementsCalculator />
                       <TravelDistanceCalculator />
                       <ConstructionTypeSelector />
+                      <FlameSpreadRatingSection />
                     </div>
                   </section>
 
