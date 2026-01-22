@@ -558,6 +558,11 @@ export default function Home() {
                         setShowAutocomplete(false);
                         // Navigate to relevant tab for non-occupancy results
                         if (suggestion.type !== 'occupancy' && suggestion.tab) {
+                          // Select a default occupancy if none selected so the tabs are visible
+                          if (!selectedGroup) {
+                            const defaultGroup = occupancyData[0]; // A-1
+                            setSelectedGroup(defaultGroup);
+                          }
                           setActiveTab(suggestion.tab);
                           toast.success(`Navigating to ${suggestion.tab.replace('-', ' ')} tab`);
                         }

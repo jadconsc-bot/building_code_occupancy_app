@@ -1147,3 +1147,7 @@
 - [x] Update search logic to handle new keyword categories
 - [x] Add tab navigation for non-occupancy search results
 - [x] Test enhanced search with various queries (306 tests passing)
+
+
+## Bug Fix - Search Not Navigating to Fire Safety Tab
+- [ ] Fix 'flame spread' search not navigating to Fire Safety tab
