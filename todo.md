@@ -1104,3 +1104,12 @@
 - [x] Create drinking fountain requirements calculator per NBC 3.7.2.5
 - [x] Add NBC code references to fixture requirements section in Plumbing tab
 - [x] Test all new calculators
+
+
+## Phase 16: Occupant Load Factors
+- [x] Create Occupant Load Factors data based on NBC Table 3.1.17.1
+- [x] Create OccupantLoadSection component with calculator
+- [x] Add load factors for all occupancy classifications (A, B, C, D, E, F)
+- [x] Include NBC reference table with expandable accordion
+- [x] Integrate into Building Code tab with quick jump navigation
+- [x] Test calculator with various floor areas and use types

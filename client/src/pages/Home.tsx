@@ -63,6 +63,7 @@ import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { SafetyCodesSection } from "@/components/SafetyCodesComponents";
+import { OccupantLoadSection } from "@/components/OccupantLoadFactors";
 import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
 import { PlumbingFixtureCalculators } from "@/components/PlumbingFixtureCalculators";
 
@@ -1096,6 +1097,12 @@ export default function Home() {
                     >
                       Safety Codes Act
                     </button>
+                    <button
+                      onClick={() => document.getElementById('occupant-load-factors')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                    >
+                      Occupant Load Factors
+                    </button>
                     <div className="w-px h-4 bg-border"></div>
                     <button
                       onClick={() => setActiveTab('fire-safety')}
@@ -1532,6 +1539,11 @@ export default function Home() {
                       occupancyCode={selectedGroup.code} 
                       occupancyName={selectedGroup.name}
                     />
+                  </section>
+
+                  {/* Occupant Load Factors */}
+                  <section id="occupant-load-factors" className="scroll-mt-20 mt-8">
+                    <OccupantLoadSection occupancyCode={selectedGroup.code} />
                   </section>
                 </div>
               </TabsContent>
