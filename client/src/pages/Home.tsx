@@ -63,6 +63,7 @@ import { LintelSpanCalculator } from "@/components/LintelSpanCalculator";
 import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { SafetyCodesSection } from "@/components/SafetyCodesComponents";
+import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1553,6 +1554,17 @@ export default function Home() {
                       <p className="text-sm text-muted-foreground leading-relaxed font-mono">
                         {selectedGroup.plumbing?.drainage || "Standard drainage requirements apply."}
                       </p>
+                    </section>
+
+                    {/* Water Closet Calculator */}
+                    <section className="border-t border-border pt-8 mt-8">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-600 mb-4 flex items-center gap-2">
+                        <Calculator className="w-4 h-4" /> Water Closet Requirements (NBC 3.7.2.2)
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 border-l-2 border-cyan-600/20 pl-3">
+                        Calculate minimum water closet requirements based on occupancy type and occupant load per National Building Code Table 3.7.2.2.-A.
+                      </p>
+                      <WaterClosetCalculator />
                     </section>
 
                     {(selectedGroup.code.startsWith("A")) && (

@@ -1086,3 +1086,13 @@
 - [x] Integrate new Safety Codes accordion section into Building Code tab
 - [x] Add Appeals Process information
 - [x] Test all new features
+
+
+## Phase 14: Water Closet Calculator
+- [x] Create Water Closet Calculator component based on NBC Table 3.7.2.2.-A
+- [x] Implement assembly occupancy calculations (male/female separate requirements)
+- [x] Add special rules for primary schools/daycare (1 per 30 males, 1 per 25 females)
+- [x] Add special rules for places of worship (1 per 150 persons of each sex)
+- [x] Add special rules for treatment/detention occupancies
+- [x] Integrate calculator into Plumbing tab
+- [x] Test calculator with various occupancy scenarios
