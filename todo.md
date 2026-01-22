@@ -1169,3 +1169,9 @@
 - [x] Create comprehensive user manual component with 9 sections
 - [x] Add solid green User Manual button to interface header
 - [x] Test all new features - no TypeScript errors
+
+
+## Bug Fix - iPhone Voice Recognition
+- [x] Fix voice recognition error on iPhone/iOS Safari
+- [x] Add proper iOS Safari speech recognition support with microphone permission handling
+- [x] Add error handling and user feedback for unsupported browsers using toast notifications

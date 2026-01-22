@@ -307,39 +307,101 @@ export default function Home() {
     );
   };
 
-  const startListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert("Voice search is not supported in this browser. Please try Chrome, Edge, or Safari.");
+  const startListening = async () => {
+    // Check for Speech Recognition API support
+    // @ts-ignore
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognitionAPI) {
+      toast.error("Voice search is not supported in this browser. Please try Chrome, Edge, or Safari on desktop.");
       return;
     }
 
-    // @ts-ignore
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    // Check if we're on iOS - iOS Safari has limited support
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.onerror = (event: any) => {
-      setIsListening(false);
-      console.error('Speech recognition error:', event.error);
-      if (event.error === 'no-speech') {
-        alert('No speech detected. Please try again.');
-      } else if (event.error === 'network') {
-        alert('Network error. Please check your connection.');
-      } else if (event.error !== 'aborted') {
-        alert(`Voice recognition error: ${event.error}`);
+    // iOS Safari requires user gesture and has specific limitations
+    if (isIOS) {
+      // Check for microphone permission first
+      try {
+        const permissionStatus = await navigator.permissions?.query({ name: 'microphone' as PermissionName }).catch(() => null);
+        if (permissionStatus?.state === 'denied') {
+          toast.error("Microphone access denied. Please enable microphone in Settings > Safari > Microphone.");
+          return;
+        }
+      } catch (e) {
+        // Permission API not available, continue anyway
       }
-    };
+      
+      // Request microphone access explicitly for iOS
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+      } catch (err: any) {
+        console.error('Microphone permission error:', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          toast.error("Microphone access denied. Please allow microphone access in your browser settings.");
+        } else if (err.name === 'NotFoundError') {
+          toast.error("No microphone found. Please connect a microphone and try again.");
+        } else {
+          toast.error("Could not access microphone. Please check your device settings.");
+        }
+        return;
+      }
+    }
+
+    try {
+      const recognition = new SpeechRecognitionAPI();
+      
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        if (isIOS) {
+          toast.info("Listening... Speak now.", { duration: 2000 });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        console.error('Speech recognition error:', event.error, event);
+        
+        switch (event.error) {
+          case 'no-speech':
+            toast.error('No speech detected. Please try again and speak clearly.');
+            break;
+          case 'audio-capture':
+            toast.error('No microphone found. Please check your device settings.');
+            break;
+          case 'not-allowed':
+            toast.error('Microphone access denied. Please allow microphone access in your browser settings.');
+            break;
+          case 'network':
+            toast.error('Network error. Voice recognition requires an internet connection.');
+            break;
+          case 'service-not-allowed':
+            toast.error('Speech recognition service not available. Please try again later.');
+            break;
+          case 'aborted':
+            // User cancelled, no need to show error
+            break;
+          default:
+            if (isIOS && isSafari) {
+              toast.error('Voice search may have limited support on iOS Safari. Try using Chrome on desktop for best results.');
+            } else {
+              toast.error(`Voice recognition error: ${event.error}. Please try again.`);
+            }
+        }
+      };
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
@@ -397,7 +459,12 @@ export default function Home() {
       }
     };
 
-    recognition.start();
+      recognition.start();
+    } catch (err: any) {
+      console.error('Failed to start speech recognition:', err);
+      toast.error('Failed to start voice recognition. Please try again.');
+      setIsListening(false);
+    }
   };
 
   // Autocomplete suggestions state
