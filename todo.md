@@ -1096,3 +1096,11 @@
 - [x] Add special rules for treatment/detention occupancies
 - [x] Integrate calculator into Plumbing tab
 - [x] Test calculator with various occupancy scenarios
+
+
+## Phase 15: Enhanced Plumbing Calculators
+- [x] Add urinal substitution calculator (up to 2/3 of male WC per NBC 3.7.2.3)
+- [x] Create lavatory (sink) requirements calculator per NBC 3.7.2.4
+- [x] Create drinking fountain requirements calculator per NBC 3.7.2.5
+- [x] Add NBC code references to fixture requirements section in Plumbing tab
+- [x] Test all new calculators

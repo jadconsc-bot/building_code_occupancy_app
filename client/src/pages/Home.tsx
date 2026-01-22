@@ -64,6 +64,7 @@ import { PlanAnalyzer } from "@/components/PlanAnalyzer";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { SafetyCodesSection } from "@/components/SafetyCodesComponents";
 import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
+import { PlumbingFixtureCalculators } from "@/components/PlumbingFixtureCalculators";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1556,15 +1557,15 @@ export default function Home() {
                       </p>
                     </section>
 
-                    {/* Water Closet Calculator */}
+                    {/* Plumbing Fixture Calculator */}
                     <section className="border-t border-border pt-8 mt-8">
                       <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-600 mb-4 flex items-center gap-2">
-                        <Calculator className="w-4 h-4" /> Water Closet Requirements (NBC 3.7.2.2)
+                        <Calculator className="w-4 h-4" /> Plumbing Fixture Requirements (NBC 3.7.2)
                       </h3>
                       <p className="text-sm text-muted-foreground mb-4 border-l-2 border-cyan-600/20 pl-3">
-                        Calculate minimum water closet requirements based on occupancy type and occupant load per National Building Code Table 3.7.2.2.-A.
+                        Calculate minimum plumbing fixture requirements including water closets, urinals, lavatories, and drinking fountains per National Building Code Section 3.7.2.
                       </p>
-                      <WaterClosetCalculator />
+                      <PlumbingFixtureCalculators />
                     </section>
 
                     {(selectedGroup.code.startsWith("A")) && (
