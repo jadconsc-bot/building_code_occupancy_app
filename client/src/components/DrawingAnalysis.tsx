@@ -41,7 +41,10 @@ import {
   Undo2,
   Redo2,
   Palette,
-  PaintBucket
+  PaintBucket,
+  Lock,
+  Unlock,
+  Circle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
@@ -94,13 +97,13 @@ type Annotation = DimensionAnnotation | LabelAnnotation | AreaAnnotation;
 // Types for freehand drawing
 interface DrawingStroke {
   id: string;
-  type: "freehand" | "line" | "rectangle" | "polygon";
+  type: "freehand" | "line" | "rectangle" | "polygon" | "circle";
   points: Point[];
   color: string;
   width: number;
 }
 
-type DrawingTool = "pen" | "line" | "rectangle" | "polygon" | "eraser";
+type DrawingTool = "pen" | "line" | "rectangle" | "polygon" | "circle" | "eraser";
 
 interface ComplianceResult {
   rule: string;
@@ -214,6 +217,9 @@ export function DrawingAnalysis() {
   // State for image rotation (in degrees)
   const [imageRotation, setImageRotation] = useState<number>(0);
   
+  // State for mobile canvas lock (prevents page scrolling when drawing)
+  const [isCanvasLocked, setIsCanvasLocked] = useState(false);
+  
   // State for freehand drawing mode
   const [isDrawMode, setIsDrawMode] = useState(false);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("pen");
@@ -226,6 +232,8 @@ export function DrawingAnalysis() {
   const [historyIndex, setHistoryIndex] = useState<number>(0);
   const [isDrawingStroke, setIsDrawingStroke] = useState(false);
   const [drawingStartPoint, setDrawingStartPoint] = useState<Point | null>(null);
+  const [isErasing, setIsErasing] = useState(false);
+  const [eraserSize, setEraserSize] = useState(20); // Eraser radius in pixels
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -733,6 +741,18 @@ export function DrawingAnalysis() {
         }
         ctx.stroke();
         break;
+
+      case "circle":
+        if (stroke.points.length < 2) break;
+        const centerX = stroke.points[0].x * zoom + pan.x;
+        const centerY = stroke.points[0].y * zoom + pan.y;
+        const radiusX = Math.abs(stroke.points[1].x - stroke.points[0].x) * zoom;
+        const radiusY = Math.abs(stroke.points[1].y - stroke.points[0].y) * zoom;
+        const radius = Math.sqrt(radiusX * radiusX + radiusY * radiusY);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+        break;
     }
 
     ctx.restore();
@@ -952,6 +972,114 @@ export function DrawingAnalysis() {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  // Partial eraser function - erases parts of strokes within eraser radius
+  const eraseAtPoint = (point: Point) => {
+    const eraserRadius = eraserSize / zoom;
+    let strokesModified = false;
+    let newStrokes: DrawingStroke[] = [];
+    
+    for (const stroke of drawingStrokes) {
+      if (stroke.type === "freehand") {
+        // For freehand strokes, split at eraser points
+        const segments: Point[][] = [];
+        let currentSegment: Point[] = [];
+        
+        for (let i = 0; i < stroke.points.length; i++) {
+          const p = stroke.points[i];
+          const dist = Math.sqrt(
+            Math.pow(p.x - point.x, 2) + Math.pow(p.y - point.y, 2)
+          );
+          
+          if (dist > eraserRadius) {
+            currentSegment.push(p);
+          } else {
+            // Point is within eraser radius, end current segment
+            if (currentSegment.length >= 2) {
+              segments.push(currentSegment);
+            }
+            currentSegment = [];
+            strokesModified = true;
+          }
+        }
+        
+        // Add last segment if it has enough points
+        if (currentSegment.length >= 2) {
+          segments.push(currentSegment);
+        }
+        
+        // Create new strokes from remaining segments
+        for (const segment of segments) {
+          newStrokes.push({
+            ...stroke,
+            id: `${stroke.id}-${Date.now()}-${Math.random()}`,
+            points: segment,
+          });
+        }
+      } else if (stroke.type === "line" && stroke.points.length >= 2) {
+        // For lines, check if eraser is near the line
+        const dist = pointToLineDistance(point, stroke.points[0], stroke.points[1]);
+        if (dist > eraserRadius) {
+          newStrokes.push(stroke);
+        } else {
+          strokesModified = true;
+        }
+      } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+        // For rectangles, check if eraser is near any edge
+        const [p1, p2] = stroke.points;
+        const minX = Math.min(p1.x, p2.x);
+        const maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y);
+        const maxY = Math.max(p1.y, p2.y);
+        
+        const edges = [
+          [{ x: minX, y: minY }, { x: maxX, y: minY }],
+          [{ x: maxX, y: minY }, { x: maxX, y: maxY }],
+          [{ x: maxX, y: maxY }, { x: minX, y: maxY }],
+          [{ x: minX, y: maxY }, { x: minX, y: minY }],
+        ];
+        
+        let nearEdge = false;
+        for (const [ep1, ep2] of edges) {
+          if (pointToLineDistance(point, ep1, ep2) < eraserRadius) {
+            nearEdge = true;
+            break;
+          }
+        }
+        
+        if (!nearEdge) {
+          newStrokes.push(stroke);
+        } else {
+          strokesModified = true;
+        }
+      } else if (stroke.type === "circle" && stroke.points.length >= 2) {
+        // For circles, check if eraser is near the circumference
+        const center = stroke.points[0];
+        const radiusX = Math.abs(stroke.points[1].x - center.x);
+        const radiusY = Math.abs(stroke.points[1].y - center.y);
+        const radius = Math.sqrt(radiusX * radiusX + radiusY * radiusY);
+        
+        const distToCenter = Math.sqrt(
+          Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2)
+        );
+        const distToCircumference = Math.abs(distToCenter - radius);
+        
+        if (distToCircumference > eraserRadius) {
+          newStrokes.push(stroke);
+        } else {
+          strokesModified = true;
+        }
+      } else {
+        newStrokes.push(stroke);
+      }
+    }
+    
+    if (strokesModified) {
+      setDrawingStrokes(newStrokes);
+      return true;
+    }
+    return false;
+  };
+
   // Add strokes to history for undo/redo
   const addToHistory = (strokes: DrawingStroke[]) => {
     const newHistory = drawingHistory.slice(0, historyIndex + 1);
@@ -1106,15 +1234,10 @@ export function DrawingAnalysis() {
       return;
     }
 
-    // Handle eraser in drawing mode
+    // Handle eraser in drawing mode - start continuous erasing
     if (isDrawMode && drawingTool === "eraser") {
-      // Find and remove stroke at click point
-      const strokeToRemove = findStrokeAtPoint({ x, y });
-      if (strokeToRemove) {
-        const newStrokes = drawingStrokes.filter(s => s.id !== strokeToRemove.id);
-        setDrawingStrokes(newStrokes);
-        addToHistory(newStrokes);
-      }
+      setIsErasing(true);
+      eraseAtPoint({ x, y });
       return;
     }
 
@@ -1185,6 +1308,12 @@ export function DrawingAnalysis() {
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
 
+    // Continuous erasing while mouse is held down
+    if (isErasing && isDrawMode && drawingTool === "eraser") {
+      eraseAtPoint({ x, y });
+      return;
+    }
+
     if (isPanning) {
       const dx = e.clientX - lastPanPoint.x;
       const dy = e.clientY - lastPanPoint.y;
@@ -1198,8 +1327,8 @@ export function DrawingAnalysis() {
           ...currentStroke,
           points: [...currentStroke.points, { x, y }],
         });
-      } else if (drawingTool === "line" || drawingTool === "rectangle") {
-        // Line/Rectangle: update end point
+      } else if (drawingTool === "line" || drawingTool === "rectangle" || drawingTool === "circle") {
+        // Line/Rectangle/Circle: update end point
         setCurrentStroke({
           ...currentStroke,
           points: [drawingStartPoint, { x, y }],
@@ -1232,6 +1361,13 @@ export function DrawingAnalysis() {
     const y = (e.clientY - rect.top - pan.y) / zoom;
 
     setIsPanning(false);
+
+    // Stop erasing and save to history
+    if (isErasing) {
+      setIsErasing(false);
+      addToHistory(drawingStrokes);
+      return;
+    }
 
     // Handle drawing mode mouse up
     if (isDrawingStroke && currentStroke) {
@@ -1320,6 +1456,233 @@ export function DrawingAnalysis() {
 
     setZoom(newZoom);
     setPan({ x: newPanX, y: newPanY });
+  };
+
+  // Touch event handlers for mobile support
+  const getTouchPoint = (e: React.TouchEvent<HTMLCanvasElement>): { clientX: number; clientY: number } => {
+    const touch = e.touches[0] || e.changedTouches[0];
+    return { clientX: touch.clientX, clientY: touch.clientY };
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Only prevent default (scrolling) when canvas is locked or in draw mode
+    if (isCanvasLocked || isDrawMode) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const touch = getTouchPoint(e);
+    const rect = canvas.getBoundingClientRect();
+    const x = (touch.clientX - rect.left - pan.x) / zoom;
+    const y = (touch.clientY - rect.top - pan.y) / zoom;
+
+    // Handle drawing mode
+    if (isDrawMode && drawingTool !== "eraser") {
+      setIsDrawingStroke(true);
+      setDrawingStartPoint({ x, y });
+      
+      const newStroke: DrawingStroke = {
+        id: `stroke-${Date.now()}`,
+        type: drawingTool === "pen" ? "freehand" : drawingTool,
+        points: [{ x, y }],
+        color: strokeColor,
+        width: strokeWidth,
+      };
+      setCurrentStroke(newStroke);
+      return;
+    }
+
+    // Handle eraser in drawing mode - start continuous erasing
+    if (isDrawMode && drawingTool === "eraser") {
+      setIsErasing(true);
+      eraseAtPoint({ x, y });
+      return;
+    }
+
+    if (activeTool === "pan") {
+      setIsPanning(true);
+      setLastPanPoint({ x: touch.clientX, y: touch.clientY });
+    } else if (isCalibrating) {
+      setDragStartPoint({ x, y });
+      setDragCurrentPoint({ x, y });
+      setIsDraggingDimension(true);
+    } else if (activeTool === "dimension") {
+      setDragStartPoint({ x, y });
+      setDragCurrentPoint({ x, y });
+      setIsDraggingDimension(true);
+    } else if (activeTool === "label") {
+      if (labelText.trim()) {
+        const newAnnotation: LabelAnnotation = {
+          id: `label-${Date.now()}`,
+          type: "label",
+          position: { x, y },
+          text: labelText,
+          category: "note"
+        };
+        setAnnotations([...annotations, newAnnotation]);
+      }
+    } else if (activeTool === "area") {
+      if (!isDrawing) {
+        setIsDrawing(true);
+        setCurrentPoints([{ x, y }]);
+      } else {
+        const firstPoint = currentPoints[0];
+        const distToFirst = Math.sqrt(Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2));
+        
+        if (distToFirst < 20 / zoom && currentPoints.length >= 3) {
+          const area = calculatePolygonArea(currentPoints);
+          const newAnnotation: AreaAnnotation = {
+            id: `area-${Date.now()}`,
+            type: "area",
+            points: currentPoints,
+            value: area,
+            label: "",
+            category: "building-footprint"
+          };
+          setAnnotations([...annotations, newAnnotation]);
+          setIsDrawing(false);
+          setCurrentPoints([]);
+        } else {
+          setCurrentPoints([...currentPoints, { x, y }]);
+        }
+      }
+    } else if (activeTool === "select") {
+      const clickedAnnotation = findAnnotationAtPoint({ x, y });
+      setSelectedAnnotation(clickedAnnotation?.id || null);
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Only prevent default when canvas is locked or actively drawing/erasing
+    if (isCanvasLocked || isDrawMode || isDrawingStroke || isDraggingDimension || isPanning || isErasing) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const touch = getTouchPoint(e);
+    const rect = canvas.getBoundingClientRect();
+    const x = (touch.clientX - rect.left - pan.x) / zoom;
+    const y = (touch.clientY - rect.top - pan.y) / zoom;
+
+    // Continuous erasing while touch is held down
+    if (isErasing && isDrawMode && drawingTool === "eraser") {
+      eraseAtPoint({ x, y });
+      return;
+    }
+
+    if (isPanning) {
+      const dx = touch.clientX - lastPanPoint.x;
+      const dy = touch.clientY - lastPanPoint.y;
+      setPan({ x: pan.x + dx, y: pan.y + dy });
+      setLastPanPoint({ x: touch.clientX, y: touch.clientY });
+    } else if (isDrawingStroke && currentStroke && drawingStartPoint) {
+      if (drawingTool === "pen") {
+        setCurrentStroke({
+          ...currentStroke,
+          points: [...currentStroke.points, { x, y }],
+        });
+      } else if (drawingTool === "line" || drawingTool === "rectangle" || drawingTool === "circle") {
+        setCurrentStroke({
+          ...currentStroke,
+          points: [drawingStartPoint, { x, y }],
+        });
+      } else if (drawingTool === "polygon") {
+        const points = [...currentStroke.points];
+        if (points.length > 1) {
+          points[points.length - 1] = { x, y };
+        } else {
+          points.push({ x, y });
+        }
+        setCurrentStroke({
+          ...currentStroke,
+          points,
+        });
+      }
+    } else if (isDraggingDimension && dragStartPoint) {
+      setDragCurrentPoint({ x, y });
+    }
+  };
+
+  const handleCanvasTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Only prevent default when canvas is locked or was actively drawing/erasing
+    if (isCanvasLocked || isDrawMode || isDrawingStroke || isDraggingDimension || isErasing) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const touch = getTouchPoint(e);
+    const rect = canvas.getBoundingClientRect();
+    const x = (touch.clientX - rect.left - pan.x) / zoom;
+    const y = (touch.clientY - rect.top - pan.y) / zoom;
+
+    setIsPanning(false);
+
+    // Stop erasing and save to history
+    if (isErasing) {
+      setIsErasing(false);
+      addToHistory(drawingStrokes);
+      return;
+    }
+
+    // Handle drawing mode touch end
+    if (isDrawingStroke && currentStroke) {
+      if (currentStroke.points.length >= 2 || 
+          (currentStroke.type === "freehand" && currentStroke.points.length >= 2)) {
+        const newStrokes = [...drawingStrokes, currentStroke];
+        setDrawingStrokes(newStrokes);
+        addToHistory(newStrokes);
+      }
+      setCurrentStroke(null);
+      setIsDrawingStroke(false);
+      setDrawingStartPoint(null);
+      return;
+    }
+
+    if (isDraggingDimension && dragStartPoint) {
+      const endPoint = { x, y };
+      const pixelDistance = Math.sqrt(
+        Math.pow(endPoint.x - dragStartPoint.x, 2) +
+        Math.pow(endPoint.y - dragStartPoint.y, 2)
+      );
+
+      if (pixelDistance > 10) {
+        if (isCalibrating) {
+          setCalibrationLine({ start: dragStartPoint, end: endPoint });
+          setIsEditingReference(true);
+          setIsCalibrating(false);
+        } else if (activeTool === "dimension") {
+          let distance: number;
+          if (pixelsPerDrawingUnit > 0) {
+            const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, selectedScale, scaleSystem);
+            if (scaleSystem === "imperial") {
+              distance = result.unit === "ft" ? result.value * 0.3048 : result.value * 0.0254;
+            } else {
+              distance = result.unit === "m" ? result.value : result.unit === "cm" ? result.value / 100 : result.value / 1000;
+            }
+          } else {
+            distance = pixelDistance / 100;
+          }
+
+          const newAnnotation: DimensionAnnotation = {
+            id: `dim-${Date.now()}`,
+            type: "dimension",
+            start: dragStartPoint,
+            end: endPoint,
+            value: distance,
+            label: "",
+            category: dimensionCategory
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }
+      }
+
+      setIsDraggingDimension(false);
+      setDragStartPoint(null);
+      setDragCurrentPoint(null);
+    }
   };
 
   // Find annotation at point
@@ -1842,12 +2205,32 @@ export function DrawingAnalysis() {
                   </Button>
                 </div>
 
+                {/* Mobile Canvas Lock - prevents page scrolling when drawing */}
+                <div className="flex items-center gap-1 border-r border-border pr-2 md:hidden">
+                  <Button
+                    variant={isCanvasLocked ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsCanvasLocked(!isCanvasLocked)}
+                    title={isCanvasLocked ? "Unlock Canvas (allow page scroll)" : "Lock Canvas (enable drawing)"}
+                    className={isCanvasLocked ? "bg-amber-600 hover:bg-amber-700" : ""}
+                  >
+                    {isCanvasLocked ? <Lock className="w-4 h-4 mr-1" /> : <Unlock className="w-4 h-4 mr-1" />}
+                    {isCanvasLocked ? "Locked" : "Lock"}
+                  </Button>
+                </div>
+
                 {/* Drawing Mode Toggle */}
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant={isDrawMode ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setIsDrawMode(!isDrawMode)}
+                    onClick={() => {
+                      setIsDrawMode(!isDrawMode);
+                      // Auto-lock canvas when entering draw mode on mobile
+                      if (!isDrawMode) {
+                        setIsCanvasLocked(true);
+                      }
+                    }}
                     title={isDrawMode ? "Exit Draw Mode" : "Enter Draw Mode"}
                     className={isDrawMode ? "bg-blue-600 hover:bg-blue-700" : ""}
                   >
@@ -1879,6 +2262,14 @@ export function DrawingAnalysis() {
                         title="Rectangle"
                       >
                         <RectangleHorizontal className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={drawingTool === "circle" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setDrawingTool("circle")}
+                        title="Circle"
+                      >
+                        <Circle className="w-4 h-4" />
                       </Button>
                       <Button
                         variant={drawingTool === "eraser" ? "default" : "ghost"}
@@ -2184,12 +2575,15 @@ export function DrawingAnalysis() {
                 >
                   <canvas
                     ref={canvasRef}
-                    className="w-full h-full cursor-crosshair"
+                    className="w-full h-full cursor-crosshair touch-none"
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
                     onMouseLeave={handleCanvasMouseUp}
                     onWheel={handleCanvasWheel}
+                    onTouchStart={handleCanvasTouchStart}
+                    onTouchMove={handleCanvasTouchMove}
+                    onTouchEnd={handleCanvasTouchEnd}
                     onContextMenu={(e) => e.preventDefault()}
                   />
                 </div>

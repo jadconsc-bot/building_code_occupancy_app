@@ -1531,3 +1531,79 @@
 - [x] MunicipalBylawsCalculator
 - [x] WaterClosetCalculator
 
+
+
+## Mobile Touch Support Bug Fix (Completed)
+
+### Issue
+- [x] Freehand drawing not working on iPhone/mobile devices
+- [x] Touch events not being handled - only mouse events implemented
+
+### Solution
+- [x] Add touch event handlers (touchstart, touchmove, touchend) to canvas
+- [x] Convert touch coordinates to canvas coordinates
+- [x] Prevent default touch behavior (scrolling) when drawing with touch-none CSS class
+- [x] All drawing tools now work on mobile: pen, line, rectangle, eraser
+- [x] All annotation tools now work on mobile: dimension, label, area, select, pan
+
+
+## Mobile Canvas Lock Feature (Completed)
+
+- [x] Add "Lock Canvas" toggle button visible on mobile devices
+- [x] When locked, prevent page scrolling and enable drawing
+- [x] When unlocked, allow normal page scrolling
+- [x] Show visual indicator when canvas is locked (amber color)
+- [x] Auto-lock when entering draw mode on mobile
+- [x] Add circle drawing tool to freehand drawing mode
+
+- [ ] Implement partial eraser that removes only touched parts of strokes instead of entire shapes
+
+
+## Mobile Drawing Analysis Enhancements (Current Session - Jan 23, 2026)
+
+### Mobile Touch Support
+- [x] Add touch event handlers (touchstart, touchmove, touchend) to canvas
+- [x] Implement getTouchPoint helper for extracting touch coordinates
+- [x] Support pen tool drawing with touch on mobile
+- [x] Support line tool drawing with touch on mobile
+- [x] Support rectangle tool drawing with touch on mobile
+- [x] Support circle tool drawing with touch on mobile
+- [x] Ensure touch events don't interfere with mouse events on desktop
+
+### Canvas Lock Feature
+- [x] Add "Lock Canvas" toggle button to toolbar
+- [x] Implement isCanvasLocked state
+- [x] Prevent page scrolling when canvas is locked
+- [x] Show visual indicator (red background) when locked
+- [x] Add Lock/Unlock icons to button
+
+### Circle Drawing Tool
+- [x] Add circle tool to drawing tools toolbar
+- [x] Implement circle drawing from center to edge
+- [x] Add circle icon to toolbar
+- [x] Support circle in both mouse and touch events
+- [x] Render circle strokes on canvas
+
+### Partial Eraser Enhancement
+- [x] Change eraser from deleting entire shapes to partial erasing
+- [x] Implement eraseAtPoint function that removes only touched portions
+- [x] Add eraser size selector (5-30 pixels)
+- [x] Support continuous erasing while mouse/touch is held down
+- [x] Split freehand strokes at eraser contact points
+- [x] Remove entire shape only for line/rectangle/circle (can't be split)
+- [x] Add isErasing state for continuous erasing
+- [x] Save to history after erasing completes
+
+### Touch Event Integration
+- [x] Add touch handlers to canvas element (onTouchStart, onTouchMove, onTouchEnd)
+- [x] Handle touch for annotation creation
+- [x] Handle touch for dimension tool (click-and-drag)
+- [x] Handle touch for pan operation
+- [x] Prevent default scroll behavior when drawing/erasing
+
+### Testing
+- [x] Add comprehensive tests for mobile touch support (27 new tests)
+- [x] Test partial eraser functionality
+- [x] Test circle drawing tool
+- [x] Test canvas lock feature
+- [x] All 506 tests passing
