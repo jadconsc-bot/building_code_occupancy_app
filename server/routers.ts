@@ -128,10 +128,11 @@ If no infractions are found, return an empty array: []`;
         municipality: z.string().optional(),
         zoneType: z.string().optional(),
         measurementUnit: z.enum(["mm", "inches", "feet"]).optional().default("feet"),
+        isHandDrawn: z.boolean().optional().default(false),
       })
     )
     .mutation(async ({ input }) => {
-      const { imageData, fileName, municipality, zoneType, measurementUnit } = input;
+      const { imageData, fileName, municipality, zoneType, measurementUnit, isHandDrawn } = input;
 
       // Unit conversion instructions for the AI
       const unitInstructions = measurementUnit === "mm" 
@@ -140,7 +141,21 @@ If no infractions are found, return an empty array: []`;
         ? "Convert all measurements to inches. For example, 3 feet = 36 inches."
         : "Convert all measurements to feet. For example, 914 mm = 3 feet.";
 
-      const prompt = `You are an expert architectural drawing analyst and building code compliance specialist. Analyze this architectural drawing (site plan, floor plan, or elevation) and extract all visible measurements, dimensions, and building code compliance data.
+      // Additional context for hand-drawn sketches
+      const handDrawnContext = isHandDrawn 
+        ? `\n\n**IMPORTANT: This is a HAND-DRAWN SKETCH created by the user.**
+Interpret the drawing with more flexibility:
+- Lines may not be perfectly straight or aligned
+- Shapes may be approximate representations
+- Labels and annotations may be informal
+- Focus on understanding the user's intent rather than exact measurements
+- If dimensions are not labeled, estimate reasonable values based on typical building proportions
+- Identify the general layout and room arrangement
+- Recognize common architectural symbols even if roughly drawn (doors, windows, stairs, etc.)
+`
+        : "";
+
+      const prompt = `You are an expert architectural drawing analyst and building code compliance specialist. Analyze this architectural drawing (site plan, floor plan, or elevation) and extract all visible measurements, dimensions, and building code compliance data.${handDrawnContext}
 
 ${unitInstructions}
 

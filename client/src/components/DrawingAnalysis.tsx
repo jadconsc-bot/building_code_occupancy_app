@@ -32,7 +32,16 @@ import {
   Pencil,
   Camera,
   Sparkles,
-  Loader2
+  Loader2,
+  PenTool,
+  Minus,
+  RectangleHorizontal,
+  Pentagon,
+  Eraser,
+  Undo2,
+  Redo2,
+  Palette,
+  PaintBucket
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
@@ -81,6 +90,17 @@ interface AreaAnnotation {
 }
 
 type Annotation = DimensionAnnotation | LabelAnnotation | AreaAnnotation;
+
+// Types for freehand drawing
+interface DrawingStroke {
+  id: string;
+  type: "freehand" | "line" | "rectangle" | "polygon";
+  points: Point[];
+  color: string;
+  width: number;
+}
+
+type DrawingTool = "pen" | "line" | "rectangle" | "polygon" | "eraser";
 
 interface ComplianceResult {
   rule: string;
@@ -194,6 +214,19 @@ export function DrawingAnalysis() {
   // State for image rotation (in degrees)
   const [imageRotation, setImageRotation] = useState<number>(0);
   
+  // State for freehand drawing mode
+  const [isDrawMode, setIsDrawMode] = useState(false);
+  const [drawingTool, setDrawingTool] = useState<DrawingTool>("pen");
+  const [drawingStrokes, setDrawingStrokes] = useState<DrawingStroke[]>([]);
+  const [currentStroke, setCurrentStroke] = useState<DrawingStroke | null>(null);
+  const [strokeColor, setStrokeColor] = useState<string>("#1E3A8A"); // Blueprint blue
+  const [strokeWidth, setStrokeWidth] = useState<number>(3);
+  const [showDrawingLayer, setShowDrawingLayer] = useState(true);
+  const [drawingHistory, setDrawingHistory] = useState<DrawingStroke[][]>([[]]); // For undo/redo
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const [isDrawingStroke, setIsDrawingStroke] = useState(false);
+  const [drawingStartPoint, setDrawingStartPoint] = useState<Point | null>(null);
+  
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -284,12 +317,69 @@ export function DrawingAnalysis() {
     if (!drawingImage) return;
     
     setIsAnalyzing(true);
+    
+    // If there are drawing strokes, render them onto the image for analysis
+    let imageToAnalyze = drawingImage;
+    if (drawingStrokes.length > 0) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        // Create a temporary canvas to combine image and drawings
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx && imageRef.current) {
+          // Draw the base image
+          tempCtx.drawImage(imageRef.current, 0, 0, imageRef.current.width, imageRef.current.height);
+          
+          // Draw all strokes onto the temp canvas
+          drawingStrokes.forEach((stroke) => {
+            tempCtx.strokeStyle = stroke.color;
+            tempCtx.lineWidth = stroke.width;
+            tempCtx.lineCap = "round";
+            tempCtx.lineJoin = "round";
+            
+            if (stroke.type === "freehand" && stroke.points.length >= 2) {
+              tempCtx.beginPath();
+              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+              for (let i = 1; i < stroke.points.length; i++) {
+                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+              }
+              tempCtx.stroke();
+            } else if (stroke.type === "line" && stroke.points.length >= 2) {
+              tempCtx.beginPath();
+              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+              tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
+              tempCtx.stroke();
+            } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+              const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
+              const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
+              const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
+              const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
+              tempCtx.strokeRect(rectX, rectY, rectW, rectH);
+            } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
+              tempCtx.beginPath();
+              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+              for (let i = 1; i < stroke.points.length; i++) {
+                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+              }
+              if (stroke.points.length > 2) tempCtx.closePath();
+              tempCtx.stroke();
+            }
+          });
+          
+          imageToAnalyze = tempCanvas.toDataURL('image/png');
+        }
+      }
+    }
+    
     analyzeDrawingMutation.mutate({
-      imageData: drawingImage,
+      imageData: imageToAnalyze,
       fileName: fileName,
       municipality: selectedMunicipalityId,
       zoneType: selectedZone,
       measurementUnit: measurementUnit,
+      isHandDrawn: drawingStrokes.length > 0,
     });
   };
 
@@ -356,6 +446,18 @@ export function DrawingAnalysis() {
       
       ctx.drawImage(imageRef.current, 0, 0);
       ctx.restore();
+    }
+
+    // Draw freehand drawing strokes if visible
+    if (showDrawingLayer && drawingStrokes.length > 0) {
+      drawingStrokes.forEach((stroke) => {
+        drawStroke(ctx, stroke);
+      });
+    }
+
+    // Draw current stroke being drawn
+    if (currentStroke && currentStroke.points.length > 0) {
+      drawStroke(ctx, currentStroke);
     }
 
     // Draw annotations if visible
@@ -459,7 +561,7 @@ export function DrawingAnalysis() {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -577,6 +679,61 @@ export function DrawingAnalysis() {
     ctx.textBaseline = "middle";
     ctx.fillStyle = isSelected ? "#EF4444" : "#8B5CF6";
     ctx.fillText(areaLabelText, centroid.x * zoom + pan.x, centroid.y * zoom + pan.y);
+
+    ctx.restore();
+  };
+
+  // Draw a single stroke (freehand, line, rectangle, or polygon)
+  const drawStroke = (ctx: CanvasRenderingContext2D, stroke: DrawingStroke) => {
+    if (stroke.points.length === 0) return;
+
+    ctx.save();
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    switch (stroke.type) {
+      case "freehand":
+        if (stroke.points.length < 2) break;
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x * zoom + pan.x, stroke.points[0].y * zoom + pan.y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x * zoom + pan.x, stroke.points[i].y * zoom + pan.y);
+        }
+        ctx.stroke();
+        break;
+
+      case "line":
+        if (stroke.points.length < 2) break;
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x * zoom + pan.x, stroke.points[0].y * zoom + pan.y);
+        ctx.lineTo(stroke.points[1].x * zoom + pan.x, stroke.points[1].y * zoom + pan.y);
+        ctx.stroke();
+        break;
+
+      case "rectangle":
+        if (stroke.points.length < 2) break;
+        const rectX = Math.min(stroke.points[0].x, stroke.points[1].x) * zoom + pan.x;
+        const rectY = Math.min(stroke.points[0].y, stroke.points[1].y) * zoom + pan.y;
+        const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x) * zoom;
+        const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y) * zoom;
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+        break;
+
+      case "polygon":
+        if (stroke.points.length < 2) break;
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x * zoom + pan.x, stroke.points[0].y * zoom + pan.y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x * zoom + pan.x, stroke.points[i].y * zoom + pan.y);
+        }
+        if (stroke.points.length > 2) {
+          ctx.closePath();
+        }
+        ctx.stroke();
+        break;
+    }
 
     ctx.restore();
   };
@@ -724,6 +881,198 @@ export function DrawingAnalysis() {
     }
   };
 
+  // Find stroke at a given point (for eraser)
+  const findStrokeAtPoint = (point: Point): DrawingStroke | null => {
+    const threshold = 10 / zoom; // 10 pixels tolerance
+    
+    for (let i = drawingStrokes.length - 1; i >= 0; i--) {
+      const stroke = drawingStrokes[i];
+      
+      if (stroke.type === "freehand" || stroke.type === "line" || stroke.type === "polygon") {
+        // Check if point is near any segment of the stroke
+        for (let j = 0; j < stroke.points.length - 1; j++) {
+          const p1 = stroke.points[j];
+          const p2 = stroke.points[j + 1];
+          const dist = pointToLineDistance(point, p1, p2);
+          if (dist < threshold) return stroke;
+        }
+      } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+        // Check if point is near rectangle edges
+        const [p1, p2] = stroke.points;
+        const minX = Math.min(p1.x, p2.x);
+        const maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y);
+        const maxY = Math.max(p1.y, p2.y);
+        
+        // Check all four edges
+        const edges = [
+          [{ x: minX, y: minY }, { x: maxX, y: minY }],
+          [{ x: maxX, y: minY }, { x: maxX, y: maxY }],
+          [{ x: maxX, y: maxY }, { x: minX, y: maxY }],
+          [{ x: minX, y: maxY }, { x: minX, y: minY }],
+        ];
+        
+        for (const [ep1, ep2] of edges) {
+          const dist = pointToLineDistance(point, ep1, ep2);
+          if (dist < threshold) return stroke;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Calculate distance from point to line segment
+  const pointToLineDistance = (point: Point, lineStart: Point, lineEnd: Point): number => {
+    const A = point.x - lineStart.x;
+    const B = point.y - lineStart.y;
+    const C = lineEnd.x - lineStart.x;
+    const D = lineEnd.y - lineStart.y;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+
+    if (param < 0) {
+      xx = lineStart.x;
+      yy = lineStart.y;
+    } else if (param > 1) {
+      xx = lineEnd.x;
+      yy = lineEnd.y;
+    } else {
+      xx = lineStart.x + param * C;
+      yy = lineStart.y + param * D;
+    }
+
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Add strokes to history for undo/redo
+  const addToHistory = (strokes: DrawingStroke[]) => {
+    const newHistory = drawingHistory.slice(0, historyIndex + 1);
+    newHistory.push([...strokes]);
+    setDrawingHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  // Undo drawing action
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setDrawingStrokes([...drawingHistory[historyIndex - 1]]);
+    }
+  };
+
+  // Redo drawing action
+  const handleRedo = () => {
+    if (historyIndex < drawingHistory.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setDrawingStrokes([...drawingHistory[historyIndex + 1]]);
+    }
+  };
+
+  // Clear all drawings
+  const handleClearDrawings = () => {
+    setDrawingStrokes([]);
+    addToHistory([]);
+    setCurrentStroke(null);
+  };
+
+  // Export drawing with all strokes and annotations as PNG
+  const handleExportDrawing = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imageRef.current) return;
+
+    // Create a temporary canvas at full resolution
+    const tempCanvas = document.createElement('canvas');
+    const img = imageRef.current;
+    tempCanvas.width = img.width;
+    tempCanvas.height = img.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Draw the base image
+    tempCtx.drawImage(img, 0, 0);
+
+    // Draw all strokes
+    if (showDrawingLayer) {
+      drawingStrokes.forEach((stroke) => {
+        tempCtx.strokeStyle = stroke.color;
+        tempCtx.lineWidth = stroke.width;
+        tempCtx.lineCap = "round";
+        tempCtx.lineJoin = "round";
+
+        if (stroke.type === "freehand" && stroke.points.length >= 2) {
+          tempCtx.beginPath();
+          tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          tempCtx.stroke();
+        } else if (stroke.type === "line" && stroke.points.length >= 2) {
+          tempCtx.beginPath();
+          tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
+          tempCtx.stroke();
+        } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+          const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
+          const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
+          const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
+          const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
+          tempCtx.strokeRect(rectX, rectY, rectW, rectH);
+        } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
+          tempCtx.beginPath();
+          tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          if (stroke.points.length > 2) tempCtx.closePath();
+          tempCtx.stroke();
+        }
+      });
+    }
+
+    // Draw annotations if visible
+    if (showAnnotations) {
+      annotations.forEach((annotation) => {
+        if (annotation.type === "dimension") {
+          const dim = annotation as DimensionAnnotation;
+          tempCtx.strokeStyle = "#3B82F6";
+          tempCtx.lineWidth = 2;
+          tempCtx.beginPath();
+          tempCtx.moveTo(dim.start.x, dim.start.y);
+          tempCtx.lineTo(dim.end.x, dim.end.y);
+          tempCtx.stroke();
+
+          // Draw dimension text
+          const midX = (dim.start.x + dim.end.x) / 2;
+          const midY = (dim.start.y + dim.end.y) / 2;
+          const displayValue = convertToDisplayUnit(dim.value);
+          const text = `${displayValue.toFixed(2)} ${measurementUnit}`;
+          tempCtx.font = "14px sans-serif";
+          tempCtx.fillStyle = "#3B82F6";
+          tempCtx.fillText(text, midX + 5, midY - 5);
+        } else if (annotation.type === "label") {
+          const label = annotation as LabelAnnotation;
+          tempCtx.font = "14px sans-serif";
+          tempCtx.fillStyle = "#8B5CF6";
+          tempCtx.fillText(label.text, label.position.x, label.position.y);
+        }
+      });
+    }
+
+    // Download the image
+    const link = document.createElement('a');
+    link.download = `${fileName || 'drawing'}_export.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+  };
+
   // Handle canvas mouse events
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -738,6 +1087,34 @@ export function DrawingAnalysis() {
       e.preventDefault();
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    // Handle drawing mode
+    if (isDrawMode && drawingTool !== "eraser") {
+      setIsDrawingStroke(true);
+      setDrawingStartPoint({ x, y });
+      
+      const newStroke: DrawingStroke = {
+        id: `stroke-${Date.now()}`,
+        type: drawingTool === "pen" ? "freehand" : drawingTool,
+        points: [{ x, y }],
+        color: strokeColor,
+        width: strokeWidth,
+      };
+      setCurrentStroke(newStroke);
+      return;
+    }
+
+    // Handle eraser in drawing mode
+    if (isDrawMode && drawingTool === "eraser") {
+      // Find and remove stroke at click point
+      const strokeToRemove = findStrokeAtPoint({ x, y });
+      if (strokeToRemove) {
+        const newStrokes = drawingStrokes.filter(s => s.id !== strokeToRemove.id);
+        setDrawingStrokes(newStrokes);
+        addToHistory(newStrokes);
+      }
       return;
     }
 
@@ -813,6 +1190,33 @@ export function DrawingAnalysis() {
       const dy = e.clientY - lastPanPoint.y;
       setPan({ x: pan.x + dx, y: pan.y + dy });
       setLastPanPoint({ x: e.clientX, y: e.clientY });
+    } else if (isDrawingStroke && currentStroke && drawingStartPoint) {
+      // Update current stroke based on drawing tool
+      if (drawingTool === "pen") {
+        // Freehand: add point to stroke
+        setCurrentStroke({
+          ...currentStroke,
+          points: [...currentStroke.points, { x, y }],
+        });
+      } else if (drawingTool === "line" || drawingTool === "rectangle") {
+        // Line/Rectangle: update end point
+        setCurrentStroke({
+          ...currentStroke,
+          points: [drawingStartPoint, { x, y }],
+        });
+      } else if (drawingTool === "polygon") {
+        // Polygon: update last point during drag
+        const points = [...currentStroke.points];
+        if (points.length > 1) {
+          points[points.length - 1] = { x, y };
+        } else {
+          points.push({ x, y });
+        }
+        setCurrentStroke({
+          ...currentStroke,
+          points,
+        });
+      }
     } else if (isDraggingDimension && dragStartPoint) {
       // Update drag current point for live preview
       setDragCurrentPoint({ x, y });
@@ -828,6 +1232,21 @@ export function DrawingAnalysis() {
     const y = (e.clientY - rect.top - pan.y) / zoom;
 
     setIsPanning(false);
+
+    // Handle drawing mode mouse up
+    if (isDrawingStroke && currentStroke) {
+      // Finalize the stroke
+      if (currentStroke.points.length >= 2 || 
+          (currentStroke.type === "freehand" && currentStroke.points.length >= 2)) {
+        const newStrokes = [...drawingStrokes, currentStroke];
+        setDrawingStrokes(newStrokes);
+        addToHistory(newStrokes);
+      }
+      setCurrentStroke(null);
+      setIsDrawingStroke(false);
+      setDrawingStartPoint(null);
+      return;
+    }
 
     if (isDraggingDimension && dragStartPoint) {
       const endPoint = { x, y };
@@ -920,33 +1339,6 @@ export function DrawingAnalysis() {
       }
     }
     return null;
-  };
-
-  // Point to line distance
-  const pointToLineDistance = (point: Point, lineStart: Point, lineEnd: Point): number => {
-    const A = point.x - lineStart.x;
-    const B = point.y - lineStart.y;
-    const C = lineEnd.x - lineStart.x;
-    const D = lineEnd.y - lineStart.y;
-
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
-    if (lenSq !== 0) param = dot / lenSq;
-
-    let xx, yy;
-    if (param < 0) {
-      xx = lineStart.x;
-      yy = lineStart.y;
-    } else if (param > 1) {
-      xx = lineEnd.x;
-      yy = lineEnd.y;
-    } else {
-      xx = lineStart.x + param * C;
-      yy = lineStart.y + param * D;
-    }
-
-    return Math.sqrt(Math.pow(point.x - xx, 2) + Math.pow(point.y - yy, 2));
   };
 
   // Point in polygon test
@@ -1260,12 +1652,66 @@ export function DrawingAnalysis() {
                 />
               </div>
               
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-sm text-muted-foreground">or</span>
+                <div className="h-px bg-border flex-1" />
+              </div>
+
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
+                onClick={() => {
+                  // Create a blank canvas for drawing
+                  const canvas = document.createElement('canvas');
+                  canvas.width = 1200;
+                  canvas.height = 900;
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                    // White background with grid
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw light grid
+                    ctx.strokeStyle = '#E5E7EB';
+                    ctx.lineWidth = 1;
+                    const gridSize = 50;
+                    for (let x = 0; x <= canvas.width; x += gridSize) {
+                      ctx.beginPath();
+                      ctx.moveTo(x, 0);
+                      ctx.lineTo(x, canvas.height);
+                      ctx.stroke();
+                    }
+                    for (let y = 0; y <= canvas.height; y += gridSize) {
+                      ctx.beginPath();
+                      ctx.moveTo(0, y);
+                      ctx.lineTo(canvas.width, y);
+                      ctx.stroke();
+                    }
+                  }
+                  setDrawingImage(canvas.toDataURL('image/png'));
+                  setFileName('New Drawing');
+                  setIsDrawMode(true);
+                  setDrawingStrokes([]);
+                  setDrawingHistory([[]]);
+                  setHistoryIndex(0);
+                }}
+              >
+                <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create a new floor plan or sketch from scratch
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Use drawing tools to sketch walls, rooms, and features
+                </p>
+              </div>
+              
               <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary mt-0.5" />
                 <div>
                   <h4 className="font-medium text-sm">AI-Powered Analysis</h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    After uploading or capturing a drawing, use the AI Analyze button to automatically extract dimensions, room labels, setbacks, and building measurements. The AI will identify lot sizes, building footprints, and check compliance against municipal bylaws.
+                    After uploading, capturing, or drawing a plan, use the AI Analyze button to automatically extract dimensions, room labels, setbacks, and building measurements. The AI will identify lot sizes, building footprints, and check compliance against municipal bylaws.
                   </p>
                 </div>
               </div>
@@ -1396,6 +1842,115 @@ export function DrawingAnalysis() {
                   </Button>
                 </div>
 
+                {/* Drawing Mode Toggle */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Button
+                    variant={isDrawMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsDrawMode(!isDrawMode)}
+                    title={isDrawMode ? "Exit Draw Mode" : "Enter Draw Mode"}
+                    className={isDrawMode ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  >
+                    <PenTool className="w-4 h-4 mr-1" />
+                    Draw
+                  </Button>
+                  {isDrawMode && (
+                    <>
+                      <Button
+                        variant={drawingTool === "pen" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setDrawingTool("pen")}
+                        title="Freehand Pen"
+                      >
+                        <PenTool className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={drawingTool === "line" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setDrawingTool("line")}
+                        title="Straight Line"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={drawingTool === "rectangle" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setDrawingTool("rectangle")}
+                        title="Rectangle"
+                      >
+                        <RectangleHorizontal className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={drawingTool === "eraser" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setDrawingTool("eraser")}
+                        title="Eraser"
+                      >
+                        <Eraser className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {/* Drawing Options (when in draw mode) */}
+                {isDrawMode && (
+                  <div className="flex items-center gap-1 border-r border-border pr-2">
+                    <input
+                      type="color"
+                      value={strokeColor}
+                      onChange={(e) => setStrokeColor(e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer border border-border"
+                      title="Stroke Color"
+                    />
+                    <Select value={strokeWidth.toString()} onValueChange={(v) => setStrokeWidth(parseInt(v))}>
+                      <SelectTrigger className="w-16 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Thin</SelectItem>
+                        <SelectItem value="3">Medium</SelectItem>
+                        <SelectItem value="5">Thick</SelectItem>
+                        <SelectItem value="8">Extra</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleUndo}
+                      disabled={historyIndex <= 0}
+                      title="Undo"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRedo}
+                      disabled={historyIndex >= drawingHistory.length - 1}
+                      title="Redo"
+                    >
+                      <Redo2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearDrawings}
+                      disabled={drawingStrokes.length === 0}
+                      title="Clear All Drawings"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant={showDrawingLayer ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setShowDrawingLayer(!showDrawingLayer)}
+                      title={showDrawingLayer ? "Hide Drawing Layer" : "Show Drawing Layer"}
+                    >
+                      <Layers className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
                 {/* Scale System and Calibration */}
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Select value={scaleSystem} onValueChange={(v) => {
@@ -1466,11 +2021,24 @@ export function DrawingAnalysis() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleExportDrawing}
+                    title="Export drawing with annotations as PNG"
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       setDrawingImage(null);
                       setAnnotations([]);
                       setAiResults(null);
                       setFileName("");
+                      setDrawingStrokes([]);
+                      setDrawingHistory([[]]);
+                      setHistoryIndex(0);
+                      setIsDrawMode(false);
                     }}
                   >
                     <RotateCcw className="w-4 h-4 mr-1" />

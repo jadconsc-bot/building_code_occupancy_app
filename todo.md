@@ -1457,3 +1457,38 @@
 - [x] Allow re-calibration by editing reference measurement
 - [x] Store calibration data with drawing
 
+
+
+## Freehand Drawing Mode (Completed)
+
+### Drawing Tools
+- [x] Add "Draw Mode" toggle button to toolbar
+- [x] Implement freehand pen tool for sketching
+- [x] Implement straight line tool (click start, drag to end)
+- [x] Implement rectangle tool (click corner, drag to opposite corner)
+- [x] Implement polygon/shape tool for rooms and areas
+- [x] Implement eraser tool for corrections
+- [x] Add stroke width selector (thin, medium, thick)
+- [x] Add color picker for drawing strokes
+- [x] Add undo/redo functionality for drawings
+
+### Layer Management
+- [x] Create separate drawing layer from annotation layer
+- [x] Allow toggling visibility of drawing layer
+- [x] Allow toggling visibility of annotation layer
+- [x] Maintain drawing state when switching tools
+- [x] Store drawings in component state
+
+### AI Analysis Integration
+- [x] Convert canvas drawing to image for AI analysis
+- [x] Send drawn content to existing analyzeDrawing API
+- [x] Display AI analysis results for hand-drawn content
+- [x] Extract dimensions, rooms, and features from sketches
+- [x] Show compliance suggestions based on drawn layout
+
+### Export and Management
+- [x] Add "Clear Drawing" button to reset canvas
+- [x] Add "Export Drawing" to save as PNG/JPG
+- [x] Add "New Drawing" option to start fresh canvas
+- [x] Preserve drawings when switching tabs (optional)
+
