@@ -1430,3 +1430,30 @@
 - [x] Added compliance status and NBC references to measurements
 - [x] Added safety features detection (smoke detectors, fire extinguishers, exit signs)
 
+
+
+## Drawing Analysis Scale Calibration Enhancement (Completed)
+
+### Standard Architectural Scale Selector
+- [x] Create scale data with imperial scales (1"=80'0", 1"=40'0", 1/16"=1'0", 1/8"=1'0", 1/4"=1'0", 1/2"=1'0", 1"=1'0", 1½"=1'0", 3"=1'0", 1:1)
+- [x] Create scale data with metric scales (1:2500, 1:1250, 1:1000, 1:500, 1:200, 1:100, 1:50, 1:20, 1:10, 1:5, 1:2, 1:1)
+- [x] Add scale type toggle (Imperial/Metric)
+- [x] Replace "Set Scale" button with scale dropdown selector
+- [x] Show typical drawing types and level of detail for each scale
+- [x] Store selected scale in component state
+
+### Click-and-Drag Measurement Interaction
+- [x] Change dimension tool from two-click to click-and-drag
+- [x] Show live preview line while dragging
+- [x] Calculate distance on mouse release
+- [x] Support any direction (not just horizontal/vertical)
+- [x] Show dimension value at midpoint of line
+
+### Editable Reference Measurement
+- [x] First measurement becomes calibration reference
+- [x] Show editable input field for actual dimension value
+- [x] Calculate pixels-per-unit ratio from reference measurement
+- [x] Apply ratio to all subsequent measurements automatically
+- [x] Allow re-calibration by editing reference measurement
+- [x] Store calibration data with drawing
+

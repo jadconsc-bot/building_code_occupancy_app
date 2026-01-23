@@ -36,6 +36,16 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
+import { 
+  ScaleSystem, 
+  ArchitecturalScale, 
+  getScalesBySystem, 
+  getScaleById,
+  imperialScales,
+  metricScales,
+  calculateRealDistance,
+  formatDistance 
+} from "@/lib/architecturalScales";
 
 // Types for annotations
 interface Point {
@@ -122,11 +132,17 @@ export function DrawingAnalysis() {
   const [complianceResults, setComplianceResults] = useState<ComplianceResult[]>([]);
   const [showCompliancePanel, setShowCompliancePanel] = useState(false);
   
-  // State for scale
-  const [scaleValue, setScaleValue] = useState<number>(1); // pixels per meter
-  const [isSettingScale, setIsSettingScale] = useState(false);
-  const [scalePoints, setScalePoints] = useState<Point[]>([]);
-  const [knownDistance, setKnownDistance] = useState<string>("1");
+  // State for scale calibration
+  const [scaleSystem, setScaleSystem] = useState<ScaleSystem>("imperial");
+  const [selectedScale, setSelectedScale] = useState<ArchitecturalScale>(imperialScales[3]); // Default 1/8" = 1'-0"
+  const [pixelsPerDrawingUnit, setPixelsPerDrawingUnit] = useState<number>(0); // Calibrated from reference measurement
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [calibrationLine, setCalibrationLine] = useState<{ start: Point; end: Point } | null>(null);
+  const [referenceValue, setReferenceValue] = useState<string>(""); // User-editable reference measurement
+  const [isEditingReference, setIsEditingReference] = useState(false);
+  const [isDraggingDimension, setIsDraggingDimension] = useState(false);
+  const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
+  const [dragCurrentPoint, setDragCurrentPoint] = useState<Point | null>(null);
   
   // State for AI analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -383,23 +399,67 @@ export function DrawingAnalysis() {
       ctx.restore();
     }
 
-    // Draw scale reference line if setting scale
-    if (isSettingScale && scalePoints.length > 0) {
+    // Draw calibration reference line
+    if (calibrationLine) {
       ctx.save();
       ctx.strokeStyle = "#10B981";
       ctx.lineWidth = 3;
       ctx.setLineDash([10, 5]);
+      ctx.beginPath();
+      ctx.moveTo(calibrationLine.start.x * zoom + pan.x, calibrationLine.start.y * zoom + pan.y);
+      ctx.lineTo(calibrationLine.end.x * zoom + pan.x, calibrationLine.end.y * zoom + pan.y);
+      ctx.stroke();
       
-      if (scalePoints.length === 2) {
-        ctx.beginPath();
-        ctx.moveTo(scalePoints[0].x * zoom + pan.x, scalePoints[0].y * zoom + pan.y);
-        ctx.lineTo(scalePoints[1].x * zoom + pan.x, scalePoints[1].y * zoom + pan.y);
-        ctx.stroke();
-      }
-      
+      // Draw endpoints
+      ctx.fillStyle = "#10B981";
+      ctx.beginPath();
+      ctx.arc(calibrationLine.start.x * zoom + pan.x, calibrationLine.start.y * zoom + pan.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(calibrationLine.end.x * zoom + pan.x, calibrationLine.end.y * zoom + pan.y, 6, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isSettingScale, scalePoints, imageRotation, measurementUnit]);
+
+    // Draw drag preview line (for calibration or dimension)
+    if (isDraggingDimension && dragStartPoint && dragCurrentPoint) {
+      ctx.save();
+      ctx.strokeStyle = isCalibrating ? "#10B981" : "#3B82F6";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(dragStartPoint.x * zoom + pan.x, dragStartPoint.y * zoom + pan.y);
+      ctx.lineTo(dragCurrentPoint.x * zoom + pan.x, dragCurrentPoint.y * zoom + pan.y);
+      ctx.stroke();
+      
+      // Draw endpoints
+      ctx.fillStyle = isCalibrating ? "#10B981" : "#3B82F6";
+      ctx.beginPath();
+      ctx.arc(dragStartPoint.x * zoom + pan.x, dragStartPoint.y * zoom + pan.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(dragCurrentPoint.x * zoom + pan.x, dragCurrentPoint.y * zoom + pan.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Show live distance preview
+      const pixelDist = Math.sqrt(
+        Math.pow(dragCurrentPoint.x - dragStartPoint.x, 2) +
+        Math.pow(dragCurrentPoint.y - dragStartPoint.y, 2)
+      );
+      if (pixelDist > 20 && pixelsPerDrawingUnit > 0) {
+        const result = calculateRealDistance(pixelDist, pixelsPerDrawingUnit, selectedScale, scaleSystem);
+        const midX = (dragStartPoint.x + dragCurrentPoint.x) / 2 * zoom + pan.x;
+        const midY = (dragStartPoint.y + dragCurrentPoint.y) / 2 * zoom + pan.y;
+        ctx.font = "bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#1F2937";
+        ctx.fillRect(midX - 40, midY - 20, 80, 24);
+        ctx.fillStyle = isCalibrating ? "#10B981" : "#3B82F6";
+        ctx.fillText(formatDistance(result.value, result.unit), midX, midY - 4);
+      }
+      ctx.restore();
+    }
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -553,15 +613,45 @@ export function DrawingAnalysis() {
       area -= points[j].x * points[i].y;
     }
     
-    // Convert from pixels to square meters using scale
-    return Math.abs(area / 2) / (scaleValue * scaleValue);
+    // Convert from pixels to square meters using calibration
+    const pixelArea = Math.abs(area / 2);
+    if (pixelsPerDrawingUnit > 0) {
+      // Calculate area using calibrated scale
+      const drawingUnitsPerPixel = 1 / pixelsPerDrawingUnit;
+      const drawingArea = pixelArea * drawingUnitsPerPixel * drawingUnitsPerPixel;
+      // Convert to real-world area based on scale
+      const realArea = drawingArea * selectedScale.ratio * selectedScale.ratio;
+      // Convert to square meters
+      if (scaleSystem === "imperial") {
+        // Real area is in square inches, convert to square meters
+        return realArea * 0.00064516;
+      } else {
+        // Real area is in square mm, convert to square meters
+        return realArea / 1000000;
+      }
+    }
+    // Fallback: assume 100 pixels per meter
+    return pixelArea / 10000;
   };
 
   // Calculate distance between two points (returns meters)
   const calculateDistance = (p1: Point, p2: Point): number => {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
-    return Math.sqrt(dx * dx + dy * dy) / scaleValue;
+    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (pixelsPerDrawingUnit > 0) {
+      // Use calibrated scale
+      const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, selectedScale, scaleSystem);
+      // Convert to meters for internal storage
+      if (scaleSystem === "imperial") {
+        return result.unit === "ft" ? result.value * 0.3048 : result.value * 0.0254;
+      } else {
+        return result.unit === "m" ? result.value : result.unit === "cm" ? result.value / 100 : result.value / 1000;
+      }
+    }
+    // Fallback: assume 100 pixels per meter
+    return pixelDistance / 100;
   };
 
   // Convert meters to display unit
@@ -654,43 +744,16 @@ export function DrawingAnalysis() {
     if (activeTool === "pan") {
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
-    } else if (isSettingScale) {
-      if (scalePoints.length === 0) {
-        setScalePoints([{ x, y }]);
-      } else if (scalePoints.length === 1) {
-        const newScalePoints = [...scalePoints, { x, y }];
-        setScalePoints(newScalePoints);
-        
-        // Calculate scale
-        const pixelDistance = Math.sqrt(
-          Math.pow(newScalePoints[1].x - newScalePoints[0].x, 2) +
-          Math.pow(newScalePoints[1].y - newScalePoints[0].y, 2)
-        );
-        const meterDistance = parseFloat(knownDistance) || 1;
-        setScaleValue(pixelDistance / meterDistance);
-        setIsSettingScale(false);
-        setScalePoints([]);
-      }
+    } else if (isCalibrating) {
+      // Start calibration line drag
+      setDragStartPoint({ x, y });
+      setDragCurrentPoint({ x, y });
+      setIsDraggingDimension(true);
     } else if (activeTool === "dimension") {
-      if (!isDrawing) {
-        setIsDrawing(true);
-        setCurrentPoints([{ x, y }]);
-      } else {
-        // Complete dimension
-        const distance = calculateDistance(currentPoints[0], { x, y });
-        const newAnnotation: DimensionAnnotation = {
-          id: `dim-${Date.now()}`,
-          type: "dimension",
-          start: currentPoints[0],
-          end: { x, y },
-          value: distance,
-          label: "",
-          category: dimensionCategory
-        };
-        setAnnotations([...annotations, newAnnotation]);
-        setIsDrawing(false);
-        setCurrentPoints([]);
-      }
+      // Start dimension line drag
+      setDragStartPoint({ x, y });
+      setDragCurrentPoint({ x, y });
+      setIsDraggingDimension(true);
     } else if (activeTool === "label") {
       if (labelText.trim()) {
         const newAnnotation: LabelAnnotation = {
@@ -738,16 +801,82 @@ export function DrawingAnalysis() {
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
+
     if (isPanning) {
       const dx = e.clientX - lastPanPoint.x;
       const dy = e.clientY - lastPanPoint.y;
       setPan({ x: pan.x + dx, y: pan.y + dy });
       setLastPanPoint({ x: e.clientX, y: e.clientY });
+    } else if (isDraggingDimension && dragStartPoint) {
+      // Update drag current point for live preview
+      setDragCurrentPoint({ x, y });
     }
   };
 
-  const handleCanvasMouseUp = () => {
+  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
+
     setIsPanning(false);
+
+    if (isDraggingDimension && dragStartPoint) {
+      const endPoint = { x, y };
+      const pixelDistance = Math.sqrt(
+        Math.pow(endPoint.x - dragStartPoint.x, 2) +
+        Math.pow(endPoint.y - dragStartPoint.y, 2)
+      );
+
+      // Only create if dragged a meaningful distance
+      if (pixelDistance > 10) {
+        if (isCalibrating) {
+          // Set calibration line and prompt for reference value
+          setCalibrationLine({ start: dragStartPoint, end: endPoint });
+          setIsEditingReference(true);
+          setIsCalibrating(false);
+        } else if (activeTool === "dimension") {
+          // Calculate real distance using calibration
+          let distance: number;
+          if (pixelsPerDrawingUnit > 0) {
+            // Use calibrated scale
+            const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, selectedScale, scaleSystem);
+            // Convert to meters for storage (internal unit)
+            if (scaleSystem === "imperial") {
+              distance = result.unit === "ft" ? result.value * 0.3048 : result.value * 0.0254;
+            } else {
+              distance = result.unit === "m" ? result.value : result.unit === "cm" ? result.value / 100 : result.value / 1000;
+            }
+          } else {
+            // No calibration, use raw pixel distance as placeholder
+            distance = pixelDistance / 100; // Assume 100 pixels per meter as default
+          }
+
+          const newAnnotation: DimensionAnnotation = {
+            id: `dim-${Date.now()}`,
+            type: "dimension",
+            start: dragStartPoint,
+            end: endPoint,
+            value: distance,
+            label: "",
+            category: dimensionCategory
+          };
+          setAnnotations([...annotations, newAnnotation]);
+        }
+      }
+
+      setIsDraggingDimension(false);
+      setDragStartPoint(null);
+      setDragCurrentPoint(null);
+    }
   };
 
   // Handle mouse wheel for zoom (centered on cursor)
@@ -1267,26 +1396,52 @@ export function DrawingAnalysis() {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-1">
+                {/* Scale System and Calibration */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Select value={scaleSystem} onValueChange={(v) => {
+                    const newSystem = v as ScaleSystem;
+                    setScaleSystem(newSystem);
+                    // Reset to default scale for the new system
+                    setSelectedScale(newSystem === "imperial" ? imperialScales[3] : metricScales[5]);
+                  }}>
+                    <SelectTrigger className="w-24 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="imperial">Imperial</SelectItem>
+                      <SelectItem value="metric">Metric</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedScale.id} onValueChange={(v) => {
+                    const scale = getScaleById(v);
+                    if (scale) setSelectedScale(scale);
+                  }}>
+                    <SelectTrigger className="w-32 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getScalesBySystem(scaleSystem).map(scale => (
+                        <SelectItem key={scale.id} value={scale.id}>
+                          <span className="font-mono">{scale.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
-                    variant={isSettingScale ? "default" : "outline"}
+                    variant={isCalibrating ? "default" : "outline"}
                     size="sm"
                     onClick={() => {
-                      setIsSettingScale(!isSettingScale);
-                      setScalePoints([]);
+                      setIsCalibrating(!isCalibrating);
+                      if (!isCalibrating) {
+                        setCalibrationLine(null);
+                        setReferenceValue("");
+                      }
                     }}
+                    title="Calibrate scale by drawing a reference line"
                   >
-                    Set Scale
+                    <Ruler className="w-4 h-4 mr-1" />
+                    {pixelsPerDrawingUnit > 0 ? "Recalibrate" : "Calibrate"}
                   </Button>
-                  {isSettingScale && (
-                    <Input
-                      type="number"
-                      value={knownDistance}
-                      onChange={(e) => setKnownDistance(e.target.value)}
-                      className="w-20 h-8"
-                      placeholder="meters"
-                    />
-                  )}
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
@@ -1343,7 +1498,7 @@ export function DrawingAnalysis() {
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">Click two points to measure distance</p>
+                  <p className="text-xs text-muted-foreground">Click and drag to measure distance{pixelsPerDrawingUnit === 0 && " (calibrate scale first for accurate measurements)"}</p>
                 </div>
               )}
 
@@ -1369,14 +1524,85 @@ export function DrawingAnalysis() {
                 </div>
               )}
 
-              {isSettingScale && (
+              {isCalibrating && (
                 <div className="flex items-center gap-4 p-2 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <Ruler className="w-4 h-4 text-green-600" />
                   <p className="text-sm">
-                    {scalePoints.length === 0 
-                      ? "Click the first point of a known distance" 
-                      : "Click the second point to set scale"}
+                    Click and drag on the drawing to draw a reference line of known length
                   </p>
-                  <Badge variant="secondary">Known distance: {knownDistance}m</Badge>
+                  <Badge variant="secondary">Scale: {selectedScale.label}</Badge>
+                  <span className="text-xs text-muted-foreground">({selectedScale.drawingType})</span>
+                </div>
+              )}
+
+              {isEditingReference && calibrationLine && (
+                <div className="flex items-center gap-4 p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <Ruler className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm font-medium">Enter the actual length of the reference line:</p>
+                  <Input
+                    type="number"
+                    value={referenceValue}
+                    onChange={(e) => setReferenceValue(e.target.value)}
+                    placeholder={scaleSystem === "imperial" ? "feet" : "meters"}
+                    className="w-24 h-8"
+                    autoFocus
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {scaleSystem === "imperial" ? "feet" : "meters"}
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const value = parseFloat(referenceValue);
+                      if (value > 0 && calibrationLine) {
+                        const pixelDistance = Math.sqrt(
+                          Math.pow(calibrationLine.end.x - calibrationLine.start.x, 2) +
+                          Math.pow(calibrationLine.end.y - calibrationLine.start.y, 2)
+                        );
+                        // Calculate pixels per drawing unit
+                        // For imperial: user enters feet, we need pixels per inch on drawing
+                        // For metric: user enters meters, we need pixels per mm on drawing
+                        if (scaleSystem === "imperial") {
+                          // Convert feet to inches, then divide by scale ratio to get drawing inches
+                          const realInches = value * 12;
+                          const drawingInches = realInches / selectedScale.ratio;
+                          setPixelsPerDrawingUnit(pixelDistance / drawingInches);
+                        } else {
+                          // Convert meters to mm, then divide by scale ratio to get drawing mm
+                          const realMm = value * 1000;
+                          const drawingMm = realMm / selectedScale.ratio;
+                          setPixelsPerDrawingUnit(pixelDistance / drawingMm);
+                        }
+                        setIsEditingReference(false);
+                        setCalibrationLine(null);
+                      }
+                    }}
+                    disabled={!referenceValue || parseFloat(referenceValue) <= 0}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsEditingReference(false);
+                      setCalibrationLine(null);
+                      setReferenceValue("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              {pixelsPerDrawingUnit > 0 && !isCalibrating && !isEditingReference && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  <span className="font-medium text-green-700 dark:text-green-400">Scale calibrated:</span>
+                  <span>{selectedScale.label}</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">{selectedScale.drawingType}</span>
                 </div>
               )}
 
