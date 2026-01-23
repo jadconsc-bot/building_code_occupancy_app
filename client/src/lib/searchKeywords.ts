@@ -517,6 +517,56 @@ export const calculatorKeywords: Record<string, { tab: string; section: string; 
       "basement", "basement development", "basement finish", "basement renovation",
       "basement bedroom", "egress window", "window well"
     ]
+  },
+
+  // Municipal Bylaws Calculators
+  "municipal-bylaws": {
+    tab: "municipal-bylaws",
+    section: "municipal-bylaws-calculator",
+    keywords: [
+      "municipal", "bylaws", "bylaw", "zoning", "land use", "setback",
+      "site coverage", "lot coverage", "building height", "lot size",
+      "edmonton", "calgary", "airdrie", "lethbridge", "vancouver",
+      "residential zone", "commercial zone", "industrial zone",
+      "rf1", "rsl", "rf3", "ra7", "r-c1", "r-c2", "rs-1", "rt-1", "rm-1"
+    ]
+  },
+  "setback-calculator": {
+    tab: "municipal-bylaws",
+    section: "setback-diagram-generator",
+    keywords: [
+      "setback", "front setback", "rear setback", "side setback",
+      "setback diagram", "building envelope", "buildable area",
+      "property line", "lot line"
+    ]
+  },
+  "site-coverage": {
+    tab: "municipal-bylaws",
+    section: "municipal-bylaws-calculator",
+    keywords: [
+      "site coverage", "lot coverage", "building coverage", "footprint",
+      "coverage percentage", "maximum coverage"
+    ]
+  },
+
+  // Drawing Analysis Tools
+  "drawing-analysis": {
+    tab: "drawing-analysis",
+    section: "drawing-analysis-tool",
+    keywords: [
+      "drawing", "drawing analysis", "plan analysis", "blueprint",
+      "architectural drawing", "site plan", "floor plan", "elevation",
+      "upload drawing", "annotate", "annotation", "dimension",
+      "ai analysis", "camera", "photo", "scan drawing"
+    ]
+  },
+  "compliance-check": {
+    tab: "drawing-analysis",
+    section: "drawing-analysis-tool",
+    keywords: [
+      "compliance", "compliance check", "code check", "verify compliance",
+      "setback compliance", "coverage compliance", "height compliance"
+    ]
   }
 };
 

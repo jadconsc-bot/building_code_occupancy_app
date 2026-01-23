@@ -150,6 +150,9 @@ export function DrawingAnalysis() {
   } | null>(null);
   const [showAiResults, setShowAiResults] = useState(false);
   
+  // State to track when image is loaded and ready to draw
+  const [imageLoaded, setImageLoaded] = useState(false);
+  
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -360,7 +363,7 @@ export function DrawingAnalysis() {
       
       ctx.restore();
     }
-  }, [drawingImage, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isSettingScale, scalePoints]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isSettingScale, scalePoints]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -862,6 +865,7 @@ export function DrawingAnalysis() {
   // Load image when drawing changes
   useEffect(() => {
     if (drawingImage) {
+      setImageLoaded(false);
       const img = new Image();
       img.onload = () => {
         imageRef.current = img;
@@ -885,11 +889,22 @@ export function DrawingAnalysis() {
           });
         }
         
-        drawCanvas();
+        // Mark image as loaded to trigger redraw
+        setImageLoaded(true);
       };
       img.src = drawingImage;
+    } else {
+      setImageLoaded(false);
+      imageRef.current = null;
     }
   }, [drawingImage]);
+
+  // Redraw canvas when image is loaded
+  useEffect(() => {
+    if (imageLoaded && imageRef.current) {
+      drawCanvas();
+    }
+  }, [imageLoaded, drawCanvas]);
 
   // Redraw canvas when state changes
   useEffect(() => {

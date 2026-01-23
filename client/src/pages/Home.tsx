@@ -1542,6 +1542,18 @@ export default function Home() {
                 >
                   <Leaf className="w-4 h-4 mr-2" /> Sustainability
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="municipal-bylaws" 
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-purple-600"
+                >
+                  <MapPin className="w-4 h-4 mr-2" /> Municipal Bylaws
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="drawing-analysis" 
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-indigo-600"
+                >
+                  <FileImage className="w-4 h-4 mr-2" /> Drawing Analysis
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="building" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
