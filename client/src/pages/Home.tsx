@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book, ChevronRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -1077,11 +1077,72 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-2">
             {filteredData.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p className="font-medium">No results found for "{searchQuery}"</p>
+              <div className="py-4 text-muted-foreground">
+                {/* Show comprehensive results for calculators, tools, and code sections */}
+                {comprehensiveResults.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-3">
+                      Found in Tools & Calculators
+                    </p>
+                    {comprehensiveResults.slice(0, 8).map((result, idx) => (
+                      <button
+                        key={`${result.type}-${result.id}-${idx}`}
+                        onClick={() => {
+                          // Select a default occupancy if none selected so the tabs are visible
+                          if (!selectedGroup) {
+                            const defaultGroup = occupancyData[0]; // A-1
+                            setSelectedGroup(defaultGroup);
+                          }
+                          if (result.tab) {
+                            setActiveTab(result.tab);
+                            toast.success(`Navigating to ${result.label}`);
+                            // Scroll to specific section if available
+                            if (result.section) {
+                              setTimeout(() => {
+                                const element = document.getElementById(result.section!);
+                                if (element) {
+                                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  // Add highlight effect
+                                  element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                                  setTimeout(() => {
+                                    element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+                                  }, 2000);
+                                }
+                              }, 300);
+                            }
+                          }
+                          setSearchQuery('');
+                        }}
+                        className="w-full p-3 text-left border rounded-md hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-3 group"
+                      >
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
+                          result.type === 'calculator' ? 'bg-blue-100 text-blue-600' :
+                          result.type === 'code' ? 'bg-green-100 text-green-600' :
+                          'bg-orange-100 text-orange-600'
+                        }`}>
+                          {result.type === 'calculator' ? <Calculator className="w-4 h-4" /> :
+                           result.type === 'code' ? <FileText className="w-4 h-4" /> :
+                           <Layers className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{result.label}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {result.tab?.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Tab
+                            {result.section && ` → ${result.section.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p className="font-medium">No results found for "{searchQuery}"</p>
+                  </div>
+                )}
                 {didYouMeanSuggestions.length > 0 && (
-                  <div className="mt-4">
+                  <div className="mt-4 text-center">
                     <p className="text-sm mb-2">Did you mean:</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {didYouMeanSuggestions.map((suggestion, idx) => (
@@ -1096,7 +1157,9 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                <p className="text-xs mt-4 opacity-70">Try searching for building types like "church", "gym", "hospital", or "basement suite"</p>
+                {comprehensiveResults.length === 0 && (
+                  <p className="text-xs mt-4 opacity-70 text-center">Try searching for building types like "church", "gym", "hospital", or "basement suite"</p>
+                )}
               </div>
             ) : (
               filteredData.map((group) => (

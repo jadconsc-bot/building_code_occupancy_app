@@ -1228,3 +1228,70 @@
 - [x] General regulations display (deck, fence, accessory building limits)
 - [x] External links to full bylaw documents
 
+
+
+## Phase 20: Search Navigation & User Manual Enhancement
+
+### Clickable Search Results Navigation
+- [ ] Enhance search result items to be clickable with navigation
+- [ ] Add tab navigation when selecting calculator/tool search results
+- [ ] Add section scroll-to functionality after tab navigation
+- [ ] Highlight matched content briefly after navigation
+- [ ] Add visual indicator (arrow/chevron) showing result is clickable
+- [ ] Support keyboard navigation (Enter to select result)
+- [ ] Test navigation for all calculator keywords
+- [ ] Test navigation for all occupancy keywords
+
+### Comprehensive User Manual
+- [ ] Expand Getting Started section with visual walkthrough
+- [ ] Add Municipal Bylaws section covering all 5 municipalities
+- [ ] Add Structural Calculators section (Floor Joist, Beam, Rafter, Column)
+- [ ] Add Construction Limits Calculator documentation
+- [ ] Add Span Tables documentation with examples
+- [ ] Add Inspector Checklist section with photo upload guide
+- [ ] Add Project Dashboard documentation
+- [ ] Add Comparison View documentation
+- [ ] Add Export features documentation (PDF, Excel, Share)
+- [ ] Add Keyboard Shortcuts reference table
+- [ ] Add Troubleshooting/FAQ section expansion
+- [ ] Add Glossary of building code terms
+- [ ] Add NBC code reference quick links
+- [ ] Test all manual sections for accuracy
+
+### Drawing Analysis Feature Assessment (Future)
+- [ ] Document technical requirements for drawing analysis
+- [ ] Research AI vision APIs for architectural drawing interpretation
+- [ ] Define scope of analyzable drawing types (floor plans, elevations, site plans)
+- [ ] List code rules that can be automatically checked
+- [ ] Create feasibility report with implementation timeline
+- [ ] Estimate development effort and API costs
+
+
+
+## Phase 20: Search Navigation & User Manual Improvements (COMPLETED)
+
+### Clickable Search Results
+- [x] Make search results clickable with visual indicators
+- [x] Navigate to correct tab when result is selected
+- [x] Scroll to specific section within tab
+- [x] Highlight matched content briefly
+
+### Comprehensive User Manual
+- [x] Document all occupancy classifications (A-1 through F-3)
+- [x] Document all calculators with step-by-step instructions
+- [x] Document municipal bylaws section (5 municipalities)
+- [x] Document export features (PDF, Excel, Print, Share)
+- [x] Document keyboard shortcuts
+- [x] Add glossary of terms (A-Z with definitions)
+- [x] Add FAQ section (10 common questions)
+- [x] Add sidebar navigation for 18 manual sections
+
+### Drawing Analysis (Future Feature - Feasibility Assessment Complete)
+- [x] Assess feasibility of drawing upload
+- [x] Research AI vision APIs for drawing interpretation
+- [x] Document implementation approach
+- [x] Create feasibility assessment document (docs/DRAWING_ANALYSIS_FEASIBILITY.md)
+- Feasibility Rating: Medium-High
+- Recommended MVP: Manual annotation with compliance checking (2-3 weeks)
+- Future: AI-assisted extraction with GPT-4 Vision
+
