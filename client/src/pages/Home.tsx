@@ -68,6 +68,8 @@ import { WaterClosetCalculator } from "@/components/WaterClosetCalculator";
 import { PlumbingFixtureCalculators } from "@/components/PlumbingFixtureCalculators";
 import { FlameSpreadRatingSection } from "@/components/FlameSpreadRating";
 import { UserManual } from "@/components/UserManual";
+import { ExportPDFDialog } from "@/components/ExportPDFDialog";
+import { MunicipalBylawsCalculator } from "@/components/MunicipalBylawsCalculator";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -111,6 +113,7 @@ export default function Home() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [showUserManual, setShowUserManual] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -118,7 +121,7 @@ export default function Home() {
   });
 
   // Tab order for navigation
-  const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
+  const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
 
   useEffect(() => {
     localStorage.setItem("selected_region", selectedRegion);
@@ -479,6 +482,61 @@ export default function Home() {
     toast.success('PDF preview opened - click Print to save');
   };
 
+  // Helper function to get checklist sections for a group
+  const getSectionsForGroup = (group: OccupancyGroup, tab: string): ChecklistSection[] => {
+    const sections: ChecklistSection[] = [];
+
+    if (tab === 'plumbing' && group.code.startsWith('C') || group.code.startsWith('A-2')) {
+      sections.push(...plumbingChecklists);
+    }
+
+    if (tab === 'electrical' && (group.code.startsWith('C') || group.code.startsWith('A-2'))) {
+      sections.push(...electricalChecklists);
+    }
+
+    // If no specific checklists, create a general one
+    if (sections.length === 0) {
+      sections.push({
+        id: 'general',
+        name: 'General Requirements',
+        items: [
+          {
+            id: '1',
+            label: 'Fire Resistance Rating',
+            description: group.compliance.fireResistance,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '2',
+            label: 'Sprinkler Requirements',
+            description: group.compliance.sprinklers,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '3',
+            label: 'Occupant Load',
+            description: group.compliance.occupantLoad,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '4',
+            label: 'Exit Requirements',
+            description: group.compliance.exits,
+            codeRef: 'Part 3',
+          },
+          {
+            id: '5',
+            label: 'Construction Type',
+            description: group.compliance.construction,
+            codeRef: 'Part 3',
+          },
+        ],
+      });
+    }
+
+    return sections;
+  };
+
   const exportChecklistPDF = async () => {
     console.log('exportChecklistPDF called, selectedGroup:', selectedGroup);
     if (!selectedGroup) {
@@ -794,7 +852,7 @@ export default function Home() {
       // Tab switching with numbers
       if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -1161,7 +1219,7 @@ export default function Home() {
                   Export PDF
                 </button>
                 <button
-                  onClick={exportChecklistPDF}
+                  onClick={() => setShowExportDialog(true)}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 hover:text-green-800 border border-green-600 rounded-md hover:bg-green-50 transition-colors"
                 >
                   <ClipboardList className="w-4 h-4" />
@@ -1254,10 +1312,7 @@ export default function Home() {
                         Export PDF
                       </button>
                       <button
-                        onClick={() => {
-                          toast.info("Generating checklist PDF...");
-                          exportChecklistPDF();
-                        }}
+                        onClick={() => setShowExportDialog(true)}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted rounded-md transition-colors"
                       >
                         <ClipboardList className="w-4 h-4" />
@@ -1376,6 +1431,11 @@ export default function Home() {
                         <Calculator className="w-4 h-4" /> Design Tools
                       </div>
                     </SelectItem>
+                    <SelectItem value="municipal-bylaws">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" /> Municipal Bylaws
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1467,6 +1527,12 @@ export default function Home() {
                       className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
                     >
                       <Calculator className="w-3 h-3" /> Design Tools
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('municipal-bylaws')}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-1"
+                    >
+                      <MapPin className="w-3 h-3" /> Municipal Bylaws
                     </button>
                   </div>
                 </div>
@@ -2503,6 +2569,20 @@ export default function Home() {
                   </section>
                 </div>
               </TabsContent>
+
+              <TabsContent value="municipal-bylaws" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <MapPin className="w-5 h-5" /> Municipal Land Use Bylaws
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Access zoning regulations, setback requirements, height limits, and site coverage rules for Edmonton, Calgary, Airdrie, Lethbridge, and Vancouver. Use the compliance calculators to verify your development meets municipal requirements.
+                    </p>
+                    <MunicipalBylawsCalculator />
+                  </section>
+                </div>
+              </TabsContent>
             </Tabs>
           </div>
         ) : (
@@ -2569,6 +2649,17 @@ export default function Home() {
       <UserManual 
         isOpen={showUserManual} 
         onClose={() => setShowUserManual(false)} 
+      />
+
+      {/* Export PDF Dialog */}
+      <ExportPDFDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        selectedGroup={selectedGroup}
+        allGroups={occupancyData}
+        bookmarkedIds={bookmarks}
+        activeTab={activeTab}
+        getSectionsForGroup={getSectionsForGroup}
       />
     </div>
   );

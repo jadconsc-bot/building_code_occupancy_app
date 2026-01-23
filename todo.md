@@ -1177,3 +1177,54 @@
 - [x] Fix voice recognition error on iPhone/iOS Safari
 - [x] Add proper iOS Safari speech recognition support with microphone permission handling
 - [x] Add error handling and user feedback for unsupported browsers using toast notifications
+
+
+## ✅ Completed (Current Session)
+
+### PDF Export Improvements
+- [x] Add project name input before exporting checklist PDF
+- [x] Add email/share PDF option for direct sharing
+- [x] Create batch export for multiple occupancy checklists
+
+### Municipal Land Use Bylaws Integration
+- [x] Create municipal bylaws data structure (municipalBylawsData.ts)
+- [x] Edmonton Zoning Bylaw 20001 integration
+  - [x] Residential zones (RSL, RF1, RF3, RA7)
+  - [x] Height regulations (10m max)
+  - [x] Setback requirements (front 4.5m, rear 7.5m, side 1.2m)
+  - [x] Site coverage calculations (40%)
+- [x] Calgary Land Use Bylaw 1P2007 integration
+  - [x] Low Density Residential Districts (R-C1, R-C2, R-CG, M-CG)
+  - [x] Projections into setback areas
+  - [x] Height and coverage limits
+- [x] Airdrie Land Use Bylaw B-01/2016 integration
+  - [x] Residential district regulations (R-1, R-2, R-3)
+  - [x] Maximum building height (10m)
+  - [x] Setback requirements
+- [x] Lethbridge Land Use Bylaw 6300 integration
+  - [x] Residential district regulations (R-L, R-M, R-H)
+  - [x] Setback requirements
+  - [x] Coverage calculations
+- [x] Vancouver Zoning By-law 3575 integration
+  - [x] RS-1 (One-Family Dwelling)
+  - [x] RT-1 (Two-Family Dwelling)
+  - [x] RM-1 (Multiple Dwelling)
+  - [x] Site area requirements
+  - [x] FSR calculations
+
+### Municipal Calculators
+- [x] Setback compliance calculator by municipality
+- [x] Site coverage calculator
+- [x] Building height calculator
+- [x] Lot size compliance calculator
+- [x] Zone comparison across municipalities
+
+### Municipal Bylaws UI
+- [x] Municipality selector dropdown (5 municipalities)
+- [x] Zone type selector (4 zones per municipality)
+- [x] Zone details display with setbacks, height, coverage, lot requirements
+- [x] Compliance calculators with real-time validation
+- [x] Comparison view between municipalities (single-detached, duplex, multi-family)
+- [x] General regulations display (deck, fence, accessory building limits)
+- [x] External links to full bylaw documents
+
