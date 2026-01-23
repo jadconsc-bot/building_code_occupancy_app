@@ -1335,3 +1335,36 @@
 - [x] Show building envelope visualization
 - [x] Calculate and display site statistics (lot area, coverage, buildable area)
 
+
+
+## Phase 22: AI-Powered Camera Vision for Drawing Analysis (COMPLETED)
+
+### Camera Capture Integration
+- [x] Add camera capture button to Drawing Analysis component
+- [x] Implement device camera access with permission handling (environment facing)
+- [x] Support both file upload and camera capture
+- [x] Add photo preview before analysis
+- [x] Support photo library selection as alternative
+
+### AI Vision Analysis
+- [x] Create server-side tRPC procedure for image analysis (analyzeDrawing)
+- [x] Integrate with LLM vision API (GPT-4 Vision compatible)
+- [x] Extract dimensions from drawing photos (lot size, building footprint)
+- [x] Extract room labels and areas
+- [x] Identify setback measurements
+- [x] Detect building height annotations
+- [x] Parse scale indicators (e.g., 1:100, 1/4" = 1')
+
+### Results Processing
+- [x] Display extracted data in structured format (AI Results panel)
+- [x] Auto-fill annotation fields with extracted values (Apply to Annotations button)
+- [x] Show confidence scores for extracted measurements (high/medium/low badges)
+- [x] Allow user to confirm/edit extracted values
+- [x] Show drawing type and scale detection
+
+### Compliance Integration
+- [x] Auto-run compliance check after extraction
+- [x] Compare extracted dimensions against municipal bylaws
+- [x] Generate compliance report from AI-extracted data
+- [x] Flag potential code violations
+

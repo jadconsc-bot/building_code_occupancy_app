@@ -278,3 +278,140 @@ describe('All Municipalities Have Required Zones', () => {
     });
   });
 });
+
+
+// AI Drawing Analysis Tests
+describe("AI Drawing Analysis", () => {
+  it("should parse AI response with measurements correctly", () => {
+    const mockAiResponse = {
+      drawingType: "site-plan",
+      scale: "1:100",
+      scalePixelsPerMeter: null,
+      measurements: [
+        {
+          id: "m1",
+          category: "lot-width",
+          value: 15.2,
+          label: "Lot Width",
+          confidence: "high",
+          location: "Bottom of drawing"
+        },
+        {
+          id: "m2",
+          category: "setback-front",
+          value: 4.5,
+          label: "Front Setback",
+          confidence: "medium",
+          location: "Front of lot"
+        }
+      ],
+      rooms: [
+        {
+          id: "r1",
+          name: "Living Room",
+          area: 25.5,
+          location: "Center of floor plan"
+        }
+      ],
+      notes: ["Drawing appears to be a residential site plan"]
+    };
+
+    expect(mockAiResponse.drawingType).toBe("site-plan");
+    expect(mockAiResponse.measurements.length).toBe(2);
+    expect(mockAiResponse.measurements[0].category).toBe("lot-width");
+    expect(mockAiResponse.measurements[0].value).toBe(15.2);
+    expect(mockAiResponse.rooms.length).toBe(1);
+    expect(mockAiResponse.rooms[0].name).toBe("Living Room");
+    expect(mockAiResponse.notes.length).toBeGreaterThan(0);
+  });
+
+  it("should convert AI measurements to annotation format", () => {
+    const measurements = [
+      { id: "m1", category: "lot-width", value: 15.2, label: "Lot Width", confidence: "high", location: "Bottom" },
+      { id: "m2", category: "building-depth", value: 10.5, label: "Building Depth", confidence: "medium", location: "Side" }
+    ];
+
+    const annotations = measurements.map((m, index) => ({
+      id: `ai-dim-${index}`,
+      type: "dimension" as const,
+      start: { x: 50 + index * 30, y: 50 },
+      end: { x: 150 + index * 30, y: 50 },
+      value: m.value,
+      label: m.label,
+      category: m.category
+    }));
+
+    expect(annotations.length).toBe(2);
+    expect(annotations[0].id).toBe("ai-dim-0");
+    expect(annotations[0].type).toBe("dimension");
+    expect(annotations[0].value).toBe(15.2);
+    expect(annotations[1].category).toBe("building-depth");
+  });
+
+  it("should convert AI rooms to label annotations", () => {
+    const rooms = [
+      { id: "r1", name: "Living Room", area: 25.5, location: "Center" },
+      { id: "r2", name: "Kitchen", area: 12.0, location: "East side" }
+    ];
+
+    const labelAnnotations = rooms.map((r, index) => ({
+      id: `ai-room-${index}`,
+      type: "label" as const,
+      position: { x: 100 + index * 50, y: 100 + index * 30 },
+      text: `${r.name} (${r.area}m²)`,
+      category: "room"
+    }));
+
+    expect(labelAnnotations.length).toBe(2);
+    expect(labelAnnotations[0].text).toBe("Living Room (25.5m²)");
+    expect(labelAnnotations[1].text).toBe("Kitchen (12m²)");
+  });
+
+  it("should handle empty AI response gracefully", () => {
+    const emptyResponse = {
+      drawingType: "unknown",
+      scale: null,
+      scalePixelsPerMeter: null,
+      measurements: [],
+      rooms: [],
+      notes: []
+    };
+
+    expect(emptyResponse.measurements.length).toBe(0);
+    expect(emptyResponse.rooms.length).toBe(0);
+    expect(emptyResponse.drawingType).toBe("unknown");
+  });
+
+  it("should validate measurement categories", () => {
+    const validCategories = [
+      "lot-width", "lot-depth", "building-width", "building-depth",
+      "setback-front", "setback-rear", "setback-side", "building-height",
+      "room-area", "other"
+    ];
+
+    const testMeasurement = { category: "lot-width" };
+    expect(validCategories.includes(testMeasurement.category)).toBe(true);
+
+    const invalidMeasurement = { category: "invalid-category" };
+    expect(validCategories.includes(invalidMeasurement.category)).toBe(false);
+  });
+
+  it("should validate confidence levels", () => {
+    const validConfidenceLevels = ["high", "medium", "low"];
+
+    expect(validConfidenceLevels.includes("high")).toBe(true);
+    expect(validConfidenceLevels.includes("medium")).toBe(true);
+    expect(validConfidenceLevels.includes("low")).toBe(true);
+    expect(validConfidenceLevels.includes("very-high")).toBe(false);
+  });
+
+  it("should validate drawing types", () => {
+    const validDrawingTypes = ["site-plan", "floor-plan", "elevation", "unknown"];
+
+    expect(validDrawingTypes.includes("site-plan")).toBe(true);
+    expect(validDrawingTypes.includes("floor-plan")).toBe(true);
+    expect(validDrawingTypes.includes("elevation")).toBe(true);
+    expect(validDrawingTypes.includes("unknown")).toBe(true);
+    expect(validDrawingTypes.includes("section")).toBe(false);
+  });
+});

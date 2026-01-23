@@ -119,6 +119,121 @@ If no infractions are found, return an empty array: []`;
       }
     }),
 
+  // AI Drawing Analysis for extracting dimensions and measurements
+  analyzeDrawing: publicProcedure
+    .input(
+      z.object({
+        imageData: z.string(),
+        fileName: z.string(),
+        municipality: z.string().optional(),
+        zoneType: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { imageData, fileName, municipality, zoneType } = input;
+
+      const prompt = `You are an expert architectural drawing analyst. Analyze this architectural drawing (site plan, floor plan, or elevation) and extract all visible measurements and dimensions.
+
+Extract the following information if visible:
+1. Lot dimensions (width and depth in meters)
+2. Building footprint dimensions (width and depth in meters)
+3. Setback measurements (front, rear, side in meters)
+4. Building height (in meters or storeys)
+5. Room labels and approximate areas
+6. Scale indicator if present
+7. Any other relevant dimensions
+
+For each measurement found, provide:
+- category: one of "lot-width", "lot-depth", "building-width", "building-depth", "setback-front", "setback-rear", "setback-side", "building-height", "room-area", "other"
+- value: the numeric value in meters (convert if in feet)
+- label: a descriptive label
+- confidence: "high", "medium", or "low"
+- location: approximate position description
+
+Also identify:
+- drawingType: "site-plan", "floor-plan", "elevation", or "unknown"
+- scale: the drawing scale if visible (e.g., "1:100", "1/4 inch = 1 foot")
+- scalePixelsPerMeter: estimated pixels per meter if scale is determinable
+
+Return ONLY a valid JSON object in this exact format:
+{
+  "drawingType": "site-plan",
+  "scale": "1:100",
+  "scalePixelsPerMeter": null,
+  "measurements": [
+    {
+      "id": "unique-id",
+      "category": "lot-width",
+      "value": 15.2,
+      "label": "Lot Width",
+      "confidence": "high",
+      "location": "Bottom of drawing"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room-1",
+      "name": "Living Room",
+      "area": 25.5,
+      "location": "Center of floor plan"
+    }
+  ],
+  "notes": ["Any additional observations about the drawing"]
+}`;
+
+      try {
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: imageData,
+                  },
+                },
+              ],
+            },
+          ],
+          maxTokens: 4000,
+        });
+
+        const content = response.choices[0]?.message?.content || "{}";
+        
+        // Extract JSON from response (handle markdown code blocks)
+        let jsonStr = typeof content === 'string' ? content.trim() : JSON.stringify(content);
+        if (jsonStr.startsWith("```json")) {
+          jsonStr = jsonStr.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+        } else if (jsonStr.startsWith("```")) {
+          jsonStr = jsonStr.replace(/```\n?/g, "");
+        }
+        
+        const analysisResult = JSON.parse(jsonStr);
+
+        return {
+          success: true,
+          ...analysisResult,
+          fileName,
+          municipality,
+          zoneType,
+        };
+      } catch (error) {
+        console.error("Drawing analysis error:", error);
+        return {
+          success: false,
+          drawingType: "unknown",
+          scale: null,
+          scalePixelsPerMeter: null,
+          measurements: [],
+          rooms: [],
+          notes: [],
+          error: "Failed to analyze drawing. Please try again.",
+        };
+      }
+    }),
+
   // Feedback submission for beta testing
   feedback: router({
     submit: publicProcedure

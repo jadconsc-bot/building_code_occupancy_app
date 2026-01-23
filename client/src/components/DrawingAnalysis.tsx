@@ -28,8 +28,12 @@ import {
   Layers,
   Eye,
   EyeOff,
-  Pencil
+  Pencil,
+  Camera,
+  Sparkles,
+  Loader2
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
 
 // Types for annotations
@@ -123,11 +127,59 @@ export function DrawingAnalysis() {
   const [scalePoints, setScalePoints] = useState<Point[]>([]);
   const [knownDistance, setKnownDistance] = useState<string>("1");
   
+  // State for AI analysis
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiResults, setAiResults] = useState<{
+    drawingType: string;
+    scale: string | null;
+    measurements: Array<{
+      id: string;
+      category: string;
+      value: number;
+      label: string;
+      confidence: string;
+      location: string;
+    }>;
+    rooms: Array<{
+      id: string;
+      name: string;
+      area: number;
+      location: string;
+    }>;
+    notes: string[];
+  } | null>(null);
+  const [showAiResults, setShowAiResults] = useState(false);
+  
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  
+  // tRPC mutation for AI analysis
+  const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        setAiResults({
+          drawingType: data.drawingType || "unknown",
+          scale: data.scale || null,
+          measurements: data.measurements || [],
+          rooms: data.rooms || [],
+          notes: data.notes || [],
+        });
+        setShowAiResults(true);
+      } else {
+        alert(data.error || "Failed to analyze drawing");
+      }
+      setIsAnalyzing(false);
+    },
+    onError: (error) => {
+      console.error("AI analysis error:", error);
+      alert("Failed to analyze drawing. Please try again.");
+      setIsAnalyzing(false);
+    },
+  });
 
   // Get zones for selected municipality
   const municipalityData = municipalities.find(m => m.id === selectedMunicipalityId);
@@ -147,6 +199,7 @@ export function DrawingAnalysis() {
       setDrawingImage(result);
       setIsLoading(false);
       setAnnotations([]);
+      setAiResults(null);
       setZoom(1);
       setPan({ x: 0, y: 0 });
     };
@@ -155,6 +208,81 @@ export function DrawingAnalysis() {
       alert("Error loading file. Please try again.");
     };
     reader.readAsDataURL(file);
+  };
+
+  // Handle camera capture
+  const handleCameraCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setFileName(`Camera_${new Date().toISOString().slice(0, 10)}.jpg`);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setDrawingImage(result);
+      setIsLoading(false);
+      setAnnotations([]);
+      setAiResults(null);
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    };
+    reader.onerror = () => {
+      setIsLoading(false);
+      alert("Error capturing photo. Please try again.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Run AI analysis on the drawing
+  const runAiAnalysis = () => {
+    if (!drawingImage) return;
+    
+    setIsAnalyzing(true);
+    analyzeDrawingMutation.mutate({
+      imageData: drawingImage,
+      fileName: fileName,
+      municipality: selectedMunicipalityId,
+      zoneType: selectedZone,
+    });
+  };
+
+  // Apply AI results to annotations
+  const applyAiResults = () => {
+    if (!aiResults) return;
+    
+    const newAnnotations: Annotation[] = [];
+    
+    // Convert measurements to dimension annotations
+    aiResults.measurements.forEach((m, index) => {
+      const category = m.category as DimensionAnnotation["category"];
+      if (["lot-width", "lot-depth", "building-width", "building-depth", "setback-front", "setback-rear", "setback-side", "other"].includes(category)) {
+        newAnnotations.push({
+          id: `ai-dim-${index}`,
+          type: "dimension",
+          start: { x: 50 + index * 30, y: 50 },
+          end: { x: 150 + index * 30, y: 50 },
+          value: m.value,
+          label: m.label,
+          category: category as DimensionAnnotation["category"],
+        });
+      }
+    });
+    
+    // Convert rooms to label annotations
+    aiResults.rooms.forEach((r, index) => {
+      newAnnotations.push({
+        id: `ai-room-${index}`,
+        type: "label",
+        position: { x: 100 + index * 50, y: 100 + index * 30 },
+        text: `${r.name} (${r.area}m²)`,
+        category: "room",
+      });
+    });
+    
+    setAnnotations(prev => [...prev, ...newAnnotations]);
+    setShowAiResults(false);
   };
 
   // Draw canvas
@@ -798,25 +926,65 @@ export function DrawingAnalysis() {
         <CardContent>
           {!drawingImage ? (
             // Upload area
-            <div 
-              className="border-2 border-dashed border-border rounded-lg p-12 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Drag and drop or click to upload PDF or image files
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Supported formats: PDF, PNG, JPG, JPEG
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
+            <div className="space-y-6">
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Drag and drop or click to upload PDF or image files
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Supported formats: PDF, PNG, JPG, JPEG
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+              </div>
+              
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-sm text-muted-foreground">or</span>
+                <div className="h-px bg-border flex-1" />
+              </div>
+              
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Take Photo</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Use your device camera to capture a drawing
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  AI will automatically extract dimensions and measurements
+                </p>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture}
+                />
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-sm">AI-Powered Analysis</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    After uploading or capturing a drawing, use the AI Analyze button to automatically extract dimensions, room labels, setbacks, and building measurements. The AI will identify lot sizes, building footprints, and check compliance against municipal bylaws.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             // Drawing workspace
@@ -931,6 +1099,24 @@ export function DrawingAnalysis() {
                   )}
                 </div>
 
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={runAiAnalysis}
+                    disabled={isAnalyzing}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    title="AI Analyze Drawing"
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 mr-1" />
+                    )}
+                    {isAnalyzing ? "Analyzing..." : "AI Analyze"}
+                  </Button>
+                </div>
+
                 <div className="ml-auto flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -938,6 +1124,7 @@ export function DrawingAnalysis() {
                     onClick={() => {
                       setDrawingImage(null);
                       setAnnotations([]);
+                      setAiResults(null);
                       setFileName("");
                     }}
                   >
@@ -1134,6 +1321,99 @@ export function DrawingAnalysis() {
                       </ScrollArea>
                     </CardContent>
                   </Card>
+
+                  {/* AI Analysis Results */}
+                  {showAiResults && aiResults && (
+                    <Card className="border-purple-200 dark:border-purple-800">
+                      <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-purple-600" />
+                            AI Analysis Results
+                          </span>
+                          <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <ScrollArea className="h-64">
+                          <div className="space-y-4">
+                            {/* Drawing Type */}
+                            <div className="p-2 rounded bg-muted">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Drawing Type</div>
+                              <Badge variant="outline">{aiResults.drawingType}</Badge>
+                              {aiResults.scale && (
+                                <Badge variant="outline" className="ml-2">Scale: {aiResults.scale}</Badge>
+                              )}
+                            </div>
+                            
+                            {/* Extracted Measurements */}
+                            {aiResults.measurements.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-2">Extracted Measurements</div>
+                                <div className="space-y-1">
+                                  {aiResults.measurements.map((m, i) => (
+                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                      <div>
+                                        <span className="font-medium">{m.label}</span>
+                                        <span className="text-muted-foreground ml-2">({m.category})</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="secondary">{m.value.toFixed(2)}m</Badge>
+                                        <Badge variant={m.confidence === "high" ? "default" : m.confidence === "medium" ? "secondary" : "outline"} className="text-[10px]">
+                                          {m.confidence}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Detected Rooms */}
+                            {aiResults.rooms.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-2">Detected Rooms</div>
+                                <div className="space-y-1">
+                                  {aiResults.rooms.map((r, i) => (
+                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                      <span className="font-medium">{r.name}</span>
+                                      <Badge variant="secondary">{r.area.toFixed(1)}m²</Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Notes */}
+                            {aiResults.notes.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-2">Notes</div>
+                                <ul className="text-xs text-muted-foreground space-y-1">
+                                  {aiResults.notes.map((note, i) => (
+                                    <li key={i} className="flex items-start gap-2">
+                                      <span className="text-primary">•</span>
+                                      {note}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {/* Apply Button */}
+                            <Button 
+                              onClick={applyAiResults} 
+                              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Apply to Annotations
+                            </Button>
+                          </div>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Compliance results */}
                   {showCompliancePanel && complianceResults.length > 0 && (
