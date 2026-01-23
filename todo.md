@@ -1391,3 +1391,42 @@
 - [ ] Add immediate draw on image load before state updates
 - [ ] Add error handling for image load failures
 - [ ] Test with real image upload
+
+
+## Drawing Analysis Tool Enhancements (Completed)
+
+### Unit of Measurement Selector
+- [x] Add unit selector dropdown (mm, inches, feet)
+- [x] Store selected unit in component state
+- [x] Pass unit to AI analysis for dimension extraction
+- [x] Display all measurements in selected unit
+- [x] Convert between units when selector changes
+
+### Mouse Controls for Image Manipulation
+- [x] Implement mouse wheel zoom (scroll up = zoom in, scroll down = zoom out)
+- [x] Implement mouse drag pan when in pan mode or with middle mouse button
+- [x] Add smooth zoom animation centered on mouse cursor position
+- [x] Prevent page scroll when zooming on canvas
+- [x] Add zoom limits (min 10%, max 500%)
+
+### Image Rotation Function
+- [x] Add rotation buttons (90° clockwise, 90° counter-clockwise)
+- [x] Maintain image quality during rotation
+- [x] Update canvas rendering to apply rotation transform
+
+### Enhanced AI Analysis for Building Code Compliance
+- [x] Extract room dimensions and areas
+- [x] Identify door locations and widths (egress compliance)
+- [x] Detect window locations and sizes (natural light, emergency egress)
+- [x] Calculate building footprint area
+- [x] Identify setback distances from property lines
+- [x] Detect stairway locations and dimensions
+- [x] Identify fire separation walls
+- [x] Calculate occupant load based on room areas
+- [x] Check corridor widths for egress compliance
+- [x] Identify accessible route requirements
+- [x] Detect plumbing fixture locations
+- [x] Calculate parking requirements based on building area
+- [x] Added compliance status and NBC references to measurements
+- [x] Added safety features detection (smoke detectors, fire extinguishers, exit signs)
+

@@ -127,55 +127,117 @@ If no infractions are found, return an empty array: []`;
         fileName: z.string(),
         municipality: z.string().optional(),
         zoneType: z.string().optional(),
+        measurementUnit: z.enum(["mm", "inches", "feet"]).optional().default("feet"),
       })
     )
     .mutation(async ({ input }) => {
-      const { imageData, fileName, municipality, zoneType } = input;
+      const { imageData, fileName, municipality, zoneType, measurementUnit } = input;
 
-      const prompt = `You are an expert architectural drawing analyst. Analyze this architectural drawing (site plan, floor plan, or elevation) and extract all visible measurements and dimensions.
+      // Unit conversion instructions for the AI
+      const unitInstructions = measurementUnit === "mm" 
+        ? "Convert all measurements to millimeters (mm). For example, 3 feet = 914.4 mm."
+        : measurementUnit === "inches"
+        ? "Convert all measurements to inches. For example, 3 feet = 36 inches."
+        : "Convert all measurements to feet. For example, 914 mm = 3 feet.";
+
+      const prompt = `You are an expert architectural drawing analyst and building code compliance specialist. Analyze this architectural drawing (site plan, floor plan, or elevation) and extract all visible measurements, dimensions, and building code compliance data.
+
+${unitInstructions}
 
 Extract the following information if visible:
-1. Lot dimensions (width and depth in meters)
-2. Building footprint dimensions (width and depth in meters)
-3. Setback measurements (front, rear, side in meters)
-4. Building height (in meters or storeys)
+
+**DIMENSIONAL DATA:**
+1. Lot dimensions (width and depth)
+2. Building footprint dimensions (width and depth)
+3. Setback measurements (front, rear, side)
+4. Building height (in storeys and actual height)
 5. Room labels and approximate areas
 6. Scale indicator if present
-7. Any other relevant dimensions
+
+**BUILDING CODE COMPLIANCE DATA:**
+7. Door locations, widths, and swing directions (for egress compliance - min 810mm/32in clear width)
+8. Window locations and sizes (for natural light and emergency egress - min 0.35m² opening)
+9. Stairway locations, widths, and configurations (min 860mm/34in width for residential)
+10. Corridor widths (min 1100mm/44in for public corridors)
+11. Fire separation walls (identify any rated assemblies)
+12. Accessible route indicators (min 920mm/36in clear width)
+13. Plumbing fixture locations (bathrooms, kitchens)
+14. Parking spaces count and dimensions (min 2.6m x 5.5m standard)
+15. Guard rail and handrail locations
+
+**SAFETY COMPLIANCE:**
+16. Emergency egress paths
+17. Fire extinguisher locations
+18. Smoke detector locations
+19. Exit signage locations
+20. Occupant load calculation (based on room areas and use)
 
 For each measurement found, provide:
-- category: one of "lot-width", "lot-depth", "building-width", "building-depth", "setback-front", "setback-rear", "setback-side", "building-height", "room-area", "other"
-- value: the numeric value in meters (convert if in feet)
+- category: one of "lot-width", "lot-depth", "building-width", "building-depth", "setback-front", "setback-rear", "setback-side", "building-height", "room-area", "door-width", "window-size", "stair-width", "corridor-width", "parking-space", "other"
+- value: the numeric value in ${measurementUnit}
 - label: a descriptive label
 - confidence: "high", "medium", or "low"
 - location: approximate position description
+- complianceStatus: "pass", "fail", "warning", or "unknown" based on NBC requirements
+- nbcReference: relevant NBC code section if applicable (e.g., "NBC 3.4.6.5")
 
 Also identify:
 - drawingType: "site-plan", "floor-plan", "elevation", or "unknown"
 - scale: the drawing scale if visible (e.g., "1:100", "1/4 inch = 1 foot")
-- scalePixelsPerMeter: estimated pixels per meter if scale is determinable
+- detectedUnit: the unit of measurement detected on the drawing ("metric", "imperial", or "unknown")
 
 Return ONLY a valid JSON object in this exact format:
 {
   "drawingType": "site-plan",
   "scale": "1:100",
-  "scalePixelsPerMeter": null,
+  "detectedUnit": "metric",
   "measurements": [
     {
       "id": "unique-id",
       "category": "lot-width",
-      "value": 15.2,
+      "value": 50.0,
       "label": "Lot Width",
       "confidence": "high",
-      "location": "Bottom of drawing"
+      "location": "Bottom of drawing",
+      "complianceStatus": "pass",
+      "nbcReference": null
+    },
+    {
+      "id": "door-1",
+      "category": "door-width",
+      "value": 36.0,
+      "label": "Main Entry Door",
+      "confidence": "high",
+      "location": "Front of building",
+      "complianceStatus": "pass",
+      "nbcReference": "NBC 3.3.1.13"
     }
   ],
   "rooms": [
     {
       "id": "room-1",
       "name": "Living Room",
-      "area": 25.5,
-      "location": "Center of floor plan"
+      "area": 274.5,
+      "location": "Center of floor plan",
+      "occupantLoad": 14,
+      "occupantLoadFactor": "1.85 m²/person"
+    }
+  ],
+  "complianceIssues": [
+    {
+      "id": "issue-1",
+      "severity": "warning",
+      "category": "egress",
+      "description": "Bedroom window may not meet minimum egress requirements",
+      "nbcReference": "NBC 9.9.10.1",
+      "recommendation": "Verify window opening is at least 0.35 m² with min dimension of 380mm"
+    }
+  ],
+  "safetyFeatures": [
+    {
+      "type": "smoke-detector",
+      "location": "Hallway near bedrooms",
+      "compliant": true
     }
   ],
   "notes": ["Any additional observations about the drawing"]

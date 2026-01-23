@@ -24,6 +24,7 @@ import {
   XCircle,
   AlertTriangle,
   RotateCcw,
+  RotateCw,
   Save,
   Layers,
   Eye,
@@ -132,6 +133,7 @@ export function DrawingAnalysis() {
   const [aiResults, setAiResults] = useState<{
     drawingType: string;
     scale: string | null;
+    detectedUnit?: string;
     measurements: Array<{
       id: string;
       category: string;
@@ -139,12 +141,29 @@ export function DrawingAnalysis() {
       label: string;
       confidence: string;
       location: string;
+      complianceStatus?: string;
+      nbcReference?: string | null;
     }>;
     rooms: Array<{
       id: string;
       name: string;
       area: number;
       location: string;
+      occupantLoad?: number;
+      occupantLoadFactor?: string;
+    }>;
+    complianceIssues?: Array<{
+      id: string;
+      severity: string;
+      category: string;
+      description: string;
+      nbcReference?: string;
+      recommendation?: string;
+    }>;
+    safetyFeatures?: Array<{
+      type: string;
+      location: string;
+      compliant: boolean;
     }>;
     notes: string[];
   } | null>(null);
@@ -152,6 +171,12 @@ export function DrawingAnalysis() {
   
   // State to track when image is loaded and ready to draw
   const [imageLoaded, setImageLoaded] = useState(false);
+  
+  // State for unit of measurement
+  const [measurementUnit, setMeasurementUnit] = useState<"mm" | "inches" | "feet">("feet");
+  
+  // State for image rotation (in degrees)
+  const [imageRotation, setImageRotation] = useState<number>(0);
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -248,6 +273,7 @@ export function DrawingAnalysis() {
       fileName: fileName,
       municipality: selectedMunicipalityId,
       zoneType: selectedZone,
+      measurementUnit: measurementUnit,
     });
   };
 
@@ -302,6 +328,16 @@ export function DrawingAnalysis() {
       ctx.save();
       ctx.translate(pan.x, pan.y);
       ctx.scale(zoom, zoom);
+      
+      // Apply rotation around image center
+      if (imageRotation !== 0) {
+        const imgWidth = imageRef.current.width;
+        const imgHeight = imageRef.current.height;
+        ctx.translate(imgWidth / 2, imgHeight / 2);
+        ctx.rotate((imageRotation * Math.PI) / 180);
+        ctx.translate(-imgWidth / 2, -imgHeight / 2);
+      }
+      
       ctx.drawImage(imageRef.current, 0, 0);
       ctx.restore();
     }
@@ -363,7 +399,7 @@ export function DrawingAnalysis() {
       
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isSettingScale, scalePoints]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isSettingScale, scalePoints, imageRotation, measurementUnit]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -400,7 +436,8 @@ export function DrawingAnalysis() {
     // Draw label
     const midX = (startX + endX) / 2;
     const midY = (startY + endY) / 2;
-    const labelText = `${annotation.value.toFixed(2)}m`;
+    const displayValue = convertToDisplayUnit(annotation.value);
+    const labelText = `${displayValue.toFixed(2)} ${getUnitLabel()}`;
     
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
@@ -472,13 +509,14 @@ export function DrawingAnalysis() {
 
     // Draw area label
     const centroid = calculateCentroid(annotation.points);
-    const labelText = `${annotation.value.toFixed(1)} m²`;
+    const displayArea = convertAreaToDisplayUnit(annotation.value);
+    const areaLabelText = `${displayArea.toFixed(1)} ${getAreaUnitLabel()}`;
     
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = isSelected ? "#EF4444" : "#8B5CF6";
-    ctx.fillText(labelText, centroid.x * zoom + pan.x, centroid.y * zoom + pan.y);
+    ctx.fillText(areaLabelText, centroid.x * zoom + pan.x, centroid.y * zoom + pan.y);
 
     ctx.restore();
   };
@@ -519,11 +557,81 @@ export function DrawingAnalysis() {
     return Math.abs(area / 2) / (scaleValue * scaleValue);
   };
 
-  // Calculate distance between two points
+  // Calculate distance between two points (returns meters)
   const calculateDistance = (p1: Point, p2: Point): number => {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     return Math.sqrt(dx * dx + dy * dy) / scaleValue;
+  };
+
+  // Convert meters to display unit
+  const convertToDisplayUnit = (meters: number): number => {
+    switch (measurementUnit) {
+      case "mm":
+        return meters * 1000;
+      case "inches":
+        return meters * 39.3701;
+      case "feet":
+        return meters * 3.28084;
+      default:
+        return meters;
+    }
+  };
+
+  // Convert display unit to meters
+  const convertToMeters = (value: number): number => {
+    switch (measurementUnit) {
+      case "mm":
+        return value / 1000;
+      case "inches":
+        return value / 39.3701;
+      case "feet":
+        return value / 3.28084;
+      default:
+        return value;
+    }
+  };
+
+  // Get unit label for display
+  const getUnitLabel = (): string => {
+    switch (measurementUnit) {
+      case "mm":
+        return "mm";
+      case "inches":
+        return "in";
+      case "feet":
+        return "ft";
+      default:
+        return "m";
+    }
+  };
+
+  // Get area unit label for display
+  const getAreaUnitLabel = (): string => {
+    switch (measurementUnit) {
+      case "mm":
+        return "mm²";
+      case "inches":
+        return "in²";
+      case "feet":
+        return "ft²";
+      default:
+        return "m²";
+    }
+  };
+
+  // Convert square meters to display area unit
+  const convertAreaToDisplayUnit = (sqMeters: number): number => {
+    switch (measurementUnit) {
+      case "mm":
+        return sqMeters * 1000000;
+      case "inches":
+        return sqMeters * 1550.0031;
+      case "feet":
+        return sqMeters * 10.7639;
+      default:
+        return sqMeters;
+    }
   };
 
   // Handle canvas mouse events
@@ -534,6 +642,14 @@ export function DrawingAnalysis() {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Middle mouse button (button 1) always enables pan
+    if (e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      setLastPanPoint({ x: e.clientX, y: e.clientY });
+      return;
+    }
 
     if (activeTool === "pan") {
       setIsPanning(true);
@@ -632,6 +748,30 @@ export function DrawingAnalysis() {
 
   const handleCanvasMouseUp = () => {
     setIsPanning(false);
+  };
+
+  // Handle mouse wheel for zoom (centered on cursor)
+  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Calculate zoom factor
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5); // Limit between 10% and 500%
+
+    // Calculate new pan to keep mouse position fixed
+    const scale = newZoom / zoom;
+    const newPanX = mouseX - (mouseX - pan.x) * scale;
+    const newPanY = mouseY - (mouseY - pan.y) * scale;
+
+    setZoom(newZoom);
+    setPan({ x: newPanX, y: newPanY });
   };
 
   // Find annotation at point
@@ -1072,6 +1212,41 @@ export function DrawingAnalysis() {
                   </Button>
                 </div>
 
+                {/* Unit Selector */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Select value={measurementUnit} onValueChange={(v) => setMeasurementUnit(v as "mm" | "inches" | "feet")}>
+                    <SelectTrigger className="w-20 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mm">mm</SelectItem>
+                      <SelectItem value="inches">Inches</SelectItem>
+                      <SelectItem value="feet">Feet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Rotation Controls */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImageRotation((prev) => (prev - 90 + 360) % 360)}
+                    title="Rotate Counter-Clockwise"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs w-10 text-center">{imageRotation}°</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImageRotation((prev) => (prev + 90) % 360)}
+                    title="Rotate Clockwise"
+                  >
+                    <RotateCw className="w-4 h-4" />
+                  </Button>
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant={showAnnotations ? "default" : "ghost"}
@@ -1220,6 +1395,8 @@ export function DrawingAnalysis() {
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
                     onMouseLeave={handleCanvasMouseUp}
+                    onWheel={handleCanvasWheel}
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 </div>
 
