@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { DoorOpen, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DoorOpen, AlertCircle, Download } from "lucide-react";
+import { exportExitRequirementsToExcel } from "@/lib/excelExport";
 
 export function ExitRequirementsCalculator() {
   const [occupantLoad, setOccupantLoad] = useState<string>("");
@@ -232,6 +234,29 @@ export function ExitRequirementsCalculator() {
               </li>
             </ul>
           </div>
+
+          {/* Export Button */}
+          {result.numExits > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => exportExitRequirementsToExcel({
+                  occupantLoad: parseInt(occupantLoad),
+                  requiredExits: result.numExits,
+                  totalExitWidth: result.totalExitWidth * 1000,
+                  widthUnit: "mm",
+                  travelDistance: buildingHeight === "7+" ? 25 : buildingHeight === "4-6" ? 30 : 45,
+                  distanceUnit: "m",
+                  nbcReference: "NBC Part 3.4.2, 3.4.3"
+                })}
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </Button>
+            </div>
+          )}
 
           {/* Reference */}
           <div className="pt-4 border-t border-border">

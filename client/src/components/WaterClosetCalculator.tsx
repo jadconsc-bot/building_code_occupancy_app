@@ -4,9 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Calculator, Users, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Calculator, Users, Info, AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import { exportWaterClosetToExcel } from "@/lib/excelExport";
 
 // NBC Table 3.7.2.2.-A - Water Closets for Assembly Occupancy
 const assemblyTable = [
@@ -391,6 +393,31 @@ export function WaterClosetCalculator() {
             <li>For mixed-use buildings, calculate requirements for each occupancy separately</li>
           </ul>
         </div>
+
+        {/* Export Button */}
+        {hasInput && (
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => exportWaterClosetToExcel({
+                occupancyType: config.name,
+                codeReference: config.codeReference,
+                maleOccupants: results.maleCount,
+                femaleOccupants: results.femaleCount,
+                totalOccupants: results.totalOccupants,
+                maleWaterClosets: results.maleWC,
+                femaleWaterClosets: results.femaleWC,
+                totalWaterClosets: results.totalWC,
+                notes: config.specialNote || ""
+              })}
+            >
+              <Download className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1492,3 +1492,42 @@
 - [x] Add "New Drawing" option to start fresh canvas
 - [x] Preserve drawings when switching tabs (optional)
 
+
+
+## Calculator Export Functionality Audit (Completed)
+
+### Calculators WITH Export (via CalculatorActions component)
+- [x] AccessibilityRampCalculator
+- [x] EnergyCodeCalculator
+- [x] FoundationDesignCalculator
+- [x] GuardHandrailCalculator
+- [x] LateralLoadCalculator
+- [x] LintelSpanCalculator
+- [x] PlumbingFixtureCalculator
+- [x] SnowLoadCalculator
+- [x] StairDesignCalculator
+- [x] StudSpacingCalculator
+- [x] ThermalResistanceCalculator
+- [x] VentilationRateCalculator
+
+### Calculators WITH Export (direct implementation)
+- [x] BatchStairCalculator
+- [x] BeamSpanCalculator
+- [x] CalculatorComparison
+- [x] ColumnSpanCalculator
+- [x] ConstructionLimitsCalculator (CSV export)
+- [x] FloorJoistSpanCalculator
+- [x] RoofRafterSpanCalculator
+
+### Calculators WITH Export Added This Session
+- [x] FireSeparationCalculator
+- [x] OccupantLoadCalculator
+- [x] ExitRequirementsCalculator
+- [x] TravelDistanceCalculator
+- [x] FireAlarmCalculator
+- [x] EmergencyLightingCalculator
+- [x] BarrierFreeCalculator
+- [x] PermitFeeCalculator
+- [x] MunicipalBylawsCalculator
+- [x] WaterClosetCalculator
+

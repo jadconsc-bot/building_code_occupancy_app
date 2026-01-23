@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Accessibility, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Accessibility, CheckCircle2, Download } from "lucide-react";
+import { exportBarrierFreeToExcel } from "@/lib/excelExport";
 
 // NBC Part 3.8 - Barrier-Free Design Requirements
 export function BarrierFreeCalculator() {
@@ -224,6 +226,29 @@ export function BarrierFreeCalculator() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Export Button */}
+          {result.accessRequired && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => exportBarrierFreeToExcel({
+                  occupancyType: occupancy,
+                  floorArea: parseFloat(floorArea) || 0,
+                  totalWashrooms: parseInt(numWashrooms) || 0,
+                  totalParkingSpaces: parseInt(numParkingSpaces) || 0,
+                  accessibleWashroomsRequired: result.minAccessibleWashrooms,
+                  accessibleParkingRequired: result.minAccessibleParking,
+                  requirements: result.additionalRequirements
+                })}
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </Button>
+            </div>
           )}
 
           <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">

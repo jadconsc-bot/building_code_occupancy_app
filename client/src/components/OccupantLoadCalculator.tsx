@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Users, Calculator } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, Calculator, Download } from "lucide-react";
+import { exportOccupantLoadToExcel } from "@/lib/excelExport";
 
 // NBC Table 3.1.17.1 - Occupant Load
 interface OccupantLoadData {
@@ -217,6 +219,28 @@ export function OccupantLoadCalculator() {
               </li>
             </ul>
           </div>
+
+          {/* Export Button */}
+          {result.occupantLoad > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => exportOccupantLoadToExcel({
+                  occupancyType: `${category} - ${spaceType}`,
+                  floorArea: parseFloat(floorArea),
+                  areaUnit: "m²",
+                  loadFactor: result.areaPerPerson,
+                  occupantLoad: result.occupantLoad,
+                  nbcReference: "NBC Table 3.1.17.1"
+                })}
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </Button>
+            </div>
+          )}
 
           {/* Reference */}
           <div className="pt-4 border-t border-border">

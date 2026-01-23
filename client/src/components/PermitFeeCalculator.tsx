@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, DollarSign, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calculator, DollarSign, Info, Download } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { exportPermitFeeToExcel } from "@/lib/excelExport";
 
 // Alberta municipal permit fee structures (2024 estimates)
 const municipalityRates = {
@@ -183,6 +185,27 @@ export function PermitFeeCalculator() {
             </div>
           </div>
         </div>
+
+        {/* Export Button */}
+        {permitFee !== null && (
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-none gap-2"
+              onClick={() => exportPermitFeeToExcel({
+                municipality: municipalityRates[municipality].name,
+                projectValue: parseFloat(projectValue.replace(/[^0-9.]/g, "")) || 0,
+                baseFee: municipalityRates[municipality].baseFee,
+                rate: municipalityRates[municipality].rate,
+                estimatedFee: permitFee
+              })}
+            >
+              <Download className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

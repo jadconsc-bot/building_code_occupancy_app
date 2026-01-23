@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Flame, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Flame, AlertTriangle, Download } from "lucide-react";
+import { exportFireSeparationToExcel } from "@/lib/excelExport";
 
 // NBC Table 3.1.3.1 - Fire Separation Requirements
 const fireSeparationData: Record<string, Record<string, string>> = {
@@ -369,6 +371,31 @@ export function FireSeparationCalculator() {
               </li>
             </ul>
           </div>
+
+          {/* Export Button */}
+          {occupancy1 && occupancy2 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => exportFireSeparationToExcel({
+                  occupancy1: `${occupancy1} - ${occupancyNames[occupancy1]}`,
+                  occupancy2: `${occupancy2} - ${occupancyNames[occupancy2]}`,
+                  fireResistanceRating: result.rating,
+                  nbcReference: "NBC Part 3.2.3, Table 3.1.3.1",
+                  notes: [
+                    "Fire separations must extend from floor to underside of floor or roof above",
+                    "Openings in fire separations require fire-rated closures",
+                    sprinklered === "yes" ? "Building is sprinklered - reductions may apply per NBC 3.2.3.7" : "Building is not sprinklered"
+                  ]
+                })}
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </Button>
+            </div>
+          )}
 
           {/* Reference */}
           <div className="pt-4 border-t border-border">

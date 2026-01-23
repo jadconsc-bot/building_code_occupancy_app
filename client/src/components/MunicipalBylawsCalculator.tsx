@@ -21,8 +21,10 @@ import {
   ExternalLink,
   ArrowLeftRight,
   Calculator,
-  Layers
+  Layers,
+  Download
 } from 'lucide-react';
+import { exportMunicipalBylawsToExcel } from '@/lib/excelExport';
 import { toast } from 'sonner';
 import {
   municipalities,
@@ -349,13 +351,55 @@ export function MunicipalBylawsCalculator() {
       {/* Calculators */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-primary" />
-            Compliance Calculators
-          </CardTitle>
-          <CardDescription>
-            Check if your proposed development meets the zoning requirements
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-primary" />
+                Compliance Calculators
+              </CardTitle>
+              <CardDescription>
+                Check if your proposed development meets the zoning requirements
+              </CardDescription>
+            </div>
+            {zone && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  const setbackResult = checkSetbackCompliance();
+                  const coverageResult = checkCoverage();
+                  const heightResult = checkHeight();
+                  const lotResult = checkLot();
+                  
+                  const frontProposed = parseFloat(frontSetback) || 0;
+                  const rearProposed = parseFloat(rearSetback) || 0;
+                  const sideInteriorProposed = parseFloat(sideInteriorSetback) || 0;
+                  const sideCornerProposed = parseFloat(sideCornerSetback) || 0;
+                  
+                  exportMunicipalBylawsToExcel({
+                    municipality: municipality?.name || '',
+                    zone: zone.zoneCode,
+                    zoneName: zone.zoneName,
+                    setbacks: {
+                      front: { required: zone.setbacks.front, proposed: frontProposed, compliant: frontProposed >= zone.setbacks.front },
+                      rear: { required: zone.setbacks.rear, proposed: rearProposed, compliant: rearProposed >= zone.setbacks.rear },
+                      sideInterior: { required: zone.setbacks.sideInterior, proposed: sideInteriorProposed, compliant: sideInteriorProposed >= zone.setbacks.sideInterior },
+                      sideCorner: zone.setbacks.sideCorner ? { required: zone.setbacks.sideCorner, proposed: sideCornerProposed, compliant: sideCornerProposed >= zone.setbacks.sideCorner } : undefined
+                    },
+                    coverage: coverageResult ? { maxAllowed: zone.coverage.maxSiteCoverage, proposed: coverageResult.actualCoverage, compliant: coverageResult.compliant } : undefined,
+                    height: heightResult ? { maxHeight: zone.height.maxHeight, proposedHeight: parseFloat(proposedHeight) || 0, maxStoreys: zone.height.maxStoreys, proposedStoreys: proposedStoreys ? parseInt(proposedStoreys) : undefined, compliant: heightResult.compliant } : undefined,
+                    lot: lotResult ? { minArea: zone.lotRequirements.minArea, proposedArea: parseFloat(lotArea) || 0, minWidth: zone.lotRequirements.minWidth, proposedWidth: parseFloat(lotWidth) || 0, compliant: lotResult.compliant } : undefined,
+                    overallCompliant: (setbackResult?.compliant ?? true) && (coverageResult?.compliant ?? true) && (heightResult?.compliant ?? true) && (lotResult?.compliant ?? true)
+                  });
+                  toast.success('Exported to Excel successfully!');
+                }}
+              >
+                <Download className="w-4 h-4" />
+                Export Report
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeCalculator} onValueChange={(v) => setActiveCalculator(v as any)}>

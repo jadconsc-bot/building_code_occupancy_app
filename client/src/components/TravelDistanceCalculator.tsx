@@ -4,7 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Route, CheckCircle, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Route, CheckCircle, XCircle, Download } from "lucide-react";
+import { exportTravelDistanceToExcel } from "@/lib/excelExport";
 
 // NBC 3.4.2.5 - Maximum Travel Distance
 const travelDistanceLimits: Record<string, { sprinklered: number; unsprinklered: number }> = {
@@ -270,6 +272,28 @@ export function TravelDistanceCalculator() {
               </li>
             </ul>
           </div>
+
+          {/* Export Button */}
+          {result.maxAllowed > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none gap-2"
+                onClick={() => exportTravelDistanceToExcel({
+                  occupancyType: `${occupancy} - ${occupancyNames[occupancy]}`,
+                  hasSprinkers: sprinklered === "yes",
+                  maxTravelDistance: result.maxAllowed,
+                  distanceUnit: "m",
+                  deadEndLimit: result.deadEndLimit,
+                  nbcReference: "NBC 3.4.2.5"
+                })}
+              >
+                <Download className="w-4 h-4" />
+                Export to Excel
+              </Button>
+            </div>
+          )}
 
           {/* Reference */}
           <div className="pt-4 border-t border-border">
