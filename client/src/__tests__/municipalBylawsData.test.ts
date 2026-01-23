@@ -46,16 +46,18 @@ describe('Municipal Bylaws Data', () => {
           expect(z.zoneName).toBeDefined();
           expect(z.description).toBeDefined();
           expect(z.setbacks).toBeDefined();
-          expect(z.setbacks.front).toBeGreaterThan(0);
-          expect(z.setbacks.rear).toBeGreaterThan(0);
-          expect(z.setbacks.sideInterior).toBeGreaterThan(0);
+          // Setbacks can be 0 for commercial/industrial zones
+          expect(z.setbacks.front).toBeGreaterThanOrEqual(0);
+          expect(z.setbacks.rear).toBeGreaterThanOrEqual(0);
+          expect(z.setbacks.sideInterior).toBeGreaterThanOrEqual(0);
           expect(z.height).toBeDefined();
           expect(z.height.maxHeight).toBeGreaterThan(0);
           expect(z.coverage).toBeDefined();
           expect(z.coverage.maxSiteCoverage).toBeGreaterThan(0);
           expect(z.lotRequirements).toBeDefined();
-          expect(z.lotRequirements.minArea).toBeGreaterThan(0);
-          expect(z.lotRequirements.minWidth).toBeGreaterThan(0);
+          // Lot requirements can be 0 for commercial/industrial zones
+          expect(z.lotRequirements.minArea).toBeGreaterThanOrEqual(0);
+          expect(z.lotRequirements.minWidth).toBeGreaterThanOrEqual(0);
         });
       });
     });

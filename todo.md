@@ -1295,3 +1295,43 @@
 - Recommended MVP: Manual annotation with compliance checking (2-3 weeks)
 - Future: AI-assisted extraction with GPT-4 Vision
 
+
+
+## Phase 21: Drawing Analysis MVP & Municipal Bylaws Expansion (COMPLETED)
+
+### Drawing Upload MVP
+- [x] Create DrawingAnalysis component with file upload (PDF/image)
+- [x] Add drawing preview canvas with zoom/pan controls
+- [x] Implement manual annotation tools (dimension lines, room labels, setback markers)
+- [x] Create annotation data structure for storing measurements
+- [x] Build compliance checker against setback/coverage rules
+- [x] Generate compliance report with pass/fail indicators
+- [x] Add export functionality for annotated drawings
+- [x] Support multiple drawing types (site plan, floor plan, elevation)
+- [x] Add measurement tools (distance, area, angle)
+
+### Commercial/Industrial Zones for Municipal Bylaws
+- [x] Edmonton - Add commercial zones (CB1, CB2, CNC)
+- [x] Edmonton - Add industrial zones (IB, IM, IH)
+- [x] Calgary - Add commercial zones (C-C1, C-C2, C-COR1, C-COR2)
+- [x] Calgary - Add industrial zones (I-G, I-C, I-B, I-E)
+- [x] Airdrie - Add commercial zones (C-1, C-2, C-3)
+- [x] Airdrie - Add industrial zones (I-1, I-2)
+- [x] Lethbridge - Add commercial zones (C-N, C-G, C-H)
+- [x] Lethbridge - Add industrial zones (M-L, M-G)
+- [x] Vancouver - Add commercial zones (C-1, C-2, C-3A)
+- [x] Vancouver - Add industrial zones (I-1, I-2, M-1)
+
+### Visual Setback Diagram Generator
+- [x] Create SetbackDiagramGenerator component with Canvas rendering
+- [x] Add lot dimension inputs (width, depth)
+- [x] Add building footprint inputs (width, depth, height)
+- [x] Display setback lines with measurements
+- [x] Show compliance status for each setback (real-time validation)
+- [x] Add zone-specific setback requirements (auto-fill from municipal data)
+- [x] Include PNG export functionality
+- [x] Make diagram responsive and interactive
+- [x] Add corner lot support with increased side setback
+- [x] Show building envelope visualization
+- [x] Calculate and display site statistics (lot area, coverage, buildable area)
+

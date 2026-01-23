@@ -212,6 +212,183 @@ export const municipalities: Municipality[] = [
           widthUnit: 'meters',
         },
       },
+      // Commercial Zones
+      {
+        zoneCode: 'CB1',
+        zoneName: 'Low Intensity Business',
+        description: 'Small-scale commercial and office uses',
+        setbacks: {
+          front: 3.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 300,
+          minWidth: 10.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Parking required at rear or side',
+          'Landscaping required along street frontage',
+        ],
+      },
+      {
+        zoneCode: 'CB2',
+        zoneName: 'General Business',
+        description: 'Medium-scale commercial, retail, and office',
+        setbacks: {
+          front: 0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.5,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 100,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'No minimum setbacks - build to property line',
+          'Underground or structured parking encouraged',
+        ],
+      },
+      {
+        zoneCode: 'CNC',
+        zoneName: 'Neighbourhood Convenience Commercial',
+        description: 'Small-scale neighbourhood retail and services',
+        setbacks: {
+          front: 3.0,
+          rear: 7.5,
+          sideInterior: 1.2,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 45,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 450,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Industrial Zones
+      {
+        zoneCode: 'IB',
+        zoneName: 'Industrial Business',
+        description: 'Light industrial, warehouse, and business park uses',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.5,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 900,
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Outdoor storage must be screened',
+          'Landscaping required along public roadways',
+        ],
+      },
+      {
+        zoneCode: 'IM',
+        zoneName: 'Medium Industrial',
+        description: 'General industrial, manufacturing, and processing',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 20.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 70,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1500,
+          minWidth: 40.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'IH',
+        zoneName: 'Heavy Industrial',
+        description: 'Heavy industrial, processing, and resource extraction',
+        setbacks: {
+          front: 15.0,
+          rear: 7.5,
+          sideInterior: 7.5,
+          sideCorner: 15.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 30.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 4000,
+          minWidth: 60.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Environmental impact assessment may be required',
+          'Buffer zones required adjacent to residential',
+        ],
+      },
     ],
   },
   {
@@ -350,6 +527,167 @@ export const municipalities: Municipality[] = [
           widthUnit: 'meters',
         },
       },
+      // Commercial Zones
+      {
+        zoneCode: 'C-C1',
+        zoneName: 'Commercial - Community 1',
+        description: 'Neighbourhood-scale commercial services',
+        setbacks: {
+          front: 3.0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 450,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-C2',
+        zoneName: 'Commercial - Community 2',
+        description: 'Community-scale commercial and retail',
+        setbacks: {
+          front: 0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 80,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-COR1',
+        zoneName: 'Commercial - Corridor 1',
+        description: 'Commercial along major corridors',
+        setbacks: {
+          front: 6.0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 12.0,
+          maxStoreys: 3,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 600,
+          minWidth: 20.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Industrial Zones
+      {
+        zoneCode: 'I-G',
+        zoneName: 'Industrial - General',
+        description: 'General industrial and warehouse uses',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 16.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 70,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1000,
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'I-B',
+        zoneName: 'Industrial - Business',
+        description: 'Light industrial and business park',
+        setbacks: {
+          front: 6.0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 800,
+          minWidth: 25.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'I-H',
+        zoneName: 'Industrial - Heavy',
+        description: 'Heavy industrial and manufacturing',
+        setbacks: {
+          front: 15.0,
+          rear: 7.5,
+          sideInterior: 7.5,
+          sideCorner: 15.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 25.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 4000,
+          minWidth: 60.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
     ],
   },
   {
@@ -472,6 +810,114 @@ export const municipalities: Municipality[] = [
         lotRequirements: {
           minArea: 350,
           minWidth: 10.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Commercial Zones
+      {
+        zoneCode: 'C-1',
+        zoneName: 'Neighbourhood Commercial',
+        description: 'Small-scale neighbourhood commercial',
+        setbacks: {
+          front: 3.0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 400,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-2',
+        zoneName: 'General Commercial',
+        description: 'General commercial and retail',
+        setbacks: {
+          front: 0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 80,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Industrial Zones
+      {
+        zoneCode: 'I-1',
+        zoneName: 'Light Industrial',
+        description: 'Light industrial and warehouse',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 65,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 800,
+          minWidth: 25.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'I-2',
+        zoneName: 'General Industrial',
+        description: 'General industrial and manufacturing',
+        setbacks: {
+          front: 10.0,
+          rear: 3.0,
+          sideInterior: 3.0,
+          sideCorner: 10.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 20.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 2000,
+          minWidth: 40.0,
           areaUnit: 'sqm',
           widthUnit: 'meters',
         },
@@ -606,6 +1052,141 @@ export const municipalities: Municipality[] = [
           widthUnit: 'meters',
         },
       },
+      // Commercial Zones
+      {
+        zoneCode: 'C-N',
+        zoneName: 'Neighbourhood Commercial',
+        description: 'Small-scale neighbourhood commercial',
+        setbacks: {
+          front: 3.0,
+          rear: 4.5,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 350,
+          minWidth: 12.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-G',
+        zoneName: 'General Commercial',
+        description: 'General commercial and retail',
+        setbacks: {
+          front: 0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 100,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-H',
+        zoneName: 'Highway Commercial',
+        description: 'Commercial along major highways',
+        setbacks: {
+          front: 9.0,
+          rear: 4.5,
+          sideInterior: 3.0,
+          sideCorner: 9.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 12.0,
+          maxStoreys: 3,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 40,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1000,
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Industrial Zones
+      {
+        zoneCode: 'M-L',
+        zoneName: 'Light Industrial',
+        description: 'Light industrial and warehouse',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 12.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 700,
+          minWidth: 20.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'M-G',
+        zoneName: 'General Industrial',
+        description: 'General industrial and manufacturing',
+        setbacks: {
+          front: 9.0,
+          rear: 3.0,
+          sideInterior: 3.0,
+          sideCorner: 9.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 18.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 55,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1500,
+          minWidth: 35.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
     ],
   },
   {
@@ -735,6 +1316,179 @@ export const municipalities: Municipality[] = [
         lotRequirements: {
           minArea: 1500,
           minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Commercial Zones
+      {
+        zoneCode: 'C-1',
+        zoneName: 'Commercial District',
+        description: 'Neighbourhood commercial uses',
+        setbacks: {
+          front: 0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.7,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'FSR typically 1.0-2.5',
+          'Ground floor commercial required on arterials',
+        ],
+      },
+      {
+        zoneCode: 'C-2',
+        zoneName: 'Commercial District',
+        description: 'General commercial and mixed-use',
+        setbacks: {
+          front: 0,
+          rear: 3.0,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 13.8,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 100,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'FSR typically 2.5-3.0',
+          'Residential permitted above commercial',
+        ],
+      },
+      {
+        zoneCode: 'C-3A',
+        zoneName: 'Commercial District',
+        description: 'Mixed commercial and residential',
+        setbacks: {
+          front: 0,
+          rear: 7.6,
+          sideInterior: 0,
+          sideCorner: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 18.3,
+          maxStoreys: 5,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 100,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      // Industrial Zones
+      {
+        zoneCode: 'I-1',
+        zoneName: 'Industrial District',
+        description: 'Light industrial and service',
+        setbacks: {
+          front: 3.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 18.3,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 75,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'FSR typically 3.0',
+          'Office limited to 25% of floor area',
+        ],
+      },
+      {
+        zoneCode: 'I-2',
+        zoneName: 'Industrial District',
+        description: 'General industrial uses',
+        setbacks: {
+          front: 6.0,
+          rear: 0,
+          sideInterior: 0,
+          sideCorner: 6.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 18.3,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'M-1',
+        zoneName: 'Industrial District',
+        description: 'Heavy industrial uses',
+        setbacks: {
+          front: 9.0,
+          rear: 3.0,
+          sideInterior: 3.0,
+          sideCorner: 9.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 30.5,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
           areaUnit: 'sqm',
           widthUnit: 'meters',
         },

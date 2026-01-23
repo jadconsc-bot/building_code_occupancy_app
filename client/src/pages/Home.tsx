@@ -70,6 +70,8 @@ import { FlameSpreadRatingSection } from "@/components/FlameSpreadRating";
 import { UserManual } from "@/components/UserManual";
 import { ExportPDFDialog } from "@/components/ExportPDFDialog";
 import { MunicipalBylawsCalculator } from "@/components/MunicipalBylawsCalculator";
+import { DrawingAnalysis } from "@/components/DrawingAnalysis";
+import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -852,7 +854,7 @@ export default function Home() {
       // Tab switching with numbers
       if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws", "drawing-analysis"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -1497,6 +1499,11 @@ export default function Home() {
                     <SelectItem value="municipal-bylaws">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" /> Municipal Bylaws
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="drawing-analysis">
+                      <div className="flex items-center gap-2">
+                        <FileImage className="w-4 h-4" /> Drawing Analysis
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -2643,6 +2650,23 @@ export default function Home() {
                       Access zoning regulations, setback requirements, height limits, and site coverage rules for Edmonton, Calgary, Airdrie, Lethbridge, and Vancouver. Use the compliance calculators to verify your development meets municipal requirements.
                     </p>
                     <MunicipalBylawsCalculator />
+                  </section>
+                  <section className="mt-8">
+                    <SetbackDiagramGenerator />
+                  </section>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="drawing-analysis" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <FileImage className="w-5 h-5" /> Drawing Analysis Tool
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Upload architectural drawings, add dimension annotations, and check compliance against municipal bylaws. Measure setbacks, building footprints, and lot dimensions directly on your drawings.
+                    </p>
+                    <DrawingAnalysis />
                   </section>
                 </div>
               </TabsContent>
