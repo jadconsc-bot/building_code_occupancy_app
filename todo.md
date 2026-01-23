@@ -105,6 +105,8 @@
 ## 🐛 Known Issues
 - [x] Fix main tabs background color that was lost during React error #185 fix
 - [x] Consolidate Print Guide, Export PDF, Export Checklist, Beta Feedback into single 'Exp Results' popover on mobile
+- [x] Fix speech recognition failure in DrawingAnalysis.tsx - corrected indentation so all recognition event handlers are inside the try block
+- [x] Fix canvas image display bug in DrawingAnalysis.tsx - added imageLoaded check to drawCanvas function to ensure image is drawn only after fully loaded
 
 ## 📚 Documentation Needs
 - [ ] User guide for Inspector Checklist
@@ -1376,3 +1378,16 @@
 - [x] Fix canvas not displaying uploaded image (added imageLoaded state trigger)
 - [x] Ensure image is visible after upload (verified drawCanvas dependencies include imageLoaded)
 - [x] Test image interaction (zoom, pan, annotations) - verified code structure is correct
+
+
+## Bug Fixes - Session 2 (Jan 23, 2026)
+
+### Speech Recognition Fix
+- [ ] Fix recognition.onresult indentation issue causing scope error
+- [ ] Verify speech recognition works after fix
+
+### Drawing Canvas Display Fix  
+- [ ] Fix image not displaying on canvas after upload
+- [ ] Add immediate draw on image load before state updates
+- [ ] Add error handling for image load failures
+- [ ] Test with real image upload

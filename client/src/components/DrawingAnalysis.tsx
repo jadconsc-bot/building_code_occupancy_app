@@ -297,8 +297,8 @@ export function DrawingAnalysis() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw image
-    if (imageRef.current) {
+    // Draw image only when loaded and ref is available
+    if (imageLoaded && imageRef.current) {
       ctx.save();
       ctx.translate(pan.x, pan.y);
       ctx.scale(zoom, zoom);

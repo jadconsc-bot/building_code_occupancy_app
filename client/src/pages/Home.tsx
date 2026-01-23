@@ -715,61 +715,61 @@ export default function Home() {
         }
       };
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript.toLowerCase();
-      
-      // Synonym mapping
-      let command = transcript;
-      if (command.includes("wiring") || command.includes("lights") || command.includes("power")) command = command.replace(/wiring|lights|power/g, "electrical");
-      if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
-      if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
-      if (command.includes("solar") || command.includes("green") || command.includes("ev") || command.includes("renewable")) command = command.replace(/solar|green|ev|renewable/g, "sustainability");
-      if (command.includes("fire") || command.includes("safety") || command.includes("sprinkler") || command.includes("alarm")) command = command.replace(/fire|safety|sprinkler|alarm/g, "fire");
-      if (command.includes("design") || command.includes("calculator") || command.includes("tool")) command = command.replace(/design|calculator|tool/g, "design");
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        
+        // Synonym mapping
+        let command = transcript;
+        if (command.includes("wiring") || command.includes("lights") || command.includes("power")) command = command.replace(/wiring|lights|power/g, "electrical");
+        if (command.includes("drainage") || command.includes("pipes") || command.includes("water")) command = command.replace(/drainage|pipes|water/g, "plumbing");
+        if (command.includes("reno") || command.includes("extension")) command = command.replace(/reno|extension/g, "additions");
+        if (command.includes("solar") || command.includes("green") || command.includes("ev") || command.includes("renewable")) command = command.replace(/solar|green|ev|renewable/g, "sustainability");
+        if (command.includes("fire") || command.includes("safety") || command.includes("sprinkler") || command.includes("alarm")) command = command.replace(/fire|safety|sprinkler|alarm/g, "fire");
+        if (command.includes("design") || command.includes("calculator") || command.includes("tool")) command = command.replace(/design|calculator|tool/g, "design");
 
-      // Check for tab navigation commands
-      if (command.includes("plumbing")) {
-        setActiveTab("plumbing");
-        const cleanQuery = command.replace("plumbing", "").trim();
-        if (cleanQuery) {
-          setSearchQuery(cleanQuery);
-          const match = occupancyData.find(g => 
-            g.name.toLowerCase().includes(cleanQuery) || 
-            g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
-          );
-          if (match) setSelectedGroup(match);
+        // Check for tab navigation commands
+        if (command.includes("plumbing")) {
+          setActiveTab("plumbing");
+          const cleanQuery = command.replace("plumbing", "").trim();
+          if (cleanQuery) {
+            setSearchQuery(cleanQuery);
+            const match = occupancyData.find(g => 
+              g.name.toLowerCase().includes(cleanQuery) || 
+              g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
+            );
+            if (match) setSelectedGroup(match);
+          }
+        } else if (command.includes("electrical")) {
+          setActiveTab("electrical");
+          const cleanQuery = command.replace("electrical", "").trim();
+          if (cleanQuery) {
+            setSearchQuery(cleanQuery);
+            const match = occupancyData.find(g => 
+              g.name.toLowerCase().includes(cleanQuery) || 
+              g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
+            );
+            if (match) setSelectedGroup(match);
+          }
+        } else if (command.includes("additions") || command.includes("deck") || command.includes("garage")) {
+          setActiveTab("additions");
+          const cleanQuery = command.replace("additions", "").trim();
+          if (cleanQuery) setSearchQuery(cleanQuery);
+        } else if (command.includes("sustainability") || command.includes("solar") || command.includes("ev") || command.includes("tankless")) {
+          setActiveTab("sustainability");
+          const cleanQuery = command.replace("sustainability", "").trim();
+          if (cleanQuery) setSearchQuery(cleanQuery);
+        } else if (command.includes("fire") || command.includes("safety")) {
+          setActiveTab("fire");
+          const cleanQuery = command.replace(/fire|safety/g, "").trim();
+          if (cleanQuery) setSearchQuery(cleanQuery);
+        } else if (command.includes("design") || command.includes("calculator")) {
+          setActiveTab("design");
+          const cleanQuery = command.replace(/design|calculator/g, "").trim();
+          if (cleanQuery) setSearchQuery(cleanQuery);
+        } else {
+          setSearchQuery(transcript);
         }
-      } else if (command.includes("electrical")) {
-        setActiveTab("electrical");
-        const cleanQuery = command.replace("electrical", "").trim();
-        if (cleanQuery) {
-          setSearchQuery(cleanQuery);
-          const match = occupancyData.find(g => 
-            g.name.toLowerCase().includes(cleanQuery) || 
-            g.examples.some(ex => ex.toLowerCase().includes(cleanQuery))
-          );
-          if (match) setSelectedGroup(match);
-        }
-      } else if (command.includes("additions") || command.includes("deck") || command.includes("garage")) {
-        setActiveTab("additions");
-        const cleanQuery = command.replace("additions", "").trim();
-        if (cleanQuery) setSearchQuery(cleanQuery);
-      } else if (command.includes("sustainability") || command.includes("solar") || command.includes("ev") || command.includes("tankless")) {
-        setActiveTab("sustainability");
-        const cleanQuery = command.replace("sustainability", "").trim();
-        if (cleanQuery) setSearchQuery(cleanQuery);
-      } else if (command.includes("fire") || command.includes("safety")) {
-        setActiveTab("fire");
-        const cleanQuery = command.replace(/fire|safety/g, "").trim();
-        if (cleanQuery) setSearchQuery(cleanQuery);
-      } else if (command.includes("design") || command.includes("calculator")) {
-        setActiveTab("design");
-        const cleanQuery = command.replace(/design|calculator/g, "").trim();
-        if (cleanQuery) setSearchQuery(cleanQuery);
-      } else {
-        setSearchQuery(transcript);
-      }
-    };
+      };
 
       recognition.start();
     } catch (err: any) {
