@@ -1607,3 +1607,14 @@
 - [x] Test circle drawing tool
 - [x] Test canvas lock feature
 - [x] All 506 tests passing
+
+
+## Critical Bug Fix (Jan 23, 2026)
+- [ ] Fix drawing not appearing on mobile devices (iPhone) - strokes not rendering on canvas
+
+
+## Mobile Drawing Analysis Bug Fix (Jan 23, 2026)
+- [x] Fix drawing not appearing on mobile devices (iPhone) - strokes not rendering on canvas
+  - Fixed canvas className to use dynamic touch-action based on lock state
+  - Added isCanvasLocked=true when starting blank drawing for mobile support
+  - Updated drawCanvas to draw strokes even while image is loading

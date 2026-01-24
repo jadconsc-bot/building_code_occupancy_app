@@ -432,7 +432,10 @@ export function DrawingAnalysis() {
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx || !drawingImage) return;
+    if (!canvas || !ctx) return;
+    
+    // Skip if no drawing image set yet
+    if (!drawingImage) return;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -456,14 +459,14 @@ export function DrawingAnalysis() {
       ctx.restore();
     }
 
-    // Draw freehand drawing strokes if visible
+    // Draw freehand drawing strokes if visible (always draw, even while image is loading)
     if (showDrawingLayer && drawingStrokes.length > 0) {
       drawingStrokes.forEach((stroke) => {
         drawStroke(ctx, stroke);
       });
     }
 
-    // Draw current stroke being drawn
+    // Draw current stroke being drawn (always draw for live preview)
     if (currentStroke && currentStroke.points.length > 0) {
       drawStroke(ctx, currentStroke);
     }
@@ -2054,6 +2057,7 @@ export function DrawingAnalysis() {
                   setDrawingImage(canvas.toDataURL('image/png'));
                   setFileName('New Drawing');
                   setIsDrawMode(true);
+                  setIsCanvasLocked(true); // Lock canvas for mobile drawing
                   setDrawingStrokes([]);
                   setDrawingHistory([[]]);
                   setHistoryIndex(0);
@@ -2575,7 +2579,7 @@ export function DrawingAnalysis() {
                 >
                   <canvas
                     ref={canvasRef}
-                    className="w-full h-full cursor-crosshair touch-none"
+                    className={`w-full h-full cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
