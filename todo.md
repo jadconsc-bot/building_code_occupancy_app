@@ -1627,3 +1627,24 @@
   - Immediate drawing in touchstart and touchmove for pen tool
   - State updates still happen for persistence and undo/redo
   - Reset lastTouchPointRef and call drawCanvas on touchend
+
+
+## Deep Dive: Mobile Drawing Not Working (Jan 24, 2026)
+- [ ] Create minimal test page to isolate mobile drawing issue
+- [ ] Add debug logging to track touch events on mobile
+- [ ] Compare DrawingAnalysis with working reference code line by line
+- [ ] Identify root cause of mobile drawing failure
+- [ ] Implement and test fix
+
+
+## Deep Dive: Mobile Drawing Investigation (Jan 24, 2026)
+- [x] Create minimal test page to isolate mobile drawing issue
+- [x] Add debug logging to track touch events on mobile
+- [x] Compare DrawingAnalysis implementation with working reference code
+- [x] Identify and fix the root cause - React state updates during drawing caused canvas to clear
+- [x] Implemented ref-based drawing pattern to avoid re-renders during active drawing
+  - Added currentStrokeRef to track stroke during drawing without triggering re-renders
+  - Added isDrawingRef to track drawing state without re-renders
+  - Modified touch/mouse handlers to use refs instead of state during active drawing
+  - State is only updated on touch/mouse end to commit the completed stroke
+- [ ] Test and verify fix works on mobile (user testing required)

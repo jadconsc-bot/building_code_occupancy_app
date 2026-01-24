@@ -242,6 +242,8 @@ export function DrawingAnalysis() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const lastTouchPointRef = useRef<Point | null>(null); // For immediate drawing on mobile
+  const currentStrokeRef = useRef<DrawingStroke | null>(null); // Ref for current stroke to avoid re-renders during drawing
+  const isDrawingRef = useRef(false); // Track drawing state without re-renders
   
   // tRPC mutation for AI analysis
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
@@ -1222,10 +1224,12 @@ export function DrawingAnalysis() {
       return;
     }
 
-    // Handle drawing mode
+    // Handle drawing mode - use refs to avoid re-renders during drawing
     if (isDrawMode && drawingTool !== "eraser") {
-      setIsDrawingStroke(true);
+      isDrawingRef.current = true;
+      setIsDrawingStroke(true); // Keep state for UI indicators
       setDrawingStartPoint({ x, y });
+      lastTouchPointRef.current = { x, y };
       
       const newStroke: DrawingStroke = {
         id: `stroke-${Date.now()}`,
@@ -1234,7 +1238,8 @@ export function DrawingAnalysis() {
         color: strokeColor,
         width: strokeWidth,
       };
-      setCurrentStroke(newStroke);
+      currentStrokeRef.current = newStroke;
+      // Don't call setCurrentStroke - it triggers re-renders!
       return;
     }
 
@@ -1323,32 +1328,61 @@ export function DrawingAnalysis() {
       const dy = e.clientY - lastPanPoint.y;
       setPan({ x: pan.x + dx, y: pan.y + dy });
       setLastPanPoint({ x: e.clientX, y: e.clientY });
-    } else if (isDrawingStroke && currentStroke && drawingStartPoint) {
-      // Update current stroke based on drawing tool
+    } else if (isDrawingRef.current && currentStrokeRef.current && drawingStartPoint) {
+      // Use refs to avoid re-renders during drawing
+      const canvas = canvasRef.current;
       if (drawingTool === "pen") {
-        // Freehand: add point to stroke
-        setCurrentStroke({
-          ...currentStroke,
-          points: [...currentStroke.points, { x, y }],
-        });
+        // IMMEDIATE DRAWING: Draw line segment directly to canvas
+        if (canvas && lastTouchPointRef.current) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.save();
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(lastTouchPointRef.current.x * zoom + pan.x, lastTouchPointRef.current.y * zoom + pan.y);
+            ctx.lineTo(x * zoom + pan.x, y * zoom + pan.y);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+        lastTouchPointRef.current = { x, y };
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
+          points: [...currentStrokeRef.current.points, { x, y }],
+        };
       } else if (drawingTool === "line" || drawingTool === "rectangle" || drawingTool === "circle") {
-        // Line/Rectangle/Circle: update end point
-        setCurrentStroke({
-          ...currentStroke,
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
           points: [drawingStartPoint, { x, y }],
-        });
+        };
+        drawCanvas();
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx && currentStrokeRef.current) {
+            drawStroke(ctx, currentStrokeRef.current);
+          }
+        }
       } else if (drawingTool === "polygon") {
-        // Polygon: update last point during drag
-        const points = [...currentStroke.points];
+        const points = [...currentStrokeRef.current.points];
         if (points.length > 1) {
           points[points.length - 1] = { x, y };
         } else {
           points.push({ x, y });
         }
-        setCurrentStroke({
-          ...currentStroke,
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
           points,
-        });
+        };
+        drawCanvas();
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx && currentStrokeRef.current) {
+            drawStroke(ctx, currentStrokeRef.current);
+          }
+        }
       }
     } else if (isDraggingDimension && dragStartPoint) {
       // Update drag current point for live preview
@@ -1373,18 +1407,30 @@ export function DrawingAnalysis() {
       return;
     }
 
-    // Handle drawing mode mouse up
-    if (isDrawingStroke && currentStroke) {
-      // Finalize the stroke
-      if (currentStroke.points.length >= 2 || 
-          (currentStroke.type === "freehand" && currentStroke.points.length >= 2)) {
-        const newStrokes = [...drawingStrokes, currentStroke];
+    // Handle drawing mode mouse up - commit stroke from ref to state
+    if (isDrawingRef.current && currentStrokeRef.current) {
+      // Reset refs
+      lastTouchPointRef.current = null;
+      isDrawingRef.current = false;
+      
+      const completedStroke = currentStrokeRef.current;
+      
+      // Only save strokes with at least 2 points
+      if (completedStroke.points.length >= 2 || 
+          (completedStroke.type === "freehand" && completedStroke.points.length >= 2)) {
+        const newStrokes = [...drawingStrokes, completedStroke];
         setDrawingStrokes(newStrokes);
         addToHistory(newStrokes);
       }
+      
+      // Clear refs and state
+      currentStrokeRef.current = null;
       setCurrentStroke(null);
       setIsDrawingStroke(false);
       setDrawingStartPoint(null);
+      
+      // Redraw canvas
+      drawCanvas();
       return;
     }
 
@@ -1481,14 +1527,17 @@ export function DrawingAnalysis() {
     const x = (touch.clientX - rect.left - pan.x) / zoom;
     const y = (touch.clientY - rect.top - pan.y) / zoom;
 
-    // Handle drawing mode
+    // Handle drawing mode - use refs to avoid re-renders during drawing
     if (isDrawMode && drawingTool !== "eraser") {
-      setIsDrawingStroke(true);
+      // Use refs instead of state to prevent re-renders during drawing
+      isDrawingRef.current = true;
+      setIsDrawingStroke(true); // Keep state for UI indicators
       setDrawingStartPoint({ x, y });
       
       // Store last touch point for immediate drawing on mobile
       lastTouchPointRef.current = { x, y };
       
+      // Create stroke in ref (not state) to avoid triggering drawCanvas
       const newStroke: DrawingStroke = {
         id: `stroke-${Date.now()}`,
         type: drawingTool === "pen" ? "freehand" : drawingTool,
@@ -1496,9 +1545,10 @@ export function DrawingAnalysis() {
         color: strokeColor,
         width: strokeWidth,
       };
-      setCurrentStroke(newStroke);
+      currentStrokeRef.current = newStroke;
+      // Don't call setCurrentStroke here - it triggers re-renders!
       
-      // For pen tool, draw initial point immediately to canvas for instant feedback
+      // For pen tool, draw initial point immediately to canvas
       if (drawingTool === "pen") {
         const ctx = canvas.getContext("2d");
         if (ctx) {
@@ -1601,7 +1651,8 @@ export function DrawingAnalysis() {
       const dy = touch.clientY - lastPanPoint.y;
       setPan({ x: pan.x + dx, y: pan.y + dy });
       setLastPanPoint({ x: touch.clientX, y: touch.clientY });
-    } else if (isDrawingStroke && currentStroke && drawingStartPoint) {
+    } else if (isDrawingRef.current && currentStrokeRef.current && drawingStartPoint) {
+      // Use refs to avoid re-renders during drawing
       if (drawingTool === "pen") {
         // IMMEDIATE DRAWING: Draw line segment directly to canvas for instant mobile feedback
         const ctx = canvas.getContext("2d");
@@ -1620,27 +1671,41 @@ export function DrawingAnalysis() {
         // Update last touch point for next segment
         lastTouchPointRef.current = { x, y };
         
-        // Also update state for persistence (but don't rely on it for visual feedback)
-        setCurrentStroke({
-          ...currentStroke,
-          points: [...currentStroke.points, { x, y }],
-        });
+        // Update ref (not state!) to track points for persistence
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
+          points: [...currentStrokeRef.current.points, { x, y }],
+        };
+        // NO setCurrentStroke here - that triggers re-renders and clears the canvas!
       } else if (drawingTool === "line" || drawingTool === "rectangle" || drawingTool === "circle") {
-        setCurrentStroke({
-          ...currentStroke,
+        // For shape tools, update ref and redraw preview
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
           points: [drawingStartPoint, { x, y }],
-        });
+        };
+        // Redraw canvas to show shape preview
+        drawCanvas();
+        // Draw the current shape on top
+        const ctx = canvas.getContext("2d");
+        if (ctx && currentStrokeRef.current) {
+          drawStroke(ctx, currentStrokeRef.current);
+        }
       } else if (drawingTool === "polygon") {
-        const points = [...currentStroke.points];
+        const points = [...currentStrokeRef.current.points];
         if (points.length > 1) {
           points[points.length - 1] = { x, y };
         } else {
           points.push({ x, y });
         }
-        setCurrentStroke({
-          ...currentStroke,
+        currentStrokeRef.current = {
+          ...currentStrokeRef.current,
           points,
-        });
+        };
+        drawCanvas();
+        const ctx = canvas.getContext("2d");
+        if (ctx && currentStrokeRef.current) {
+          drawStroke(ctx, currentStrokeRef.current);
+        }
       }
     } else if (isDraggingDimension && dragStartPoint) {
       setDragCurrentPoint({ x, y });
@@ -1669,17 +1734,24 @@ export function DrawingAnalysis() {
       return;
     }
 
-    // Handle drawing mode touch end
-    if (isDrawingStroke && currentStroke) {
-      // Reset last touch point ref
+    // Handle drawing mode touch end - commit stroke from ref to state
+    if (isDrawingRef.current && currentStrokeRef.current) {
+      // Reset refs
       lastTouchPointRef.current = null;
+      isDrawingRef.current = false;
       
-      if (currentStroke.points.length >= 2 || 
-          (currentStroke.type === "freehand" && currentStroke.points.length >= 2)) {
-        const newStrokes = [...drawingStrokes, currentStroke];
+      const completedStroke = currentStrokeRef.current;
+      
+      // Only save strokes with at least 2 points
+      if (completedStroke.points.length >= 2 || 
+          (completedStroke.type === "freehand" && completedStroke.points.length >= 2)) {
+        const newStrokes = [...drawingStrokes, completedStroke];
         setDrawingStrokes(newStrokes);
         addToHistory(newStrokes);
       }
+      
+      // Clear refs and state
+      currentStrokeRef.current = null;
       setCurrentStroke(null);
       setIsDrawingStroke(false);
       setDrawingStartPoint(null);
