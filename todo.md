@@ -1648,3 +1648,11 @@
   - Modified touch/mouse handlers to use refs instead of state during active drawing
   - State is only updated on touch/mouse end to commit the completed stroke
 - [ ] Test and verify fix works on mobile (user testing required)
+
+
+## Disable Drawing Analysis on Mobile (Jan 24, 2026)
+- [x] Add mobile detection hook to DrawingAnalysis component
+- [x] Disable all drawing canvas functionality on mobile devices
+- [x] Show user-friendly message explaining feature is desktop-only
+- [x] Keep all drawing features fully functional on desktop
+- [x] Remove mobile-drawing-test page (no longer needed)

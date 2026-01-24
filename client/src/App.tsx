@@ -11,14 +11,12 @@ import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
-import MobileDrawingTest from "./pages/MobileDrawingTest";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/mobile-drawing-test"} component={MobileDrawingTest} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
