@@ -241,6 +241,7 @@ export function DrawingAnalysis() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const lastTouchPointRef = useRef<Point | null>(null); // For immediate drawing on mobile
   
   // tRPC mutation for AI analysis
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
@@ -1485,6 +1486,9 @@ export function DrawingAnalysis() {
       setIsDrawingStroke(true);
       setDrawingStartPoint({ x, y });
       
+      // Store last touch point for immediate drawing on mobile
+      lastTouchPointRef.current = { x, y };
+      
       const newStroke: DrawingStroke = {
         id: `stroke-${Date.now()}`,
         type: drawingTool === "pen" ? "freehand" : drawingTool,
@@ -1493,6 +1497,23 @@ export function DrawingAnalysis() {
         width: strokeWidth,
       };
       setCurrentStroke(newStroke);
+      
+      // For pen tool, draw initial point immediately to canvas for instant feedback
+      if (drawingTool === "pen") {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.save();
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = strokeWidth;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(x * zoom + pan.x, y * zoom + pan.y);
+          ctx.lineTo(x * zoom + pan.x, y * zoom + pan.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
       return;
     }
 
@@ -1582,6 +1603,24 @@ export function DrawingAnalysis() {
       setLastPanPoint({ x: touch.clientX, y: touch.clientY });
     } else if (isDrawingStroke && currentStroke && drawingStartPoint) {
       if (drawingTool === "pen") {
+        // IMMEDIATE DRAWING: Draw line segment directly to canvas for instant mobile feedback
+        const ctx = canvas.getContext("2d");
+        if (ctx && lastTouchPointRef.current) {
+          ctx.save();
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = strokeWidth;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(lastTouchPointRef.current.x * zoom + pan.x, lastTouchPointRef.current.y * zoom + pan.y);
+          ctx.lineTo(x * zoom + pan.x, y * zoom + pan.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Update last touch point for next segment
+        lastTouchPointRef.current = { x, y };
+        
+        // Also update state for persistence (but don't rely on it for visual feedback)
         setCurrentStroke({
           ...currentStroke,
           points: [...currentStroke.points, { x, y }],
@@ -1632,6 +1671,9 @@ export function DrawingAnalysis() {
 
     // Handle drawing mode touch end
     if (isDrawingStroke && currentStroke) {
+      // Reset last touch point ref
+      lastTouchPointRef.current = null;
+      
       if (currentStroke.points.length >= 2 || 
           (currentStroke.type === "freehand" && currentStroke.points.length >= 2)) {
         const newStrokes = [...drawingStrokes, currentStroke];
@@ -1641,6 +1683,9 @@ export function DrawingAnalysis() {
       setCurrentStroke(null);
       setIsDrawingStroke(false);
       setDrawingStartPoint(null);
+      
+      // Redraw canvas to ensure all strokes are properly rendered
+      drawCanvas();
       return;
     }
 

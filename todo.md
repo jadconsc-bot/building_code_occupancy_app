@@ -1618,3 +1618,12 @@
   - Fixed canvas className to use dynamic touch-action based on lock state
   - Added isCanvasLocked=true when starting blank drawing for mobile support
   - Updated drawCanvas to draw strokes even while image is loading
+
+
+## Mobile Drawing Fix - Reference Code Analysis (Jan 24, 2026)
+- [x] Fix mobile touch drawing based on reference DrawingCanvas code
+  - Applied direct canvas context drawing pattern (draw immediately on touch move)
+  - Added lastTouchPointRef to track previous touch point for line segments
+  - Immediate drawing in touchstart and touchmove for pen tool
+  - State updates still happen for persistence and undo/redo
+  - Reset lastTouchPointRef and call drawCanvas on touchend
