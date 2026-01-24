@@ -7,6 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, Calculator, Download } from "lucide-react";
 import { exportOccupantLoadToExcel } from "@/lib/excelExport";
+import { 
+  ComplianceBadge, 
+  CodeReference, 
+  ClarificationPanel, 
+  WhyImportant,
+  RelatedRequirements,
+  DidYouConsider,
+  CalculatorReview
+} from "@/components/FiveCsComponents";
 
 // NBC Table 3.1.17.1 - Occupant Load
 interface OccupantLoadData {
@@ -240,6 +249,73 @@ export function OccupantLoadCalculator() {
                 Export to Excel
               </Button>
             </div>
+          )}
+
+          {/* 5 C's: COMPLIANCE - Code Reference */}
+          <CodeReference 
+            code="NBC 3.1.17"
+            title="Occupant Load"
+            description="Table 3.1.17.1 - Floor Area per Person for Occupant Load Determination"
+          />
+
+          {/* 5 C's: CLARIFICATION - Why Important */}
+          <WhyImportant
+            reason="Occupant load is the foundation for all life safety calculations - it determines how many exits you need, how wide they must be, and what fire protection systems are required."
+            consequences="Underestimating occupant load can result in inadequate exits, leading to dangerous crowding during emergencies and potential loss of life."
+            example="A 500 m² restaurant with standing areas needs exits sized for 416 people (500÷1.2), not 109 people (500÷4.6 for dining)."
+          />
+
+          {/* 5 C's: CLARIFICATION - Plain Language Explanation */}
+          <ClarificationPanel title="What does this mean in practice?">
+            <p>
+              <strong>Occupant load</strong> is the maximum number of people a space is designed to accommodate safely. It's calculated by dividing the floor area by a factor that depends on how the space is used.
+            </p>
+            <p className="mt-2">
+              <strong>Why different factors?</strong> Standing areas (concerts, bars) pack people more densely than seated dining areas, which are denser than office spaces. The code accounts for these differences.
+            </p>
+            <p className="mt-2">
+              <strong>Important:</strong> This is a minimum calculation. If you know your space will regularly exceed this number, you must design for the actual expected occupancy.
+            </p>
+          </ClarificationPanel>
+
+          {/* 5 C's: CONNECTION - Related Requirements */}
+          <RelatedRequirements
+            title="What Occupant Load Affects"
+            requirements={[
+              {
+                title: "Number of Exits",
+                codeRef: "NBC 3.4.2.1",
+                description: "Occupant load > 60 requires minimum 2 exits; > 500 may require 3+"
+              },
+              {
+                title: "Exit Width",
+                codeRef: "NBC 3.4.3.2",
+                description: "Exit width must accommodate all occupants (typically 6.1mm per person)"
+              },
+              {
+                title: "Plumbing Fixtures",
+                codeRef: "NBC 3.7.2",
+                description: "Number of washrooms based on occupant load"
+              },
+              {
+                title: "Sprinkler Requirements",
+                codeRef: "NBC 3.2.5",
+                description: "Occupant load > 300 in assembly may trigger sprinkler requirement"
+              }
+            ]}
+          />
+
+          {/* 5 C's: CHECKBACK - Did You Consider */}
+          {result.occupantLoad > 0 && (
+            <DidYouConsider
+              items={[
+                "Does this space have multiple use types? Calculate each area separately.",
+                "Are there any fixed seats? Count actual seats instead of using area method.",
+                "Will actual occupancy regularly exceed this calculated load?",
+                "Have you included all floor levels served by common exits?",
+                "Are mezzanines and balconies included in the total area?"
+              ]}
+            />
           )}
 
           {/* Reference */}

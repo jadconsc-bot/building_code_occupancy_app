@@ -7,6 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DoorOpen, AlertCircle, Download } from "lucide-react";
 import { exportExitRequirementsToExcel } from "@/lib/excelExport";
+import { 
+  ComplianceBadge, 
+  CodeReference, 
+  ClarificationPanel, 
+  WhyImportant,
+  RelatedRequirements,
+  DidYouConsider,
+  CheckbackPrompt
+} from "@/components/FiveCsComponents";
 
 export function ExitRequirementsCalculator() {
   const [occupantLoad, setOccupantLoad] = useState<string>("");
@@ -256,6 +265,73 @@ export function ExitRequirementsCalculator() {
                 Export to Excel
               </Button>
             </div>
+          )}
+
+          {/* 5 C's: COMPLIANCE - Code Reference */}
+          <CodeReference 
+            code="NBC 3.4.2, 3.4.3"
+            title="Exit Requirements"
+            description="Number of exits and width/capacity requirements for means of egress"
+          />
+
+          {/* 5 C's: CLARIFICATION - Why Important */}
+          <WhyImportant
+            reason="Adequate exits are the last line of defense in an emergency. Properly sized and located exits allow all occupants to evacuate safely before conditions become untenable."
+            consequences="Insufficient exits or inadequate exit width can cause fatal bottlenecks during evacuation, as tragically demonstrated in historical fire disasters."
+            example="The Station Nightclub fire (2003) killed 100 people partly because exits were inadequate for the 462 occupants - a stark reminder of why these calculations matter."
+          />
+
+          {/* 5 C's: CLARIFICATION - Plain Language Explanation */}
+          <ClarificationPanel title="What does this mean in practice?">
+            <p>
+              <strong>Number of exits:</strong> More people means more exits. This ensures that if one exit is blocked by fire or smoke, occupants have alternative escape routes.
+            </p>
+            <p className="mt-2">
+              <strong>Exit width:</strong> Wider exits allow more people to pass through quickly. The code calculates this based on how fast people can move through doorways and stairs.
+            </p>
+            <p className="mt-2">
+              <strong>Remote location:</strong> Exits must be separated so that a single fire can't block all escape routes. Generally, exits should be at least half the diagonal distance of the floor apart.
+            </p>
+          </ClarificationPanel>
+
+          {/* 5 C's: CONNECTION - Related Requirements */}
+          <RelatedRequirements
+            title="Related Exit Requirements"
+            requirements={[
+              {
+                title: "Travel Distance",
+                codeRef: "NBC 3.4.2.5",
+                description: "Maximum distance from any point to nearest exit"
+              },
+              {
+                title: "Exit Signs",
+                codeRef: "NBC 3.4.5",
+                description: "Illuminated exit signs required at all exits"
+              },
+              {
+                title: "Emergency Lighting",
+                codeRef: "NBC 3.2.7",
+                description: "Emergency lighting in exit paths for power failures"
+              },
+              {
+                title: "Panic Hardware",
+                codeRef: "NBC 3.4.6.15",
+                description: "Required on exit doors serving > 100 persons in assembly"
+              }
+            ]}
+          />
+
+          {/* 5 C's: CHECKBACK - Did You Consider */}
+          {result.numExits > 0 && (
+            <DidYouConsider
+              items={[
+                "Are exits located remotely from each other (at least 1/2 diagonal distance apart)?",
+                "Do exit doors swing in the direction of travel when serving > 60 persons?",
+                "Is there a clear, unobstructed path to each exit?",
+                "Are exit stairs enclosed with fire-rated construction?",
+                "Have you checked travel distance from the most remote point?"
+              ]}
+            />
           )}
 
           {/* Reference */}

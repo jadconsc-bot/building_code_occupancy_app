@@ -6,6 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Flame, AlertTriangle, Download } from "lucide-react";
 import { exportFireSeparationToExcel } from "@/lib/excelExport";
+import { 
+  ComplianceBadge, 
+  CodeReference, 
+  ClarificationPanel, 
+  WhyImportant,
+  RelatedRequirements,
+  DidYouConsider 
+} from "@/components/FiveCsComponents";
 
 // NBC Table 3.1.3.1 - Fire Separation Requirements
 const fireSeparationData: Record<string, Record<string, string>> = {
@@ -395,6 +403,75 @@ export function FireSeparationCalculator() {
                 Export to Excel
               </Button>
             </div>
+          )}
+
+          {/* 5 C's: COMPLIANCE - Code Reference */}
+          <CodeReference 
+            code="NBC 3.2.3"
+            title="Fire Separations"
+            description="Requirements for fire-rated separations between major occupancies"
+          />
+
+          {/* 5 C's: CLARIFICATION - Why Important */}
+          {occupancy1 && occupancy2 && result.severity !== "low" && (
+            <WhyImportant
+              reason="Fire separations prevent the spread of fire and smoke between different occupancy types, giving occupants time to evacuate safely."
+              consequences="Inadequate fire separation can lead to rapid fire spread, endangering lives and causing catastrophic property damage."
+              example="A 2-hour fire separation between a restaurant (A-2) and detention facility (B-1) provides critical protection for occupants who cannot self-evacuate."
+            />
+          )}
+
+          {/* 5 C's: CLARIFICATION - Plain Language Explanation */}
+          <ClarificationPanel title="What does this mean in practice?">
+            <p>
+              A <strong>fire separation</strong> is a construction assembly (wall, floor, or ceiling) that acts as a barrier to prevent fire and smoke from spreading between different areas of a building.
+            </p>
+            <p className="mt-2">
+              The <strong>fire resistance rating</strong> (e.g., "1 hour" or "2 hours") indicates how long the assembly can withstand fire exposure while maintaining its structural integrity and preventing fire passage.
+            </p>
+            <p className="mt-2">
+              Higher-risk occupancy combinations (like assembly spaces next to detention facilities) require longer fire resistance ratings because occupants may have difficulty evacuating quickly.
+            </p>
+          </ClarificationPanel>
+
+          {/* 5 C's: CONNECTION - Related Requirements */}
+          <RelatedRequirements
+            title="Related Code Requirements"
+            requirements={[
+              {
+                title: "Fire-Rated Doors",
+                codeRef: "NBC 3.1.8",
+                description: "Openings in fire separations require fire-rated door assemblies"
+              },
+              {
+                title: "Fire Dampers",
+                codeRef: "NBC 3.1.9",
+                description: "HVAC penetrations through fire separations require fire dampers"
+              },
+              {
+                title: "Sprinkler Systems",
+                codeRef: "NBC 3.2.5",
+                description: "Sprinkler systems may allow reduced fire separation ratings"
+              },
+              {
+                title: "Fireblocking",
+                codeRef: "NBC 3.1.11",
+                description: "Concealed spaces must have fireblocking to prevent fire spread"
+              }
+            ]}
+          />
+
+          {/* 5 C's: CHECKBACK - Did You Consider */}
+          {occupancy1 && occupancy2 && (
+            <DidYouConsider
+              items={[
+                "Are there any openings (doors, ducts, pipes) that penetrate this fire separation?",
+                "Does the fire separation extend continuously from floor to roof/floor above?",
+                "Are all penetrations properly firestopped with listed assemblies?",
+                "Is the building fully sprinklered (may allow rating reductions)?",
+                "Have you verified this with the local Authority Having Jurisdiction (AHJ)?"
+              ]}
+            />
           )}
 
           {/* Reference */}

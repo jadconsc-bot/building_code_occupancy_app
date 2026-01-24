@@ -1656,3 +1656,52 @@
 - [x] Show user-friendly message explaining feature is desktop-only
 - [x] Keep all drawing features fully functional on desktop
 - [x] Remove mobile-drawing-test page (no longer needed)
+
+
+## 5 C's Principles Review (Jan 24, 2026)
+### Compliance
+- [ ] Review NBC code references throughout app
+- [ ] Verify compliance checking features are accurate
+- [ ] Ensure clear compliance status indicators
+
+### Clarification
+- [ ] Review help text and tooltips
+- [ ] Verify code explanations are clear
+- [ ] Check that technical terms are explained
+
+### Culture
+- [ ] Review Alberta/regional code adaptations
+- [ ] Verify local bylaw integration
+- [ ] Check municipal-specific requirements
+
+### Connection
+- [ ] Review how different sections link together
+- [ ] Verify cross-references between codes
+- [ ] Check navigation flow between related topics
+
+### Checkback
+- [ ] Review confirmation dialogs and feedback
+- [ ] Verify calculation result confirmations
+- [ ] Check progress tracking and status updates
+
+
+## 5 C's Principles Implementation (Jan 24, 2026) - COMPLETED
+- [x] Audit current app for 5 C's implementation
+- [x] Document findings and identify gaps
+- [x] Create FiveCsComponents.tsx with reusable components:
+  - ComplianceBadge - Visual compliance status indicators
+  - CodeReference - NBC code article references
+  - ComplianceSummary - Overall compliance status
+  - ClarificationPanel - Plain language explanations
+  - WhyImportant - Reason, consequences, examples
+  - ContextualHelp - Term definitions
+  - RegionalNote - Alberta-specific variations
+  - RelatedRequirements - Connected code sections
+  - SeeAlso - Navigation shortcuts
+  - DidYouConsider - Verification prompts
+  - CheckbackPrompt - Confirmation checkboxes
+  - CalculatorReview - Input verification
+- [x] Enhanced FireSeparationCalculator with all 5 C's
+- [x] Enhanced OccupantLoadCalculator with all 5 C's
+- [x] Enhanced ExitRequirementsCalculator with all 5 C's
+- [x] Added comprehensive tests (587 tests passing)
