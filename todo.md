@@ -1705,3 +1705,32 @@
 - [x] Enhanced OccupantLoadCalculator with all 5 C's
 - [x] Enhanced ExitRequirementsCalculator with all 5 C's
 - [x] Added comprehensive tests (587 tests passing)
+
+
+## UI Redesign & 5 C's Extension (Jan 24, 2026)
+- [ ] Update color palette to warm orange/brown construction theme
+  - Primary: Construction Orange (#E67E22 / #D35400)
+  - Secondary: Warm Brown (#8B4513 / #A0522D)
+  - Accent: Cream/Beige (#F5F5DC / #FAF0E6)
+  - Background: Light cream with orange accents
+- [ ] Redesign calculator cards with clean layout matching reference image
+  - Section headers with brown background
+  - Clean row-based data display
+  - Blue accent for editable values
+  - Cream/beige background for content areas
+- [ ] Extend 5 C's to Travel Distance Calculator
+- [ ] Extend 5 C's to Construction Type Selector
+- [ ] Extend 5 C's to structural calculators (Floor Joist, Beam, Rafter, Column)
+- [ ] Add Alberta regional notes (Edmonton, Calgary, Red Deer, Lethbridge)
+- [ ] Create interactive Review & Confirm checkback workflow for reports
+
+
+## UI Redesign & 5 C's Extension (Jan 24, 2026)
+- [x] Update color palette to warm orange/brown construction theme
+- [x] Create CalculatorCard component with new layout matching reference image
+- [x] Update OccupantLoadCalculator with new card layout and 5 C's
+- [x] Update TravelDistanceCalculator with new card layout and 5 C's
+- [ ] Update FireSeparationCalculator with new card layout and 5 C's
+- [ ] Update ExitRequirementsCalculator with new card layout and 5 C's
+- [ ] Add Alberta regional notes throughout app
+- [ ] Create interactive checkback workflow for reports

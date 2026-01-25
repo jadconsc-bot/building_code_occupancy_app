@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Calculator, Download } from "lucide-react";
+import { Users, Download, Info, AlertTriangle, CheckCircle2, MapPin } from "lucide-react";
 import { exportOccupantLoadToExcel } from "@/lib/excelExport";
+import { 
+  CalculatorCard, 
+  CalculatorSection, 
+  CalculatorRow, 
+  CalculatorInputRow,
+  CalculatorNotes,
+  CalculatorResult 
+} from "@/components/CalculatorCard";
 import { 
   ComplianceBadge, 
   CodeReference, 
@@ -14,7 +20,7 @@ import {
   WhyImportant,
   RelatedRequirements,
   DidYouConsider,
-  CalculatorReview
+  RegionalNote
 } from "@/components/FiveCsComponents";
 
 // NBC Table 3.1.17.1 - Occupant Load
@@ -83,250 +89,203 @@ export function OccupantLoadCalculator() {
   };
 
   const result = calculateOccupantLoad();
-  const areaInFeet = result.areaPerPerson * 10.764; // Convert m² to ft²
+  const areaInFeet = result.areaPerPerson * 10.764;
 
   return (
-    <Card className="rounded-none border-border shadow-sm">
-      <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Users className="w-4 h-4 text-primary" /> Occupant Load Calculator
-        </CardTitle>
-        <CardDescription className="text-xs mt-1">
-          Calculate required occupant load for egress design (NBC Part 3.1.17, Table 3.1.17.1)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-6">
-          {/* Input Controls */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="category" className="text-xs font-medium">
-                Occupancy Category
-              </Label>
-              <Select value={category} onValueChange={(value) => { setCategory(value); setSpaceType(""); }}>
-                <SelectTrigger id="category" className="rounded-none">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Assembly">Assembly (A)</SelectItem>
-                  <SelectItem value="Institutional">Institutional (B)</SelectItem>
-                  <SelectItem value="Residential">Residential (C)</SelectItem>
-                  <SelectItem value="Business">Business & Personal Services (D)</SelectItem>
-                  <SelectItem value="Mercantile">Mercantile (E)</SelectItem>
-                  <SelectItem value="Industrial">Industrial (F)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <CalculatorCard
+      subtitle="Life Safety Calculations"
+      title="Occupant Load Calculator"
+      description="Calculate required occupant load for egress design per NBC Part 3.1.17"
+    >
+      {/* INPUT SECTION */}
+      <CalculatorSection title="Job">
+        <CalculatorInputRow label="Occupancy Category">
+          <Select value={category} onValueChange={(value) => { setCategory(value); setSpaceType(""); }}>
+            <SelectTrigger className="w-48 h-8 text-accent font-semibold">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Assembly">Assembly (A)</SelectItem>
+              <SelectItem value="Institutional">Institutional (B)</SelectItem>
+              <SelectItem value="Residential">Residential (C)</SelectItem>
+              <SelectItem value="Business">Business (D)</SelectItem>
+              <SelectItem value="Mercantile">Mercantile (E)</SelectItem>
+              <SelectItem value="Industrial">Industrial (F)</SelectItem>
+            </SelectContent>
+          </Select>
+        </CalculatorInputRow>
 
-            {category && (
-              <div className="space-y-2">
-                <Label htmlFor="spaceType" className="text-xs font-medium">
-                  Space Type
-                </Label>
-                <Select value={spaceType} onValueChange={setSpaceType}>
-                  <SelectTrigger id="spaceType" className="rounded-none">
-                    <SelectValue placeholder="Select space type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSpaceTypes().map((space, index) => (
-                      <SelectItem key={index} value={space.description}>
-                        {space.description} ({space.area} m²/person)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+        {category && (
+          <CalculatorInputRow label="Space Type">
+            <Select value={spaceType} onValueChange={setSpaceType}>
+              <SelectTrigger className="w-64 h-8 text-accent font-semibold">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                {getSpaceTypes().map((space, index) => (
+                  <SelectItem key={index} value={space.description}>
+                    {space.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CalculatorInputRow>
+        )}
 
-            <div>
-              <NumericInput
-                id="floorArea"
-                label="Floor Area"
-                value={floorArea}
-                onChange={(e) => setFloorArea(e.target.value)}
-                placeholder="e.g., 500"
-                className="rounded-none"
-                min="1"
-                max="100000"
-                unit="m²"
-                showValidation={true}
-              />
-            </div>
+        <CalculatorInputRow label="Floor Area">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={floorArea}
+              onChange={(e) => setFloorArea(e.target.value)}
+              placeholder="500"
+              className="w-24 h-8 px-2 text-right text-accent font-semibold bg-transparent border-b border-border focus:border-accent focus:outline-none"
+            />
+            <span className="text-xs text-muted-foreground">m²</span>
           </div>
+        </CalculatorInputRow>
+      </CalculatorSection>
 
-          {/* Result Display */}
-          {result.occupantLoad > 0 && (
-            <>
-              <div className="p-6 border-l-4 border-primary bg-primary/5">
-                <div className="flex items-start gap-3">
-                  <Calculator className="w-5 h-5 text-primary mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold uppercase tracking-wider mb-3">
-                      Calculated Occupant Load
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Occupant Load</p>
-                        <p className="text-4xl font-bold text-primary">{result.occupantLoad}</p>
-                        <Badge variant="secondary" className="mt-2">persons</Badge>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Area per Person</p>
-                        <p className="text-2xl font-bold text-primary">{result.areaPerPerson} m²</p>
-                        <p className="text-sm text-muted-foreground mt-1">({areaInFeet.toFixed(1)} ft²)</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* CALCULATION SECTION */}
+      {result.occupantLoad > 0 && (
+        <>
+          <CalculatorSection title="Calculation">
+            <CalculatorRow 
+              label="Load Factor" 
+              value={result.areaPerPerson} 
+              unit="m²/person" 
+              highlight 
+            />
+            <CalculatorRow 
+              label="Load Factor (Imperial)" 
+              value={areaInFeet.toFixed(1)} 
+              unit="ft²/person" 
+            />
+            <CalculatorRow 
+              label="Floor Area" 
+              value={floorArea} 
+              unit="m²" 
+            />
+          </CalculatorSection>
 
-              {/* Calculation Breakdown */}
-              <div className="p-4 bg-muted/30 border border-border rounded-none">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">
-                  Calculation Method
-                </h4>
-                <div className="space-y-2 text-xs text-muted-foreground">
-                  <p>
-                    <strong>Formula:</strong> Occupant Load = Floor Area ÷ Area per Person
-                  </p>
-                  <p>
-                    <strong>Calculation:</strong> {floorArea} m² ÷ {result.areaPerPerson} m²/person = {result.occupantLoad} persons
-                  </p>
-                  <p className="text-xs text-muted-foreground italic mt-2">
-                    * Rounded up to nearest whole number per NBC requirements
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Important Notes */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
-              Important Notes
-            </h4>
-            <ul className="space-y-2 text-xs text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Occupant load determines required exit capacity and number of exits</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>For mixed-use spaces, calculate each area separately and sum totals</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Fixed seating areas: count actual number of seats instead of using area method</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Building official may require higher occupant load based on actual use</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Storage areas and service rooms may be excluded from occupant load calculations</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Export Button */}
-          {result.occupantLoad > 0 && (
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-none gap-2"
-                onClick={() => exportOccupantLoadToExcel({
-                  occupancyType: `${category} - ${spaceType}`,
-                  floorArea: parseFloat(floorArea),
-                  areaUnit: "m²",
-                  loadFactor: result.areaPerPerson,
-                  occupantLoad: result.occupantLoad,
-                  nbcReference: "NBC Table 3.1.17.1"
-                })}
-              >
-                <Download className="w-4 h-4" />
-                Export to Excel
-              </Button>
+          <CalculatorSection title="Result">
+            <CalculatorResult 
+              label="Occupant Load" 
+              value={`${result.occupantLoad} persons`}
+              status={result.occupantLoad > 300 ? "warning" : "compliant"}
+            />
+            <div className="px-4 py-2 bg-muted/30 text-xs text-muted-foreground">
+              Formula: {floorArea} m² ÷ {result.areaPerPerson} m²/person = {result.occupantLoad} persons (rounded up)
             </div>
-          )}
+          </CalculatorSection>
 
-          {/* 5 C's: COMPLIANCE - Code Reference */}
-          <CodeReference 
-            code="NBC 3.1.17"
-            title="Occupant Load"
-            description="Table 3.1.17.1 - Floor Area per Person for Occupant Load Determination"
-          />
+          {/* Compliance Implications */}
+          <CalculatorSection title="Compliance Implications">
+            <div className="px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                {result.occupantLoad > 60 ? (
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                )}
+                <span>
+                  {result.occupantLoad > 60 
+                    ? `Minimum 2 exits required (occupant load > 60)` 
+                    : `Single exit may be permitted (occupant load ≤ 60)`}
+                </span>
+              </div>
+              {result.occupantLoad > 300 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                  <span>Assembly occupancy may require sprinkler system (occupant load greater than 300)</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Info className="w-4 h-4 text-accent" />
+                <span>Required exit width: {Math.ceil(result.occupantLoad * 6.1)} mm minimum</span>
+              </div>
+            </div>
+          </CalculatorSection>
+        </>
+      )}
 
-          {/* 5 C's: CLARIFICATION - Why Important */}
-          <WhyImportant
-            reason="Occupant load is the foundation for all life safety calculations - it determines how many exits you need, how wide they must be, and what fire protection systems are required."
-            consequences="Underestimating occupant load can result in inadequate exits, leading to dangerous crowding during emergencies and potential loss of life."
-            example="A 500 m² restaurant with standing areas needs exits sized for 416 people (500÷1.2), not 109 people (500÷4.6 for dining)."
-          />
+      {/* NOTES SECTION */}
+      <CalculatorNotes>
+        <p>Occupant load determines required exit capacity and number of exits. For mixed-use spaces, calculate each area separately and sum totals. Fixed seating areas: count actual seats instead of using area method.</p>
+      </CalculatorNotes>
 
-          {/* 5 C's: CLARIFICATION - Plain Language Explanation */}
-          <ClarificationPanel title="What does this mean in practice?">
-            <p>
-              <strong>Occupant load</strong> is the maximum number of people a space is designed to accommodate safely. It's calculated by dividing the floor area by a factor that depends on how the space is used.
-            </p>
-            <p className="mt-2">
-              <strong>Why different factors?</strong> Standing areas (concerts, bars) pack people more densely than seated dining areas, which are denser than office spaces. The code accounts for these differences.
-            </p>
-            <p className="mt-2">
-              <strong>Important:</strong> This is a minimum calculation. If you know your space will regularly exceed this number, you must design for the actual expected occupancy.
-            </p>
-          </ClarificationPanel>
+      {/* 5 C's COMPONENTS */}
+      <div className="p-4 space-y-4 border-t border-border">
+        {/* COMPLIANCE */}
+        <CodeReference 
+          code="NBC 3.1.17"
+          title="Occupant Load"
+          description="Table 3.1.17.1 - Floor Area per Person"
+        />
 
-          {/* 5 C's: CONNECTION - Related Requirements */}
-          <RelatedRequirements
-            title="What Occupant Load Affects"
-            requirements={[
-              {
-                title: "Number of Exits",
-                codeRef: "NBC 3.4.2.1",
-                description: "Occupant load > 60 requires minimum 2 exits; > 500 may require 3+"
-              },
-              {
-                title: "Exit Width",
-                codeRef: "NBC 3.4.3.2",
-                description: "Exit width must accommodate all occupants (typically 6.1mm per person)"
-              },
-              {
-                title: "Plumbing Fixtures",
-                codeRef: "NBC 3.7.2",
-                description: "Number of washrooms based on occupant load"
-              },
-              {
-                title: "Sprinkler Requirements",
-                codeRef: "NBC 3.2.5",
-                description: "Occupant load > 300 in assembly may trigger sprinkler requirement"
-              }
+        {/* CLARIFICATION */}
+        <WhyImportant
+          reason="Occupant load is the foundation for all life safety calculations - it determines how many exits you need, how wide they must be, and what fire protection systems are required."
+          consequences="Underestimating occupant load can result in inadequate exits, leading to dangerous crowding during emergencies."
+          example="A 500 m² restaurant with standing areas needs exits for 416 people (500÷1.2), not 109 (500÷4.6 for dining)."
+        />
+
+        <ClarificationPanel title="What does this mean?">
+          <p><strong>Occupant load</strong> is the maximum number of people a space is designed to safely accommodate. Standing areas pack people more densely than offices, so the code uses different factors.</p>
+        </ClarificationPanel>
+
+        {/* CULTURE - Regional Notes */}
+        <RegionalNote 
+          region="Alberta" 
+          note="Alberta Building Code adopts NBC occupant load factors with additional requirements for cannabis retail (minimum 4.6 m²/person) and large assembly venues in Calgary and Edmonton."
+        />
+
+        {/* CONNECTION */}
+        <RelatedRequirements
+          title="What Occupant Load Affects"
+          requirements={[
+            { title: "Number of Exits", codeRef: "NBC 3.4.2.1", description: "OL > 60 requires min 2 exits" },
+            { title: "Exit Width", codeRef: "NBC 3.4.3.2", description: "6.1mm per person minimum" },
+            { title: "Plumbing Fixtures", codeRef: "NBC 3.7.2", description: "Washrooms based on OL" },
+            { title: "Sprinklers", codeRef: "NBC 3.2.5", description: "OL > 300 in assembly may trigger" }
+          ]}
+        />
+
+        {/* CHECKBACK */}
+        {result.occupantLoad > 0 && (
+          <DidYouConsider
+            items={[
+              "Does this space have multiple use types?",
+              "Are there any fixed seats to count instead?",
+              "Will actual occupancy exceed this calculated load?",
+              "Have you included all floor levels?",
+              "Are mezzanines included in the total area?"
             ]}
           />
+        )}
+      </div>
 
-          {/* 5 C's: CHECKBACK - Did You Consider */}
-          {result.occupantLoad > 0 && (
-            <DidYouConsider
-              items={[
-                "Does this space have multiple use types? Calculate each area separately.",
-                "Are there any fixed seats? Count actual seats instead of using area method.",
-                "Will actual occupancy regularly exceed this calculated load?",
-                "Have you included all floor levels served by common exits?",
-                "Are mezzanines and balconies included in the total area?"
-              ]}
-            />
-          )}
-
-          {/* Reference */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              <strong>Reference:</strong> National Building Code of Canada 2025, Part 3.1.17 - Occupant Load,
-              Table 3.1.17.1 - Floor Area per Person for Occupant Load Determination
-            </p>
-          </div>
+      {/* Export Button */}
+      {result.occupantLoad > 0 && (
+        <div className="flex justify-end p-4 border-t border-border bg-muted/20">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => exportOccupantLoadToExcel({
+              occupancyType: `${category} - ${spaceType}`,
+              floorArea: parseFloat(floorArea),
+              areaUnit: "m²",
+              loadFactor: result.areaPerPerson,
+              occupantLoad: result.occupantLoad,
+              nbcReference: "NBC Table 3.1.17.1"
+            })}
+          >
+            <Download className="w-4 h-4" />
+            Export to Excel
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </CalculatorCard>
   );
 }

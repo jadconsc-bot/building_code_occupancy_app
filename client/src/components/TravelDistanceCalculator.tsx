@@ -1,12 +1,25 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Route, CheckCircle, XCircle, Download } from "lucide-react";
+import { Route, CheckCircle, XCircle, Download, AlertTriangle, Info } from "lucide-react";
 import { exportTravelDistanceToExcel } from "@/lib/excelExport";
+import { 
+  CalculatorCard, 
+  CalculatorSection, 
+  CalculatorRow, 
+  CalculatorInputRow,
+  CalculatorNotes,
+  CalculatorResult 
+} from "@/components/CalculatorCard";
+import { 
+  CodeReference, 
+  ClarificationPanel, 
+  WhyImportant,
+  RelatedRequirements,
+  DidYouConsider,
+  RegionalNote
+} from "@/components/FiveCsComponents";
 
 // NBC 3.4.2.5 - Maximum Travel Distance
 const travelDistanceLimits: Record<string, { sprinklered: number; unsprinklered: number }> = {
@@ -63,247 +76,230 @@ export function TravelDistanceCalculator() {
     const actual = parseFloat(actualDistance);
     const compliant = actual <= maxAllowed;
     const margin = maxAllowed - actual;
-    
-    // Dead-end corridor limit (NBC 3.4.2.4) - typically 6m unsprinklered, 9m sprinklered
     const deadEndLimit = sprinklered === "yes" ? 9 : 6;
 
     return { maxAllowed, actual, compliant, margin, deadEndLimit };
   };
 
   const result = calculateCompliance();
-  const maxAllowedFeet = result.maxAllowed * 3.281; // Convert meters to feet
+  const maxAllowedFeet = result.maxAllowed * 3.281;
   const actualFeet = result.actual * 3.281;
-  const marginFeet = result.margin * 3.281;
 
   return (
-    <Card className="rounded-none border-border shadow-sm">
-      <CardHeader className="pb-4 border-b border-border bg-muted/20">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-          <Route className="w-4 h-4 text-primary" /> Travel Distance Calculator
-        </CardTitle>
-        <CardDescription className="text-xs mt-1">
-          Verify maximum travel distance to exits (NBC Part 3.4.2.5)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-6">
-          {/* Input Controls */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="occupancy" className="text-xs font-medium">
-                Occupancy Classification
-              </Label>
-              <Select value={occupancy} onValueChange={setOccupancy}>
-                <SelectTrigger id="occupancy" className="rounded-none">
-                  <SelectValue placeholder="Select occupancy" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(occupancyNames).map(([code, name]) => (
-                    <SelectItem key={code} value={code}>
-                      {code} - {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <CalculatorCard
+      subtitle="Life Safety Calculations"
+      title="Travel Distance Calculator"
+      description="Verify maximum travel distance to exits per NBC Part 3.4.2.5"
+    >
+      {/* INPUT SECTION */}
+      <CalculatorSection title="Job">
+        <CalculatorInputRow label="Occupancy Classification">
+          <Select value={occupancy} onValueChange={setOccupancy}>
+            <SelectTrigger className="w-48 h-8 text-accent font-semibold">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(occupancyNames).map(([code, name]) => (
+                <SelectItem key={code} value={code}>
+                  {code} - {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CalculatorInputRow>
 
-            <div className="space-y-2">
-              <Label htmlFor="sprinklered" className="text-xs font-medium">
-                Building Sprinklered?
-              </Label>
-              <Select value={sprinklered} onValueChange={setSprinklered}>
-                <SelectTrigger id="sprinklered" className="rounded-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no">No - Not Sprinklered</SelectItem>
-                  <SelectItem value="yes">Yes - Fully Sprinklered</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CalculatorInputRow label="Sprinkler Protection">
+          <Select value={sprinklered} onValueChange={setSprinklered}>
+            <SelectTrigger className="w-48 h-8 text-accent font-semibold">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no">Not Sprinklered</SelectItem>
+              <SelectItem value="yes">Fully Sprinklered</SelectItem>
+            </SelectContent>
+          </Select>
+        </CalculatorInputRow>
 
-            <div className="space-y-2">
-              <Label htmlFor="actualDistance" className="text-xs font-medium">
-                Actual Travel Distance (meters)
-              </Label>
-              <Input
-                id="actualDistance"
-                type="number"
-                value={actualDistance}
-                onChange={(e) => setActualDistance(e.target.value)}
-                placeholder="e.g., 35"
-                className="rounded-none"
-                min="0"
-                step="0.1"
-              />
-              <p className="text-xs text-muted-foreground">
-                Measure from most remote point to nearest exit
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deadEndCorridor" className="text-xs font-medium">
-                Dead-End Corridor Present?
-              </Label>
-              <Select value={deadEndCorridor} onValueChange={setDeadEndCorridor}>
-                <SelectTrigger id="deadEndCorridor" className="rounded-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no">No</SelectItem>
-                  <SelectItem value="yes">Yes</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CalculatorInputRow label="Actual Travel Distance">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={actualDistance}
+              onChange={(e) => setActualDistance(e.target.value)}
+              placeholder="35"
+              className="w-20 h-8 px-2 text-right text-accent font-semibold bg-transparent border-b border-border focus:border-accent focus:outline-none"
+            />
+            <span className="text-xs text-muted-foreground">m</span>
           </div>
+        </CalculatorInputRow>
 
-          {/* Result Display */}
-          {result.maxAllowed > 0 && (
-            <>
-              <div className={`p-6 border-l-4 ${
-                result.compliant 
-                  ? "border-green-500 bg-green-500/5" 
-                  : "border-destructive bg-destructive/5"
-              }`}>
-                <div className="flex items-start gap-3">
-                  {result.compliant ? (
-                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-destructive mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold uppercase tracking-wider mb-3">
-                      {result.compliant ? "Compliant" : "Non-Compliant"}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Maximum Allowed</p>
-                        <p className="text-3xl font-bold text-primary">{result.maxAllowed} m</p>
-                        <p className="text-sm text-muted-foreground mt-1">({maxAllowedFeet.toFixed(0)} ft)</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Actual Distance</p>
-                        <p className={`text-3xl font-bold ${result.compliant ? "text-green-500" : "text-destructive"}`}>
-                          {result.actual.toFixed(1)} m
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">({actualFeet.toFixed(0)} ft)</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {result.compliant ? "Margin" : "Excess"}
-                        </p>
-                        <p className={`text-3xl font-bold ${result.compliant ? "text-green-500" : "text-destructive"}`}>
-                          {Math.abs(result.margin).toFixed(1)} m
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">({Math.abs(marginFeet).toFixed(0)} ft)</p>
-                      </div>
-                    </div>
-                    {!result.compliant && (
-                      <Badge variant="destructive" className="mt-4">
-                        Exceeds maximum travel distance - redesign required
-                      </Badge>
-                    )}
-                  </div>
+        <CalculatorInputRow label="Dead-End Corridor">
+          <Select value={deadEndCorridor} onValueChange={setDeadEndCorridor}>
+            <SelectTrigger className="w-32 h-8 text-accent font-semibold">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no">No</SelectItem>
+              <SelectItem value="yes">Yes</SelectItem>
+            </SelectContent>
+          </Select>
+        </CalculatorInputRow>
+      </CalculatorSection>
+
+      {/* LIMITS SECTION */}
+      {occupancy && (
+        <CalculatorSection title="Limits">
+          <CalculatorRow 
+            label="Maximum Allowed" 
+            value={result.maxAllowed} 
+            unit="m" 
+            highlight 
+          />
+          <CalculatorRow 
+            label="Maximum (Imperial)" 
+            value={maxAllowedFeet.toFixed(0)} 
+            unit="ft" 
+          />
+          {deadEndCorridor === "yes" && (
+            <CalculatorRow 
+              label="Dead-End Limit" 
+              value={result.deadEndLimit} 
+              unit="m" 
+            />
+          )}
+        </CalculatorSection>
+      )}
+
+      {/* RESULT SECTION */}
+      {result.maxAllowed > 0 && result.actual > 0 && (
+        <>
+          <CalculatorSection title="Result">
+            <CalculatorResult 
+              label="Compliance Status" 
+              value={result.compliant ? "COMPLIANT" : "NON-COMPLIANT"}
+              status={result.compliant ? "compliant" : "non-compliant"}
+            />
+            <CalculatorRow 
+              label="Actual Distance" 
+              value={`${result.actual.toFixed(1)} m (${actualFeet.toFixed(0)} ft)`}
+            />
+            <CalculatorRow 
+              label={result.compliant ? "Safety Margin" : "Excess Distance"} 
+              value={`${Math.abs(result.margin).toFixed(1)} m`}
+              highlight={!result.compliant}
+            />
+          </CalculatorSection>
+
+          {/* Compliance Implications */}
+          <CalculatorSection title="Implications">
+            <div className="px-4 py-3 space-y-2">
+              {result.compliant ? (
+                <div className="flex items-center gap-2 text-sm text-green-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Travel distance meets code requirements</span>
                 </div>
-              </div>
-
-              {/* Dead-End Corridor Check */}
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-red-700">
+                    <XCircle className="w-4 h-4" />
+                    <span>Exceeds maximum - redesign required</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Info className="w-4 h-4" />
+                    <span>Options: Add exit, add sprinklers, or reconfigure layout</span>
+                  </div>
+                </>
+              )}
               {deadEndCorridor === "yes" && (
-                <div className="p-4 bg-orange-500/10 border-l-4 border-orange-500">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-orange-700 mb-2">
-                    Dead-End Corridor Limit
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Maximum dead-end corridor length: <strong>{result.deadEndLimit} m ({(result.deadEndLimit * 3.281).toFixed(0)} ft)</strong>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Dead-end corridors must not exceed this length (NBC 3.4.2.4)
-                  </p>
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                  <span>Dead-end corridor must not exceed {result.deadEndLimit}m</span>
                 </div>
               )}
-
-              {/* Code Reference */}
-              <div className="p-4 bg-muted/30 border border-border rounded-none">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">
-                  Code Requirement
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  <strong>Occupancy {occupancy}:</strong> Maximum travel distance is {result.maxAllowed} meters 
-                  ({sprinklered === "yes" ? "with" : "without"} sprinklers)
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Travel distance is measured along the path of egress travel from the most remote point 
-                  in a floor area to an exit, measured in a straight line or along the centerline of the 
-                  natural path of travel.
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Important Notes */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
-              Important Notes
-            </h4>
-            <ul className="space-y-2 text-xs text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Travel distance is measured from most remote point to nearest exit</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Measurement follows the natural path of travel (not through walls or obstructions)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Sprinkler systems allow increased travel distances</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Dead-end corridors have separate, more restrictive limits</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Assembly occupancies (A) generally allow longer travel distances</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>High buildings and special occupancies may have additional requirements</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Export Button */}
-          {result.maxAllowed > 0 && (
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-none gap-2"
-                onClick={() => exportTravelDistanceToExcel({
-                  occupancyType: `${occupancy} - ${occupancyNames[occupancy]}`,
-                  hasSprinkers: sprinklered === "yes",
-                  maxTravelDistance: result.maxAllowed,
-                  distanceUnit: "m",
-                  deadEndLimit: result.deadEndLimit,
-                  nbcReference: "NBC 3.4.2.5"
-                })}
-              >
-                <Download className="w-4 h-4" />
-                Export to Excel
-              </Button>
             </div>
-          )}
+          </CalculatorSection>
+        </>
+      )}
 
-          {/* Reference */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              <strong>Reference:</strong> National Building Code of Canada 2025, Part 3.4.2.5 - Maximum Travel Distance to Exits,
-              Part 3.4.2.4 - Dead-End Corridors
-            </p>
-          </div>
+      {/* NOTES SECTION */}
+      <CalculatorNotes>
+        <p>Travel distance is measured from the most remote point to the nearest exit, following the natural path of travel. Sprinkler systems allow increased travel distances. Dead-end corridors have separate, more restrictive limits.</p>
+      </CalculatorNotes>
+
+      {/* 5 C's COMPONENTS */}
+      <div className="p-4 space-y-4 border-t border-border">
+        {/* COMPLIANCE */}
+        <CodeReference 
+          code="NBC 3.4.2.5"
+          title="Maximum Travel Distance"
+          description="Travel distance limits based on occupancy and sprinkler protection"
+        />
+
+        {/* CLARIFICATION */}
+        <WhyImportant
+          reason="Travel distance limits ensure occupants can reach an exit before conditions become untenable during a fire. Longer distances mean more time exposed to smoke and heat."
+          consequences="Excessive travel distances can trap occupants, leading to injuries or fatalities during emergencies."
+          example="In a 1980 MGM Grand fire, long travel distances contributed to 85 deaths. Modern codes limit distances to prevent similar tragedies."
+        />
+
+        <ClarificationPanel title="How to measure travel distance">
+          <p><strong>Start point:</strong> The most remote point in the floor area where someone could be located.</p>
+          <p className="mt-2"><strong>End point:</strong> The nearest exit door leading to an exit stair, exterior, or protected exit passageway.</p>
+          <p className="mt-2"><strong>Path:</strong> Follow the natural walking path - around furniture, through doors, along corridors. Not a straight line through walls.</p>
+        </ClarificationPanel>
+
+        {/* CULTURE - Regional Notes */}
+        <RegionalNote 
+          region="Alberta" 
+          note="Alberta Building Code follows NBC travel distance limits. Edmonton and Calgary may have additional requirements for high-rise buildings and assembly venues over 500 occupants."
+        />
+
+        {/* CONNECTION */}
+        <RelatedRequirements
+          title="Related Exit Requirements"
+          requirements={[
+            { title: "Number of Exits", codeRef: "NBC 3.4.2.1", description: "Travel distance affects exit quantity" },
+            { title: "Dead-End Corridors", codeRef: "NBC 3.4.2.4", description: "Max 6m (9m sprinklered)" },
+            { title: "Exit Signs", codeRef: "NBC 3.4.5", description: "Required along egress path" },
+            { title: "Emergency Lighting", codeRef: "NBC 3.2.7", description: "Illumination of exit path" }
+          ]}
+        />
+
+        {/* CHECKBACK */}
+        {result.maxAllowed > 0 && (
+          <DidYouConsider
+            items={[
+              "Is the measurement from the most remote point?",
+              "Does the path follow actual walking routes?",
+              "Are there any dead-end corridors to check separately?",
+              "Would adding sprinklers allow the current layout?",
+              "Have you considered all floor levels?"
+            ]}
+          />
+        )}
+      </div>
+
+      {/* Export Button */}
+      {result.maxAllowed > 0 && (
+        <div className="flex justify-end p-4 border-t border-border bg-muted/20">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => exportTravelDistanceToExcel({
+              occupancyType: `${occupancy} - ${occupancyNames[occupancy]}`,
+              hasSprinkers: sprinklered === "yes",
+              maxTravelDistance: result.maxAllowed,
+              distanceUnit: "m",
+              deadEndLimit: result.deadEndLimit,
+              nbcReference: "NBC 3.4.2.5"
+            })}
+          >
+            <Download className="w-4 h-4" />
+            Export to Excel
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </CalculatorCard>
   );
 }
