@@ -197,7 +197,7 @@ export function OccupantLoadCalculator() {
               {result.occupantLoad > 300 && (
                 <div className="flex items-center gap-2 text-sm">
                   <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                  <span>Assembly occupancy may require sprinkler system (occupant load greater than 300)</span>
+                  <span>Assembly occupancy may require sprinkler system (occupant load &gt; 300)</span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-sm">

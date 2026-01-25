@@ -119,7 +119,7 @@ export function ColumnSpanCalculator() {
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-2 border-b border-border bg-muted/20">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Building2 className="w-4 h-4 text-primary" /> Column Load Calculator
@@ -128,7 +128,7 @@ export function ColumnSpanCalculator() {
               Calculate maximum axial loads based on NBC Table 9.23.4.4
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <PresetSelector
               calculatorType="column"
               currentParameters={{

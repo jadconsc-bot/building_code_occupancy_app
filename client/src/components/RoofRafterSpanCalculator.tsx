@@ -152,7 +152,7 @@ export function RoofRafterSpanCalculator() {
   return (
     <Card className="rounded-none border-border shadow-sm">
       <CardHeader className="pb-2 border-b border-border bg-muted/20">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Triangle className="w-4 h-4 text-primary" /> Roof Rafter Span Calculator
@@ -161,7 +161,7 @@ export function RoofRafterSpanCalculator() {
               Calculate maximum spans based on NBC Part 9 Span Tables
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <PresetSelector
               calculatorType="roof-rafter"
               currentParameters={{

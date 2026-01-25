@@ -1734,3 +1734,19 @@
 - [ ] Update ExitRequirementsCalculator with new card layout and 5 C's
 - [ ] Add Alberta regional notes throughout app
 - [ ] Create interactive checkback workflow for reports
+
+
+## Button Overflow Fix (Jan 24, 2026)
+- [ ] Fix save, export, and history buttons overflowing and stacking in calculators
+- [ ] Make button groups responsive for different screen sizes
+- [ ] Ensure proper spacing between buttons
+
+
+## Button Overflow Fix Completed (Jan 24, 2026)
+- [x] Identified calculators with button overflow issues
+- [x] Fixed PresetSelector button container with flex-wrap
+- [x] Fixed FloorJoistSpanCalculator header layout with flex-wrap and gap-4
+- [x] Fixed BeamSpanCalculator header layout with flex-wrap and gap-4
+- [x] Fixed ColumnSpanCalculator header layout with flex-wrap and gap-4
+- [x] Fixed RoofRafterSpanCalculator header layout with flex-wrap and gap-4
+- [x] All 587 tests passing

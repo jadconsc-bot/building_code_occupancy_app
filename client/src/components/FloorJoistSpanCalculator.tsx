@@ -33,7 +33,7 @@ export function FloorJoistSpanCalculator() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
