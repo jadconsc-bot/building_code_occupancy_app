@@ -636,6 +636,67 @@ Return ONLY a valid JSON object in this exact format:
           
           return { success: true, progress };
         }),
+
+      bulkSave: protectedProcedure
+        .input(
+          z.object({
+            projectId: z.number(),
+            items: z.array(
+              z.object({
+                phase: z.string().min(1).max(50),
+                itemId: z.string().min(1).max(100),
+                itemText: z.string(),
+                status: z.enum(["pass", "fail", "conditional", "pending"]).optional(),
+                notes: z.string().optional(),
+              })
+            ),
+          })
+        )
+        .mutation(async ({ input, ctx }) => {
+          const db = await getDb();
+          if (!db) throw new Error("Database not available");
+          
+          // Verify project belongs to user
+          const [project] = await db
+            .select()
+            .from(projects)
+            .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
+          
+          if (!project) throw new Error("Project not found");
+          
+          // Save all items
+          for (const item of input.items) {
+            const [existing] = await db
+              .select()
+              .from(projectChecklistItems)
+              .where(and(
+                eq(projectChecklistItems.projectId, input.projectId),
+                eq(projectChecklistItems.itemId, item.itemId)
+              ));
+            
+            if (existing) {
+              // Update existing item
+              await db
+                .update(projectChecklistItems)
+                .set({
+                  itemText: item.itemText,
+                  notes: item.notes,
+                })
+                .where(eq(projectChecklistItems.id, existing.id));
+            } else {
+              // Create new item
+              await db.insert(projectChecklistItems).values({
+                projectId: input.projectId,
+                phase: item.phase,
+                itemId: item.itemId,
+                itemText: item.itemText,
+                notes: item.notes,
+              });
+            }
+          }
+          
+          return { success: true, count: input.items.length };
+        }),
     }),
   }),
 
