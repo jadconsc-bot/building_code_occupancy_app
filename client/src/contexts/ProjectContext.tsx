@@ -1,64 +1,85 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Project } from '@/components/ProjectDashboard';
 import { ConstructionPhase } from '@/lib/inspectorChecklistData';
+import { trpc } from '@/lib/trpc';
+import { occupancyData } from '@/lib/occupancyData';
 
 interface ProjectContextType {
-  activeProjectId: string | null;
-  setActiveProjectId: (id: string | null) => void;
-  updateProjectProgress: (projectId: string, phase: ConstructionPhase, percentage: number) => void;
-  getProject: (id: string) => Project | undefined;
+  activeProjectId: number | null;
+  setActiveProjectId: (id: number | null) => void;
+  updateProjectProgress: (projectId: number, phase: ConstructionPhase, percentage: number) => void;
+  getProject: (id: number) => Project | undefined;
   getAllProjects: () => Project[];
+  isLoading: boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('activeProjectId');
+    return saved ? parseInt(saved, 10) : null;
+  });
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load projects from localStorage
+  // Fetch projects from database
+  const { data: dbProjects = [], isLoading: dbLoading } = trpc.projects.list.useQuery();
+
+  // Sync database projects to state
   useEffect(() => {
-    const savedProjects = localStorage.getItem('buildingCodeProjects');
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects));
+    setIsLoading(dbLoading);
+    if (dbProjects && dbProjects.length > 0) {
+      // Convert database projects to local Project format
+      const convertedProjects: Project[] = dbProjects.map((dbProject) => {
+        const occupancy = occupancyData.find((o) => o.code === dbProject.occupancyCode);
+        return {
+          id: dbProject.id.toString(),
+          name: dbProject.name,
+          address: dbProject.address || '',
+          occupancyCode: dbProject.occupancyCode,
+          occupancyName: occupancy?.name || dbProject.occupancyCode,
+          createdDate: dbProject.createdAt.toISOString(),
+          lastModified: dbProject.updatedAt.toISOString(),
+          checklistProgress: {
+            foundation: 0,
+            framing: 0,
+            mechanical: 0,
+            insulation: 0,
+            drywall: 0,
+            final: 0,
+          },
+          notes: dbProject.notes || '',
+        };
+      });
+      setProjects(convertedProjects);
     }
-
-    const savedActiveProject = localStorage.getItem('activeProjectId');
-    if (savedActiveProject) {
-      setActiveProjectId(savedActiveProject);
-    }
-  }, []);
+  }, [dbProjects, dbLoading]);
 
   // Save active project ID to localStorage
   useEffect(() => {
     if (activeProjectId) {
-      localStorage.setItem('activeProjectId', activeProjectId);
+      localStorage.setItem('activeProjectId', activeProjectId.toString());
     } else {
       localStorage.removeItem('activeProjectId');
     }
   }, [activeProjectId]);
 
-  const updateProjectProgress = (projectId: string, phase: ConstructionPhase, percentage: number) => {
-    const savedProjects = localStorage.getItem('buildingCodeProjects');
-    if (!savedProjects) return;
-
-    const projectsList: Project[] = JSON.parse(savedProjects);
-    const projectIndex = projectsList.findIndex(p => p.id === projectId);
-    
+  const updateProjectProgress = (projectId: number, phase: ConstructionPhase, percentage: number) => {
+    // Update local state
+    const projectIndex = projects.findIndex(p => p.id === projectId.toString());
     if (projectIndex === -1) return;
 
-    // Map phase names to lowercase keys
     const phaseKey = phase.toLowerCase().replace(/\s+&\s+/g, '') as keyof Project['checklistProgress'];
-    
-    projectsList[projectIndex].checklistProgress[phaseKey] = percentage;
-    projectsList[projectIndex].lastModified = new Date().toISOString();
+    const updatedProjects = [...projects];
+    updatedProjects[projectIndex].checklistProgress[phaseKey] = percentage;
+    updatedProjects[projectIndex].lastModified = new Date().toISOString();
 
-    localStorage.setItem('buildingCodeProjects', JSON.stringify(projectsList));
-    setProjects(projectsList);
+    setProjects(updatedProjects);
   };
 
-  const getProject = (id: string): Project | undefined => {
-    return projects.find(p => p.id === id);
+  const getProject = (id: number): Project | undefined => {
+    return projects.find(p => p.id === id.toString());
   };
 
   const getAllProjects = (): Project[] => {
@@ -71,7 +92,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setActiveProjectId,
       updateProjectProgress,
       getProject,
-      getAllProjects
+      getAllProjects,
+      isLoading,
     }}>
       {children}
     </ProjectContext.Provider>
@@ -85,3 +107,18 @@ export function useProject() {
   }
   return context;
 }
+
+// Type for database projects
+export type DatabaseProject = {
+  id: number;
+  userId: number;
+  name: string;
+  address?: string | null;
+  occupancyCode: string;
+  template?: string | null;
+  notes?: string | null;
+  status: 'active' | 'completed' | 'archived';
+  overallProgress: number;
+  createdAt: Date;
+  updatedAt: Date;
+};

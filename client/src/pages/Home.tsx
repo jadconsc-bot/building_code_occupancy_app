@@ -2023,7 +2023,7 @@ export default function Home() {
                     <InspectorChecklistGeneratorEnhanced 
                       occupancyCode={selectedGroup.code} 
                       occupancyName={selectedGroup.name}
-                      projectId={activeProjectId || undefined}
+                      projectId={activeProjectId ? activeProjectId.toString() : undefined}
                       onProgressUpdate={(phase, completed, total) => {
                         if (activeProjectId) {
                           const percentage = Math.round((completed / total) * 100);
