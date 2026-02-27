@@ -532,3 +532,185 @@
     print-color-adjust: exact;
   }
 }
+
+
+  /**
+   * Comprehensive overflow and responsive utilities
+   */
+  
+  /* Text truncation utilities */
+  .truncate-line {
+    @apply truncate;
+  }
+  
+  .truncate-lines-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .truncate-lines-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Scroll container utilities */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+  
+  .scroll-x-auto {
+    @apply overflow-x-auto;
+  }
+  
+  .scroll-y-auto {
+    @apply overflow-y-auto;
+  }
+  
+  /* Hide scrollbar but allow scrolling */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Responsive container utilities */
+  .responsive-padding {
+    @apply px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4 lg:px-6 lg:py-6;
+  }
+  
+  .responsive-gap {
+    @apply gap-2 sm:gap-3 md:gap-4 lg:gap-6;
+  }
+  
+  /* Sidebar specific utilities */
+  .sidebar-item-safe {
+    @apply overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+  
+  .sidebar-content {
+    @apply overflow-y-auto overflow-x-hidden;
+  }
+  
+  /* Table responsive utilities */
+  .table-responsive {
+    @apply overflow-x-auto;
+  }
+  
+  .table-responsive table {
+    @apply min-w-full;
+  }
+  
+  /* List item utilities */
+  .list-item-safe {
+    @apply min-w-0 overflow-hidden;
+  }
+  
+  /* Mobile-first responsive display */
+  .mobile-hidden {
+    @apply hidden md:block;
+  }
+  
+  .mobile-only {
+    @apply block md:hidden;
+  }
+  
+  /* Flexible grid that wraps properly */
+  .flex-wrap-safe {
+    @apply flex flex-wrap gap-2;
+  }
+  
+  /* Button group utilities */
+  .button-group-responsive {
+    @apply flex flex-col sm:flex-row gap-2;
+  }
+  
+  /* Card utilities with proper overflow handling */
+  .card-safe {
+    @apply overflow-hidden rounded-lg border border-border bg-card text-card-foreground;
+  }
+  
+  /* Dialog/Modal safe utilities */
+  .modal-safe {
+    @apply max-h-[90vh] overflow-y-auto;
+  }
+  
+  /* Prevent text overflow in buttons and badges */
+  .badge-safe {
+    @apply inline-flex items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+  
+  .button-safe {
+    @apply inline-flex items-center justify-center gap-2 overflow-hidden text-ellipsis;
+  }
+  
+  /* Responsive font sizes */
+  .text-responsive-sm {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-base {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-lg {
+    @apply text-base sm:text-lg;
+  }
+  
+  /* Responsive spacing utilities */
+  .space-responsive-x {
+    @apply space-x-1 sm:space-x-2 md:space-x-3;
+  }
+  
+  .space-responsive-y {
+    @apply space-y-1 sm:space-y-2 md:space-y-3;
+  }
+  
+  /* Width utilities for responsive layouts */
+  .w-responsive-full {
+    @apply w-full;
+  }
+  
+  .w-responsive-half {
+    @apply w-full sm:w-1/2;
+  }
+  
+  .w-responsive-third {
+    @apply w-full sm:w-1/2 md:w-1/3;
+  }
+  
+  /* Flex utilities with proper wrapping */
+  .flex-responsive {
+    @apply flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  /* Grid utilities for responsive layouts */
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4;
+  }
+  
+  /* Prevent overflow in input fields */
+  .input-safe {
+    @apply w-full overflow-hidden text-ellipsis;
+  }
+  
+  /* Prevent overflow in select dropdowns */
+  .select-safe {
+    @apply w-full overflow-hidden text-ellipsis;
+  }
+  
+  /* Accessibility: Focus utilities */
+  .focus-ring {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  /* Prevent content shift on scrollbar appearance */
+  html {
+    overflow-y: scroll;
+  }
