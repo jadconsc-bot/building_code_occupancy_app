@@ -8,15 +8,18 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
+import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
+import ProjectChecklists from "./pages/ProjectChecklists";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      <Route path={"/ "} component={Home} />
+      <Route path={"/project-checklists"} component={ProjectChecklists} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -32,25 +35,27 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
-        <ProjectProvider>
-          <ComparisonProvider>
-            <CalculationHistoryProvider>
-              <HelpSystemProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <OfflineIndicator />
-                  <HelpPanel />
-                  <Router />
-                </TooltipProvider>
-              </HelpSystemProvider>
-            </CalculationHistoryProvider>
-          </ComparisonProvider>
-        </ProjectProvider>
-      </ThemeProvider>
+      <AuthHydrationProvider>
+        <ThemeProvider
+          defaultTheme="light"
+          // switchable
+        >
+          <ProjectProvider>
+            <ComparisonProvider>
+              <CalculationHistoryProvider>
+                <HelpSystemProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <OfflineIndicator />
+                    <HelpPanel />
+                    <Router />
+                  </TooltipProvider>
+                </HelpSystemProvider>
+              </CalculationHistoryProvider>
+            </ComparisonProvider>
+          </ProjectProvider>
+        </ThemeProvider>
+      </AuthHydrationProvider>
     </ErrorBoundary>
   );
 }

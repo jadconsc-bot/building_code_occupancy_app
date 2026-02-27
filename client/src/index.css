@@ -175,6 +175,17 @@
     min-width: 0;
   }
 
+  /**
+   * Overflow utilities for responsive tables and content
+   */
+  .overflow-table {
+    @apply overflow-x-auto;
+  }
+
+  .overflow-hidden-text {
+    @apply min-w-0 overflow-hidden text-ellipsis;
+  }
+
   @media (min-width: 640px) {
     .container {
       padding-left: 1.5rem;
