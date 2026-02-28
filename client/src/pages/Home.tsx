@@ -21,6 +21,8 @@ import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { getLoadFactors } from "@/lib/loadCalculationData";
+import { getLoginUrl } from "@/const";
+import { Button } from "@/components/ui/button";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
 import { ServiceLoadCalculator, VoltageDropCalculator, ConduitFillCalculator } from "@/components/ElectricalTools";
@@ -894,6 +896,25 @@ export default function Home() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              {isAuthenticated ? (
+                <Button
+                  onClick={() => logout()}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Logout ({user?.name || 'User'})
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => window.location.href = getLoginUrl()}
+                  variant="default"
+                  size="sm"
+                  className="text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  Login
+                </Button>
+              )}
               <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                 <SelectTrigger className="w-[80px] h-8 text-xs">
                   <SelectValue />
