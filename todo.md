@@ -2918,3 +2918,38 @@ All production readiness tasks completed successfully:
 - Consultant layer ready for immediate monetization
 - Subscription infrastructure in place
 - Legal defensibility enhanced with audit trails
+
+
+---
+
+## Phase 45-61: Definitive Commercialization & Legal-Defensibility Recipe
+
+### Phase 1: Legal Foundation (Weeks 1-4)
+- [ ] Phase 1A: Integrate RFC-3161 Trusted Timestamp Authority (DigiCert/GlobalSign)
+- [ ] Phase 1B: Migrate private keys to AWS KMS with hardware protection
+- [ ] Phase 1C: Enforce immutable audit database with triggers and hash chains
+- [ ] Phase 1D: Build signed calculation bundle generator with all metadata
+- [ ] Phase 1E: Implement version locking for NBC, calculators, and engine
+
+### Phase 2: Professional Workflow (Weeks 5-7)
+- [ ] Phase 2A: Create projects, clients, and project_members database schema
+- [ ] Phase 2B: Build professional compliance report generator (PDF/HTML/JSON)
+- [ ] Phase 2C: Implement one-click recalculation with version preservation
+- [ ] Phase 2D: Add reviewer access with read-only share links and verification
+
+### Phase 3: Commercialization Core (Weeks 8-10)
+- [ ] Phase 3A: Build subscription infrastructure with plans and usage metrics
+- [ ] Phase 3B: Implement pricing tiers (Individual $29, Consultant $79, Firm $199)
+- [ ] Phase 3C: Add usage visibility dashboard showing ROI metrics
+
+### Phase 4: Enterprise Trust Layer (Weeks 11-13)
+- [ ] Phase 4A: Implement granular RBAC (User, Consultant, Reviewer, Admin, AHJ)
+- [ ] Phase 4B: Build public verification portal (verify.codecomply.com)
+- [ ] Phase 4C: Create calculation reproducibility engine for courtroom defense
+- [ ] Phase 4D: Implement structured logging with pino/winston
+
+### Phase 5: High ROI Features (Post-Launch)
+- [ ] Batch project analysis
+- [ ] Firm dashboards
+- [ ] Municipality integrations
+- [ ] Insurer reports
