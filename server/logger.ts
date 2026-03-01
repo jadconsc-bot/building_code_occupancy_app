@@ -170,4 +170,9 @@ export function createLogger(context: string): StructuredLogger {
   return new StructuredLogger(context);
 }
 
+/**
+ * Global logger instance
+ */
+export const logger = createLogger('CodeComply');
+
 export default StructuredLogger;
