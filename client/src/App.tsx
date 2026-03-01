@@ -31,18 +31,19 @@ function Router() {
     <>
       <NavigationHeader />
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/project-checklists" component={ProjectChecklists} />
-        <Route path="/compliance/:projectId" component={Compliance} />
-        <Route path="/rule-management" component={RuleManagement} />
-        <Route path="/calculation-history" component={CalculationHistory} />
-        <Route path="/clients" component={ClientsManagement} />
-        <Route path="/sharing" component={ProjectSharing} />
-        <Route path="/versions" component={CalculationVersioning} />
-        <Route path="/billing" component={Billing} />
-        <Route path="/verify" component={VerificationPortal} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/404" component={NotFound} />
+        <Route path={"/"} component={Dashboard} />
+        <Route path={"/project-checklists"} component={ProjectChecklists} />
+        <Route path={"/compliance/:projectId"} component={Compliance} />
+        <Route path={"/rule-management"} component={RuleManagement} />
+        <Route path={"/calculation-history"} component={CalculationHistory} />
+        <Route path={"/clients"} component={ClientsManagement} />
+        <Route path={"/sharing"} component={ProjectSharing} />
+        <Route path={"/versions"} component={CalculationVersioning} />
+        <Route path={"/billing"} component={Billing} />
+        <Route path={"/verify"} component={VerificationPortal} />
+        <Route path={"/admin"} component={AdminDashboard} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
         <Route component={NotFound} />
       </Switch>
     </>

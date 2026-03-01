@@ -58,6 +58,12 @@ export function NavigationHeader() {
       description: 'Create and manage projects',
     },
     {
+      label: 'Calculators',
+      icon: Calculator,
+      href: '/',
+      description: 'Access all calculation tools',
+    },
+    {
       label: 'Rule Management',
       icon: Shield,
       href: '/rule-management',
@@ -68,6 +74,12 @@ export function NavigationHeader() {
       icon: History,
       href: '/calculation-history',
       description: 'View past calculations',
+    },
+    {
+      label: 'Documentation',
+      icon: BookOpen,
+      href: '/',
+      description: 'User guide and help',
     },
     {
       label: 'Clients',
@@ -105,19 +117,23 @@ export function NavigationHeader() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo and Brand */}
-        <a href="/" className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
-          <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center rounded font-bold">
-            AB
+        <Link href="/">
+          <div className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center rounded font-bold">
+              AB
+            </div>
+            <span className="hidden sm:inline">CodeComply</span>
           </div>
-          <span className="hidden sm:inline">CodeComply</span>
-        </a>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1">
           {features.slice(0, 4).map((feature) => (
-            <a key={feature.label} href={feature.href} className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer">
-              {feature.label}
-            </a>
+            <Link key={feature.href} href={feature.href}>
+              <div className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer">
+                {feature.label}
+              </div>
+            </Link>
           ))}
         </nav>
 
@@ -209,18 +225,18 @@ export function NavigationHeader() {
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <a
-                  key={feature.label}
-                  href={feature.href}
-                  className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Icon className="w-4 h-4" />
-                  <div>
-                    <div>{feature.label}</div>
-                    <div className="text-xs text-muted-foreground">{feature.description}</div>
+                <Link key={feature.href} href={feature.href}>
+                  <div
+                    className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <div>
+                      <div>{feature.label}</div>
+                      <div className="text-xs text-muted-foreground">{feature.description}</div>
+                    </div>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </nav>

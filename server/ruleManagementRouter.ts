@@ -4,10 +4,6 @@ import { getDb } from "./db";
 import { ruleEditorRoles, ruleChangeRequests, ruleChangeAudit, ruleChangeNotifications, digitalSignatures } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
-import { TRPCError } from "@trpc/server";
-import { router as trpcRouter } from "./_core/trpc";
-
-const router = trpcRouter;
 
 /**
  * Rule Management Router
@@ -267,7 +263,9 @@ export const ruleManagementRouter = router({
   getPendingRequests: adminProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
-    const requests = await db.select().from(ruleChangeRequests).where(eq(ruleChangeRequests.status, "pending"));
+    const requests = await db.query.ruleChangeRequests.findMany({
+      where: eq(ruleChangeRequests.status, "pending"),
+    });
     return requests;
   }),
 
@@ -279,7 +277,9 @@ export const ruleManagementRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
-      const auditEntries = await db.select().from(ruleChangeAudit).where(eq(ruleChangeAudit.changeRequestId, input.changeRequestId));
+      const auditEntries = await db.query.ruleChangeAudit.findMany({
+        where: eq(ruleChangeAudit.changeRequestId, input.changeRequestId),
+      });
       return auditEntries;
     }),
 
@@ -289,7 +289,9 @@ export const ruleManagementRouter = router({
   getNotifications: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
-    const notifications = await db.select().from(ruleChangeNotifications).where(eq(ruleChangeNotifications.recipientId, ctx.user.id));
+    const notifications = await db.query.ruleChangeNotifications.findMany({
+      where: eq(ruleChangeNotifications.recipientId, ctx.user.id),
+    });
     return notifications;
   }),
 
@@ -321,10 +323,12 @@ export const ruleManagementRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
-      const history = await db.select().from(ruleChangeAudit).where(and(
-        eq(ruleChangeAudit.rulesetId, input.rulesetId),
-        eq(ruleChangeAudit.ruleId, input.ruleId)
-      ));
+      const history = await db.query.ruleChangeAudit.findMany({
+        where: and(
+          eq(ruleChangeAudit.rulesetId, input.rulesetId),
+          eq(ruleChangeAudit.ruleId, input.ruleId)
+        ),
+      });
       return history;
     }),
 });
