@@ -10,6 +10,9 @@ import { useAuth } from '@/_core/hooks/useAuth';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ReportBuilder } from '@/components/ReportBuilder';
+import { RuleManagementAccess } from '@/components/RuleManagementAccess';
+import { CalculationComparison } from '@/components/CalculationComparison';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import { Button } from '@/components/ui/button';
 import { getLoginUrl } from '@/const';
 
@@ -50,6 +53,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex gap-2">
+              <NotificationCenter />
               <Button onClick={() => setShowWizard(true)} variant="outline">
                 Start Tutorial
               </Button>
@@ -62,6 +66,12 @@ export default function Dashboard() {
 
         {/* Feature Discovery Dashboard */}
         <FeatureDiscoveryDashboard />
+
+        {/* Rule Management Access */}
+        <RuleManagementAccess userRole={user?.role as 'admin' | 'editor' | 'user'} />
+
+        {/* Calculation Comparison */}
+        <CalculationComparison calculations={[]} />
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">
