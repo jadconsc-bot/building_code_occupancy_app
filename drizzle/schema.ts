@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -341,3 +341,110 @@ export const digitalSignatures = mysqlTable("digitalSignatures", {
 
 export type DigitalSignature = typeof digitalSignatures.$inferSelect;
 export type InsertDigitalSignature = typeof digitalSignatures.$inferInsert;
+
+/**
+ * ============================================================================
+ * SERVER-SIDE CALCULATION TABLES
+ * For legally-binding compliance decisions with cryptographic integrity
+ * ============================================================================
+ */
+
+/**
+ * Calculation Results - Immutable records of all calculations
+ * Every calculation is cryptographically signed and stored immutably
+ */
+export const calculationResults = mysqlTable("calculationResults", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  calculatorType: varchar("calculatorType", { length: 50 }).notNull(),
+  rulesetVersion: varchar("rulesetVersion", { length: 50 }).notNull(),
+  inputData: text("inputData").notNull(),
+  resultData: text("resultData").notNull(),
+  calculationTrace: text("calculationTrace"),
+  cryptographicSignature: text("cryptographicSignature").notNull(),
+  certificateChain: text("certificateChain"),
+  signatureVerified: boolean("signatureVerified").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdBy: int("createdBy").notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  immutable: boolean("immutable").default(true).notNull(),
+});
+
+export type CalculationResult = typeof calculationResults.$inferSelect;
+export type InsertCalculationResult = typeof calculationResults.$inferInsert;
+
+/**
+ * Calculation Audit Log - Complete history of all calculation actions
+ */
+export const calculationAuditLog = mysqlTable("calculationAuditLog", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  action: varchar("action", { length: 50 }).notNull(),
+  actor: int("actor").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  details: text("details"),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+});
+
+export type CalculationAuditLogEntry = typeof calculationAuditLog.$inferSelect;
+export type InsertCalculationAuditLogEntry = typeof calculationAuditLog.$inferInsert;
+
+/**
+ * Versioned Rulesets - Immutable copies of calculation rules
+ */
+export const calculationRulesets = mysqlTable("calculationRulesets", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  code: varchar("code", { length: 50 }).notNull(),
+  version: varchar("version", { length: 50 }).notNull(),
+  effectiveDate: date("effectiveDate").notNull(),
+  retiredDate: date("retiredDate"),
+  rulesJSON: text("rulesJSON").notNull(),
+  checksum: varchar("checksum", { length: 64 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdBy: int("createdBy").notNull(),
+  description: text("description"),
+});
+
+export type CalculationRuleset = typeof calculationRulesets.$inferSelect;
+export type InsertCalculationRuleset = typeof calculationRulesets.$inferInsert;
+
+/**
+ * Digital Certificates - PKI infrastructure for cryptographic signing
+ */
+export const calculationCertificates = mysqlTable("calculationCertificates", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  certificateName: varchar("certificateName", { length: 255 }).notNull(),
+  publicKey: text("publicKey").notNull(),
+  privateKey: text("privateKey").notNull(),
+  issuer: varchar("issuer", { length: 255 }),
+  subject: varchar("subject", { length: 255 }),
+  validFrom: timestamp("validFrom"),
+  validUntil: timestamp("validUntil").notNull(),
+  fingerprint: varchar("fingerprint", { length: 64 }),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CalculationCertificate = typeof calculationCertificates.$inferSelect;
+export type InsertCalculationCertificate = typeof calculationCertificates.$inferInsert;
+
+/**
+ * Calculation Challenges - For disputing calculation results
+ */
+export const calculationChallenges = mysqlTable("calculationChallenges", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  challengedBy: int("challengedBy").notNull(),
+  reason: text("reason").notNull(),
+  details: text("details"),
+  status: mysqlEnum("status", ["open", "investigating", "resolved", "dismissed"]).default("open").notNull(),
+  resolution: text("resolution"),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CalculationChallenge = typeof calculationChallenges.$inferSelect;
+export type InsertCalculationChallenge = typeof calculationChallenges.$inferInsert;
