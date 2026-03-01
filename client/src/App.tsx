@@ -18,6 +18,11 @@ import RuleManagement from "./pages/RuleManagement";
 import CalculationHistory from "./pages/CalculationHistory";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ClientsManagement from "./pages/ClientsManagement";
+import ProjectSharing from "./pages/ProjectSharing";
+import CalculationVersioning from "./pages/CalculationVersioning";
+import Billing from "./pages/Billing";
+import VerificationPortal from "./pages/VerificationPortal";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
@@ -32,6 +37,11 @@ function Router() {
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />
         <Route path={"/calculation-history"} component={CalculationHistory} />
+        <Route path={"/clients"} component={ClientsManagement} />
+        <Route path={"/sharing"} component={ProjectSharing} />
+        <Route path={"/versions"} component={CalculationVersioning} />
+        <Route path={"/billing"} component={Billing} />
+        <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}

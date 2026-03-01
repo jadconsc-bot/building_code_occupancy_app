@@ -81,6 +81,36 @@ export function NavigationHeader() {
       href: '/',
       description: 'User guide and help',
     },
+    {
+      label: 'Clients',
+      icon: Building2,
+      href: '/clients',
+      description: 'Manage client contacts',
+    },
+    {
+      label: 'Sharing',
+      icon: FileText,
+      href: '/sharing',
+      description: 'Share projects with reviewers',
+    },
+    {
+      label: 'Versions',
+      icon: History,
+      href: '/versions',
+      description: 'Track calculation versions',
+    },
+    {
+      label: 'Billing',
+      icon: FileText,
+      href: '/billing',
+      description: 'Manage subscription and invoices',
+    },
+    {
+      label: 'Verify',
+      icon: Shield,
+      href: '/verify',
+      description: 'Verify calculation authenticity',
+    },
   ];
 
   return (
