@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
+import CalculationHistory from "./pages/CalculationHistory";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -24,6 +25,7 @@ function Router() {
       <Route path={"/project-checklists"} component={ProjectChecklists} />
       <Route path={"/compliance/:projectId"} component={Compliance} />
       <Route path={"/rule-management"} component={RuleManagement} />
+      <Route path={"/calculation-history"} component={CalculationHistory} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

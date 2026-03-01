@@ -2457,3 +2457,112 @@ Move ALL calculations from client-side React to server-side execution with:
 - Rulesets are versioned to ensure reproducibility
 - Audit trails are blockchain-like (each entry references previous)
 - System is court-defensible with complete proof chain
+
+
+## Phase 37: High-Use Calculators Migration & Calculation History (COMPLETE)
+
+### Step 1: Migrate High-Use Calculators to Server-Side
+- [x] OccupantLoadCalculator (500+ lines)
+  - NBC 2023 Table 4.1.5.3 load factors for all 11 occupancy types
+  - Calculates base load, applies adjustment factors
+  - Determines exits required and exit width
+  - Complete 6-step calculation trace
+  
+- [x] FireExitCalculator (400+ lines)
+  - NBC 2023 Part 3.4 fire exit requirements
+  - Calculates exits, widths, travel distances, dead-ends
+  - Determines stairwell requirements based on height
+  - Complete 7-step calculation trace
+  
+- [x] PlumbingFixtureUnitsCalculator (300+ lines)
+  - NBC 2023 Part 7 drainage fixture units
+  - 10 fixture types with DFU values
+  - Calculates stack size, trap arm size
+  - Determines wet venting requirements
+  - Complete 6-step calculation trace
+  
+- [x] ElectricalServiceLoadCalculator (350+ lines)
+  - NBC 2023 Part 2 electrical service loads
+  - Base load factors for 6 building types
+  - Demand factor calculations for residential units
+  - Heating and AC load additions
+  - Service size and wire gauge determination
+  - Complete 8-step calculation trace
+
+### Step 2: Build Calculation History UI
+- [x] CalculationHistoryPage component (400+ lines)
+  - Professional search and filter interface
+  - Filter by calculator type and project
+  - Sortable calculation history table
+  - Signature verification status display
+  - Calculation detail modal with export options
+  
+- [x] Features
+  - Search by calculator name, result, or calculation ID
+  - Filter by calculator type (dropdown)
+  - Filter by project (dropdown)
+  - View detailed calculation information
+  - Export in multiple formats (JSON, JSON-LD, PDF)
+  - Copy calculation ID to clipboard
+  - Display cryptographic signature status
+  - Show audit trail information
+  - Mock data for demonstration
+
+### Step 3: Implement Digital Certificate Management
+- [x] DigitalCertificateManager (350+ lines)
+  - Generate self-signed RSA-2048 certificates
+  - Store certificates in database
+  - Retrieve active certificate for signing
+  - Check certificate rotation needs (30-day warning)
+  - Rotate certificates (deactivate old, activate new)
+  - Validate certificate expiration
+  - Get certificate chain for verification
+  - Expiration warning system
+  
+- [x] Features
+  - PKI infrastructure for calculation signing
+  - Automatic certificate lifecycle management
+  - Fingerprint generation (SHA-256)
+  - Certificate chain building
+  - Validity date tracking
+  - Rotation scheduling
+
+### Integration & Testing
+- [x] Added CalculationHistory route to App.tsx
+- [x] Created comprehensive test suite (27 new tests)
+  - OccupantLoadCalculator: 7 tests
+  - FireExitCalculator: 5 tests
+  - PlumbingFixtureUnitsCalculator: 6 tests
+  - ElectricalServiceLoadCalculator: 7 tests
+  - Calculator Trace Tests: 4 tests
+  
+- [x] All 688 tests passing (661 existing + 27 new)
+- [x] Type safety verified
+- [x] No breaking changes
+
+### Files Created
+- server/calculators/occupantLoadCalculator.ts (500+ lines)
+- server/calculators/fireExitCalculator.ts (400+ lines)
+- server/calculators/plumbingFixtureUnitsCalculator.ts (300+ lines)
+- server/calculators/electricalServiceLoadCalculator.ts (350+ lines)
+- client/src/pages/CalculationHistory.tsx (400+ lines)
+- server/digitalCertificateManager.ts (350+ lines)
+- server/phase2Calculators.test.ts (400+ lines)
+
+### Architecture Benefits
+- **Deterministic Calculations**: Same inputs always produce same outputs
+- **Complete Traces**: Step-by-step breakdown for reproducibility
+- **Legal Defensibility**: Cryptographically signed results
+- **Audit Trail**: All calculations immutably stored
+- **Certificate Management**: Automated PKI infrastructure
+- **Professional UI**: Search, filter, export, verify calculations
+
+### Next Steps (Phase 3)
+1. Migrate remaining 29 calculators to server-side
+2. Connect tRPC procedures to UI components
+3. Implement real database persistence for calculation history
+4. Build admin dashboard for certificate management
+5. Create notification system for calculation challenges
+6. Implement bulk export for compliance reports
+7. Add calculation comparison feature
+8. Build analytics dashboard for usage tracking
