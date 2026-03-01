@@ -231,3 +231,113 @@ export const ruleTests = mysqlTable("ruleTests", {
 
 export type RuleTest = typeof ruleTests.$inferSelect;
 export type InsertRuleTest = typeof ruleTests.$inferInsert;
+
+
+/**
+ * Rule Editor Roles and Credentials
+ * Tracks professional credentials and authority levels for rule updates
+ */
+export const ruleEditorRoles = mysqlTable("ruleEditorRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  role: mysqlEnum("role", ["viewer", "editor", "reviewer", "admin"]).default("viewer").notNull(),
+  profession: varchar("profession", { length: 100 }), // e.g., "Architect", "Engineer", "Building Official"
+  licenseNumber: varchar("licenseNumber", { length: 100 }).unique(),
+  licenseProvince: varchar("licenseProvince", { length: 50 }), // e.g., "Alberta", "Ontario"
+  licenseExpiry: timestamp("licenseExpiry"),
+  credentials: text("credentials"), // JSON with credential details
+  verifiedAt: timestamp("verifiedAt"),
+  verifiedBy: int("verifiedBy"), // Admin user who verified
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RuleEditorRole = typeof ruleEditorRoles.$inferSelect;
+export type InsertRuleEditorRole = typeof ruleEditorRoles.$inferInsert;
+
+/**
+ * Rule Change Requests
+ * Tracks proposed rule changes awaiting admin approval
+ */
+export const ruleChangeRequests = mysqlTable("ruleChangeRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull(),
+  ruleId: varchar("ruleId", { length: 100 }).notNull(),
+  requestedBy: int("requestedBy").notNull(), // User ID of editor
+  changeType: mysqlEnum("changeType", ["create", "update", "delete", "deprecate"]).notNull(),
+  currentValue: text("currentValue"), // JSON of current rule
+  proposedValue: text("proposedValue"), // JSON of proposed rule
+  justification: text("justification").notNull(), // Why this change is needed
+  codeReference: varchar("codeReference", { length: 255 }), // e.g., "NBC 3.2.2.47"
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "implemented"]).default("pending").notNull(),
+  approvedBy: int("approvedBy"), // Admin user ID
+  approvalNotes: text("approvalNotes"),
+  digitalSignature: text("digitalSignature"), // Cryptographic signature
+  requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+  approvedAt: timestamp("approvedAt"),
+  implementedAt: timestamp("implementedAt"),
+});
+
+export type RuleChangeRequest = typeof ruleChangeRequests.$inferSelect;
+export type InsertRuleChangeRequest = typeof ruleChangeRequests.$inferInsert;
+
+/**
+ * Rule Change Audit Trail
+ * Complete immutable audit trail of all rule modifications
+ */
+export const ruleChangeAudit = mysqlTable("ruleChangeAudit", {
+  id: int("id").autoincrement().primaryKey(),
+  changeRequestId: int("changeRequestId").notNull(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull(),
+  ruleId: varchar("ruleId", { length: 100 }).notNull(),
+  action: varchar("action", { length: 50 }).notNull(), // "requested", "approved", "rejected", "implemented"
+  actor: int("actor").notNull(), // User ID performing action
+  actorRole: varchar("actorRole", { length: 50 }).notNull(), // Role of actor at time of action
+  actorCredentials: text("actorCredentials"), // JSON snapshot of actor credentials
+  details: text("details"), // JSON with additional context
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("userAgent"), // Browser/client info
+  cryptographicHash: varchar("cryptographicHash", { length: 256 }), // SHA-256 hash for integrity
+  previousHash: varchar("previousHash", { length: 256 }), // Hash of previous entry (blockchain-like)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type RuleChangeAuditEntry = typeof ruleChangeAudit.$inferSelect;
+export type InsertRuleChangeAuditEntry = typeof ruleChangeAudit.$inferInsert;
+
+/**
+ * Rule Change Notifications
+ * Alerts for stakeholders about rule changes
+ */
+export const ruleChangeNotifications = mysqlTable("ruleChangeNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  changeRequestId: int("changeRequestId").notNull(),
+  recipientId: int("recipientId").notNull(), // User ID to notify
+  notificationType: mysqlEnum("notificationType", ["change_requested", "change_approved", "change_rejected", "change_implemented"]).notNull(),
+  read: int("read").default(0).notNull(),
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RuleChangeNotification = typeof ruleChangeNotifications.$inferSelect;
+export type InsertRuleChangeNotification = typeof ruleChangeNotifications.$inferInsert;
+
+/**
+ * Digital Signatures for Rule Changes
+ * Cryptographic signatures for legal defensibility
+ */
+export const digitalSignatures = mysqlTable("digitalSignatures", {
+  id: int("id").autoincrement().primaryKey(),
+  changeRequestId: int("changeRequestId").notNull(),
+  signedBy: int("signedBy").notNull(), // User ID
+  signatureType: varchar("signatureType", { length: 50 }).notNull(), // "approval", "implementation"
+  publicKey: text("publicKey"), // PEM format
+  signature: text("signature").notNull(), // Base64 encoded signature
+  certificateChain: text("certificateChain"), // PEM format certificate chain
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  verifiedAt: timestamp("verifiedAt"),
+  verificationStatus: mysqlEnum("verificationStatus", ["pending", "verified", "failed"]).default("pending").notNull(),
+});
+
+export type DigitalSignature = typeof digitalSignatures.$inferSelect;
+export type InsertDigitalSignature = typeof digitalSignatures.$inferInsert;

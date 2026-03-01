@@ -1,0 +1,40 @@
+{
+  "query": "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE();",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE();",
+  "rows": [
+    {
+      "TABLE_NAME": "__drizzle_migrations"
+    },
+    {
+      "TABLE_NAME": "users"
+    },
+    {
+      "TABLE_NAME": "bookmarks"
+    },
+    {
+      "TABLE_NAME": "notes"
+    },
+    {
+      "TABLE_NAME": "feedbacks"
+    },
+    {
+      "TABLE_NAME": "project_calculator_results"
+    },
+    {
+      "TABLE_NAME": "project_checklist_items"
+    },
+    {
+      "TABLE_NAME": "projects"
+    },
+    {
+      "TABLE_NAME": "projectCalculatorResults"
+    },
+    {
+      "TABLE_NAME": "projectChecklistItems"
+    }
+  ],
+  "messages": [],
+  "stdout": "TABLE_NAME\n__drizzle_migrations\nusers\nbookmarks\nnotes\nfeedbacks\nproject_calculator_results\nproject_checklist_items\nprojects\nprojectCalculatorResults\nprojectChecklistItems\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}
