@@ -291,10 +291,19 @@ export function ProjectDashboard() {
                     <span>Created {new Date(project.createdDate).toLocaleDateString()}</span>
                   </div>
 
-                  <Button className="w-full rounded-none" variant="outline">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Open Project
-                  </Button>
+                  <div className="space-y-2">
+                    <Button className="w-full rounded-none" variant="outline">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Open Project
+                    </Button>
+                    <Button className="w-full rounded-none" variant="default" onClick={() => {
+                      localStorage.setItem(`project-${project.id}`, JSON.stringify(project));
+                      alert(`Project "${project.name}" saved successfully!`);
+                    }}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Save Project
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

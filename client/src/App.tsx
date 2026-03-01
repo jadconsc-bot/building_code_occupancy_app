@@ -17,6 +17,7 @@ import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
 import CalculationHistory from "./pages/CalculationHistory";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
@@ -25,12 +26,13 @@ function Router() {
     <>
       <NavigationHeader />
       <Switch>
-        <Route path={"/ "} component={Dashboard} />
+        <Route path={"/"} component={Dashboard} />
         <Route path={"/:page"} component={Home} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />
         <Route path={"/calculation-history"} component={CalculationHistory} />
+        <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

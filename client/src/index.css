@@ -990,3 +990,158 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+
+/* ===== COMPREHENSIVE OVERFLOW FIXES ===== */
+
+/* All containers with space-y should handle overflow */
+.space-y-1, .space-y-2, .space-y-3, .space-y-4, .space-y-6, .space-y-8 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Grid containers */
+.grid {
+  overflow: visible;
+}
+
+/* Flex containers */
+.flex {
+  overflow-wrap: break-word;
+}
+
+/* Cards and containers */
+.card, [class*="Card"] {
+  overflow: hidden;
+}
+
+/* Dialog content */
+dialog, [role="dialog"] {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table-wrapper {
+  overflow-x: auto;
+}
+
+/* Scrollable areas */
+[class*="scroll"], [class*="Scroll"] {
+  overflow: auto;
+}
+
+/* Prevent horizontal overflow on body */
+body {
+  overflow-x: hidden;
+}
+
+/* Main content area */
+main, [role="main"] {
+  overflow-x: hidden;
+}
+
+/* Sidebar and navigation */
+[class*="sidebar"], [class*="Sidebar"], nav {
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+/* Responsive text wrapping */
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+p, span, a {
+  overflow-wrap: break-word;
+}
+
+/* Long text handling */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Mobile responsive overflow fixes */
+@media (max-width: 768px) {
+  .grid {
+    grid-auto-flow: row;
+  }
+
+  [class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure dialogs fit on mobile */
+  dialog, [role="dialog"] {
+    max-height: 95vh;
+    max-width: 95vw;
+    margin: auto;
+  }
+
+  /* Tables on mobile */
+  table {
+    font-size: 0.875rem;
+  }
+
+  /* Prevent zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* Prevent layout shift from scrollbars */
+html {
+  overflow-y: scroll;
+}
+
+/* Ensure all content respects viewport */
+* {
+  max-width: 100%;
+}
+
+/* Fix for absolutely positioned elements */
+[class*="absolute"], [class*="fixed"] {
+  max-width: calc(100vw - 20px);
+}
+
+/* Dropdown and menu overflow */
+[role="menu"], [role="listbox"], [role="combobox"] {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Tooltip and popover overflow */
+[role="tooltip"], [role="dialog"][class*="popover"] {
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
