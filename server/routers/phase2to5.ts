@@ -278,11 +278,11 @@ export const usageMetricsRouter = router({
       userId: ctx.user.id,
       month,
       projectsCreated: current?.projectsCreated ?? 0,
-      calculationsRun: (current?.calculationsRun ?? 0) + 1,
-      reportsGenerated: current?.reportsGenerated ?? 0,
-      projectsShared: current?.projectsShared ?? 0,
-      hoursEstimatedSaved: current?.hoursEstimatedSaved ?? 0,
-      riskReductionScore: current?.riskReductionScore ?? 0,
+      calculationsRun: ((current?.calculationsRun ?? 0) + 1).toString(),
+      reportsGenerated: (current?.reportsGenerated ?? 0).toString(),
+      projectsShared: (current?.projectsShared ?? 0).toString(),
+      hoursEstimatedSaved: String(current?.hoursEstimatedSaved ?? 0),
+      riskReductionScore: String(current?.riskReductionScore ?? 0),
     });
     return { success: true };
   }),
@@ -419,8 +419,8 @@ export const calculationVersioningRouter = router({
   createVersion: protectedProcedure
     .input(z.object({
       calculationResultId: z.string(),
-      inputData: z.record(z.any()),
-      resultData: z.record(z.any()),
+      inputData: z.record(z.string(), z.unknown()),
+      resultData: z.record(z.string(), z.unknown()),
       changeReason: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
