@@ -2630,3 +2630,49 @@ Move ALL calculations from client-side React to server-side execution with:
 - FeatureDiscoveryDashboard: Organized feature cards by category (core, professional, tools)
 - Dashboard page: Main landing page showing all features
 - All 688 tests passing
+
+
+## Phase 40: Complete Feature Implementation with Backend Integration
+
+### Step 1: Connect Calculators to Projects
+- [ ] Create calculator context for project-aware calculations
+- [ ] Add project selector to all calculator components
+- [ ] Implement automatic result saving to database via tRPC
+- [ ] Create calculation-to-project association in database
+- [ ] Add calculation results display in project view
+- [ ] Test calculator integration with projects
+
+### Step 2: Build Quick-Start Wizard
+- [ ] Create OnboardingWizard component with multi-step flow
+- [ ] Step 1: Create first project
+- [ ] Step 2: Select occupancy type
+- [ ] Step 3: Run first calculation
+- [ ] Step 4: View results and history
+- [ ] Add wizard to Dashboard for new users
+- [ ] Test wizard flow end-to-end
+
+### Step 3: Professional Report Generator
+- [ ] Create ReportBuilder component
+- [ ] Add calculation selection and filtering
+- [ ] Implement PDF generation with calculations, signatures, and compliance info
+- [ ] Add report customization options
+- [ ] Create report export functionality
+- [ ] Test report generation and export
+
+### Step 4: Overflow Fixes
+- [ ] Audit all container components for overflow issues
+- [ ] Apply overflow-hidden or overflow-auto to all containers
+- [ ] Fix scrolling behavior in modals and dialogs
+- [ ] Test on mobile and desktop viewports
+
+### Step 5: Testing
+- [ ] Test calculator-project integration
+- [ ] Test wizard flow
+- [ ] Test report generation
+- [ ] Test overflow fixes on all screen sizes
+- [ ] Run full test suite
+
+### Step 6: Delivery
+- [ ] Update todo.md with completion status
+- [ ] Save final checkpoint
+- [ ] Verify all features visible in UI

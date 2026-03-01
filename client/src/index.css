@@ -824,3 +824,169 @@
   html {
     overflow-y: scroll;
   }
+
+
+  /**
+   * COMPREHENSIVE OVERFLOW FIXES FOR ALL CONTAINERS
+   * Applied to all major container types to prevent content overflow
+   */
+
+  /* Dialog and Modal Containers */
+  [role="dialog"],
+  .dialog-content,
+  .modal-content {
+    @apply overflow-hidden;
+  }
+
+  [role="dialog"] > div,
+  .dialog-content > div,
+  .modal-content > div {
+    @apply overflow-y-auto max-h-[90vh];
+  }
+
+  /* Card Containers */
+  .card,
+  [role="region"],
+  .card-content {
+    @apply overflow-hidden;
+  }
+
+  .card > *,
+  [role="region"] > *,
+  .card-content > * {
+    @apply overflow-y-auto;
+  }
+
+  /* Scrollable Areas */
+  .scroll-area,
+  .scrollable,
+  [data-scrollable="true"] {
+    @apply overflow-y-auto overflow-x-hidden;
+  }
+
+  /* Tab Content */
+  [role="tabpanel"],
+  .tab-content {
+    @apply overflow-y-auto max-h-[calc(100vh-200px)];
+  }
+
+  /* Accordion Content */
+  [role="region"][aria-labelledby],
+  .accordion-content {
+    @apply overflow-hidden;
+  }
+
+  /* Dropdown and Menu Containers */
+  [role="menu"],
+  [role="listbox"],
+  .dropdown-content,
+  .menu-content {
+    @apply overflow-y-auto max-h-[300px];
+  }
+
+  /* Sidebar and Navigation */
+  aside,
+  .sidebar,
+  nav {
+    @apply overflow-y-auto;
+  }
+
+  /* Main Content Area */
+  main,
+  .main-content {
+    @apply overflow-y-auto;
+  }
+
+  /* List and Grid Containers */
+  .list-container,
+  .grid-container {
+    @apply overflow-y-auto;
+  }
+
+  /* Table Wrappers */
+  .table-container,
+  .table-scroll {
+    @apply overflow-x-auto overflow-y-auto;
+  }
+
+  /* Form Containers */
+  .form-container,
+  .form-content {
+    @apply overflow-y-auto;
+  }
+
+  /* Page Containers */
+  .page-container,
+  .page-content {
+    @apply overflow-y-auto min-h-screen;
+  }
+
+  /* Flex Containers with Overflow */
+  .flex-container {
+    @apply flex overflow-hidden;
+  }
+
+  .flex-container > * {
+    @apply overflow-y-auto;
+  }
+
+  /* Grid Containers with Overflow */
+  .grid-container {
+    @apply grid overflow-hidden;
+  }
+
+  .grid-container > * {
+    @apply overflow-y-auto;
+  }
+
+  /* Responsive Overflow Fixes */
+  @media (max-width: 768px) {
+    /* Mobile: More aggressive overflow handling */
+    [role="dialog"],
+    .dialog-content,
+    .modal-content {
+      @apply max-h-[95vh] overflow-y-auto;
+    }
+
+    .sidebar,
+    aside {
+      @apply max-h-[calc(100vh-60px)] overflow-y-auto;
+    }
+
+    [role="tabpanel"],
+    .tab-content {
+      @apply max-h-[calc(100vh-150px)];
+    }
+  }
+
+  /* Prevent overflow on specific elements */
+  .no-overflow {
+    @apply overflow-hidden;
+  }
+
+  .no-overflow-x {
+    @apply overflow-x-hidden;
+  }
+
+  .no-overflow-y {
+    @apply overflow-y-hidden;
+  }
+
+  /* Force scrolling when needed */
+  .force-scroll {
+    @apply overflow-y-scroll;
+  }
+
+  .force-scroll-x {
+    @apply overflow-x-scroll;
+  }
+
+  /* Hide scrollbars but keep functionality */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }

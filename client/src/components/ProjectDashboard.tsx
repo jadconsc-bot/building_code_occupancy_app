@@ -104,7 +104,7 @@ export function ProjectDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -118,14 +118,14 @@ export function ProjectDashboard() {
               New Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-none">
+          <DialogContent className="rounded-none max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
               <DialogDescription>
                 Add a new building project to track compliance and inspection progress
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 overflow-y-auto max-h-[calc(90vh-200px)]">
               <div>
                 <Label htmlFor="project-name">Project Name *</Label>
                 <Input
@@ -227,14 +227,14 @@ export function ProjectDashboard() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto max-h-[calc(100vh-300px)]">
           {projects.map(project => {
             const overallProgress = getOverallProgress(project);
             
             return (
-              <Card key={project.id} className="rounded-none border-border hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
+              <Card key={project.id} className="rounded-none border-border hover:shadow-lg transition-shadow overflow-hidden">
+                <CardHeader className="overflow-y-auto">
+                  <div className="flex items-start justify-between overflow-hidden">
                     <div className="flex-1">
                       <CardTitle className="text-lg font-bold mb-1">{project.name}</CardTitle>
                       <CardDescription className="text-xs">{project.address || 'No address specified'}</CardDescription>
@@ -249,8 +249,8 @@ export function ProjectDashboard() {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
+                <CardContent className="space-y-4 overflow-y-auto max-h-[300px]">
+                  <div className="flex items-center gap-2 overflow-hidden">
                     <Building2 className="w-4 h-4 text-muted-foreground" />
                     <Badge variant="outline" className="text-xs">
                       {project.occupancyCode}
@@ -304,10 +304,10 @@ export function ProjectDashboard() {
 
       {/* Summary Stats */}
       {projects.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="rounded-none border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 overflow-y-auto max-h-[150px]">
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Projects</p>
                   <p className="text-2xl font-bold">{projects.length}</p>
@@ -317,9 +317,9 @@ export function ProjectDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-none border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg Progress</p>
                   <p className="text-2xl font-bold">
@@ -331,9 +331,9 @@ export function ProjectDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-none border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Completed</p>
                   <p className="text-2xl font-bold">

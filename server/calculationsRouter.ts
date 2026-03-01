@@ -12,6 +12,7 @@ import { calculationResults, calculationAuditLog } from '../drizzle/schema';
 import { eq, and, desc, like, gte, lte } from 'drizzle-orm';
 import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
+import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
 
 /**
  * Calculation result schema for validation
@@ -56,6 +57,8 @@ const ExportFormatSchema = z.enum(['json', 'json-ld', 'pdf']);
  * Calculations Router
  */
 export const calculationsRouter = router({
+  saveResult: saveCalculationResult,
+  getProjectCalculations: getProjectCalculations,
   /**
    * Get calculation history for current user
    */

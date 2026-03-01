@@ -5,13 +5,18 @@
  * Provides a comprehensive overview of the platform capabilities
  */
 
+import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
+import { ReportBuilder } from '@/components/ReportBuilder';
 import { Button } from '@/components/ui/button';
 import { getLoginUrl } from '@/const';
 
 export default function Dashboard() {
   const { isAuthenticated, user } = useAuth();
+  const [showWizard, setShowWizard] = useState(false);
+  const [showReportBuilder, setShowReportBuilder] = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -33,14 +38,26 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background overflow-hidden">
+      <div className="container mx-auto px-4 py-8 overflow-y-auto max-h-screen">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-2">Welcome, {user?.name}!</h1>
-          <p className="text-lg text-muted-foreground">
-            Explore all available features and tools for building code compliance
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Welcome, {user?.name}!</h1>
+              <p className="text-lg text-muted-foreground">
+                Explore all available features and tools for building code compliance
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowWizard(true)} variant="outline">
+                Start Tutorial
+              </Button>
+              <Button onClick={() => setShowReportBuilder(true)}>
+                Generate Report
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Feature Discovery Dashboard */}
@@ -56,6 +73,12 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Onboarding Wizard */}
+      <OnboardingWizard open={showWizard} onComplete={() => setShowWizard(false)} />
+
+      {/* Report Builder */}
+      <ReportBuilder open={showReportBuilder} onClose={() => setShowReportBuilder(false)} />
     </div>
   );
 }
