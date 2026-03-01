@@ -60,7 +60,7 @@ export function NavigationHeader() {
     {
       label: 'Calculators',
       icon: Calculator,
-      href: '/',
+      href: '/project-checklists',
       description: 'Access all calculation tools',
     },
     {
@@ -78,7 +78,7 @@ export function NavigationHeader() {
     {
       label: 'Documentation',
       icon: BookOpen,
-      href: '/',
+      href: '/project-checklists',
       description: 'User guide and help',
     },
     {

@@ -3028,3 +3028,15 @@ All production readiness tasks completed successfully:
 - [x] Create log analysis tools
 - [x] Add log retention policies
 
+
+
+## Button Audit & Integration Fix (Current Session)
+
+### Access Buttons to Fix & Test
+- [ ] Compliance Checker access button - ensure routes to /compliance-checker
+- [ ] Professional Calculators access button - ensure routes to /calculators
+- [ ] Occupancy Classification access button - ensure routes to /
+- [ ] New Project button in Projects page - ensure creates new project via tRPC
+- [ ] Documentation access button - ensure routes to /documentation
+- [ ] Clients Edit button - ensure opens edit modal with tRPC integration
+- [ ] All buttons tested for 100% functionality
