@@ -13,6 +13,7 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
+import Compliance from "./pages/Compliance";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -20,6 +21,7 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/project-checklists"} component={ProjectChecklists} />
+      <Route path={"/compliance/:projectId"} component={Compliance} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -133,3 +133,101 @@ export const projectChecklistItems = mysqlTable("projectChecklistItems", {
 
 export type ProjectChecklistItem = typeof projectChecklistItems.$inferSelect;
 export type InsertProjectChecklistItem = typeof projectChecklistItems.$inferInsert;
+
+
+/**
+ * Versioned rulesets for compliance engine
+ * Each ruleset is immutable and tied to a specific code edition
+ */
+export const rulesets = mysqlTable("rulesets", {
+  id: int("id").autoincrement().primaryKey(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull().unique(), // e.g., "nbc_ae_2023_v1"
+  code: varchar("code", { length: 50 }).notNull(), // e.g., "NBC(AE)"
+  edition: varchar("edition", { length: 20 }).notNull(), // e.g., "2023"
+  amendment: varchar("amendment", { length: 50 }), // e.g., "2023-12"
+  version: varchar("version", { length: 20 }).notNull(), // e.g., "1.0.0"
+  effectiveDate: timestamp("effectiveDate").notNull(),
+  retiredDate: timestamp("retiredDate"), // null if still active
+  description: text("description"),
+  rulesData: text("rulesData").notNull(), // JSON array of all rules
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Ruleset = typeof rulesets.$inferSelect;
+export type InsertRuleset = typeof rulesets.$inferInsert;
+
+/**
+ * Immutable compliance snapshots
+ * Frozen results tied to a specific ruleset version
+ */
+export const complianceSnapshots = mysqlTable("complianceSnapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  snapshotId: varchar("snapshotId", { length: 100 }).notNull().unique(), // UUID
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull(), // Reference to rulesets table
+  mode: mysqlEnum("mode", ["strict", "soft"]).default("soft").notNull(),
+  inputs: text("inputs").notNull(), // JSON of all inputs
+  outputs: text("outputs").notNull(), // JSON of all outputs
+  ruleTrace: text("ruleTrace").notNull(), // JSON array of which rules fired
+  complianceStatus: mysqlEnum("complianceStatus", ["compliant", "non_compliant", "conditional"]).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ComplianceSnapshot = typeof complianceSnapshots.$inferSelect;
+export type InsertComplianceSnapshot = typeof complianceSnapshots.$inferInsert;
+
+/**
+ * Rule changelog for governance and audit
+ */
+export const ruleChangelog = mysqlTable("ruleChangelog", {
+  id: int("id").autoincrement().primaryKey(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull(),
+  changeType: mysqlEnum("changeType", ["added", "modified", "deprecated", "removed"]).notNull(),
+  ruleId: varchar("ruleId", { length: 100 }).notNull(),
+  clause: varchar("clause", { length: 50 }).notNull(),
+  description: text("description").notNull(),
+  reason: text("reason"),
+  approvedBy: int("approvedBy"), // User ID of approver
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RuleChange = typeof ruleChangelog.$inferSelect;
+export type InsertRuleChange = typeof ruleChangelog.$inferInsert;
+
+/**
+ * Audit log for all compliance analyses
+ */
+export const auditLog = mysqlTable("auditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  projectId: int("projectId"),
+  snapshotId: varchar("snapshotId", { length: 100 }),
+  action: varchar("action", { length: 100 }).notNull(), // e.g., "analysis_run", "snapshot_created", "snapshot_exported"
+  details: text("details"), // JSON with additional context
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AuditLogEntry = typeof auditLog.$inferSelect;
+export type InsertAuditLogEntry = typeof auditLog.$inferInsert;
+
+/**
+ * Rule test cases for regression testing
+ */
+export const ruleTests = mysqlTable("ruleTests", {
+  id: int("id").autoincrement().primaryKey(),
+  rulesetId: varchar("rulesetId", { length: 100 }).notNull(),
+  ruleId: varchar("ruleId", { length: 100 }).notNull(),
+  testName: varchar("testName", { length: 255 }).notNull(),
+  inputs: text("inputs").notNull(), // JSON of test inputs
+  expectedOutputs: text("expectedOutputs").notNull(), // JSON of expected outputs
+  passed: int("passed").default(0).notNull(), // 0 = failed, 1 = passed
+  lastRunAt: timestamp("lastRunAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RuleTest = typeof ruleTests.$inferSelect;
+export type InsertRuleTest = typeof ruleTests.$inferInsert;

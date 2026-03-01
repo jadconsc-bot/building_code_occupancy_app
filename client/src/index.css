@@ -186,6 +186,116 @@
     @apply min-w-0 overflow-hidden text-ellipsis;
   }
 
+  /* GLOBAL TOP MENU FIX - Scroll-snap pattern for flex containers */
+  .top-menu {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    gap: 0.5rem;
+    padding-bottom: 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .top-menu::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+
+  .top-menu-item {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 0.75rem 1.25rem;
+  }
+
+  /* Horizontal scrollable container with snap */
+  .scroll-snap-x {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.5rem;
+  }
+
+  .scroll-snap-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scroll-snap-item {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  /* Responsive table wrapper with horizontal scroll */
+  .table-wrapper {
+    @apply overflow-x-auto rounded-lg border border-border;
+  }
+
+  .table-wrapper table {
+    @apply min-w-full;
+  }
+
+  /* Flex container that prevents overflow */
+  .flex-nowrap {
+    @apply flex flex-nowrap overflow-x-auto;
+  }
+
+  .flex-nowrap-item {
+    @apply flex-shrink-0;
+  }
+
+  /* Grid container with auto-fit that wraps */
+  .grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  /* Prevent text overflow in containers */
+  .text-truncate {
+    @apply truncate;
+  }
+
+  .text-truncate-lines-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .text-truncate-lines-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Flex item that doesn't shrink below content */
+  .flex-no-shrink {
+    @apply flex-shrink-0;
+  }
+
+  /* Flex item that grows but doesn't overflow */
+  .flex-grow-safe {
+    @apply flex-grow min-w-0;
+  }
+
+  /* Container for buttons/items that scroll horizontally */
+  .button-group-scroll {
+    @apply flex gap-2 overflow-x-auto pb-2 -mb-2;
+  }
+
+  .button-group-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .button-group-item {
+    @apply flex-shrink-0;
+  }
+
   @media (min-width: 640px) {
     .container {
       padding-left: 1.5rem;

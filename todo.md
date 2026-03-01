@@ -2177,3 +2177,79 @@ Successfully completed all three integration suggestions:
 - User information displays in header (name shown in logout button)
 - Login button redirects to OAuth portal
 - Logout button clears session and redirects
+
+
+## Phase 33: Overflow Fixes & Backend Integration
+
+- [ ] Apply scroll-snap overflow pattern to all flex containers in index.css
+- [ ] Fix Home.tsx sidebar and main content overflow issues
+- [ ] Fix ElectricalToolsWithSave component overflow
+- [ ] Fix PlumbingTools component overflow
+- [ ] Fix ProjectChecklistDashboard table overflow
+- [ ] Fix calculator result tables with horizontal scroll
+- [ ] Create unified ProjectSwitcher component for navigation
+- [ ] Add ProjectSwitcher to Home.tsx header
+- [ ] Wire save buttons to all plumbing calculators
+- [ ] Connect ProjectChecklists route to main navigation menu
+- [ ] Integrate ChecklistPDFGenerator export button to dashboard
+- [ ] Test all components on mobile and desktop
+- [ ] Verify no overflow issues remain
+
+
+## Phase 34: Legally Defensible Compliance Engine
+
+### Versioned Ruleset System
+- [ ] Create ruleset database schema with versioning
+- [ ] Design ruleset metadata structure (code, edition, amendment, effective_date, retired_date)
+- [ ] Implement ruleset version management (never overwrite, create new versions)
+- [ ] Create ruleset loader and validator
+- [ ] Build ruleset migration system for code updates
+
+### Deterministic Rule Evaluator
+- [ ] Design rule evaluation engine with deterministic logic
+- [ ] Create rule trace logging (which rules fired, in what order)
+- [ ] Implement input validation and normalization
+- [ ] Build output generation with full traceability
+- [ ] Create rule execution tests for reproducibility
+
+### Rule DSL (Domain-Specific Language)
+- [ ] Design simple rule syntax (WHEN/THEN/AND/OR)
+- [ ] Create rule parser and compiler
+- [ ] Build rule validator (syntax, logic, references)
+- [ ] Implement rule execution from compiled form
+- [ ] Create rule editor UI for non-developers
+
+### Immutable Snapshots
+- [ ] Create snapshot database schema
+- [ ] Implement snapshot creation on every analysis
+- [ ] Store inputs, outputs, ruleset version, timestamp
+- [ ] Build snapshot retrieval and display
+- [ ] Create snapshot comparison view
+
+### Strict vs Soft Mode
+- [ ] Implement strict mode (no assumptions, missing data = cannot determine)
+- [ ] Implement soft mode (defaults, assumptions, warnings)
+- [ ] Add mode selector to UI
+- [ ] Create different output formats for each mode
+- [ ] Add warnings/notes for soft mode assumptions
+
+### Governance & Audit
+- [ ] Create changelog system for ruleset changes
+- [ ] Implement audit log for all analyses
+- [ ] Add approval workflow for rule changes
+- [ ] Create governance dashboard
+- [ ] Build compliance documentation generator
+
+### Legal & Compliance
+- [ ] Add clause-level citations to all outputs
+- [ ] Create compliance snapshot PDF export
+- [ ] Add legal disclaimer UI
+- [ ] Build rule traceability report
+- [ ] Create appeals/audit support documentation
+
+### Testing & Validation
+- [ ] Create unit tests for each rule
+- [ ] Build integration tests for rule combinations
+- [ ] Implement regression test suite
+- [ ] Create test runner and reporting
+- [ ] Build test coverage dashboard
