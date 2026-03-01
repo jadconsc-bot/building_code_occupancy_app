@@ -32,7 +32,6 @@ function Router() {
       <NavigationHeader />
       <Switch>
         <Route path={"/"} component={Dashboard} />
-        <Route path={"/:page"} component={Home} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />

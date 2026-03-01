@@ -118,21 +118,21 @@ export function NavigationHeader() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo and Brand */}
         <Link href="/">
-          <a className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity">
+          <div className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer">
             <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center rounded font-bold">
               AB
             </div>
             <span className="hidden sm:inline">CodeComply</span>
-          </a>
+          </div>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1">
           {features.slice(0, 4).map((feature) => (
             <Link key={feature.href} href={feature.href}>
-              <a className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors">
+              <div className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer">
                 {feature.label}
-              </a>
+              </div>
             </Link>
           ))}
         </nav>
@@ -153,17 +153,13 @@ export function NavigationHeader() {
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
-                  <Link key={feature.href} href={feature.href}>
-                    <a className="w-full">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Icon className="w-4 h-4 mr-2" />
-                        <div>
-                          <div className="font-medium">{feature.label}</div>
-                          <div className="text-xs text-muted-foreground">{feature.description}</div>
-                        </div>
-                      </DropdownMenuItem>
-                    </a>
-                  </Link>
+                  <DropdownMenuItem key={feature.href} className="cursor-pointer" onClick={() => window.location.href = feature.href}>
+                    <Icon className="w-4 h-4 mr-2" />
+                    <div>
+                      <div className="font-medium">{feature.label}</div>
+                      <div className="text-xs text-muted-foreground">{feature.description}</div>
+                    </div>
+                  </DropdownMenuItem>
                 );
               })}
             </DropdownMenuContent>
@@ -230,8 +226,8 @@ export function NavigationHeader() {
               const Icon = feature.icon;
               return (
                 <Link key={feature.href} href={feature.href}>
-                  <a
-                    className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                  <div
+                    className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Icon className="w-4 h-4" />
@@ -239,7 +235,7 @@ export function NavigationHeader() {
                       <div>{feature.label}</div>
                       <div className="text-xs text-muted-foreground">{feature.description}</div>
                     </div>
-                  </a>
+                  </div>
                 </Link>
               );
             })}
