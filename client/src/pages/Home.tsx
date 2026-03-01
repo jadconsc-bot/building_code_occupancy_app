@@ -85,6 +85,7 @@ import { useHelpSystem } from "@/contexts/HelpSystemContext";
 import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenerator";
 import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions, getComprehensiveSearchResults, getTabForKeyword } from "@/lib/searchKeywords";
 import { toast } from "sonner";
+import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -1245,6 +1246,11 @@ export default function Home() {
       <div className={`flex-1 h-screen overflow-y-auto bg-background p-6 md:p-10 lg:p-16 print:p-0 print:overflow-visible ${!selectedGroup ? 'hidden md:block' : 'block'}`}>
         {selectedGroup ? (
           <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300 print:max-w-none print:animate-none">
+            {/* Legal Disclaimer */}
+            <div className="mb-8 print:hidden">
+              <LegalDisclaimer />
+            </div>
+
             {/* Back to Search Button - Always Visible on Mobile */}
             <button 
               onClick={() => setSelectedGroup(null)}

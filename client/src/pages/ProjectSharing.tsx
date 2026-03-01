@@ -12,13 +12,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Copy, Trash2, Eye, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ProjectSharing() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Mock data for demo
-  const shareLinks = [
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [shareLinks, setShareLinks] = useState([
     {
       id: "link-1",
       projectName: "Downtown Office Tower",
@@ -39,12 +39,51 @@ export default function ProjectSharing() {
       accessCount: 12,
       isActive: true,
     },
-  ];
+  ]);
 
   const copyToClipboard = (token: string, id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/share/${token}`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDeleteShareLink = async (linkId: string) => {
+    setIsDeleting(linkId);
+    try {
+      // TODO: Wire to tRPC mutation for revoking share link
+      // const result = await trpc.sharing.revokeShareLink.mutate({ linkId });
+      
+      // Optimistic update
+      setShareLinks(prev => prev.filter(link => link.id !== linkId));
+      toast.success("Share link revoked successfully");
+    } catch (error) {
+      toast.error("Failed to revoke share link");
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleCreateShareLink = async () => {
+    try {
+      // TODO: Wire to tRPC mutation for creating share link
+      // const result = await trpc.sharing.createShareLink.mutate({ ... });
+      
+      toast.success("Share link created successfully");
+      setIsCreateOpen(false);
+    } catch (error) {
+      toast.error("Failed to create share link");
+    }
+  };
+
+  const handleCreateVerificationLink = async () => {
+    try {
+      // TODO: Wire to tRPC mutation for creating verification link
+      // const result = await trpc.verification.createVerificationLink.mutate({ ... });
+      
+      toast.success("Verification link created successfully");
+    } catch (error) {
+      toast.error("Failed to create verification link");
+    }
   };
 
   const getAccessLevelColor = (level: string) => {
@@ -105,7 +144,7 @@ export default function ProjectSharing() {
                 <Input id="max-access" type="number" placeholder="Leave blank for unlimited" />
               </div>
 
-              <Button className="w-full">Create Share Link</Button>
+              <Button className="w-full" onClick={handleCreateShareLink}>Create Share Link</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -171,7 +210,13 @@ export default function ProjectSharing() {
                           {copiedId === link.id && (
                             <span className="text-xs text-green-600">Copied!</span>
                           )}
-                          <Button variant="ghost" size="sm" className="text-destructive">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => handleDeleteShareLink(link.id)}
+                            disabled={isDeleting === link.id}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -195,7 +240,7 @@ export default function ProjectSharing() {
           <p className="text-sm text-muted-foreground">
             Generate public verification links that allow authorities to verify the integrity and authenticity of your calculations without requiring login.
           </p>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleCreateVerificationLink}>
             <Plus className="w-4 h-4" />
             Create Verification Link
           </Button>

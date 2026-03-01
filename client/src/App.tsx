@@ -23,6 +23,7 @@ import ProjectSharing from "./pages/ProjectSharing";
 import CalculationVersioning from "./pages/CalculationVersioning";
 import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
+import TermsOfService from "./pages/TermsOfService";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
@@ -42,6 +43,7 @@ function Router() {
         <Route path={"/billing"} component={Billing} />
         <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/admin"} component={AdminDashboard} />
+        <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

@@ -13,6 +13,7 @@ import { ReportBuilder } from '@/components/ReportBuilder';
 import { RuleManagementAccess } from '@/components/RuleManagementAccess';
 import { CalculationComparison } from '@/components/CalculationComparison';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { Button } from '@/components/ui/button';
 import { getLoginUrl } from '@/const';
 
@@ -62,6 +63,11 @@ export default function Dashboard() {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Legal Disclaimer */}
+        <div className="mb-8">
+          <LegalDisclaimer />
         </div>
 
         {/* Feature Discovery Dashboard */}

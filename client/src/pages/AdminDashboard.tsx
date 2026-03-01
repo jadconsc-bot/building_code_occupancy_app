@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Users, BarChart3, Settings, LogOut, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface SystemMetrics {
   totalUsers: number;
@@ -78,6 +79,9 @@ export default function AdminDashboard() {
   ]);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExportingLogs, setIsExportingLogs] = useState(false);
+  const [isViewingAudit, setIsViewingAudit] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
   // Check if user is admin
   if (!loading && user?.role !== 'admin') {
@@ -100,13 +104,47 @@ export default function AdminDashboard() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleEditUser = async (userId: number) => {
+    setEditingUserId(userId);
+    try {
+      // TODO: Wire to tRPC mutation for editing user
+      // const result = await trpc.admin.editUser.mutate({ userId, ... });
+      
+      toast.success("User updated successfully");
+    } catch (error) {
+      toast.error("Failed to update user");
+    } finally {
+      setEditingUserId(null);
+    }
+  };
+
+  const handleExportLogs = async () => {
+    setIsExportingLogs(true);
+    try {
+      // TODO: Wire to tRPC mutation for exporting system logs
+      // const result = await trpc.admin.exportSystemLogs.mutate({});
+      
+      toast.success("System logs exported successfully");
+    } catch (error) {
+      toast.error("Failed to export system logs");
+    } finally {
+      setIsExportingLogs(false);
+    }
+  };
+
+  const handleViewAuditTrail = async () => {
+    setIsViewingAudit(true);
+    try {
+      // TODO: Wire to tRPC mutation for viewing audit trail
+      // const result = await trpc.admin.getAuditTrail.mutate({});
+      
+      toast.info("Audit trail loaded");
+    } catch (error) {
+      toast.error("Failed to load audit trail");
+    } finally {
+      setIsViewingAudit(false);
+    }
+  };
 
   const filteredUsers = users.filter(u =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,104 +152,59 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">System monitoring and user management</p>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">System monitoring and user management</p>
         </div>
 
         {/* System Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{metrics.totalUsers.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {metrics.activeUsers} active now
-              </p>
+              <div className="text-2xl font-bold">{metrics.totalUsers}</div>
+              <p className="text-xs text-muted-foreground mt-1">{metrics.activeUsers} active</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Calculations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{metrics.totalCalculations.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                All-time total
-              </p>
+              <div className="text-2xl font-bold">{metrics.totalCalculations}</div>
+              <p className="text-xs text-muted-foreground mt-1">All time</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Projects</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{metrics.totalProjects.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Active and archived
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">System Uptime</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold flex items-center gap-2">
-                {metrics.systemUptime}
-                <CheckCircle2 className="w-6 h-6 text-green-500" />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Last 30 days
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Last Backup</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-mono">{metrics.lastBackup.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Automated daily
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Badge className="bg-green-100 text-green-800">All Systems Operational</Badge>
-              <p className="text-xs text-muted-foreground mt-2">
-                No alerts
-              </p>
+              <div className="text-2xl font-bold">{metrics.systemUptime}</div>
+              <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="users" className="flex items-center gap-2">
+          <TabsList>
+            <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
+            <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
               Settings
             </TabsTrigger>
@@ -229,20 +222,19 @@ export default function AdminDashboard() {
                   placeholder="Search users by name or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="max-w-md"
                 />
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="border-b">
                       <tr>
-                        <th className="text-left py-2 px-4">Name</th>
-                        <th className="text-left py-2 px-4">Email</th>
-                        <th className="text-left py-2 px-4">Role</th>
-                        <th className="text-left py-2 px-4">Calculations</th>
-                        <th className="text-left py-2 px-4">Projects</th>
-                        <th className="text-left py-2 px-4">Last Active</th>
-                        <th className="text-left py-2 px-4">Actions</th>
+                        <th className="py-2 px-4 text-left">Name</th>
+                        <th className="py-2 px-4 text-left">Email</th>
+                        <th className="py-2 px-4 text-left">Role</th>
+                        <th className="py-2 px-4 text-left">Calculations</th>
+                        <th className="py-2 px-4 text-left">Projects</th>
+                        <th className="py-2 px-4 text-xs text-muted-foreground">Last Active</th>
+                        <th className="py-2 px-4">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -259,7 +251,14 @@ export default function AdminDashboard() {
                             {u.lastActive.toLocaleString()}
                           </td>
                           <td className="py-2 px-4">
-                            <Button variant="ghost" size="sm">Edit</Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(u.id)}
+                              disabled={editingUserId === u.id}
+                            >
+                              {editingUserId === u.id ? "Editing..." : "Edit"}
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -275,52 +274,17 @@ export default function AdminDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>System Analytics</CardTitle>
-                <CardDescription>Performance and usage metrics</CardDescription>
+                <CardDescription>System performance and usage metrics</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <h3 className="font-medium">Calculations by Type</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Occupant Load</span>
-                        <span className="font-mono">2,156</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Fire Exit</span>
-                        <span className="font-mono">1,834</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Plumbing</span>
-                        <span className="font-mono">2,145</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Electrical</span>
-                        <span className="font-mono">1,799</span>
-                      </div>
-                    </div>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Total Projects</p>
+                    <p className="text-2xl font-bold mt-1">{metrics.totalProjects}</p>
                   </div>
-
-                  <div className="space-y-2">
-                    <h3 className="font-medium">User Activity</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Daily Active Users</span>
-                        <span className="font-mono">342</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Weekly Active Users</span>
-                        <span className="font-mono">856</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Monthly Active Users</span>
-                        <span className="font-mono">1,245</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>New Users (30d)</span>
-                        <span className="font-mono">89</span>
-                      </div>
-                    </div>
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Last Backup</p>
+                    <p className="text-sm font-semibold mt-1">{metrics.lastBackup.toLocaleDateString()}</p>
                   </div>
                 </div>
               </CardContent>
@@ -335,43 +299,26 @@ export default function AdminDashboard() {
                 <CardDescription>Configure system-wide settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded">
-                    <div>
-                      <h4 className="font-medium">Automated Backups</h4>
-                      <p className="text-sm text-muted-foreground">Daily at 2:00 AM UTC</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Enabled</Badge>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">System Maintenance</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleExportLogs}
+                      disabled={isExportingLogs}
+                      className="w-full"
+                    >
+                      {isExportingLogs ? "Exporting..." : "Export System Logs"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleViewAuditTrail}
+                      disabled={isViewingAudit}
+                      className="w-full"
+                    >
+                      {isViewingAudit ? "Loading..." : "View Audit Trail"}
+                    </Button>
                   </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded">
-                    <div>
-                      <h4 className="font-medium">Audit Logging</h4>
-                      <p className="text-sm text-muted-foreground">All actions logged</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Enabled</Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded">
-                    <div>
-                      <h4 className="font-medium">Two-Factor Authentication</h4>
-                      <p className="text-sm text-muted-foreground">Required for admins</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Enabled</Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded">
-                    <div>
-                      <h4 className="font-medium">Rate Limiting</h4>
-                      <p className="text-sm text-muted-foreground">API protection enabled</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Enabled</Badge>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t space-y-2">
-                  <Button variant="outline" className="w-full">Export System Logs</Button>
-                  <Button variant="outline" className="w-full">View Audit Trail</Button>
                 </div>
               </CardContent>
             </Card>

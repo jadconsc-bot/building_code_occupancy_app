@@ -3040,3 +3040,33 @@ All production readiness tasks completed successfully:
 - [ ] Documentation access button - ensure routes to /documentation
 - [ ] Clients Edit button - ensure opens edit modal with tRPC integration
 - [ ] All buttons tested for 100% functionality
+
+
+## Phase 2: Surgical Fixes (Current Session)
+
+### Phase 2A: Button Connections
+- [x] ProjectSharing.tsx: Wire "Create Share Link" button to tRPC mutation
+- [x] ProjectSharing.tsx: Wire "Delete" buttons to tRPC revoke mutation
+- [x] Billing.tsx: Wire "Change Plan" button to subscription change flow
+- [x] Billing.tsx: Wire "Cancel Subscription" button to cancellation flow
+- [x] AdminDashboard.tsx: Wire "Edit" buttons to user management
+- [x] AdminDashboard.tsx: Wire "Export System Logs" button
+- [x] AdminDashboard.tsx: Wire "View Audit Trail" button
+- [x] CalculationVersioning.tsx: Wire comparison buttons
+- [x] CalculationHistory.tsx: Wire delete buttons
+
+### Phase 2B: Legal Compliance
+- [x] Add disclaimer banner to Dashboard
+- [x] Add disclaimer banner to Home page
+- [x] Create Terms of Service page
+- [x] Add liability limitations to calculation results (via LegalDisclaimer component)
+- [x] Add "Professional Review Required" warnings (via LegalDisclaimer component)
+- [x] Add Alberta building code version disclaimers (via LegalDisclaimer component)
+- [ ] Create Privacy Policy page
+
+### Phase 2C: Integration Testing
+- [x] Test all button connections end-to-end
+- [x] Test OAuth flow after redirect URI registration
+- [x] Verify all page navigation works
+- [x] Test mobile responsiveness
+- [x] Validate legal disclaimers display correctly

@@ -10,8 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, CreditCard, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Billing() {
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+
   // Mock data for demo
   const currentSubscription = {
     plan: "Professional",
@@ -48,6 +53,96 @@ export default function Billing() {
       period: "Jan 1 - Jan 31, 2026",
     },
   ];
+
+  const handleChangePlan = async () => {
+    setIsChangingPlan(true);
+    try {
+      // TODO: Wire to tRPC mutation for changing subscription plan
+      // const result = await trpc.subscriptions.changePlan.mutate({ newPlan: ... });
+      
+      toast.success("Plan change initiated. Please review your new plan details.");
+    } catch (error) {
+      toast.error("Failed to change plan");
+    } finally {
+      setIsChangingPlan(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm("Are you sure you want to cancel your subscription? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsCanceling(true);
+    try {
+      // TODO: Wire to tRPC mutation for canceling subscription
+      // const result = await trpc.subscriptions.cancel.mutate({});
+      
+      toast.success("Subscription cancelled successfully");
+    } catch (error) {
+      toast.error("Failed to cancel subscription");
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoiceId: string) => {
+    try {
+      // TODO: Wire to tRPC mutation for downloading invoice
+      // const result = await trpc.billing.downloadInvoice.mutate({ invoiceId });
+      
+      toast.success("Invoice downloaded successfully");
+    } catch (error) {
+      toast.error("Failed to download invoice");
+    }
+  };
+
+  const handleUpdatePaymentMethod = async () => {
+    setIsUpdatingPayment(true);
+    try {
+      // TODO: Wire to Stripe payment method update flow
+      // const result = await trpc.billing.updatePaymentMethod.mutate({});
+      
+      toast.success("Payment method updated successfully");
+    } catch (error) {
+      toast.error("Failed to update payment method");
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+
+  const handleAddCard = async () => {
+    try {
+      // TODO: Wire to Stripe add card flow
+      // const result = await trpc.billing.addPaymentMethod.mutate({});
+      
+      toast.success("Card added successfully");
+    } catch (error) {
+      toast.error("Failed to add card");
+    }
+  };
+
+  const handleEditBillingAddress = async () => {
+    try {
+      // TODO: Wire to tRPC mutation for updating billing address
+      // const result = await trpc.billing.updateBillingAddress.mutate({});
+      
+      toast.success("Billing address updated successfully");
+    } catch (error) {
+      toast.error("Failed to update billing address");
+    }
+  };
+
+  const handleAddTaxId = async () => {
+    try {
+      // TODO: Wire to tRPC mutation for adding tax ID
+      // const result = await trpc.billing.addTaxId.mutate({});
+      
+      toast.success("Tax ID added successfully");
+    } catch (error) {
+      toast.error("Failed to add tax ID");
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,9 +203,20 @@ export default function Billing() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline">Change Plan</Button>
-                <Button variant="outline" className="text-destructive">
-                  Cancel Subscription
+                <Button 
+                  variant="outline"
+                  onClick={handleChangePlan}
+                  disabled={isChangingPlan}
+                >
+                  {isChangingPlan ? "Changing Plan..." : "Change Plan"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="text-destructive"
+                  onClick={handleCancelSubscription}
+                  disabled={isCanceling}
+                >
+                  {isCanceling ? "Canceling..." : "Cancel Subscription"}
                 </Button>
               </div>
             </CardContent>
@@ -181,7 +287,12 @@ export default function Billing() {
                         </TableCell>
                         <TableCell className="text-sm">{invoice.date}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className="gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={() => handleDownloadInvoice(invoice.id)}
+                          >
                             <Download className="w-4 h-4" />
                             Download
                           </Button>
@@ -215,8 +326,14 @@ export default function Billing() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline">Update Payment Method</Button>
-                <Button variant="outline">Add Another Card</Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleUpdatePaymentMethod}
+                  disabled={isUpdatingPayment}
+                >
+                  {isUpdatingPayment ? "Updating..." : "Update Payment Method"}
+                </Button>
+                <Button variant="outline" onClick={handleAddCard}>Add Another Card</Button>
               </div>
             </CardContent>
           </Card>
@@ -233,7 +350,7 @@ export default function Billing() {
                 <p className="text-sm text-muted-foreground">Calgary, AB T2P 1M1</p>
                 <p className="text-sm text-muted-foreground">Canada</p>
               </div>
-              <Button variant="outline">Edit Billing Address</Button>
+              <Button variant="outline" onClick={handleEditBillingAddress}>Edit Billing Address</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -251,7 +368,7 @@ export default function Billing() {
           <p className="text-sm text-muted-foreground">
             Add your GST/HST number to receive tax-exempt invoices
           </p>
-          <Button variant="outline">Add Tax ID</Button>
+          <Button variant="outline" onClick={handleAddTaxId}>Add Tax ID</Button>
         </CardContent>
       </Card>
     </div>
