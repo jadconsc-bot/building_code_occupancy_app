@@ -16,20 +16,26 @@ import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
 import CalculationHistory from "./pages/CalculationHistory";
+import Dashboard from "./pages/Dashboard";
+import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/project-checklists"} component={ProjectChecklists} />
-      <Route path={"/compliance/:projectId"} component={Compliance} />
-      <Route path={"/rule-management"} component={RuleManagement} />
-      <Route path={"/calculation-history"} component={CalculationHistory} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <NavigationHeader />
+      <Switch>
+        <Route path={"/ "} component={Dashboard} />
+        <Route path={"/:page"} component={Home} />
+        <Route path={"/project-checklists"} component={ProjectChecklists} />
+        <Route path={"/compliance/:projectId"} component={Compliance} />
+        <Route path={"/rule-management"} component={RuleManagement} />
+        <Route path={"/calculation-history"} component={CalculationHistory} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 

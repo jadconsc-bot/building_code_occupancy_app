@@ -2591,3 +2591,42 @@ Move ALL calculations from client-side React to server-side execution with:
 - calculationAuditLog table for immutable audit trails
 - Digital certificate management for signature verification
 - Full traceability of all calculation operations
+
+
+## Phase 39: UI Visibility Standard - Make All Features Discoverable
+
+### Standard: Every feature created MUST be immediately visible in the UI
+
+- [ ] Create professional navigation header with all feature links
+- [ ] Build feature discovery dashboard showing all available tools
+- [ ] Add feature links and access points to Home page
+- [ ] Create project management UI for creating/viewing projects
+- [ ] Integrate calculator access into project workflow
+- [ ] Make rule management accessible from main navigation
+- [ ] Verify all 7+ features are visible and accessible
+- [ ] Update development workflow to require UI visibility for all features
+
+### Features That Must Be Visible:
+1. Occupancy Classification (existing - visible)
+2. Rule Management (existing - NOT visible)
+3. Calculation History (existing - NOT visible)
+4. Project Checklists (existing - NOT visible)
+5. Server-side Calculators (existing - NOT visible)
+6. Professional Rule Editor (existing - NOT visible)
+7. Digital Certificates (existing - NOT visible)
+
+
+### Implementation Progress:
+- [x] Create professional navigation header with all feature links
+- [x] Build feature discovery dashboard showing all available tools
+- [ ] Add feature links and access points to Home page
+- [ ] Create project management UI for creating/viewing projects
+- [ ] Integrate calculator access into project workflow
+- [ ] Make rule management accessible from main navigation
+- [ ] Verify all 7+ features are visible and accessible
+
+### Completed Components:
+- NavigationHeader: Professional header with dropdown menus and mobile support
+- FeatureDiscoveryDashboard: Organized feature cards by category (core, professional, tools)
+- Dashboard page: Main landing page showing all features
+- All 688 tests passing
