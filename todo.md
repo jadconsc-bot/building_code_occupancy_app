@@ -3028,3 +3028,78 @@ All production readiness tasks completed successfully:
 - [x] Create log analysis tools
 - [x] Add log retention policies
 
+
+
+## Button Audit & Connection (New Task)
+
+### Phase 1: Audit All Buttons
+- [ ] Audit ClientsManagement.tsx buttons
+- [ ] Audit ProjectSharing.tsx buttons
+- [ ] Audit CalculationVersioning.tsx buttons
+- [ ] Audit Billing.tsx buttons
+- [ ] Audit Analytics.tsx buttons
+- [ ] Audit VerificationPortal.tsx buttons
+- [ ] Audit NavigationHeader.tsx buttons
+- [ ] Audit Dashboard.tsx buttons
+- [ ] Audit ProjectChecklists.tsx buttons
+- [ ] Audit RuleManagement.tsx buttons
+
+### Phase 2: Connect Clients Management
+- [ ] Connect "Add Client" button to tRPC create mutation
+- [ ] Connect "Edit" buttons to tRPC update mutation
+- [ ] Connect "Delete" buttons to tRPC delete mutation
+- [ ] Connect search/filter to client data fetching
+- [ ] Test client CRUD operations
+
+### Phase 3: Connect Project Sharing
+- [ ] Connect "Generate Share Link" button to tRPC
+- [ ] Connect "Copy Link" button to clipboard
+- [ ] Connect "Revoke Access" button to tRPC
+- [ ] Connect access level dropdown to update logic
+- [ ] Connect expiration date picker to update logic
+- [ ] Test share link generation and management
+
+### Phase 4: Connect Calculation Versioning
+- [ ] Connect "Recalculate" button to tRPC
+- [ ] Connect "Compare Versions" button to comparison logic
+- [ ] Connect "Rollback" button to version rollback tRPC
+- [ ] Connect version timeline to data fetching
+- [ ] Test version history and rollback
+
+### Phase 5: Connect Billing
+- [ ] Connect "Change Plan" button to Stripe checkout
+- [ ] Connect "Cancel Subscription" button to tRPC
+- [ ] Connect "Download Invoice" button to PDF generation
+- [ ] Connect "Update Payment Method" to Stripe
+- [ ] Connect "Edit Billing Address" to tRPC
+- [ ] Connect "Add Tax ID" to tRPC
+- [ ] Test billing workflow
+
+### Phase 6: Connect Analytics
+- [ ] Connect date range picker to data filtering
+- [ ] Connect chart interactions to drill-down logic
+- [ ] Connect "Export Report" button to PDF generation
+- [ ] Test analytics data loading and display
+
+### Phase 7: Connect Verification Portal
+- [ ] Connect "Verify Calculation" button to verification logic
+- [ ] Connect verification code input to backend lookup
+- [ ] Test verification result display
+
+### Phase 8: Connect Navigation
+- [ ] Test all navigation links work correctly
+- [ ] Test mobile menu navigation
+- [ ] Test dropdown menu navigation
+- [ ] Test user profile menu (Settings, Logout)
+
+### Phase 9: Testing & Validation
+- [ ] Write integration tests for all button interactions
+- [ ] Test complete user workflows end-to-end
+- [ ] Verify error handling for all operations
+- [ ] Test loading states and feedback
+- [ ] Verify success notifications
+
+### Phase 10: Final Delivery
+- [ ] Document all connected buttons
+- [ ] Create user documentation
+- [ ] Final comprehensive testing
