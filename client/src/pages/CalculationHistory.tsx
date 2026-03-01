@@ -1,12 +1,14 @@
 /**
- * Calculation History Page
+ * Calculation History Page - Updated with tRPC Integration
  * 
  * Displays a history of all calculations performed by the user
+ * Fetches real data from database via tRPC procedures
  * Allows retrieval, verification, and export of previous results
  */
 
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,129 +43,139 @@ import {
   CheckCircle2,
   AlertCircle,
   Copy,
-  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-/**
- * Mock calculation history data
- * In production, this would come from tRPC queries
- */
-interface CalculationRecord {
-  id: string;
-  calculatorType: string;
-  displayName: string;
-  timestamp: string;
-  projectId: number;
-  projectName: string;
-  signatureVerified: boolean;
-  resultSummary: string;
-  inputCount: number;
-}
-
-const mockCalculations: CalculationRecord[] = [
-  {
-    id: 'calc-001',
-    calculatorType: 'occupantLoad',
-    displayName: 'Occupant Load Calculator',
-    timestamp: '2026-02-28T14:30:00Z',
-    projectId: 1,
-    projectName: 'Downtown Office Tower',
-    signatureVerified: true,
-    resultSummary: '250 occupants, 2 exits required',
-    inputCount: 3,
-  },
-  {
-    id: 'calc-002',
-    calculatorType: 'fireExit',
-    displayName: 'Fire Exit Calculator',
-    timestamp: '2026-02-28T13:15:00Z',
-    projectId: 1,
-    projectName: 'Downtown Office Tower',
-    signatureVerified: true,
-    resultSummary: '2 exits, 1800mm width, 1 stairwell',
-    inputCount: 4,
-  },
-  {
-    id: 'calc-003',
-    calculatorType: 'stairDesign',
-    displayName: 'Stair Design Calculator',
-    timestamp: '2026-02-27T10:45:00Z',
-    projectId: 2,
-    projectName: 'Residential Complex',
-    signatureVerified: true,
-    resultSummary: '13 risers, 7.5" height, compliant',
-    inputCount: 1,
-  },
-  {
-    id: 'calc-004',
-    calculatorType: 'plumbingFixtureUnits',
-    displayName: 'Plumbing Fixture Units Calculator',
-    timestamp: '2026-02-26T16:20:00Z',
-    projectId: 2,
-    projectName: 'Residential Complex',
-    signatureVerified: true,
-    resultSummary: '28 DFU, 75mm stack, wet venting required',
-    inputCount: 6,
-  },
-];
 
 /**
  * Calculation detail view
  */
 interface CalculationDetailProps {
-  calculation: CalculationRecord;
+  calculationId: string;
   onClose: () => void;
 }
 
-function CalculationDetail({ calculation, onClose }: CalculationDetailProps) {
+function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
+  const { data: calculation, isLoading } = trpc.calculations.getDetail.useQuery({
+    calculationId,
+  });
+
+  const { data: auditLog } = trpc.calculations.getAuditLog.useQuery({
+    calculationId,
+  });
+
+  const { data: verification } = trpc.calculations.verifySignature.useQuery({
+    calculationId,
+  });
+
+  const exportMutation = trpc.calculations.export.useMutation();
+  const { toast } = useToast();
+
   const [exportFormat, setExportFormat] = useState<'json' | 'json-ld' | 'pdf'>('json');
 
-  const handleExport = () => {
-    // In production, would call tRPC export procedure
-    console.log(`Exporting calculation ${calculation.id} as ${exportFormat}`);
+  const handleExport = async () => {
+    try {
+      const result = await exportMutation.mutateAsync({
+        calculationId,
+        format: exportFormat,
+      });
+
+      // Create download link
+      const dataStr = JSON.stringify(result.data, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      alert(`Export successful: Calculation exported as ${exportFormat.toUpperCase()}`);
+    } catch (error) {
+      alert('Failed to export calculation');
+    }
   };
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(calculation.id);
+    navigator.clipboard.writeText(calculationId);
+    alert('Calculation ID copied to clipboard');
   };
+
+  if (isLoading) {
+    return (
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!calculation) {
+    return null;
+  }
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{calculation.displayName}</DialogTitle>
           <DialogDescription>
-            Calculation ID: {calculation.id}
+            Calculation ID: {calculationId}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Signature Verification */}
-          <div className="flex items-start gap-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <Shield className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-green-900">Signature Verified</h3>
-              <p className="text-sm text-green-700 mt-1">
-                This calculation has been cryptographically signed and verified. The results
-                cannot be modified without detection.
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="text-xs bg-white px-2 py-1 rounded border border-green-200 flex-1 truncate">
-                  SHA-256-RSA
-                </code>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCopyId}
-                  className="gap-2"
+          {verification && (
+            <div
+              className={`flex items-start gap-4 p-4 border rounded-lg ${
+                verification.isValid
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-yellow-50 border-yellow-200'
+              }`}
+            >
+              <Shield
+                className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                  verification.isValid ? 'text-green-600' : 'text-yellow-600'
+                }`}
+              />
+              <div className="flex-1">
+                <h3
+                  className={`font-semibold ${
+                    verification.isValid ? 'text-green-900' : 'text-yellow-900'
+                  }`}
                 >
-                  <Copy className="w-4 h-4" />
-                  Copy ID
-                </Button>
+                  {verification.isValid ? 'Signature Verified' : 'Certificate Expired'}
+                </h3>
+                <p
+                  className={`text-sm mt-1 ${
+                    verification.isValid ? 'text-green-700' : 'text-yellow-700'
+                  }`}
+                >
+                  {verification.message}
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="text-xs bg-white px-2 py-1 rounded border flex-1 truncate">
+                    {verification.certificateId}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyId}
+                    className="gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Calculation Details */}
           <div className="grid grid-cols-2 gap-4">
@@ -183,27 +195,47 @@ function CalculationDetail({ calculation, onClose }: CalculationDetailProps) {
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                Project
+                NBC Version
               </label>
-              <p className="mt-1 text-sm">{calculation.projectName}</p>
+              <p className="mt-1 text-sm">{calculation.nbcVersion}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
                 Input Fields
               </label>
-              <p className="mt-1 text-sm">{calculation.inputCount} fields</p>
+              <p className="mt-1 text-sm">{Object.keys(calculation.inputs).length} fields</p>
             </div>
           </div>
 
-          {/* Result Summary */}
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">
-              Result Summary
-            </label>
-            <p className="mt-2 p-3 bg-muted rounded-lg text-sm font-mono">
-              {calculation.resultSummary}
-            </p>
+          {/* Inputs & Results */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Inputs</label>
+              <pre className="mt-2 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
+                {JSON.stringify(calculation.inputs, null, 2)}
+              </pre>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Results</label>
+              <pre className="mt-2 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
+                {JSON.stringify(calculation.results, null, 2)}
+              </pre>
+            </div>
           </div>
+
+          {/* NBC References */}
+          {calculation.nbcReferences.length > 0 && (
+            <div>
+              <label className="text-sm font-medium">NBC References</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {calculation.nbcReferences.map((ref) => (
+                  <Badge key={ref} variant="outline">
+                    {ref}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Export Options */}
           <div className="space-y-3">
@@ -219,21 +251,44 @@ function CalculationDetail({ calculation, onClose }: CalculationDetailProps) {
                   <SelectItem value="pdf">PDF (Court-Ready)</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={handleExport} className="gap-2">
-                <Download className="w-4 h-4" />
+              <Button
+                onClick={handleExport}
+                disabled={exportMutation.isPending}
+                className="gap-2"
+              >
+                {exportMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
                 Export
               </Button>
             </div>
           </div>
 
-          {/* Audit Trail Notice */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
-            <p className="font-medium mb-1">Audit Trail</p>
-            <p>
-              This calculation is immutably stored with a complete audit trail. All access
-              is logged for compliance and legal defensibility.
-            </p>
-          </div>
+          {/* Audit Trail */}
+          {auditLog && auditLog.auditLog.length > 0 && (
+            <div>
+              <label className="text-sm font-medium">Audit Trail</label>
+              <div className="mt-2 space-y-2 max-h-40 overflow-auto">
+                {auditLog.auditLog.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="p-2 bg-muted rounded text-xs"
+                  >
+                    <div className="font-medium">{entry.action}</div>
+                    <div className="text-muted-foreground">{entry.actor}</div>
+                    <div className="text-muted-foreground">
+                      {format(new Date(entry.timestamp), 'PPpp')}
+                    </div>
+                    {entry.details && (
+                      <div className="text-muted-foreground">{entry.details}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -244,49 +299,70 @@ function CalculationDetail({ calculation, onClose }: CalculationDetailProps) {
  * Calculation History Page
  */
 export default function CalculationHistoryPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCalculation, setSelectedCalculation] = useState<CalculationRecord | null>(
-    null
-  );
+  const [selectedCalculation, setSelectedCalculation] = useState<string | null>(null);
   const [filterCalculator, setFilterCalculator] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
+  const [page, setPage] = useState(0);
 
-  // Filter calculations
-  const filteredCalculations = useMemo(() => {
-    return mockCalculations.filter((calc) => {
-      const matchesSearch =
-        calc.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        calc.resultSummary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        calc.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesCalculator =
-        filterCalculator === 'all' || calc.calculatorType === filterCalculator;
-
-      const matchesProject =
-        filterProject === 'all' || calc.projectId.toString() === filterProject;
-
-      return matchesSearch && matchesCalculator && matchesProject;
-    });
-  }, [searchQuery, filterCalculator, filterProject]);
-
-  // Get unique calculator types and projects
-  const calculatorTypes = useMemo(
-    () => [...new Set(mockCalculations.map((c) => c.calculatorType))],
-    []
-  );
-  const projects = useMemo(
-    () => [...new Set(mockCalculations.map((c) => ({ id: c.projectId, name: c.projectName })))],
-    []
+  // Fetch calculation history
+  const { data: historyData, isLoading, refetch } = trpc.calculations.getHistory.useQuery(
+    {
+      calculatorType: filterCalculator === 'all' ? undefined : filterCalculator,
+      projectId: filterProject === 'all' ? undefined : parseInt(filterProject),
+      searchQuery: searchQuery || undefined,
+      limit: 50,
+      offset: page * 50,
+    },
+    {
+      enabled: !!user,
+    }
   );
 
-  if (loading) {
+  // Fetch statistics
+  const { data: stats } = trpc.calculations.getStats.useQuery(undefined, {
+    enabled: !!user,
+  });
+
+  // Delete mutation
+  const deleteMutation = trpc.calculations.delete.useMutation({
+    onSuccess: () => {
+      alert('Calculation deleted successfully');
+      refetch();
+    },
+    onError: () => {
+      alert('Failed to delete calculation');
+    },
+  });
+
+  const handleDelete = (calculationId: string) => {
+    if (confirm('Are you sure you want to delete this calculation?')) {
+      deleteMutation.mutate({ calculationId });
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Loading...</p>
+        <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
   }
+
+  if (!user) {
+    return (
+      <div className="container max-w-6xl py-8">
+        <div className="text-center">
+          <p className="text-muted-foreground">Please log in to view calculation history</p>
+        </div>
+      </div>
+    );
+  }
+
+  const calculatorTypes = stats
+    ? Object.keys(stats.byCalculatorType)
+    : [];
 
   return (
     <div className="container max-w-6xl py-8 space-y-8">
@@ -297,6 +373,66 @@ export default function CalculationHistoryPage() {
           View, verify, and export all your previous calculations
         </p>
       </div>
+
+      {/* Statistics */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Total Calculations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCalculations}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.verifiedCalculations} verified
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Calculator Types</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.calculatorTypes}</div>
+              <p className="text-xs text-muted-foreground mt-1">unique types</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Last Calculation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm font-medium">
+                {stats.lastCalculation
+                  ? format(new Date(stats.lastCalculation), 'MMM d, yyyy')
+                  : 'Never'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.lastCalculation
+                  ? format(new Date(stats.lastCalculation), 'h:mm a')
+                  : ''}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Verification Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats.totalCalculations > 0
+                  ? Math.round((stats.verifiedCalculations / stats.totalCalculations) * 100)
+                  : 0}
+                %
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">verified</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <Card>
@@ -310,7 +446,10 @@ export default function CalculationHistoryPage() {
             <Input
               placeholder="Search by calculator, result, or ID..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
               className="pl-10"
             />
           </div>
@@ -319,7 +458,10 @@ export default function CalculationHistoryPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Calculator Type</label>
-              <Select value={filterCalculator} onValueChange={setFilterCalculator}>
+              <Select value={filterCalculator} onValueChange={(v) => {
+                setFilterCalculator(v);
+                setPage(0);
+              }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -334,21 +476,17 @@ export default function CalculationHistoryPage() {
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Project</label>
-              <Select value={filterProject} onValueChange={setFilterProject}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map((proj) => (
-                    <SelectItem key={proj.id} value={proj.id.toString()}>
-                      {proj.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -358,14 +496,18 @@ export default function CalculationHistoryPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            Calculations ({filteredCalculations.length})
+            Calculations ({historyData?.total || 0})
           </CardTitle>
           <CardDescription>
             All calculations are cryptographically signed and immutably stored
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredCalculations.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : historyData?.calculations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No calculations found matching your criteria</p>
             </div>
@@ -375,7 +517,6 @@ export default function CalculationHistoryPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Calculator</TableHead>
-                    <TableHead>Project</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Result</TableHead>
                     <TableHead>Status</TableHead>
@@ -383,7 +524,7 @@ export default function CalculationHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCalculations.map((calc) => (
+                  {historyData?.calculations.map((calc) => (
                     <TableRow key={calc.id}>
                       <TableCell>
                         <div>
@@ -391,7 +532,6 @@ export default function CalculationHistoryPage() {
                           <p className="text-xs text-muted-foreground font-mono">{calc.id}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{calc.projectName}</TableCell>
                       <TableCell className="text-sm">
                         {format(new Date(calc.timestamp), 'MMM d, yyyy')}
                       </TableCell>
@@ -411,15 +551,24 @@ export default function CalculationHistoryPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setSelectedCalculation(calc)}
+                          onClick={() => setSelectedCalculation(calc.id)}
                           className="gap-2"
                         >
                           <Eye className="w-4 h-4" />
                           View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(calc.id)}
+                          disabled={deleteMutation.isPending}
+                          className="gap-2 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -428,13 +577,25 @@ export default function CalculationHistoryPage() {
               </Table>
             </div>
           )}
+
+          {/* Pagination */}
+          {historyData && historyData.hasMore && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                onClick={() => setPage(page + 1)}
+                disabled={isLoading}
+              >
+                Load More
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Detail Modal */}
       {selectedCalculation && (
         <CalculationDetail
-          calculation={selectedCalculation}
+          calculationId={selectedCalculation}
           onClose={() => setSelectedCalculation(null)}
         />
       )}

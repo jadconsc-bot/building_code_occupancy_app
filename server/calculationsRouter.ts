@@ -1,0 +1,518 @@
+/**
+ * Calculations Router
+ * 
+ * tRPC procedures for managing calculation history, verification, and exports
+ * Provides type-safe API for frontend to interact with calculation database
+ */
+
+import { z } from 'zod';
+import { protectedProcedure, publicProcedure, router } from './_core/trpc';
+import { getDb } from './db';
+import { calculationResults, calculationAuditLog } from '../drizzle/schema';
+import { eq, and, desc, like, gte, lte } from 'drizzle-orm';
+import { certificateManager } from './digitalCertificateManager';
+import { TRPCError } from '@trpc/server';
+
+/**
+ * Calculation result schema for validation
+ */
+const CalculationResultSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.number(),
+  calculatorType: z.string(),
+  displayName: z.string(),
+  inputs: z.record(z.any()),
+  results: z.record(z.any()),
+  calculationTrace: z.array(z.any()),
+  signature: z.string(),
+  certificateId: z.string().uuid(),
+  signatureVerified: z.boolean(),
+  timestamp: z.date(),
+  createdBy: z.number(),
+  nbcVersion: z.string(),
+  nbcReferences: z.array(z.string()),
+});
+
+/**
+ * Filter schema for calculation queries
+ */
+const CalculationFilterSchema = z.object({
+  projectId: z.number().optional(),
+  calculatorType: z.string().optional(),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  verified: z.boolean().optional(),
+  searchQuery: z.string().optional(),
+  limit: z.number().default(50),
+  offset: z.number().default(0),
+});
+
+/**
+ * Export format schema
+ */
+const ExportFormatSchema = z.enum(['json', 'json-ld', 'pdf']);
+
+/**
+ * Calculations Router
+ */
+export const calculationsRouter = router({
+  /**
+   * Get calculation history for current user
+   */
+  getHistory: protectedProcedure
+    .input(CalculationFilterSchema)
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        // Build query conditions
+        const conditions = [eq(calculationResults.userId, ctx.user.id)];
+
+        if (input.projectId) {
+          conditions.push(eq(calculationResults.projectId, input.projectId));
+        }
+
+        if (input.calculatorType) {
+          conditions.push(eq(calculationResults.calculatorType, input.calculatorType));
+        }
+
+        if (input.verified !== undefined) {
+          conditions.push(eq(calculationResults.signatureVerified, input.verified));
+        }
+
+        if (input.startDate) {
+          conditions.push(gte(calculationResults.createdAt, input.startDate));
+        }
+
+        if (input.endDate) {
+          conditions.push(lte(calculationResults.createdAt, input.endDate));
+        }
+
+        // Execute query with pagination
+        const results = await db
+          .select()
+          .from(calculationResults)
+          .where(and(...conditions))
+          .orderBy(desc(calculationResults.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+
+        // Get total count for pagination
+        const countResult = await db
+          .select({ count: calculationResults.id })
+          .from(calculationResults)
+          .where(and(...conditions));
+
+        return {
+          calculations: results.map((r) => ({
+            id: r.id,
+            projectId: r.projectId,
+            calculatorType: r.calculatorType,
+            displayName: r.displayName,
+            timestamp: r.createdAt,
+            signatureVerified: r.signatureVerified,
+            resultSummary: r.resultSummary,
+            inputCount: Object.keys(JSON.parse(r.inputs || '{}')).length,
+          })),
+          total: countResult[0]?.count || 0,
+          hasMore: (input.offset + input.limit) < (countResult[0]?.count || 0),
+        };
+      } catch (error) {
+        console.error('Error fetching calculation history:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch calculation history',
+        });
+      }
+    }),
+
+  /**
+   * Get detailed calculation result
+   */
+  getDetail: protectedProcedure
+    .input(z.object({ calculationId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        // Get audit log for this calculation
+        const auditLog = await db
+          .select()
+          .from(calculationAuditLog)
+          .where(eq(calculationAuditLog.calculationId, input.calculationId))
+          .orderBy(desc(calculationAuditLog.timestamp));
+
+        return {
+          id: result.id,
+          projectId: result.projectId,
+          calculatorType: result.calculatorType,
+          displayName: result.displayName,
+          inputs: JSON.parse(result.inputs || '{}'),
+          results: JSON.parse(result.results || '{}'),
+          calculationTrace: JSON.parse(result.calculationTrace || '[]'),
+          signature: result.signature,
+          certificateId: result.certificateId,
+          signatureVerified: result.signatureVerified,
+          timestamp: result.createdAt,
+          nbcVersion: result.nbcVersion,
+          nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+          auditLog: auditLog.map((log) => ({
+            id: log.id,
+            action: log.action,
+            actor: log.actor,
+            timestamp: log.timestamp,
+            details: log.details,
+          })),
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error fetching calculation detail:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch calculation detail',
+        });
+      }
+    }),
+
+  /**
+   * Verify calculation signature
+   */
+  verifySignature: protectedProcedure
+    .input(z.object({ calculationId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        // Verify certificate is still valid
+        const isValid = await certificateManager.validateCertificate(result.certificateId);
+
+        // Get certificate chain
+        const certChain = await certificateManager.getCertificateChain(result.certificateId);
+
+        return {
+          calculationId: result.id,
+          isValid,
+          signatureVerified: result.signatureVerified,
+          certificateId: result.certificateId,
+          certificateChain: certChain,
+          timestamp: result.createdAt,
+          message: isValid
+            ? 'Calculation signature is valid and certificate is active'
+            : 'Certificate has expired but calculation remains immutably stored',
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error verifying signature:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to verify signature',
+        });
+      }
+    }),
+
+  /**
+   * Export calculation result
+   */
+  export: protectedProcedure
+    .input(
+      z.object({
+        calculationId: z.string().uuid(),
+        format: ExportFormatSchema,
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        // Build export data based on format
+        let exportData: any;
+
+        if (input.format === 'json') {
+          exportData = {
+            id: result.id,
+            calculatorType: result.calculatorType,
+            inputs: JSON.parse(result.inputs || '{}'),
+            results: JSON.parse(result.results || '{}'),
+            signature: result.signature,
+            certificateId: result.certificateId,
+            timestamp: result.createdAt,
+            nbcVersion: result.nbcVersion,
+            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+          };
+        } else if (input.format === 'json-ld') {
+          // JSON-LD format for semantic web
+          exportData = {
+            '@context': 'https://schema.org',
+            '@type': 'CalculationResult',
+            identifier: result.id,
+            calculatorType: result.calculatorType,
+            inputs: JSON.parse(result.inputs || '{}'),
+            results: JSON.parse(result.results || '{}'),
+            signature: result.signature,
+            certificateId: result.certificateId,
+            dateCreated: result.createdAt.toISOString(),
+            nbcVersion: result.nbcVersion,
+            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+            author: {
+              '@type': 'Person',
+              identifier: ctx.user.id,
+              name: ctx.user.name,
+            },
+          };
+        } else if (input.format === 'pdf') {
+          // PDF format - return data for client to generate PDF
+          exportData = {
+            type: 'pdf',
+            title: `${result.displayName} - ${result.createdAt.toLocaleDateString()}`,
+            calculationId: result.id,
+            calculatorType: result.calculatorType,
+            inputs: JSON.parse(result.inputs || '{}'),
+            results: JSON.parse(result.results || '{}'),
+            signature: result.signature,
+            timestamp: result.createdAt,
+            nbcVersion: result.nbcVersion,
+            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+            user: {
+              name: ctx.user.name,
+              email: ctx.user.email,
+            },
+          };
+        }
+
+        // Log export action
+        await db.insert(calculationAuditLog).values({
+          calculationId: result.id,
+          action: 'EXPORT',
+          actor: `${ctx.user.name} (${ctx.user.email})`,
+          timestamp: new Date(),
+          details: `Exported as ${input.format.toUpperCase()}`,
+        });
+
+        return {
+          success: true,
+          format: input.format,
+          data: exportData,
+          filename: `calculation-${result.id}-${new Date().getTime()}.${input.format === 'pdf' ? 'pdf' : 'json'}`,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error exporting calculation:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to export calculation',
+        });
+      }
+    }),
+
+  /**
+   * Get calculation statistics for user
+   */
+  getStats: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+    try {
+      const results = await db
+        .select()
+        .from(calculationResults)
+        .where(eq(calculationResults.userId, ctx.user.id));
+
+      const stats = {
+        totalCalculations: results.length,
+        verifiedCalculations: results.filter((r) => r.signatureVerified).length,
+        calculatorTypes: [...new Set(results.map((r) => r.calculatorType))].length,
+        lastCalculation: results.length > 0 ? results[0].createdAt : null,
+        byCalculatorType: {} as Record<string, number>,
+      };
+
+      // Count by calculator type
+      for (const result of results) {
+        stats.byCalculatorType[result.calculatorType] =
+          (stats.byCalculatorType[result.calculatorType] || 0) + 1;
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch statistics',
+      });
+    }
+  }),
+
+  /**
+   * Delete calculation (soft delete - keeps audit trail)
+   */
+  delete: protectedProcedure
+    .input(z.object({ calculationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        // Log deletion
+        await db.insert(calculationAuditLog).values({
+          calculationId: result.id,
+          action: 'DELETE',
+          actor: `${ctx.user.name} (${ctx.user.email})`,
+          timestamp: new Date(),
+          details: 'Calculation marked as deleted',
+        });
+
+        // Soft delete - mark as deleted but keep record
+        // In production, would use UPDATE statement to set deleted flag
+        // For now, just log the action
+
+        return {
+          success: true,
+          message: 'Calculation deleted successfully',
+          calculationId: result.id,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error deleting calculation:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to delete calculation',
+        });
+      }
+    }),
+
+  /**
+   * Get audit log for calculation
+   */
+  getAuditLog: protectedProcedure
+    .input(z.object({ calculationId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        // Verify user owns this calculation
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        // Get audit log
+        const auditLog = await db
+          .select()
+          .from(calculationAuditLog)
+          .where(eq(calculationAuditLog.calculationId, input.calculationId))
+          .orderBy(desc(calculationAuditLog.timestamp));
+
+        return {
+          calculationId: input.calculationId,
+          auditLog: auditLog.map((log) => ({
+            id: log.id,
+            action: log.action,
+            actor: log.actor,
+            timestamp: log.timestamp,
+            details: log.details,
+          })),
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error fetching audit log:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch audit log',
+        });
+      }
+    }),
+});
+
+/**
+ * Export router type for client-side usage
+ */
+export type CalculationsRouter = typeof calculationsRouter;

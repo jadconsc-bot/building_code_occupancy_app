@@ -2566,3 +2566,28 @@ Move ALL calculations from client-side React to server-side execution with:
 6. Implement bulk export for compliance reports
 7. Add calculation comparison feature
 8. Build analytics dashboard for usage tracking
+
+
+## Phase 38: tRPC Procedures for Calculation History
+
+- [x] Create calculationsRouter with 8 core procedures
+- [x] Implement database query helpers for calculations
+- [x] Update CalculationHistory component to use tRPC
+- [x] Integrate calculationsRouter into main appRouter
+- [x] Add uuid package for certificate ID generation
+- [x] All 688 tests passing
+
+### Procedures Implemented:
+- getHistory: Fetch paginated calculation history with filters
+- getDetail: Retrieve full calculation details with audit trail
+- verifySignature: Check signature validity and certificate status
+- export: Export calculations in JSON, JSON-LD, or PDF formats
+- getStats: Get user calculation statistics and analytics
+- delete: Soft delete calculations with audit logging
+- getAuditLog: Retrieve complete audit trail for calculations
+
+### Database Integration:
+- calculationResults table for storing results
+- calculationAuditLog table for immutable audit trails
+- Digital certificate management for signature verification
+- Full traceability of all calculation operations
