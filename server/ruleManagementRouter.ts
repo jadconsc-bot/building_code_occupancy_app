@@ -42,8 +42,8 @@ export const ruleManagementRouter = router({
         rulesetId: z.string(),
         ruleId: z.string(),
         changeType: z.enum(["create", "update", "delete", "deprecate"]),
-        currentValue: z.record(z.any()).optional(),
-        proposedValue: z.record(z.any()),
+        currentValue: z.record(z.string(), z.any()).optional(),
+        proposedValue: z.record(z.string(), z.any()),
         justification: z.string().min(50, "Justification must be at least 50 characters"),
         codeReference: z.string().optional(),
       })
