@@ -50,6 +50,13 @@
       "when": 1772340250279,
       "tag": "0006_elite_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1772354681028,
+      "tag": "0007_short_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

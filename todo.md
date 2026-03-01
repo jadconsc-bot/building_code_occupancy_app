@@ -2953,3 +2953,78 @@ All production readiness tasks completed successfully:
 - [ ] Firm dashboards
 - [ ] Municipality integrations
 - [ ] Insurer reports
+
+
+## Phase 2-5: Definitive Commercialization Recipe (Items 6-16)
+
+### Phase 2A: Projects, Clients, Members Schema (Item 6)
+- [ ] Add database tables: clients, projects, project_members, team_roles
+- [ ] Create tRPC procedures for CRUD operations
+- [ ] Add UI components for client/project management
+- [ ] Integrate with existing project management
+
+### Phase 2B: Professional PDF Report Generator (Item 7)
+- [ ] Create PDF generation module with project info, calculations summary, NBC citations
+- [ ] Add signature verification hash and audit ID to reports
+- [ ] Add timestamp proof to generated PDFs
+- [ ] Create report customization options
+- [ ] Add report preview functionality
+
+### Phase 2C: One-Click Recalculation & Versioning (Item 8)
+- [ ] Implement calculation versioning system
+- [ ] Create recalculation workflow with version preservation
+- [ ] Add audit chain continuation for design iterations
+- [ ] Create version comparison UI
+- [ ] Add rollback capability for calculations
+
+### Phase 2D: Reviewer Access & Share Links (Item 9)
+- [ ] Create read-only share link generation
+- [ ] Implement share link verification system
+- [ ] Add reviewer access control
+- [ ] Create public reviewer portal
+- [ ] Add expiration and revocation for share links
+
+### Phase 3: Subscription Infrastructure & Pricing (Items 10-11)
+- [ ] Add database tables: subscriptions, plans, usage_metrics
+- [ ] Create subscription management procedures
+- [ ] Implement pricing tiers (Individual $29, Consultant $79, Firm $199)
+- [ ] Add feature gating logic (saved projects, signed reports, collaboration)
+- [ ] Create Stripe integration for payments
+- [ ] Add subscription status dashboard
+
+### Phase 3B: Usage Visibility Dashboard (Item 12)
+- [ ] Create usage metrics tracking (hours saved, reports generated)
+- [ ] Build usage dashboard component
+- [ ] Add risk reduction score calculation
+- [ ] Create ROI visibility metrics
+- [ ] Add usage analytics and trends
+
+### Phase 4A: Role-Based Access Control (Item 13)
+- [ ] Define roles: User, Consultant, Reviewer, Firm Admin, Authority Having Jurisdiction
+- [ ] Implement server-side permission enforcement
+- [ ] Create role assignment procedures
+- [ ] Add role-based UI rendering
+- [ ] Create role management interface
+
+### Phase 4B: Verification Portal (Item 14)
+- [ ] Create public verification page at verify.codecomply.com/{auditID}
+- [ ] Display signature validity information
+- [ ] Show timestamp proof details
+- [ ] Display document integrity verification
+- [ ] Add verification result caching
+
+### Phase 4C: Calculation Reproducibility Engine (Item 15)
+- [ ] Implement calculation replay system
+- [ ] Create deterministic version matching
+- [ ] Add reproducibility verification tests
+- [ ] Create audit trail for replay operations
+- [ ] Add reproducibility documentation
+
+### Phase 4D: Structured Logging Integration (Item 16)
+- [ ] Integrate Pino or Winston logging library
+- [ ] Add request logging middleware
+- [ ] Add signature logging
+- [ ] Add calculation logging
+- [ ] Create log analysis tools
+- [ ] Add log retention policies
+

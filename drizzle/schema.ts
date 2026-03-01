@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -448,3 +448,289 @@ export const calculationChallenges = mysqlTable("calculationChallenges", {
 
 export type CalculationChallenge = typeof calculationChallenges.$inferSelect;
 export type InsertCalculationChallenge = typeof calculationChallenges.$inferInsert;
+
+/**
+ * ============================================================================
+ * PHASE 2A: PROFESSIONAL WORKFLOW TABLES
+ * For consultant firms, client management, and collaboration
+ * ============================================================================
+ */
+
+/**
+ * Clients - Organizations or individuals using the platform
+ * Enables consultant firms to manage multiple clients
+ */
+export const clients = mysqlTable("clients", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // Primary contact/owner
+  firmId: int("firmId"), // If part of a firm
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
+  address: varchar("address", { length: 500 }),
+  city: varchar("city", { length: 100 }),
+  province: varchar("province", { length: 50 }),
+  postalCode: varchar("postalCode", { length: 20 }),
+  companyName: varchar("companyName", { length: 255 }),
+  industry: varchar("industry", { length: 100 }), // e.g., "residential", "commercial", "industrial"
+  status: mysqlEnum("status", ["active", "inactive", "archived"]).default("active").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = typeof clients.$inferInsert;
+
+/**
+ * Project Members - Team collaboration on projects
+ * Tracks who has access to which projects and their roles
+ */
+export const projectMembers = mysqlTable("projectMembers", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  role: mysqlEnum("role", ["owner", "editor", "reviewer", "viewer"]).default("viewer").notNull(),
+  permissions: text("permissions"), // JSON array of specific permissions
+  addedBy: int("addedBy").notNull(), // User who added this member
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+  removedAt: timestamp("removedAt"), // null if still active
+});
+
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type InsertProjectMember = typeof projectMembers.$inferInsert;
+
+/**
+ * Team Roles - Define custom roles for firms
+ * Allows firms to create role templates
+ */
+export const teamRoles = mysqlTable("teamRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  firmId: int("firmId").notNull(), // Firm this role belongs to
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  permissions: text("permissions").notNull(), // JSON array of permissions
+  isDefault: boolean("isDefault").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TeamRole = typeof teamRoles.$inferSelect;
+export type InsertTeamRole = typeof teamRoles.$inferInsert;
+
+/**
+ * ============================================================================
+ * PHASE 3: MONETIZATION TABLES
+ * For subscription management and usage tracking
+ * ============================================================================
+ */
+
+/**
+ * Subscription Plans - Available pricing tiers
+ */
+export const subscriptionPlans = mysqlTable("subscriptionPlans", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(), // e.g., "Individual", "Consultant", "Firm"
+  description: text("description"),
+  monthlyPrice: decimal("monthlyPrice", { precision: 10, scale: 2 }).notNull(),
+  yearlyPrice: decimal("yearlyPrice", { precision: 10, scale: 2 }),
+  features: text("features").notNull(), // JSON array of feature names
+  maxProjects: int("maxProjects"), // null for unlimited
+  maxUsers: int("maxUsers"), // null for unlimited
+  maxClients: int("maxClients"), // null for unlimited
+  canGenerateReports: boolean("canGenerateReports").default(false).notNull(),
+  canShareProjects: boolean("canShareProjects").default(false).notNull(),
+  canCollaborate: boolean("canCollaborate").default(false).notNull(),
+  supportLevel: varchar("supportLevel", { length: 50 }), // "email", "priority", "dedicated"
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+/**
+ * User Subscriptions - Track which users have which plans
+ */
+export const userSubscriptions = mysqlTable("userSubscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  planId: int("planId").notNull(),
+  status: mysqlEnum("status", ["active", "paused", "cancelled", "expired"]).default("active").notNull(),
+  billingCycle: mysqlEnum("billingCycle", ["monthly", "yearly"]).default("monthly").notNull(),
+  currentPeriodStart: timestamp("currentPeriodStart").notNull(),
+  currentPeriodEnd: timestamp("currentPeriodEnd").notNull(),
+  cancelledAt: timestamp("cancelledAt"),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }), // Stripe subscription ID
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }), // Stripe customer ID
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertUserSubscription = typeof userSubscriptions.$inferInsert;
+
+/**
+ * Usage Metrics - Track feature usage for ROI visibility
+ */
+export const usageMetrics = mysqlTable("usageMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  month: varchar("month", { length: 7 }).notNull(), // YYYY-MM format
+  projectsCreated: int("projectsCreated").default(0).notNull(),
+  calculationsRun: int("calculationsRun").default(0).notNull(),
+  reportsGenerated: int("reportsGenerated").default(0).notNull(),
+  projectsShared: int("projectsShared").default(0).notNull(),
+  hoursEstimatedSaved: decimal("hoursEstimatedSaved", { precision: 10, scale: 2 }).default(0).notNull(),
+  riskReductionScore: decimal("riskReductionScore", { precision: 5, scale: 2 }).default(0).notNull(), // 0-100
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UsageMetric = typeof usageMetrics.$inferSelect;
+export type InsertUsageMetric = typeof usageMetrics.$inferInsert;
+
+/**
+ * ============================================================================
+ * PHASE 2D: SHARING & VERIFICATION TABLES
+ * For reviewer access and public verification
+ * ============================================================================
+ */
+
+/**
+ * Share Links - Read-only access to projects for reviewers
+ */
+export const shareLinks = mysqlTable("shareLinks", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  projectId: int("projectId").notNull(),
+  createdBy: int("createdBy").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(), // Random token for URL
+  accessLevel: mysqlEnum("accessLevel", ["view_only", "comment", "download"]).default("view_only").notNull(),
+  expiresAt: timestamp("expiresAt"), // null for never expires
+  maxAccessCount: int("maxAccessCount"), // null for unlimited
+  accessCount: int("accessCount").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = typeof shareLinks.$inferInsert;
+
+/**
+ * Share Link Access Log - Track who accessed shared projects
+ */
+export const shareLinkAccessLog = mysqlTable("shareLinkAccessLog", {
+  id: int("id").autoincrement().primaryKey(),
+  shareLinkId: varchar("shareLinkId", { length: 36 }).notNull(),
+  accessedAt: timestamp("accessedAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  accessedBy: int("accessedBy"), // null if anonymous
+});
+
+export type ShareLinkAccessLog = typeof shareLinkAccessLog.$inferSelect;
+export type InsertShareLinkAccessLog = typeof shareLinkAccessLog.$inferInsert;
+
+/**
+ * Verification Tokens - For public verification portal
+ */
+export const verificationTokens = mysqlTable("verificationTokens", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  isPublic: boolean("isPublic").default(false).notNull(),
+  expiresAt: timestamp("expiresAt"), // null for never expires
+  viewCount: int("viewCount").default(0).notNull(),
+  lastViewedAt: timestamp("lastViewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type InsertVerificationToken = typeof verificationTokens.$inferInsert;
+
+/**
+ * ============================================================================
+ * PHASE 2C: CALCULATION VERSIONING TABLES
+ * For one-click recalculation with version tracking
+ * ============================================================================
+ */
+
+/**
+ * Calculation Versions - Track calculation history with versions
+ */
+export const calculationVersions = mysqlTable("calculationVersions", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  versionNumber: int("versionNumber").notNull(),
+  parentVersionId: varchar("parentVersionId", { length: 36 }), // Previous version
+  inputData: text("inputData").notNull(), // JSON
+  resultData: text("resultData").notNull(), // JSON
+  changeReason: text("changeReason"), // Why this version was created
+  changedBy: int("changedBy").notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+
+export type CalculationVersion = typeof calculationVersions.$inferSelect;
+export type InsertCalculationVersion = typeof calculationVersions.$inferInsert;
+
+/**
+ * ============================================================================
+ * PHASE 4D: STRUCTURED LOGGING TABLES
+ * For comprehensive audit and troubleshooting
+ * ============================================================================
+ */
+
+/**
+ * Request Logs - HTTP request logging for debugging
+ */
+export const requestLogs = mysqlTable("requestLogs", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  userId: int("userId"),
+  method: varchar("method", { length: 10 }).notNull(), // GET, POST, etc.
+  path: varchar("path", { length: 500 }).notNull(),
+  statusCode: int("statusCode").notNull(),
+  duration: int("duration").notNull(), // milliseconds
+  ipAddress: varchar("ipAddress", { length: 45 }).notNull(),
+  userAgent: text("userAgent"),
+  errorMessage: text("errorMessage"), // null if successful
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type RequestLog = typeof requestLogs.$inferSelect;
+export type InsertRequestLog = typeof requestLogs.$inferInsert;
+
+/**
+ * Signature Logs - Cryptographic signature operations
+ */
+export const signatureLogs = mysqlTable("signatureLogs", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  operation: varchar("operation", { length: 50 }).notNull(), // "sign", "verify"
+  status: mysqlEnum("status", ["success", "failure"]).notNull(),
+  keyId: varchar("keyId", { length: 100 }),
+  signatureAlgorithm: varchar("signatureAlgorithm", { length: 50 }), // "RSA-2048", "SHA-256"
+  details: text("details"), // JSON with additional context
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type SignatureLog = typeof signatureLogs.$inferSelect;
+export type InsertSignatureLog = typeof signatureLogs.$inferInsert;
+
+/**
+ * Calculation Logs - Detailed calculation execution logs
+ */
+export const calculationLogs = mysqlTable("calculationLogs", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
+  calculatorType: varchar("calculatorType", { length: 50 }).notNull(),
+  stage: varchar("stage", { length: 50 }).notNull(), // "validation", "execution", "signing"
+  message: text("message").notNull(),
+  level: mysqlEnum("level", ["debug", "info", "warn", "error"]).notNull(),
+  details: text("details"), // JSON with additional context
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type CalculationLog = typeof calculationLogs.$inferSelect;
+export type InsertCalculationLog = typeof calculationLogs.$inferInsert;
