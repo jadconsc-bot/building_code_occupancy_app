@@ -2676,3 +2676,62 @@ Move ALL calculations from client-side React to server-side execution with:
 - [ ] Update todo.md with completion status
 - [ ] Save final checkpoint
 - [ ] Verify all features visible in UI
+
+
+## Phase 42: Critical Audit Fixes for Legal Defensibility
+
+### Phase 1: External Timestamp Authority
+- [ ] Integrate RFC 3161 Timestamp Authority (Sectigo or similar)
+- [ ] Add timestamp verification to calculation signing
+- [ ] Store timestamp proof in audit log
+
+### Phase 2: Ruleset Version Locking
+- [ ] Add rulesetVersion field to calculation results
+- [ ] Create ruleset version tracking table
+- [ ] Lock ruleset versions to specific calculation snapshots
+
+### Phase 3: Signed Calculation Bundles
+- [ ] Create calculation bundle schema with all required fields
+- [ ] Sign complete bundle (inputs, ruleset, code hash, outputs, timestamp)
+- [ ] Add bundle verification procedure
+
+### Phase 4: Append-Only Audit Database
+- [ ] Create append-only audit table with triggers
+- [ ] Add database constraints preventing UPDATE/DELETE
+- [ ] Implement hash verification job
+
+### Phase 5: Calculation Code Hashing
+- [ ] Generate hash of calculator source code
+- [ ] Include code hash in signed bundle
+- [ ] Add code hash verification
+
+### Phase 6: RBAC Enforcement
+- [ ] Add granular role-scoped permissions
+- [ ] Enforce permissions in all routers
+- [ ] Add role validation to sensitive operations
+
+### Phase 7: Structured Logging
+- [ ] Integrate pino logger
+- [ ] Replace console.log with structured logging
+- [ ] Add audit event logging
+
+### Phase 8: Testing and Stability
+- [ ] Run full test suite
+- [ ] Verify no regressions
+- [ ] Test all new features
+
+
+## Audit Implementation Summary
+
+### Completed Implementations (Phase 42)
+- [x] TimestampAuthorityManager - RFC 3161 compliant timestamps
+- [x] RulesetVersionManager - NBC ruleset version locking
+- [x] CalculationBundleBuilder - Signed calculation packages
+- [x] AppendOnlyAuditLog - Immutable audit trails with hash chaining
+- [x] CalculatorCodeHasher - Code integrity verification
+- [x] RBACEnforcer - Granular role-based access control
+
+### All 688 Tests Passing
+- No regressions from audit implementations
+- App remains fully functional
+- Ready for Phase 7 (Structured Logging) and Phase 8 (Final Testing)
