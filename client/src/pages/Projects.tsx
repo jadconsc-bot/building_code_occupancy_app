@@ -24,13 +24,10 @@ export default function Projects() {
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
     address: "",
-    city: "",
-    province: "",
-    postalCode: "",
-    buildingType: "",
-    occupancyClassification: "",
+    occupancyCode: "",
+    template: "",
+    notes: "",
     status: "active",
   });
 
@@ -140,13 +137,10 @@ export default function Projects() {
   const resetForm = () => {
     setFormData({
       name: "",
-      description: "",
       address: "",
-      city: "",
-      province: "",
-      postalCode: "",
-      buildingType: "",
-      occupancyClassification: "",
+      occupancyCode: "",
+      template: "",
+      notes: "",
       status: "active",
     });
     setEditingProjectId(null);
@@ -157,30 +151,27 @@ export default function Projects() {
       alert("Project name is required");
       return;
     }
+    if (!formData.occupancyCode.trim()) {
+      alert("Occupancy code is required");
+      return;
+    }
 
     await createProjectMutation.mutateAsync({
       name: formData.name,
-      description: formData.description || undefined,
       address: formData.address || undefined,
-      city: formData.city || undefined,
-      province: formData.province || undefined,
-      postalCode: formData.postalCode || undefined,
-      buildingType: formData.buildingType || undefined,
-      occupancyClassification: formData.occupancyClassification || undefined,
-      status: formData.status as any,
+      occupancyCode: formData.occupancyCode,
+      template: formData.template || undefined,
+      notes: formData.notes || undefined,
     });
   };
 
   const handleEditProject = (project: any) => {
     setFormData({
       name: project.name,
-      description: project.description || "",
       address: project.address || "",
-      city: project.city || "",
-      province: project.province || "",
-      postalCode: project.postalCode || "",
-      buildingType: project.buildingType || "",
-      occupancyClassification: project.occupancyClassification || "",
+      occupancyCode: project.occupancyCode || "",
+      template: project.template || "",
+      notes: project.notes || "",
       status: project.status || "active",
     });
     setEditingProjectId(project.id);
@@ -192,18 +183,19 @@ export default function Projects() {
       alert("Project name is required");
       return;
     }
+    if (!formData.occupancyCode.trim()) {
+      alert("Occupancy code is required");
+      return;
+    }
 
     if (editingProjectId !== null) {
       await updateProjectMutation.mutateAsync({
         id: editingProjectId,
         name: formData.name,
-        description: formData.description || undefined,
         address: formData.address || undefined,
-        city: formData.city || undefined,
-        province: formData.province || undefined,
-        postalCode: formData.postalCode || undefined,
-        buildingType: formData.buildingType || undefined,
-        occupancyClassification: formData.occupancyClassification || undefined,
+        occupancyCode: formData.occupancyCode,
+        template: formData.template || undefined,
+        notes: formData.notes || undefined,
         status: formData.status as any,
       });
     }
@@ -246,74 +238,41 @@ export default function Projects() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Project details and scope"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
+                <Label htmlFor="occupancyCode">Occupancy Code *</Label>
+                <Input
+                  id="occupancyCode"
+                  placeholder="A, B, C, D, E, F, etc."
+                  value={formData.occupancyCode}
+                  onChange={(e) => setFormData({ ...formData, occupancyCode: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    placeholder="Street address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  placeholder="Street address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="province">Province</Label>
-                  <Input
-                    id="province"
-                    placeholder="AB, BC, ON, etc."
-                    value={formData.province}
-                    onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="postalCode">Postal Code</Label>
-                  <Input
-                    id="postalCode"
-                    placeholder="T2P 1H5"
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="template">Template (Optional)</Label>
+                <Input
+                  id="template"
+                  placeholder="e.g., residential, commercial"
+                  value={formData.template}
+                  onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="buildingType">Building Type</Label>
-                  <Input
-                    id="buildingType"
-                    placeholder="Office, Residential, Industrial, etc."
-                    value={formData.buildingType}
-                    onChange={(e) => setFormData({ ...formData, buildingType: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="occupancyClassification">Occupancy Classification</Label>
-                  <Input
-                    id="occupancyClassification"
-                    placeholder="A, B, C, D, E, F, etc."
-                    value={formData.occupancyClassification}
-                    onChange={(e) => setFormData({ ...formData, occupancyClassification: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Project details and scope"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                />
               </div>
               <Button
                 className="w-full"
@@ -359,54 +318,41 @@ export default function Projects() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                placeholder="Project details and scope"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
+              <Label htmlFor="edit-occupancyCode">Occupancy Code *</Label>
+              <Input
+                id="edit-occupancyCode"
+                placeholder="A, B, C, D, E, F, etc."
+                value={formData.occupancyCode}
+                onChange={(e) => setFormData({ ...formData, occupancyCode: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-address">Address</Label>
-                <Input
-                  id="edit-address"
-                  placeholder="Street address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-city">City</Label>
-                <Input
-                  id="edit-city"
-                  placeholder="City"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                placeholder="Street address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-province">Province</Label>
-                <Input
-                  id="edit-province"
-                  placeholder="AB, BC, ON, etc."
-                  value={formData.province}
-                  onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-postalCode">Postal Code</Label>
-                <Input
-                  id="edit-postalCode"
-                  placeholder="T2P 1H5"
-                  value={formData.postalCode}
-                  onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-template">Template (Optional)</Label>
+              <Input
+                id="edit-template"
+                placeholder="e.g., residential, commercial"
+                value={formData.template}
+                onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                placeholder="Project details and scope"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+              />
             </div>
             <Button
               className="w-full"
@@ -460,20 +406,20 @@ export default function Projects() {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div>
+                    <p className="text-xs text-muted-foreground">Occupancy Code</p>
+                    <p className="font-medium text-sm">{project.occupancyCode || "-"}</p>
+                  </div>
+                  <div>
                     <p className="text-xs text-muted-foreground">Address</p>
                     <p className="font-medium text-sm">{project.address || "-"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">City</p>
-                    <p className="font-medium text-sm">{project.city || "-"}</p>
+                    <p className="text-xs text-muted-foreground">Template</p>
+                    <p className="font-medium text-sm">{project.template || "-"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Building Type</p>
-                    <p className="font-medium text-sm">{project.buildingType || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Occupancy</p>
-                    <p className="font-medium text-sm">{project.occupancyClassification || "-"}</p>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <p className="font-medium text-sm">{project.status || "-"}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t border-border">
