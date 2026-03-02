@@ -9,7 +9,7 @@ import { AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function TermsOfService() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   return (
     <div className="min-h-screen bg-background p-6">
