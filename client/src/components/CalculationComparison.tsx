@@ -70,8 +70,8 @@ export function CalculationComparison({ calculations = [] }: CalculationComparis
       ? ((value2 - value1) / value1 * 100).toFixed(1)
       : 'N/A';
     return (
-      <span className={diff !== 'N/A' && parseFloat(diff) > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-        {value2} {diff !== 'N/A' && `(${diff > 0 ? '+' : ''}${diff}%)`}
+      <span className={diff !== 'N/A' && parseFloat(diff as string) > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+        {value2} {diff !== 'N/A' && `(${parseFloat(diff as string) > 0 ? '+' : ''}${diff}%)`}
       </span>
     );
   };

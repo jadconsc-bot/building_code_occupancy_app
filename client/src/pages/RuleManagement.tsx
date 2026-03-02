@@ -42,8 +42,8 @@ export default function RuleManagement() {
     );
   }
 
-  const isAdmin = user.role === "admin";
-  const isEditor = user.role === "admin" || user.role === "editor";
+  const isAdmin = user && user.role === "admin";
+  const isEditor = user && user.role === "admin";
 
   const handleSubmitRuleChange = async (changeRequest: any) => {
     setIsSubmitting(true);

@@ -204,7 +204,7 @@ export const RuleEditorUI: React.FC<RuleEditorUIProps> = ({
             </div>
 
             {/* New Content (for updates/creates) */}
-            {formData.changeType !== "delete" && (
+            {formData.changeType === "update" || formData.changeType === "create" && (
               <div>
                 <label className="text-sm font-medium">New Rule Content</label>
                 <Textarea

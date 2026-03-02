@@ -66,7 +66,6 @@ export function ProjectCalculatorProvider({ children }: { children: ReactNode })
         inputs: result.inputs,
         outputs: result.outputs,
         signature: result.signature,
-        timestamp: result.timestamp,
         createdAt: new Date(result.createdAt),
       };
 

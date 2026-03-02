@@ -87,12 +87,12 @@ export default function Projects() {
 
   // Delete project mutation with optimistic UI
   const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onMutate: async (projectId) => {
+    onMutate: async (input: { id: number }) => {
       await trpc.useUtils().projects.list.cancel();
       const previousProjects = trpc.useUtils().projects.list.getData();
 
       trpc.useUtils().projects.list.setData(undefined, (old) =>
-        old?.filter((p) => p.id !== projectId)
+        old?.filter((p) => p.id !== input.id)
       );
 
       return { previousProjects };
@@ -113,7 +113,7 @@ export default function Projects() {
       projects.filter(
         (project) =>
           project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          project.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           project.address?.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [projects, searchQuery]

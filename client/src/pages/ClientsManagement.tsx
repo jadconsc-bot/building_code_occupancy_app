@@ -75,7 +75,7 @@ export default function ClientsManagement() {
       const previousClients = trpc.useUtils().clients.list.getData();
 
       trpc.useUtils().clients.list.setData(undefined, (old) =>
-        old?.map((c) => (c.id === updatedClient.id ? { ...c, ...updatedClient } : c))
+        old?.map((c) => (c.clientId === updatedClient.clientId ? { ...c, ...updatedClient } : c))
       );
 
       return { previousClients };
@@ -95,12 +95,12 @@ export default function ClientsManagement() {
 
   // Delete client mutation with optimistic UI
   const deleteClientMutation = trpc.clients.delete.useMutation({
-    onMutate: async (clientId) => {
+    onMutate: async (input: { clientId: number }) => {
       await trpc.useUtils().clients.list.cancel();
       const previousClients = trpc.useUtils().clients.list.getData();
 
       trpc.useUtils().clients.list.setData(undefined, (old) =>
-        old?.filter((c) => c.id !== clientId)
+        old?.filter((c) => c.clientId !== input.clientId)
       );
 
       return { previousClients };
@@ -201,7 +201,7 @@ export default function ClientsManagement() {
 
     if (editingClientId !== null) {
       await updateClientMutation.mutateAsync({
-        id: editingClientId,
+        clientId: editingClientId,
         name: formData.name,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
@@ -218,7 +218,7 @@ export default function ClientsManagement() {
 
   const handleDeleteClient = async (clientId: number) => {
     if (confirm("Are you sure you want to delete this client?")) {
-      await deleteClientMutation.mutateAsync(clientId);
+      await deleteClientMutation.mutateAsync({ clientId });
     }
   };
 

@@ -1,0 +1,2 @@
+ALTER TABLE `usageMetrics` MODIFY COLUMN `hoursEstimatedSaved` decimal(10,2) NOT NULL DEFAULT '0';--> statement-breakpoint
+ALTER TABLE `usageMetrics` MODIFY COLUMN `riskReductionScore` decimal(5,2) NOT NULL DEFAULT '0';

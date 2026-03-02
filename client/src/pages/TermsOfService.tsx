@@ -244,7 +244,7 @@ export default function TermsOfService() {
               by these Terms of Service. If you do not agree to these terms, please do not use this tool.
             </p>
             <div className="flex gap-4">
-              <Button onClick={() => navigate(-1)} variant="outline">
+              <Button onClick={() => navigate('/')} variant="outline">
                 Back
               </Button>
               <Button>Accept Terms</Button>

@@ -71,7 +71,6 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
   });
 
   const exportMutation = trpc.calculations.export.useMutation();
-  const { toast } = useToast();
 
   const [exportFormat, setExportFormat] = useState<'json' | 'json-ld' | 'pdf'>('json');
 

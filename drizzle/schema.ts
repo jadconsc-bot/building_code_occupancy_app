@@ -582,8 +582,8 @@ export const usageMetrics = mysqlTable("usageMetrics", {
   calculationsRun: int("calculationsRun").default(0).notNull(),
   reportsGenerated: int("reportsGenerated").default(0).notNull(),
   projectsShared: int("projectsShared").default(0).notNull(),
-  hoursEstimatedSaved: decimal("hoursEstimatedSaved", { precision: 10, scale: 2 }).default(0).notNull(),
-  riskReductionScore: decimal("riskReductionScore", { precision: 5, scale: 2 }).default(0).notNull(), // 0-100
+  hoursEstimatedSaved: decimal("hoursEstimatedSaved", { precision: 10, scale: 2 }).default("0").notNull(),
+  riskReductionScore: decimal("riskReductionScore", { precision: 5, scale: 2 }).default("0").notNull(), // 0-100
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

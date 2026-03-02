@@ -57,6 +57,13 @@
       "when": 1772354681028,
       "tag": "0007_short_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1772431165959,
+      "tag": "0008_oval_barracuda",
+      "breakpoints": true
     }
   ]
 }

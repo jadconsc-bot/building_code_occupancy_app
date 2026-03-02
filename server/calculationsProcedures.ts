@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { protectedProcedure } from './_core/trpc';
 import { getDb } from './db';
 import { calculationResults, calculationAuditLog } from '../drizzle/schema';
+import { eq, and } from 'drizzle-orm';
 import { CalculationEngine } from './calculationEngine';
 import { TRPCError } from '@trpc/server';
 
@@ -31,51 +32,60 @@ export const saveCalculationResult = protectedProcedure
     }
 
     const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Database connection failed',
+      });
+    }
+
     const engine = new CalculationEngine();
 
     try {
       // Create calculation signature
       const signature = engine.signCalculation(input.inputs, input.outputs, ctx.user.id);
+      
+      // Generate unique ID
+      const id = `calc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       // Save to database
-      const result = await db
-        .insert(calculationResults)
-        .values({
-          projectId: input.projectId,
-          userId: ctx.user.id,
-          calculatorType: input.calculatorType,
-          inputs: JSON.stringify(input.inputs),
-          outputs: JSON.stringify(input.outputs),
-          signature,
-          timestamp: Date.now(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-
-      if (!result[0]) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to save calculation' });
-      }
+      await db.insert(calculationResults).values({
+        id,
+        projectId: parseInt(input.projectId),
+        userId: ctx.user.id,
+        calculatorType: input.calculatorType,
+        rulesetVersion: '1.0',
+        inputData: JSON.stringify(input.inputs),
+        resultData: JSON.stringify(input.outputs),
+        calculationTrace: JSON.stringify({ inputs: input.inputs, outputs: input.outputs }),
+        cryptographicSignature: signature,
+        signatureVerified: true,
+        createdAt: new Date(),
+        createdBy: ctx.user.id,
+        ipAddress: ctx.req.ip || 'unknown',
+        userAgent: ctx.req.headers['user-agent'] || 'unknown',
+        immutable: true,
+      });
 
       // Create audit log entry
       await db.insert(calculationAuditLog).values({
-        calculationId: result[0].id,
-        userId: ctx.user.id,
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        calculationResultId: id,
         action: 'CREATE',
+        actor: ctx.user.id,
+        timestamp: new Date(),
         details: `Calculation saved for project ${input.projectId}`,
-        timestamp: Date.now(),
-        createdAt: new Date(),
+        ipAddress: ctx.req.ip || 'unknown',
       });
 
       return {
-        id: result[0].id,
-        projectId: result[0].projectId,
-        calculatorType: result[0].calculatorType,
+        id,
+        projectId: parseInt(input.projectId),
+        calculatorType: input.calculatorType,
         inputs: input.inputs,
         outputs: input.outputs,
-        signature: result[0].signature,
-        timestamp: result[0].timestamp,
-        createdAt: result[0].createdAt,
+        signature,
+        createdAt: new Date(),
       };
     } catch (error) {
       console.error('Error saving calculation result:', error);
@@ -97,21 +107,31 @@ export const getProjectCalculations = protectedProcedure
     }
 
     const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Database connection failed',
+      });
+    }
 
     try {
       const results = await db
         .select()
         .from(calculationResults)
-        .where((t) => t.projectId === input.projectId && t.userId === ctx.user.id);
+        .where(
+          and(
+            eq(calculationResults.projectId, parseInt(input.projectId)),
+            eq(calculationResults.userId, ctx.user.id)
+          )
+        );
 
       return results.map((r) => ({
         id: r.id,
         projectId: r.projectId,
         calculatorType: r.calculatorType,
-        inputs: JSON.parse(r.inputs),
-        outputs: JSON.parse(r.outputs),
-        signature: r.signature,
-        timestamp: r.timestamp,
+        inputs: JSON.parse(r.inputData),
+        outputs: JSON.parse(r.resultData),
+        signature: r.cryptographicSignature,
         createdAt: r.createdAt,
       }));
     } catch (error) {
@@ -119,6 +139,69 @@ export const getProjectCalculations = protectedProcedure
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch project calculations',
+      });
+    }
+  });
+
+/**
+ * Verify calculation signature
+ */
+export const verifyCalculationSignature = protectedProcedure
+  .input(z.object({ calculationId: z.string() }))
+  .query(async ({ ctx, input }) => {
+    if (!ctx.user) {
+      throw new TRPCError({ code: 'UNAUTHORIZED' });
+    }
+
+    const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Database connection failed',
+      });
+    }
+
+    try {
+      const result = await db
+        .select()
+        .from(calculationResults)
+        .where(
+          and(
+            eq(calculationResults.id, input.calculationId),
+            eq(calculationResults.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+
+      if (!result[0]) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Calculation not found',
+        });
+      }
+
+      const engine = new CalculationEngine();
+      const inputs = JSON.parse(result[0].inputData);
+      const outputs = JSON.parse(result[0].resultData);
+      
+      const isValid = engine.verifyCalculation(
+        inputs,
+        outputs,
+        result[0].cryptographicSignature,
+        result[0].createdBy
+      );
+
+      return {
+        id: result[0].id,
+        isValid,
+        signatureVerified: result[0].signatureVerified,
+        createdAt: result[0].createdAt,
+      };
+    } catch (error) {
+      console.error('Error verifying calculation signature:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to verify calculation signature',
       });
     }
   });
