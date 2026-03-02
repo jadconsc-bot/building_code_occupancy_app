@@ -44,9 +44,9 @@ export function getSessionCookieOptions(
   return {
     httpOnly: true,
     path: "/",
-    // sameSite: "none" requires secure: true
-    // For production, always use secure cookies
-    sameSite: isSecure ? "none" : "lax",
+    // For development: use lax sameSite to allow cookies across requests
+    // For production: use none with secure: true for cross-domain cookies
+    sameSite: "lax",
     secure: isSecure,
   };
 }
