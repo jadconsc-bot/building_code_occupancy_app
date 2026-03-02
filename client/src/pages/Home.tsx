@@ -48,6 +48,8 @@ import { SpanTables } from '@/components/SpanTables';
 import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
+import { OnboardingDialog } from '@/components/OnboardingTutorial';
+import { useState, useEffect } from 'react';
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";
@@ -91,6 +93,27 @@ export default function Home() {
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('onboarding-completed') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isAuthenticated && !hasSeenOnboarding && !showOnboarding) {
+      const timer = setTimeout(() => setShowOnboarding(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, hasSeenOnboarding, showOnboarding]);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding-completed', 'true');
+    setHasSeenOnboarding(true);
+    setShowOnboarding(false);
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);

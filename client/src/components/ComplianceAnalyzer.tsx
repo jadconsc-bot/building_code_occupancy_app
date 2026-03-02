@@ -34,10 +34,10 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const rulesets = trpc.compliance.getRulesets.useQuery();
-  const analyzeCompliance = trpc.compliance.analyzeCompliance.useMutation();
+  const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
+  const analysisHistory = trpc.compliance.getHistory.useQuery();
 
-  const handleInputChange = (key: string, value: any) => {
+  const handleInputChange = (key: string, value: string | number | boolean) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
