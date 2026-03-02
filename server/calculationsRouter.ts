@@ -112,11 +112,11 @@ export const calculationsRouter = router({
             id: r.id,
             projectId: r.projectId,
             calculatorType: r.calculatorType,
-            displayName: r.displayName,
+            displayName: r.calculatorType,
             timestamp: r.createdAt,
             signatureVerified: r.signatureVerified,
-            resultSummary: r.resultSummary,
-            inputCount: Object.keys(JSON.parse(r.inputs || '{}')).length,
+            resultSummary: r.resultData,
+            inputCount: Object.keys(JSON.parse(r.inputData || '{}')).length,
           })),
           total: countResult[0]?.count || 0,
           hasMore: (input.offset + input.limit) < (countResult[0]?.count || 0),
@@ -162,23 +162,23 @@ export const calculationsRouter = router({
         const auditLog = await db
           .select()
           .from(calculationAuditLog)
-          .where(eq(calculationAuditLog.calculationId, input.calculationId))
+          .where(eq(calculationAuditLog.calculationResultId, input.calculationId))
           .orderBy(desc(calculationAuditLog.timestamp));
 
         return {
           id: result.id,
           projectId: result.projectId,
           calculatorType: result.calculatorType,
-          displayName: result.displayName,
-          inputs: JSON.parse(result.inputs || '{}'),
-          results: JSON.parse(result.results || '{}'),
+          displayName: result.calculatorType,
+          inputs: JSON.parse(result.inputData || '{}'),
+          results: JSON.parse(result.resultData || '{}'),
           calculationTrace: JSON.parse(result.calculationTrace || '[]'),
-          signature: result.signature,
-          certificateId: result.certificateId,
+          signature: result.cryptographicSignature,
+          certificateChain: result.certificateChain,
           signatureVerified: result.signatureVerified,
           timestamp: result.createdAt,
-          nbcVersion: result.nbcVersion,
-          nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+          rulesetVersion: result.rulesetVersion,
+          references: [],
           auditLog: auditLog.map((log) => ({
             id: log.id,
             action: log.action,
@@ -491,7 +491,7 @@ export const calculationsRouter = router({
         const auditLog = await db
           .select()
           .from(calculationAuditLog)
-          .where(eq(calculationAuditLog.calculationId, input.calculationId))
+          .where(eq(calculationAuditLog.calculationResultId, input.calculationId))
           .orderBy(desc(calculationAuditLog.timestamp));
 
         return {
