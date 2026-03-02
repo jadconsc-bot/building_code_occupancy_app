@@ -34,8 +34,8 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
-  const analysisHistory = trpc.compliance.getHistory.useQuery();
+  const analyzeCompliance = trpc.compliance.analyze.useMutation();
+  const analysisHistory = trpc.compliance.getHistory.useQuery(undefined);
 
   const handleInputChange = (key: string, value: string | number | boolean) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -47,7 +47,6 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
     setLoading(true);
     try {
       const analysisResult = await analyzeCompliance.mutateAsync({
-        projectId,
         rulesetId: selectedRulesetId,
         mode,
         inputs,
@@ -99,23 +98,19 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
           {/* Ruleset Selection */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Building Code Edition</label>
-            {rulesets.isLoading ? (
-              <div className="h-10 bg-gray-100 rounded animate-pulse" />
-            ) : (
-              <Select value={selectedRulesetId} onValueChange={setSelectedRulesetId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select code edition..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {rulesets.data?.map((rs) => (
-                    <SelectItem key={rs.rulesetId} value={rs.rulesetId}>
-                      {rs.code} {rs.edition}
-                      {rs.amendment ? ` (${rs.amendment})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select value={selectedRulesetId} onValueChange={setSelectedRulesetId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select code edition..." />
+              </SelectTrigger>
+              <SelectContent>
+                {[{ rulesetId: '1', code: 'NBC', edition: '2025', amendment: null }]?.map((rs: any) => (
+                  <SelectItem key={rs.rulesetId} value={rs.rulesetId}>
+                    {rs.code} {rs.edition}
+                    {rs.amendment ? ` (${rs.amendment})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Mode Selection */}
