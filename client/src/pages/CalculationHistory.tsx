@@ -70,7 +70,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     calculationId,
   });
 
-  const exportMutation = trpc.calculations.export.useMutation();
+  const exportMutation = trpc.calculations.exportForLegal.useMutation();
 
   const [exportFormat, setExportFormat] = useState<'json' | 'json-ld' | 'pdf'>('json');
 
@@ -160,7 +160,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <code className="text-xs bg-white px-2 py-1 rounded border flex-1 truncate">
-                    {verification.certificateId}
+                    {verification.certificateChain}
                   </code>
                   <Button
                     size="sm"

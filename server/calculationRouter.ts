@@ -15,7 +15,7 @@ import { TRPCError } from '@trpc/server';
  */
 const ExecuteCalculationInput = z.object({
   calculatorType: z.string().min(1),
-  inputData: z.record(z.any()),
+  inputData: z.record(z.string(), z.any()),
   projectId: z.string().or(z.number()),
   rulesetVersion: z.string().min(1),
 });
@@ -58,7 +58,6 @@ export const calculationRouter = router({
             id: result.id,
             calculatorType: result.calculatorType,
             signature: result.signature,
-            signatureVerified: result.signatureVerified,
             timestamp: result.timestamp,
             immutable: result.immutable,
           },

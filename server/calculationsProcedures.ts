@@ -22,8 +22,8 @@ export const saveCalculationResult = protectedProcedure
     z.object({
       projectId: z.string(),
       calculatorType: z.string(),
-      inputs: z.record(z.any()),
-      outputs: z.record(z.any()),
+      inputs: z.record(z.string(), z.any()),
+      outputs: z.record(z.string(), z.any()),
     })
   )
   .mutation(async ({ ctx, input }) => {

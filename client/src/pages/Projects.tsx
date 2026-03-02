@@ -391,7 +391,7 @@ export default function Projects() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-xl">{project.name}</CardTitle>
-                    <CardDescription className="mt-1">{project.description}</CardDescription>
+                    <CardDescription className="mt-1">{project.notes || 'No description'}</CardDescription>
                   </div>
                   <Badge className={getStatusColor(project.status)}>
                     {project.status}

@@ -71,14 +71,15 @@ export class DigitalCertificateManager {
     // Create certificate object
     const certificate: DigitalCertificate = {
       id: uuidv4(),
+      name: config.commonName,
       fingerprint,
       publicKey,
       privateKey,
-      certificateChain: this.buildCertificateChain(publicKey, config),
-      issuedAt: now,
+      issuer: config.organizationName,
+      subject: config.commonName,
+      validFrom: now,
       validUntil,
       active: true,
-      rotationScheduled: false,
     };
 
     // Store in database
@@ -113,10 +114,10 @@ export class DigitalCertificateManager {
 
     return {
       id: cert.id,
+      name: cert.certificateName,
       fingerprint: cert.fingerprint || '',
       publicKey: cert.publicKey,
       privateKey: cert.privateKey,
-      certificateName: cert.certificateName,
       validFrom: cert.validFrom,
       validUntil: cert.validUntil,
       active: cert.active,
