@@ -184,11 +184,11 @@ export const verifyCalculationSignature = protectedProcedure
       const inputs = JSON.parse(result[0].inputData);
       const outputs = JSON.parse(result[0].resultData);
       
-      const isValid = engine.verifyCalculation(
+      const isValid = engine.verifySignature(
         inputs,
         outputs,
-        result[0].cryptographicSignature,
-        result[0].createdBy
+        result[0].createdBy,
+        result[0].cryptographicSignature
       );
 
       return {

@@ -1,4 +1,4 @@
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, bookmarks, notes, InsertBookmark, InsertNote, clients, InsertClient, Client, projectMembers, InsertProjectMember, ProjectMember, teamRoles, InsertTeamRole, TeamRole, subscriptionPlans, InsertSubscriptionPlan, SubscriptionPlan, userSubscriptions, InsertUserSubscription, UserSubscription, usageMetrics, InsertUsageMetric, UsageMetric, shareLinks, InsertShareLink, ShareLink, verificationTokens, InsertVerificationToken, VerificationToken, calculationVersions, InsertCalculationVersion, CalculationVersion } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -245,7 +245,7 @@ export async function getProjectMembers(projectId: number): Promise<ProjectMembe
   return await db.select().from(projectMembers).where(
     and(
       eq(projectMembers.projectId, projectId),
-      eq(projectMembers.removedAt, null)
+      isNull(projectMembers.removedAt)
     )
   );
 }
@@ -258,7 +258,7 @@ export async function getProjectMember(projectId: number, userId: number): Promi
     and(
       eq(projectMembers.projectId, projectId),
       eq(projectMembers.userId, userId),
-      eq(projectMembers.removedAt, null)
+      isNull(projectMembers.removedAt)
     )
   ).limit(1);
   
@@ -298,10 +298,10 @@ export async function createTeamRole(data: InsertTeamRole): Promise<TeamRole> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(teamRoles).values(data);
-  const roleId = result[0];
+  const result = await db.insert(teamRoles).values(data as any);
+  const roleId = (result as any).insertId || result[0];
   
-  const created = await db.select().from(teamRoles).where(eq(teamRoles.id, roleId)).limit(1);
+  const created = await db.select().from(teamRoles).where(eq(teamRoles.id, roleId as any)).limit(1);
   return created[0];
 }
 
@@ -354,10 +354,10 @@ export async function createUserSubscription(data: InsertUserSubscription): Prom
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(userSubscriptions).values(data);
-  const subId = result[0];
+  const result = await db.insert(userSubscriptions).values(data as any);
+  const subId = (result as any).insertId || result[0];
   
-  const created = await db.select().from(userSubscriptions).where(eq(userSubscriptions.id, subId)).limit(1);
+  const created = await db.select().from(userSubscriptions).where(eq(userSubscriptions.id, subId as any)).limit(1);
   return created[0];
 }
 
@@ -414,10 +414,10 @@ export async function createShareLink(data: InsertShareLink): Promise<ShareLink>
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(shareLinks).values(data);
-  const linkId = result[0];
+  const result = await db.insert(shareLinks).values(data as any);
+  const linkId = (result as any).insertId || result[0];
   
-  const created = await db.select().from(shareLinks).where(eq(shareLinks.id, linkId)).limit(1);
+  const created = await db.select().from(shareLinks).where(eq(shareLinks.id, linkId as any)).limit(1);
   return created[0];
 }
 
@@ -460,10 +460,10 @@ export async function createVerificationToken(data: InsertVerificationToken): Pr
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(verificationTokens).values(data);
-  const tokenId = result[0];
+  const result = await db.insert(verificationTokens).values(data as any);
+  const tokenId = (result as any).insertId || result[0];
   
-  const created = await db.select().from(verificationTokens).where(eq(verificationTokens.id, tokenId)).limit(1);
+  const created = await db.select().from(verificationTokens).where(eq(verificationTokens.id, tokenId as any)).limit(1);
   return created[0];
 }
 
@@ -500,10 +500,10 @@ export async function createCalculationVersion(data: InsertCalculationVersion): 
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(calculationVersions).values(data);
-  const versionId = result[0];
+  const result = await db.insert(calculationVersions).values(data as any);
+  const versionId = (result as any).insertId || result[0];
   
-  const created = await db.select().from(calculationVersions).where(eq(calculationVersions.id, versionId)).limit(1);
+  const created = await db.select().from(calculationVersions).where(eq(calculationVersions.id, versionId as any)).limit(1);
   return created[0];
 }
 

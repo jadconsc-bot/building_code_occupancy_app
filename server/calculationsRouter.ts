@@ -20,18 +20,20 @@ import { saveCalculationResult, getProjectCalculations } from './calculationsPro
 const CalculationResultSchema = z.object({
   id: z.string().uuid(),
   projectId: z.number(),
+  userId: z.number(),
   calculatorType: z.string(),
-  displayName: z.string(),
-  inputs: z.record(z.any()),
-  results: z.record(z.any()),
-  calculationTrace: z.array(z.any()),
-  signature: z.string(),
-  certificateId: z.string().uuid(),
+  rulesetVersion: z.string(),
+  inputData: z.string(),
+  resultData: z.string(),
+  calculationTrace: z.string().optional(),
+  cryptographicSignature: z.string(),
+  certificateChain: z.string().optional(),
   signatureVerified: z.boolean(),
-  timestamp: z.date(),
+  createdAt: z.date(),
   createdBy: z.number(),
-  nbcVersion: z.string(),
-  nbcReferences: z.array(z.string()),
+  ipAddress: z.string().optional(),
+  userAgent: z.string().optional(),
+  immutable: z.boolean()
 });
 
 /**
