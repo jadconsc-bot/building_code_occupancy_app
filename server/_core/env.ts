@@ -47,7 +47,6 @@ const validatedEnv = validateEnv();
 
 export const ENV = {
   appId: validatedEnv.VITE_APP_ID ?? "",
-  jwtSecret: validatedEnv.JWT_SECRET,
   cookieSecret: validatedEnv.JWT_SECRET,
   databaseUrl: validatedEnv.DATABASE_URL,
   oAuthServerUrl: validatedEnv.OAUTH_SERVER_URL,

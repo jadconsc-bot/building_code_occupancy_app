@@ -1,8 +1,8 @@
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
-import { COOKIE_NAME, SESSION_DURATION_MS } from "@shared/const";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -65,7 +65,7 @@ export function registerOAuthRoutes(app: Express) {
       console.log("[OAuth] Creating session token...");
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",
-        expiresInMs: SESSION_DURATION_MS,
+        expiresInMs: ONE_YEAR_MS,
       });
       console.log("[OAuth] Session token created");
       console.log("[OAuth] Token length:", sessionToken.length);
@@ -76,12 +76,12 @@ export function registerOAuthRoutes(app: Express) {
         httpOnly: cookieOptions.httpOnly,
         secure: cookieOptions.secure,
         sameSite: cookieOptions.sameSite,
-        maxAge: SESSION_DURATION_MS
+        maxAge: ONE_YEAR_MS
       });
       
       res.cookie(COOKIE_NAME, sessionToken, { 
         ...cookieOptions, 
-        maxAge: SESSION_DURATION_MS 
+        maxAge: ONE_YEAR_MS 
       });
       console.log("[OAuth] Cookie set");
 
