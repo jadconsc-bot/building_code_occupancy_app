@@ -34,8 +34,8 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const analyzeCompliance = trpc.compliance.analyze.useMutation();
-  const analysisHistory = trpc.compliance.getHistory.useQuery(undefined);
+  const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
+  const analysisHistory = trpc.compliance.getHistory.useQuery({});
 
   const handleInputChange = (key: string, value: string | number | boolean) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -47,9 +47,10 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
     setLoading(true);
     try {
       const analysisResult = await analyzeCompliance.mutateAsync({
-        rulesetId: selectedRulesetId,
-        mode,
-        inputs,
+        planDescription: 'Building Plan',
+        occupancyType: inputs.occupancy_major || 'residential',
+        buildingType: inputs.buildingType,
+        province: 'Alberta',
       });
       setResult(analysisResult);
     } catch (error) {

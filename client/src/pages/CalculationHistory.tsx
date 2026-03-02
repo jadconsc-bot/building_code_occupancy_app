@@ -194,9 +194,9 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                NBC Version
+                Ruleset Version
               </label>
-              <p className="mt-1 text-sm">{calculation.nbcVersion}</p>
+              <p className="mt-1 text-sm">{calculation.rulesetVersion}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
@@ -222,12 +222,12 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
             </div>
           </div>
 
-          {/* NBC References */}
-          {calculation.nbcReferences.length > 0 && (
+          {/* References */}
+          {calculation.references && calculation.references.length > 0 && (
             <div>
-              <label className="text-sm font-medium">NBC References</label>
+              <label className="text-sm font-medium">References</label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {calculation.nbcReferences.map((ref) => (
+                {calculation.references.map((ref: any) => (
                   <Badge key={ref} variant="outline">
                     {ref}
                   </Badge>
