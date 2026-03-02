@@ -37,7 +37,7 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
   const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
   const analysisHistory = trpc.compliance.getHistory.useQuery({});
 
-  const handleInputChange = (key: string, value: string | number | boolean) => {
+  const handleInputChange = (key: string, value: string | number | boolean | undefined) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 

@@ -15,24 +15,24 @@ export function useProjectChecklist(phase?: string) {
   const { activeProjectId } = useProject();
   const utils = trpc.useUtils();
 
-  const { data: items = [], isLoading } = trpc.projects.checklistItems.list.useQuery(
+  const { data: items = [], isLoading } = trpc.projectsLegacy.checklistItems.list.useQuery(
     activeProjectId ? { projectId: activeProjectId, phase } : { skip: true } as any,
     { enabled: !!activeProjectId }
   );
 
-  const saveMutation = trpc.projects.checklistItems.save.useMutation({
+  const saveMutation = trpc.projectsLegacy.checklistItems.save.useMutation({
     onSuccess: () => {
       if (activeProjectId) {
-        utils.projects.checklistItems.list.invalidate({ projectId: activeProjectId, phase });
+        utils.projectsLegacy.checklistItems.list.invalidate({ projectId: activeProjectId, phase });
       }
     },
   });
 
-  const toggleMutation = trpc.projects.checklistItems.toggle.useMutation({
+  const toggleMutation = trpc.projectsLegacy.checklistItems.toggle.useMutation({
     onSuccess: () => {
       if (activeProjectId) {
-        utils.projects.checklistItems.list.invalidate({ projectId: activeProjectId, phase });
-        utils.projects.get.invalidate({ id: activeProjectId });
+        utils.projectsLegacy.checklistItems.list.invalidate({ projectId: activeProjectId, phase });
+        utils.projectsLegacy.get.invalidate({ id: activeProjectId });
       }
     },
   });

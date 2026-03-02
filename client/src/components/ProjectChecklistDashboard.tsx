@@ -108,7 +108,7 @@ export function ProjectChecklistDashboard() {
     return { total, completed, pending, completionRate };
   }, [checklistItems]);
 
-  const togglePhase = (phase: string | unknown) => {
+  const togglePhase = (phase: string) => {
     const newExpanded = new Set(expandedPhases);
     if (newExpanded.has(phase)) {
       newExpanded.delete(phase);

@@ -14,11 +14,8 @@ import { CheckCircle2, XCircle, AlertCircle, Download, Trash2, Eye } from "lucid
 export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
 
-  const snapshots = trpc.compliance.getProjectSnapshots.useQuery({ projectId });
-  const snapshot = trpc.compliance.getSnapshot.useQuery(
-    { snapshotId: selectedSnapshot! },
-    { enabled: !!selectedSnapshot }
-  );
+  const snapshots = trpc.compliance.getHistory.useQuery({});
+  const snapshotData = snapshots.data as any;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -50,7 +47,7 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
     return <div className="h-96 bg-gray-100 rounded animate-pulse" />;
   }
 
-  if (!snapshots.data || snapshots.data.length === 0) {
+  if (!snapshotData?.analyses || snapshotData.analyses.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -64,44 +61,36 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
     <div className="space-y-6">
       {/* Snapshots List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {snapshots.data.map((snap) => (
+        {snapshotData?.analyses?.map((snap: any, idx: number) => (
           <Card
-            key={snap.snapshotId}
-            className={`cursor-pointer transition-all ${selectedSnapshot === snap.snapshotId ? "ring-2 ring-blue-500" : ""}`}
-            onClick={() => setSelectedSnapshot(snap.snapshotId)}
+            key={idx}
+            className={`cursor-pointer transition-all ${selectedSnapshot === String(idx) ? "ring-2 ring-blue-500" : ""}`}
+            onClick={() => setSelectedSnapshot(String(idx))}
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  {getStatusIcon(snap.complianceStatus)}
+                  {getStatusIcon(snap.status || "conditional")}
                   <div>
-                    <CardTitle className="text-sm">
-                      {snap.complianceStatus === "compliant"
-                        ? "Compliant"
-                        : snap.complianceStatus === "non_compliant"
-                          ? "Non-Compliant"
-                          : "Conditional"}
-                    </CardTitle>
+                    <CardTitle className="text-sm">{snap.name || `Analysis ${idx + 1}`}</CardTitle>
                     <CardDescription className="text-xs">
-                      {new Date(snap.createdAt).toLocaleDateString()}
+                      {new Date(snap.createdAt || Date.now()).toLocaleDateString()}
                     </CardDescription>
                   </div>
                 </div>
-                <Badge className={getStatusBadgeColor(snap.complianceStatus)} variant="outline">
-                  {snap.mode}
+                <Badge className={getStatusBadgeColor(snap.status || "conditional")}>
+                  {snap.status || "pending"}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-xs space-y-1 text-gray-600">
-                <p>
-                  <span className="font-medium">Occupancy:</span> {snap.inputs.occupancy_major}
-                </p>
-                {snap.inputs.area_m2 && (
-                  <p>
-                    <span className="font-medium">Area:</span> {snap.inputs.area_m2}m²
-                  </p>
-                )}
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Mode:</span>
+                <span className="font-medium">{snap.mode || "soft"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Occupancy:</span>
+                <span className="font-medium">{snap.occupancyType || "N/A"}</span>
               </div>
             </CardContent>
           </Card>
@@ -109,97 +98,84 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       </div>
 
       {/* Snapshot Details */}
-      {selectedSnapshot && snapshot.data && (
+      {selectedSnapshot !== null && snapshotData?.analyses?.[parseInt(selectedSnapshot)] && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Snapshot Details</CardTitle>
-                <CardDescription>{snapshot.data.snapshotId}</CardDescription>
-              </div>
+              <CardTitle>Snapshot Details</CardTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm">
                   <Download className="w-4 h-4 mr-2" />
-                  Export PDF
+                  Export
                 </Button>
                 <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="inputs" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="inputs">Inputs</TabsTrigger>
                 <TabsTrigger value="outputs">Outputs</TabsTrigger>
-                <TabsTrigger value="rules">Rules</TabsTrigger>
-                <TabsTrigger value="audit">Audit</TabsTrigger>
+                <TabsTrigger value="trace">Trace</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="inputs" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(snapshot.data.inputs).map(([key, value]) => (
-                    <div key={key} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="text-xs font-medium text-gray-600 uppercase">{key.replace(/_/g, " ")}</div>
-                      <div className="text-sm font-semibold mt-1">
-                        {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                      </div>
-                    </div>
-                  ))}
+              <TabsContent value="inputs" className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <pre className="text-xs overflow-auto">
+                    {JSON.stringify(snapshotData.analyses[parseInt(selectedSnapshot)]?.inputs || {}, null, 2)}
+                  </pre>
                 </div>
               </TabsContent>
 
-              <TabsContent value="outputs" className="space-y-4 mt-4">
-                <div className="bg-gray-50 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                  <pre>{JSON.stringify(snapshot.data.outputs, null, 2)}</pre>
+              <TabsContent value="outputs" className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <pre className="text-xs overflow-auto">
+                    {JSON.stringify(snapshotData.analyses[parseInt(selectedSnapshot)]?.outputs || {}, null, 2)}
+                  </pre>
                 </div>
               </TabsContent>
 
-              <TabsContent value="rules" className="space-y-3 mt-4">
-                <div className="max-h-96 overflow-y-auto space-y-2">
-                  {snapshot.data.ruleTrace.map((rule: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg border ${rule.fired ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}
-                    >
-                      <div className="flex items-start justify-between">
+              <TabsContent value="trace" className="space-y-4">
+                <div className="space-y-2">
+                  {(snapshotData.analyses[parseInt(selectedSnapshot)]?.ruleTrace || []).map((step: any, idx: number) => (
+                    <div key={idx} className="p-3 border border-gray-200 rounded-lg">
+                      <div className="flex items-start gap-2">
                         <div className="flex-1">
-                          <div className="font-medium text-sm">{rule.clause}</div>
-                          <div className="text-xs text-gray-600 mt-1">{rule.rule_id}</div>
+                          <p className="font-medium text-sm">{step.rule || `Step ${idx + 1}`}</p>
+                          <p className="text-xs text-gray-600">{step.description || "No description"}</p>
                         </div>
-                        {rule.fired ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                        )}
+                        <Badge variant="outline">{step.result || "pending"}</Badge>
                       </div>
                     </div>
                   ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="audit" className="space-y-4 mt-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Created:</span>
-                    <span className="font-medium">{new Date(snapshot.data.createdAt).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Mode:</span>
-                    <span className="font-medium capitalize">{snapshot.data.mode}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="font-medium capitalize">{snapshot.data.complianceStatus}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ruleset:</span>
-                    <span className="font-medium">{snapshot.data.rulesetId}</span>
-                  </div>
                 </div>
               </TabsContent>
             </Tabs>
+
+            <div className="mt-6 pt-6 border-t space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Created:</span>
+                <span>{new Date(snapshotData.analyses[parseInt(selectedSnapshot)]?.createdAt || Date.now()).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Mode:</span>
+                <span className="font-medium">{snapshotData.analyses[parseInt(selectedSnapshot)]?.mode || "soft"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status:</span>
+                <Badge className={getStatusBadgeColor(snapshotData.analyses[parseInt(selectedSnapshot)]?.status || "pending")}>
+                  {snapshotData.analyses[parseInt(selectedSnapshot)]?.status || "pending"}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Ruleset:</span>
+                <span className="font-medium">{snapshotData.analyses[parseInt(selectedSnapshot)]?.rulesetId || "N/A"}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

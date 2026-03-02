@@ -30,7 +30,7 @@ export function authMiddleware() {
  * Middleware to enforce admin role
  */
 export function adminMiddleware() {
-  return async ({ ctx, next }: { ctx: Context; next: () => Promise<any> }) => {
+  return async ({ ctx, next }: { ctx: TrpcContext; next: () => Promise<any> }) => {
     if (!ctx.user) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
@@ -53,7 +53,7 @@ export function adminMiddleware() {
  * Middleware to enforce active subscription
  */
 export function subscriptionMiddleware() {
-  return async ({ ctx, next }: { ctx: Context; next: () => Promise<any> }) => {
+  return async ({ ctx, next }: { ctx: TrpcContext; next: () => Promise<any> }) => {
     if (!ctx.user) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
@@ -78,7 +78,7 @@ export function subscriptionMiddleware() {
  * Middleware to enforce quota for expensive operations
  */
 export function quotaMiddleware(operation: string) {
-  return async ({ ctx, next }: { ctx: Context; next: () => Promise<any> }) => {
+  return async ({ ctx, next }: { ctx: TrpcContext; next: () => Promise<any> }) => {
     if (!ctx.user) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
@@ -118,7 +118,7 @@ export function quotaMiddleware(operation: string) {
  * Middleware to log operations
  */
 export function loggingMiddleware() {
-  return async ({ ctx, path, next }: { ctx: Context; path: string; next: () => Promise<any> }) => {
+  return async ({ ctx, path, next }: { ctx: TrpcContext; path: string; next: () => Promise<any> }) => {
     const startTime = Date.now();
 
     try {
@@ -203,7 +203,7 @@ export function databaseErrorMiddleware() {
  * Middleware to enforce request deduplication
  */
 export function deduplicationMiddleware() {
-  return async ({ ctx, path, next }: { ctx: Context; path: string; next: () => Promise<any> }) => {
+  return async ({ ctx, path, next }: { ctx: TrpcContext; path: string; next: () => Promise<any> }) => {
     // Create deduplication key from user, path, and timestamp (1 second window)
     const timestamp = Math.floor(Date.now() / 1000);
     const deduplicationKey = `${ctx.user?.id}:${path}:${timestamp}`;
