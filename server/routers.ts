@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
 import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } from "../drizzle/schema";
@@ -31,8 +32,8 @@ export const appRouter = router({
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    me: protectedProcedure.query(opts => opts.ctx.user),
+    logout: protectedProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {
@@ -758,8 +759,12 @@ Return ONLY a valid JSON object in this exact format:
             message: "Feedback submitted successfully",
           };
         } catch (error) {
-          console.error("Feedback submission error:", error);
-          throw new Error("Failed to submit feedback");
+          const message = error instanceof Error ? error.message : "Unknown error";
+          console.error("Feedback submission error:", message);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Feedback submission failed: ${message}`,
+          });
         }
       }),
   }),
