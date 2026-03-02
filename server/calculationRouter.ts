@@ -16,7 +16,7 @@ import { TRPCError } from '@trpc/server';
 const ExecuteCalculationInput = z.object({
   calculatorType: z.string().min(1),
   inputs: z.record(z.any()),
-  projectId: z.number().int().positive(),
+  projectId: z.string().or(z.number()),
   rulesetVersion: z.string().min(1),
 });
 
@@ -54,24 +54,18 @@ export const calculationRouter = router({
     .input(ExecuteCalculationInput)
     .mutation(async ({ ctx, input }) => {
       try {
-        // Verify user has access to project
-        const db = ctx.db;
-        if (!db) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Database not available',
-          });
-        }
+        // Initialize calculation engine
+        const engine = new CalculationEngine();
 
         // Execute calculation with full audit trail
-        const result = await calculationEngine.executeCalculation({
+        const result = await engine.executeCalculation({
           calculatorType: input.calculatorType,
           inputs: input.inputs,
           projectId: input.projectId,
           userId: ctx.user.id,
           rulesetVersion: input.rulesetVersion,
-          ipAddress: ctx.ipAddress,
-          userAgent: ctx.userAgent,
+          ipAddress: ctx.req.ip || 'unknown',
+          userAgent: ctx.req.headers['user-agent'] || 'unknown',
         });
 
         return {

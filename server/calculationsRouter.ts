@@ -232,7 +232,7 @@ export const calculationsRouter = router({
         const certChain = await certificateManager.getCertificateChain(result.certificateId);
 
         return {
-          calculationId: result.id,
+          calculationResultId: result.id,
           isValid,
           signatureVerified: result.signatureVerified,
           certificateId: result.certificateId,
@@ -292,13 +292,13 @@ export const calculationsRouter = router({
           exportData = {
             id: result.id,
             calculatorType: result.calculatorType,
-            inputs: JSON.parse(result.inputs || '{}'),
-            results: JSON.parse(result.results || '{}'),
-            signature: result.signature,
-            certificateId: result.certificateId,
+            inputs: JSON.parse(result.inputData || '{}'),
+            results: JSON.parse(result.resultData || '{}'),
+            signature: result.cryptographicSignature,
+            certificateChain: result.certificateChain,
             timestamp: result.createdAt,
-            nbcVersion: result.nbcVersion,
-            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+            rulesetVersion: result.rulesetVersion,
+            references: [],
           };
         } else if (input.format === 'json-ld') {
           // JSON-LD format for semantic web
@@ -307,13 +307,13 @@ export const calculationsRouter = router({
             '@type': 'CalculationResult',
             identifier: result.id,
             calculatorType: result.calculatorType,
-            inputs: JSON.parse(result.inputs || '{}'),
-            results: JSON.parse(result.results || '{}'),
-            signature: result.signature,
-            certificateId: result.certificateId,
+            inputs: JSON.parse(result.inputData || '{}'),
+            results: JSON.parse(result.resultData || '{}'),
+            signature: result.cryptographicSignature,
+            certificateChain: result.certificateChain,
             dateCreated: result.createdAt.toISOString(),
-            nbcVersion: result.nbcVersion,
-            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+            rulesetVersion: result.rulesetVersion,
+            references: [],
             author: {
               '@type': 'Person',
               identifier: ctx.user.id,
@@ -324,15 +324,15 @@ export const calculationsRouter = router({
           // PDF format - return data for client to generate PDF
           exportData = {
             type: 'pdf',
-            title: `${result.displayName} - ${result.createdAt.toLocaleDateString()}`,
-            calculationId: result.id,
+            title: `${result.calculatorType} - ${result.createdAt.toLocaleDateString()}`,
+            calculationResultId: result.id,
             calculatorType: result.calculatorType,
-            inputs: JSON.parse(result.inputs || '{}'),
-            results: JSON.parse(result.results || '{}'),
-            signature: result.signature,
+            inputs: JSON.parse(result.inputData || '{}'),
+            results: JSON.parse(result.resultData || '{}'),
+            signature: result.cryptographicSignature,
             timestamp: result.createdAt,
-            nbcVersion: result.nbcVersion,
-            nbcReferences: JSON.parse(result.nbcReferences || '[]'),
+            rulesetVersion: result.rulesetVersion,
+            references: [],
             user: {
               name: ctx.user.name,
               email: ctx.user.email,
@@ -342,7 +342,7 @@ export const calculationsRouter = router({
 
         // Log export action
         await db.insert(calculationAuditLog).values({
-          calculationId: result.id,
+          calculationResultId: result.id,
           action: 'EXPORT',
           actor: `${ctx.user.name} (${ctx.user.email})`,
           timestamp: new Date(),
@@ -432,7 +432,7 @@ export const calculationsRouter = router({
 
         // Log deletion
         await db.insert(calculationAuditLog).values({
-          calculationId: result.id,
+          calculationResultId: result.id,
           action: 'DELETE',
           actor: `${ctx.user.name} (${ctx.user.email})`,
           timestamp: new Date(),
@@ -446,7 +446,7 @@ export const calculationsRouter = router({
         return {
           success: true,
           message: 'Calculation deleted successfully',
-          calculationId: result.id,
+          calculationResultId: result.id,
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;

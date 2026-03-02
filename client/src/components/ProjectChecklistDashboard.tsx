@@ -42,17 +42,16 @@ export function ProjectChecklistDashboard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 
-  // Fetch checklist items for active project
-  const { data: checklistItems = [], isLoading } = trpc.projects.checklistItems.list.useQuery(
-    activeProjectId ? { projectId: activeProjectId } : { skip: true } as any,
+  // Fetch projects list
+  const { data: projects = [], isLoading } = trpc.projects.list.useQuery(
+    undefined,
     { enabled: !!activeProjectId }
   );
 
-  // Fetch calculator results
-  const { data: calculatorResults = [] } = trpc.projects.calculatorResults.list.useQuery(
-    activeProjectId ? { projectId: activeProjectId } : { skip: true } as any,
-    { enabled: !!activeProjectId }
-  );
+  // Get active project data
+  const activeProject = projects.find(p => p.id === activeProjectId);
+  const checklistItems = activeProject?.checklistItems || [];
+  const calculatorResults = activeProject?.calculatorResults || [];
 
   // Filter and group checklist items
   const filteredItems = useMemo(() => {
@@ -62,24 +61,24 @@ export function ProjectChecklistDashboard() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       items = items.filter(
-        (item) =>
-          item.itemText.toLowerCase().includes(query) ||
-          item.itemId.toLowerCase().includes(query) ||
+        (item: any) =>
+          item.itemText?.toLowerCase().includes(query) ||
+          item.itemId?.toLowerCase().includes(query) ||
           item.notes?.toLowerCase().includes(query)
       );
     }
 
     // Filter by phase
     if (selectedPhase !== 'all') {
-      items = items.filter((item) => item.phase === selectedPhase);
+      items = items.filter((item: any) => item.phase === selectedPhase);
     }
 
     // Filter by status (based on completion)
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'completed') {
-        items = items.filter((item) => item.isCompleted === 1);
+        items = items.filter((item: any) => item.isCompleted === 1);
       } else if (selectedStatus === 'pending') {
-        items = items.filter((item) => item.isCompleted === 0);
+        items = items.filter((item: any) => item.isCompleted === 0);
       }
     }
 
