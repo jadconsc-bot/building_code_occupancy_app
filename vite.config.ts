@@ -110,8 +110,10 @@ export default defineConfig({
     },
     hmr: {
       protocol: 'wss',
-      host: 'buildingcode-9f4j2cdo.manus.space',
-      port: 443,
+      // Use dynamic host detection - let browser determine the correct host
+      // This allows HMR to work on both development and production domains
+      host: undefined,
+      port: undefined,
     },
   }
 });
