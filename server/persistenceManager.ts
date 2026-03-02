@@ -6,10 +6,11 @@
  * Prevents hybrid persistence conflicts that could compromise legal defensibility.
  */
 
-import { db } from './db';
+import { getDatabase } from './db';
 import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger';
+import { calculationResults } from '../drizzle/schema';
 
 export interface SyncState {
   lastSyncTime: number;
@@ -108,10 +109,13 @@ export class PersistenceManager {
         userId,
       });
 
+      const db = getDb();
+      if (!db) throw new Error('Database connection failed');
+      
       const result = await db
         .select()
-        .from(calculations)
-        .where(and(eq(calculations.id, calculationId), eq(calculations.userId, userId)))
+        .from(calculationResults)
+        .where(eq(calculationResults.id, calculationId))
         .limit(1);
 
       if (!result.length) {

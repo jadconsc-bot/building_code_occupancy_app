@@ -182,8 +182,16 @@ export async function createClient(data: InsertClient): Promise<Client> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(clients).values(data);
-  const clientId = result[0];
+  // Use proper null coalescing for optional fields
+  const safeData = {
+    ...data,
+    email: data.email || null,
+    phone: data.phone || null,
+    address: data.address || null,
+  };
+  
+  const result = await db.insert(clients).values(safeData as any);
+  const clientId = (result as any).insertId || result[0];
   
   const created = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   return created[0];
@@ -223,8 +231,8 @@ export async function addProjectMember(data: InsertProjectMember): Promise<Proje
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(projectMembers).values(data);
-  const memberId = result[0];
+  const result = await db.insert(projectMembers).values(data as any);
+  const memberId = (result as any).insertId || result[0];
   
   const created = await db.select().from(projectMembers).where(eq(projectMembers.id, memberId)).limit(1);
   return created[0];
