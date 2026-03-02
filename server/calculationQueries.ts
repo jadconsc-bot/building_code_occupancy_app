@@ -36,19 +36,16 @@ export async function saveCalculationResult(data: {
     projectId: data.projectId,
     userId: data.userId,
     calculatorType: data.calculatorType,
-    displayName: data.displayName,
-    inputs: JSON.stringify(data.inputs),
-    results: JSON.stringify(data.results),
+    rulesetVersion: data.nbcVersion || '2023',
+    inputData: JSON.stringify(data.inputs),
+    resultData: JSON.stringify(data.results),
     calculationTrace: JSON.stringify(data.calculationTrace),
-    signature: data.signature,
-    certificateId: data.certificateId,
+    cryptographicSignature: data.signature,
+    certificateChain: data.certificateId,
     signatureVerified: data.signatureVerified,
-    resultSummary: data.resultSummary,
-    nbcVersion: data.nbcVersion,
-    nbcReferences: JSON.stringify(data.nbcReferences),
+    createdBy: data.userId,
     createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  } as any);
 }
 
 /**
@@ -243,12 +240,12 @@ export async function addAuditLogEntry(data: {
   if (!db) throw new Error('Database not available');
 
   await db.insert(calculationAuditLog).values({
-    calculationId: data.calculationId,
+    calculationResultId: data.calculationId,
     action: data.action,
     actor: data.actor,
     timestamp: new Date(),
     details: data.details || '',
-  });
+  } as any);
 }
 
 /**
@@ -261,7 +258,7 @@ export async function getCalculationAuditLog(calculationId: string) {
   const results = await db
     .select()
     .from(calculationAuditLog)
-    .where(eq(calculationAuditLog.calculationId, calculationId))
+    .where(eq(calculationAuditLog.calculationResultId, calculationId))
     .orderBy(desc(calculationAuditLog.timestamp));
 
   return results;
@@ -282,7 +279,7 @@ export async function getUserCalculationStats(userId: number) {
   const stats = {
     totalCalculations: results.length,
     verifiedCalculations: results.filter((r) => r.signatureVerified).length,
-    calculatorTypes: [...new Set(results.map((r) => r.calculatorType))].length,
+    calculatorTypes: Array.from(new Set(results.map((r) => r.calculatorType))).length,
     lastCalculation: results.length > 0 ? results[0].createdAt : null,
     byCalculatorType: {} as Record<string, number>,
     byProject: {} as Record<number, number>,
@@ -318,7 +315,7 @@ export async function searchCalculations(
     .where(
       and(
         eq(calculationResults.userId, userId),
-        like(calculationResults.displayName, searchPattern)
+        like(calculationResults.calculatorType, searchPattern)
       )
     )
     .orderBy(desc(calculationResults.createdAt))
@@ -363,7 +360,7 @@ export async function getCalculationBySignature(signature: string) {
   const [result] = await db
     .select()
     .from(calculationResults)
-    .where(eq(calculationResults.signature, signature))
+    .where(eq(calculationResults.cryptographicSignature, signature))
     .limit(1);
 
   return result || null;

@@ -121,7 +121,7 @@ export const calculationsRouter = router({
             inputCount: Object.keys(JSON.parse(r.inputData || '{}')).length,
           })),
           total: countResult[0]?.count || 0,
-          hasMore: (input.offset + input.limit) < (countResult[0]?.count || 0),
+          hasMore: (input.offset + input.limit) < (Number(countResult[0]?.count) || 0),
         };
       } catch (error) {
         console.error('Error fetching calculation history:', error);
@@ -228,16 +228,15 @@ export const calculationsRouter = router({
         }
 
         // Verify certificate is still valid
-        const isValid = await certificateManager.validateCertificate(result.certificateId);
+        const isValid = await certificateManager.validateCertificate(result.certificateChain || '');
 
         // Get certificate chain
-        const certChain = await certificateManager.getCertificateChain(result.certificateId);
+        const certChain = await certificateManager.getCertificateChain(result.certificateChain || '');
 
         return {
           calculationResultId: result.id,
           isValid,
           signatureVerified: result.signatureVerified,
-          certificateId: result.certificateId,
           certificateChain: certChain,
           timestamp: result.createdAt,
           message: isValid
@@ -349,7 +348,7 @@ export const calculationsRouter = router({
           actor: `${ctx.user.name} (${ctx.user.email})`,
           timestamp: new Date(),
           details: `Exported as ${input.format.toUpperCase()}`,
-        });
+        } as any);
 
         return {
           success: true,
@@ -383,7 +382,7 @@ export const calculationsRouter = router({
       const stats = {
         totalCalculations: results.length,
         verifiedCalculations: results.filter((r) => r.signatureVerified).length,
-        calculatorTypes: [...new Set(results.map((r) => r.calculatorType))].length,
+        calculatorTypes: Array.from(new Set(results.map((r) => r.calculatorType))).length,
         lastCalculation: results.length > 0 ? results[0].createdAt : null,
         byCalculatorType: {} as Record<string, number>,
       };
@@ -439,7 +438,7 @@ export const calculationsRouter = router({
           actor: `${ctx.user.name} (${ctx.user.email})`,
           timestamp: new Date(),
           details: 'Calculation marked as deleted',
-        });
+        } as any);
 
         // Soft delete - mark as deleted but keep record
         // In production, would use UPDATE statement to set deleted flag

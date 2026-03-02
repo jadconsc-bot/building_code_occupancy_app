@@ -6,11 +6,11 @@
  * Prevents hybrid persistence conflicts that could compromise legal defensibility.
  */
 
-import { getDatabase } from './db';
+import { getDb } from './db';
 import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from './logger';
-import { calculationResults } from '../drizzle/schema';
+import { calculationResults, CalculationResult } from '../drizzle/schema';
 
 export interface SyncState {
   lastSyncTime: number;
@@ -109,7 +109,7 @@ export class PersistenceManager {
         userId,
       });
 
-      const db = getDb();
+      const db = await getDb();
       if (!db) throw new Error('Database connection failed');
       
       const result = await db
@@ -216,7 +216,7 @@ export class PersistenceManager {
     let failed = 0;
 
     try {
-      for (const [itemId, item] of this.offlineQueue.entries()) {
+      for (const [itemId, item] of Array.from(this.offlineQueue.entries())) {
         try {
           // Attempt to sync item
           if (item.type === 'calculation') {
@@ -264,11 +264,14 @@ export class PersistenceManager {
    */
   async getSyncState(projectId: string, userId: string): Promise<SyncState> {
     try {
+      const db = await getDb();
+      if (!db) throw new Error('Database connection failed');
+      
       const projectCalcs = await db
         .select()
-        .from(calculations)
+        .from(calculationResults)
         .where(
-          and(eq(calculations.projectId, projectId), eq(calculations.userId, userId))
+          and(eq(calculationResults.projectId, parseInt(projectId)), eq(calculationResults.userId, parseInt(userId)))
         );
 
       const lastCalc = projectCalcs[projectCalcs.length - 1];

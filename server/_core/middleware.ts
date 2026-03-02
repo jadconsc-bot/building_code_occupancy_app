@@ -5,7 +5,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import type { Context } from './context';
+import type { TrpcContext } from './context';
 import { checkRateLimit, rateLimiters } from './security';
 import { subscriptionService } from '../services/SubscriptionService';
 import { monetizationService } from '../services/MonetizationService';
@@ -14,7 +14,7 @@ import { monetizationService } from '../services/MonetizationService';
  * Middleware to enforce authentication
  */
 export function authMiddleware() {
-  return async ({ ctx, next }: { ctx: Context; next: () => Promise<any> }) => {
+  return async ({ ctx, next }: { ctx: TrpcContext; next: () => Promise<any> }) => {
     if (!ctx.user) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',

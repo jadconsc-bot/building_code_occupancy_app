@@ -25,14 +25,15 @@ export interface CertificateConfig {
  */
 export interface DigitalCertificate {
   id: string;
+  name: string;
   fingerprint: string;
   publicKey: string;
   privateKey: string;
-  certificateChain: string;
-  issuedAt: Date;
+  issuer: string | null;
+  subject: string | null;
+  validFrom: Date | null;
   validUntil: Date;
   active: boolean;
-  rotationScheduled: boolean;
 }
 
 /**
@@ -112,14 +113,15 @@ export class DigitalCertificateManager {
 
     return {
       id: cert.id,
-      fingerprint: cert.fingerprint,
+      fingerprint: cert.fingerprint || '',
       publicKey: cert.publicKey,
       privateKey: cert.privateKey,
-      certificateChain: cert.certificateChain,
-      issuedAt: cert.issuedAt,
+      certificateName: cert.certificateName,
+      validFrom: cert.validFrom,
       validUntil: cert.validUntil,
       active: cert.active,
-      rotationScheduled: cert.rotationScheduled,
+      issuer: cert.issuer,
+      subject: cert.subject,
     };
   }
 
@@ -195,7 +197,7 @@ export class DigitalCertificateManager {
       .where(eq(calculationCertificates.id, certificateId))
       .limit(1);
 
-    return cert?.certificateChain || null;
+    return cert?.publicKey || null;
   }
 
   /**
@@ -207,15 +209,16 @@ export class DigitalCertificateManager {
 
     await db.insert(calculationCertificates).values({
       id: cert.id,
+      certificateName: cert.name,
       fingerprint: cert.fingerprint,
       publicKey: cert.publicKey,
       privateKey: cert.privateKey, // Encrypted in production
-      certificateChain: cert.certificateChain,
-      issuedAt: cert.issuedAt,
+      issuer: cert.issuer || null,
+      subject: cert.subject || null,
+      validFrom: cert.validFrom || new Date(),
       validUntil: cert.validUntil,
       active: cert.active,
-      rotationScheduled: cert.rotationScheduled,
-    });
+    } as any);
   }
 
   /**

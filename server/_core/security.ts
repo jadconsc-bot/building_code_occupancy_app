@@ -142,7 +142,7 @@ class CSRFTokenManager {
 
   private cleanup(): void {
     const now = Date.now();
-    for (const [key, value] of this.tokens.entries()) {
+    for (const [key, value] of Array.from(this.tokens.entries())) {
       if (now > value.expiresAt) {
         this.tokens.delete(key);
       }
