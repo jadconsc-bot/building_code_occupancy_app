@@ -76,7 +76,7 @@ export function registerOAuthRoutes(app: Express) {
         httpOnly: cookieOptions.httpOnly,
         secure: cookieOptions.secure,
         sameSite: cookieOptions.sameSite,
-        maxAge: ONE_YEAR_MS
+        maxAge: SESSION_DURATION_MS
       });
       
       res.cookie(COOKIE_NAME, sessionToken, { 
