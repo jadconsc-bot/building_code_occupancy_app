@@ -121,7 +121,7 @@ export class UserRepository {
         return existing;
       }
 
-      const [result] = await db
+      await db
         .insert(users)
         .values({
           openId: input.openId,
@@ -130,8 +130,14 @@ export class UserRepository {
           role: 'user',
           createdAt: new Date(),
           updatedAt: new Date(),
-        })
-        .returning();
+        });
+
+      // Fetch the created user
+      const [result] = await db
+        .select()
+        .from(users)
+        .where(eq(users.openId, input.openId))
+        .limit(1);
 
       return result;
     } catch (error) {
@@ -164,11 +170,17 @@ export class UserRepository {
       if (input.name !== undefined) updateData.name = input.name;
       if (input.role !== undefined) updateData.role = input.role;
 
-      const [result] = await db
+      await db
         .update(users)
         .set(updateData)
+        .where(eq(users.id, input.id));
+
+      // Fetch updated user
+      const [result] = await db
+        .select()
+        .from(users)
         .where(eq(users.id, input.id))
-        .returning();
+        .limit(1);
 
       return result;
     } catch (error) {

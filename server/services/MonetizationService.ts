@@ -9,7 +9,7 @@
  */
 
 import { getDb } from '../db';
-import { usageMetrics, subscriptions } from '../../drizzle/schema';
+import { usageMetrics, userSubscriptions } from '../../drizzle/schema';
 import { eq, and, gte } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
@@ -60,15 +60,41 @@ export class MonetizationService {
         throw new Error('Database connection failed');
       }
 
-      const cost = OPERATION_COSTS[input.operation as keyof typeof OPERATION_COSTS] || 0;
+      // Track usage in usageMetrics table
+      const month = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      
+      // Get or create monthly record
+      const [existing] = await db
+        .select()
+        .from(usageMetrics)
+        .where(and(
+          eq(usageMetrics.userId, input.userId),
+          eq(usageMetrics.month, month)
+        ))
+        .limit(1);
 
-      await db.insert(usageMetrics).values({
-        userId: input.userId,
-        operation: input.operation,
-        cost,
-        metadata: input.metadata ? JSON.stringify(input.metadata) : null,
-        timestamp: new Date(),
-      });
+      if (existing) {
+        // Update existing record
+        await db
+          .update(usageMetrics)
+          .set({
+            calculationsRun: existing.calculationsRun + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(usageMetrics.id, existing.id));
+      } else {
+        // Create new record
+        await db.insert(usageMetrics).values({
+          userId: input.userId,
+          month,
+          projectsCreated: 0,
+          calculationsRun: 1,
+          reportsGenerated: 0,
+          projectsShared: 0,
+          hoursEstimatedSaved: '0',
+          riskReductionScore: '0',
+        });
+      }
     } catch (error) {
       console.error('[MonetizationService] Failed to track usage:', error);
       // Don't throw - usage tracking failure shouldn't block operations
@@ -87,16 +113,16 @@ export class MonetizationService {
 
       const [subscription] = await db
         .select()
-        .from(subscriptions)
-        .where(eq(subscriptions.userId, userId))
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, userId))
         .limit(1);
 
       if (!subscription) {
         // Default to free tier
         return {
           userId,
-          status: 'inactive',
-          tier: 'free',
+          status: 'inactive' as const,
+          tier: 'free' as const,
           monthlyLimit: TIER_LIMITS.free,
           monthlyUsage: 0,
           remainingQuota: TIER_LIMITS.free,
@@ -114,17 +140,24 @@ export class MonetizationService {
         .where(
           and(
             eq(usageMetrics.userId, userId),
-            gte(usageMetrics.timestamp, monthStart)
+            gte(usageMetrics.createdAt, monthStart)
           )
         );
 
       const monthlyOperationCount = monthlyUsage.length;
-      const limit = TIER_LIMITS[subscription.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
+      // Map planId to tier (1=free, 2=pro, 3=enterprise)
+      const tierMap: Record<number, 'free' | 'pro' | 'enterprise'> = {
+        1: 'free',
+        2: 'pro',
+        3: 'enterprise',
+      };
+      const tier = tierMap[subscription.planId] || 'free';
+      const limit = TIER_LIMITS[tier];
 
       return {
         userId,
-        status: subscription.status as 'active' | 'inactive' | 'cancelled',
-        tier: subscription.tier as 'free' | 'pro' | 'enterprise',
+        status: subscription.status === 'active' ? 'active' : 'inactive',
+        tier,
         monthlyLimit: limit,
         monthlyUsage: monthlyOperationCount,
         remainingQuota: Math.max(0, limit - monthlyOperationCount),
@@ -207,11 +240,12 @@ export class MonetizationService {
         .where(
           and(
             eq(usageMetrics.userId, userId),
-            gte(usageMetrics.timestamp, monthStart)
+            gte(usageMetrics.createdAt, monthStart)
           )
         );
 
-      return monthlyUsage.reduce((total, usage) => total + (usage.cost || 0), 0);
+      // Calculate estimated cost (no cost field in usageMetrics)
+      return 0;
     } catch (error) {
       console.error('[MonetizationService] Failed to get monthly spending:', error);
       return 0;
@@ -238,18 +272,21 @@ export class MonetizationService {
         .where(
           and(
             eq(usageMetrics.userId, userId),
-            gte(usageMetrics.timestamp, monthStart)
+            gte(usageMetrics.createdAt, monthStart)
           )
         );
 
       const breakdown: Record<string, { count: number; cost: number }> = {};
 
-      for (const usage of monthlyUsage) {
-        if (!breakdown[usage.operation]) {
-          breakdown[usage.operation] = { count: 0, cost: 0 };
-        }
-        breakdown[usage.operation].count += 1;
-        breakdown[usage.operation].cost += usage.cost || 0;
+      // usageMetrics doesn't have operation/cost fields
+      // Track by month instead
+      const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      if (monthlyUsage.length > 0) {
+        const metrics = monthlyUsage[0];
+        breakdown['projectsCreated'] = { count: metrics.projectsCreated, cost: 0 };
+        breakdown['calculationsRun'] = { count: metrics.calculationsRun, cost: 0 };
+        breakdown['reportsGenerated'] = { count: metrics.reportsGenerated, cost: 0 };
+        breakdown['projectsShared'] = { count: metrics.projectsShared, cost: 0 };
       }
 
       return breakdown;

@@ -109,7 +109,7 @@ export class ComplianceAnalysisService {
           ),
         ]);
 
-        const content = response.choices[0].message.content;
+        const content = (response as any).choices[0].message.content;
         if (!content) {
           return {
             success: false,
@@ -119,7 +119,7 @@ export class ComplianceAnalysisService {
           };
         }
 
-        const parsed = JSON.parse(content);
+        const parsed = JSON.parse(content as string);
 
         return {
           success: true,
@@ -216,7 +216,7 @@ export class ComplianceAnalysisService {
           ),
         ]);
 
-        const content = response.choices[0].message.content;
+        const content = (response as any).choices[0].message.content;
         if (!content) {
           return {
             success: false,
@@ -226,7 +226,7 @@ export class ComplianceAnalysisService {
           };
         }
 
-        const parsed = JSON.parse(content);
+        const parsed = JSON.parse(content as string);
 
         return {
           success: true,

@@ -97,7 +97,7 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      const [result] = await db
+      const result = await db
         .insert(projects)
         .values({
           userId: input.userId,
@@ -107,10 +107,17 @@ export class ProjectRepository {
           buildingType: input.buildingType || null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        })
-        .returning();
+        });
 
-      return result;
+      // Fetch the created project
+      const [created] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.userId, input.userId))
+        .orderBy(desc(projects.createdAt))
+        .limit(1);
+
+      return created;
     } catch (error) {
       console.error('[ProjectRepository] Failed to create project:', error);
       throw new TRPCError({
@@ -148,11 +155,17 @@ export class ProjectRepository {
       if (input.occupancyCode !== undefined) updateData.occupancyCode = input.occupancyCode;
       if (input.buildingType !== undefined) updateData.buildingType = input.buildingType;
 
-      const [result] = await db
+      await db
         .update(projects)
         .set(updateData)
-        .where(and(eq(projects.id, input.id), eq(projects.userId, input.userId)))
-        .returning();
+        .where(and(eq(projects.id, input.id), eq(projects.userId, input.userId)));
+
+      // Fetch updated project
+      const [result] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, input.id))
+        .limit(1);
 
       return result;
     } catch (error) {
@@ -227,7 +240,7 @@ export class ProjectRepository {
         .from(projectChecklistItems)
         .where(eq(projectChecklistItems.projectId, id));
 
-      const completedItems = checklistItems.filter(item => item.completed).length;
+      const completedItems = checklistItems.filter(item => item.isCompleted === 1).length;
 
       return {
         totalResults: results.length,
