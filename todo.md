@@ -3070,3 +3070,66 @@ All production readiness tasks completed successfully:
 - [x] Verify all page navigation works
 - [x] Test mobile responsiveness
 - [x] Validate legal disclaimers display correctly
+
+
+---
+
+## Phase 3: Critical Bug Fixes & Security Hardening (NEW)
+
+### Phase 3A: Authentication & Error Handling
+- [x] Fix auth.me to use protectedProcedure (was publicProcedure)
+- [x] Fix auth.logout to use protectedProcedure (was publicProcedure)
+- [x] Improve feedback error handling with TRPCError
+- [ ] Add environment variable validation at startup
+- [ ] Add global error handler for validation errors
+- [ ] Improve LLM error handling with timeouts and fallbacks
+- [ ] Add database error handling to all queries
+- [ ] Validate OAuth state parameter properly
+
+### Phase 3B: Security Hardening
+- [ ] Implement rate limiting on public procedures
+- [ ] Reduce session cookie maxAge from 365 days to 30 days
+- [ ] Implement CSRF protection middleware
+- [ ] Add request deduplication for concurrent requests
+- [ ] Add input validation middleware
+- [ ] Secure LLM calls with token limits
+
+### Phase 3C: Monetization
+- [ ] Implement usage metering for expensive operations
+- [ ] Create subscription enforcement middleware
+- [ ] Add cost tracking for plan analysis
+- [ ] Add cost tracking for drawing analysis
+- [ ] Implement usage limits enforcement
+- [ ] Create billing dashboard
+
+### Phase 3D: Architecture Refactoring
+- [ ] Create ComplianceAnalysisService (abstract LLM logic)
+- [ ] Create ProjectRepository (abstract database queries)
+- [ ] Create UserRepository (abstract user queries)
+- [ ] Create SubscriptionService (abstract subscription logic)
+- [ ] Split monolithic router into feature routers
+- [ ] Create validation middleware
+
+### Phase 3E: Performance
+- [ ] Add Redis caching for projects
+- [ ] Add Redis caching for user data
+- [ ] Optimize database queries with indexes
+- [ ] Implement request deduplication
+- [ ] Cache prompt templates
+
+### Phase 3F: Login Issue Diagnosis
+- [ ] Verify Manus OAuth redirect URI configuration
+- [ ] Check frontend environment variables
+- [ ] Check backend environment variables
+- [ ] Test OAuth callback endpoint
+- [ ] Verify database user upsert
+- [ ] Test session token creation
+- [ ] Verify JWT signature validation
+
+### Phase 3G: Testing
+- [ ] Write tests for auth procedures
+- [ ] Write tests for error handling
+- [ ] Write tests for rate limiting
+- [ ] Write tests for subscription enforcement
+- [ ] Write tests for database operations
+- [ ] Write tests for OAuth flow

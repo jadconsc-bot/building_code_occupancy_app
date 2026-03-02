@@ -8,6 +8,10 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
+import { logEnvStatus } from "./env";
+
+// Validate environment variables at startup
+logEnvStatus();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
