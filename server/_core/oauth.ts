@@ -1,8 +1,8 @@
-import { COOKIE_NAME, SESSION_DURATION_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { COOKIE_NAME, SESSION_DURATION_MS } from "@shared/const";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
