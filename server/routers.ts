@@ -9,7 +9,9 @@ import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } 
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
-import { complianceRouter } from "./complianceRouter";
+import { complianceRouter } from "./routers/complianceRouter";
+import { projectRouter } from "./routers/projectRouter";
+import { subscriptionRouter } from "./routers/subscriptionRouter";
 import { ruleManagementRouter } from "./ruleManagementRouter";
 import { calculationsRouter } from "./calculationsRouter";
 import { consultantRouter } from "./consultantRouter";
@@ -20,13 +22,15 @@ export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   compliance: complianceRouter,
+  projects: projectRouter,
+  subscriptions: subscriptionRouter,
   ruleManagement: ruleManagementRouter,
   calculations: calculationsRouter,
   consultant: consultantRouter,
   monetization: monetizationRouter,
   clients: clientsRouter,
   projectMembers: projectMembersRouter,
-  subscriptions: subscriptionsRouter,
+  subscriptionPlans: subscriptionsRouter,
   usageMetrics: usageMetricsRouter,
   sharing: sharingRouter,
   verification: verificationRouter,
@@ -332,8 +336,8 @@ Return ONLY a valid JSON object in this exact format:
       }
     }),
 
-  // Project management
-  projects: router({
+  // Project management (already defined above via projectRouter)
+  projectsLegacy: router({
     // Get all projects for the current user
     list: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
