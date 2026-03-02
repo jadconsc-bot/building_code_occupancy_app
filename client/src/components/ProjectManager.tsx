@@ -57,10 +57,8 @@ export function ProjectManager({ onProjectSelect, activeProjectId }: ProjectMana
     }
     createMutation.mutate({
       name: formData.name,
-      address: formData.address || undefined,
       occupancyCode: formData.occupancyCode,
-      template: formData.template || undefined,
-      notes: formData.notes || undefined,
+      description: formData.notes || undefined,
     });
   };
 

@@ -158,10 +158,8 @@ export default function Projects() {
 
     await createProjectMutation.mutateAsync({
       name: formData.name,
-      address: formData.address || undefined,
       occupancyCode: formData.occupancyCode,
-      template: formData.template || undefined,
-      notes: formData.notes || undefined,
+      description: formData.notes || undefined,
     });
   };
 
@@ -192,18 +190,15 @@ export default function Projects() {
       await updateProjectMutation.mutateAsync({
         id: editingProjectId,
         name: formData.name,
-        address: formData.address || undefined,
         occupancyCode: formData.occupancyCode,
-        template: formData.template || undefined,
-        notes: formData.notes || undefined,
-        status: formData.status as any,
+        description: formData.notes || undefined,
       });
     }
   };
 
   const handleDeleteProject = async (projectId: number) => {
     if (confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      await deleteProjectMutation.mutateAsync(projectId);
+      await deleteProjectMutation.mutateAsync({ id: projectId });
     }
   };
 

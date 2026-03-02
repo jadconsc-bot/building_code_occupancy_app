@@ -49,7 +49,7 @@ import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { OnboardingDialog } from '@/components/OnboardingTutorial';
-import { useState, useEffect } from 'react';
+
 import { PermitFeeCalculator } from "@/components/PermitFeeCalculator";
 import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";

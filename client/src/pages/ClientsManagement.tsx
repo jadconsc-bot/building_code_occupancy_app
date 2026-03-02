@@ -75,7 +75,7 @@ export default function ClientsManagement() {
       const previousClients = trpc.useUtils().clients.list.getData();
 
       trpc.useUtils().clients.list.setData(undefined, (old) =>
-        old?.map((c) => (c.clientId === updatedClient.clientId ? { ...c, ...updatedClient } : c))
+        old?.map((c) => (c.id === updatedClient.id ? { ...c, ...updatedClient } : c))
       );
 
       return { previousClients };
@@ -95,12 +95,12 @@ export default function ClientsManagement() {
 
   // Delete client mutation with optimistic UI
   const deleteClientMutation = trpc.clients.delete.useMutation({
-    onMutate: async (input: { clientId: number }) => {
+    onMutate: async (input: { id: number }) => {
       await trpc.useUtils().clients.list.cancel();
       const previousClients = trpc.useUtils().clients.list.getData();
 
       trpc.useUtils().clients.list.setData(undefined, (old) =>
-        old?.filter((c) => c.clientId !== input.clientId)
+        old?.filter((c) => c.id !== input.id)
       );
 
       return { previousClients };
