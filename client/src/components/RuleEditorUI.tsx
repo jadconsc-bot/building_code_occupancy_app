@@ -35,9 +35,16 @@ export const RuleEditorUI: React.FC<RuleEditorUIProps> = ({
   onSubmitChange,
   isSubmitting = false,
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    ruleId: string;
+    changeType: "create" | "update" | "delete";
+    title: string;
+    description: string;
+    justification: string;
+    newContent: string;
+  }>({
     ruleId: "",
-    changeType: "update" as const,
+    changeType: "update",
     title: "",
     description: "",
     justification: "",

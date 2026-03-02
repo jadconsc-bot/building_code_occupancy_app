@@ -11,10 +11,10 @@ interface CalculatorResult {
 export function useCalculatorProject() {
   const { activeProjectId } = useProject();
   const utils = trpc.useUtils();
-  const saveMutation = trpc.projects.calculatorResults.save.useMutation({
+  const saveMutation = trpc.calculations.saveResult.useMutation({
     onSuccess: () => {
       if (activeProjectId) {
-        utils.projects.calculatorResults.list.invalidate({ projectId: activeProjectId });
+        utils.calculations.getHistory.invalidate();
       }
     },
   });
@@ -27,11 +27,10 @@ export function useCalculatorProject() {
 
     try {
       const response = await saveMutation.mutateAsync({
-        projectId: activeProjectId,
+        projectId: String(activeProjectId),
         calculatorType: result.calculatorType,
-        inputData: JSON.stringify(result.inputData),
-        resultData: JSON.stringify(result.resultData),
-        notes: result.notes,
+        inputs: result.inputData,
+        outputs: result.resultData,
       });
       return response;
     } catch (error) {

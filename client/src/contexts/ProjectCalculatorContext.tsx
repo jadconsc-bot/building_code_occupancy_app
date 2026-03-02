@@ -61,11 +61,12 @@ export function ProjectCalculatorProvider({ children }: { children: ReactNode })
 
       const calculationResult: CalculationResult = {
         id: result.id,
-        projectId: result.projectId,
+        projectId: String(result.projectId),
         calculatorType: result.calculatorType,
         inputs: result.inputs,
         outputs: result.outputs,
         signature: result.signature,
+        timestamp: result.createdAt?.getTime() || Date.now(),
         createdAt: new Date(result.createdAt),
       };
 

@@ -78,7 +78,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     try {
       const result = await exportMutation.mutateAsync({
         calculationId,
-        format: exportFormat,
+        format: exportFormat as 'json' | 'json-ld' | 'pdf',
       });
 
       // Create download link

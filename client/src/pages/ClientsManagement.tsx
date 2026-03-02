@@ -100,7 +100,7 @@ export default function ClientsManagement() {
       const previousClients = trpc.useUtils().clients.list.getData();
 
       trpc.useUtils().clients.list.setData(undefined, (old) =>
-        old?.filter((c) => c.id !== input.id)
+        old?.filter((c) => c.clientId !== input.clientId)
       );
 
       return { previousClients };

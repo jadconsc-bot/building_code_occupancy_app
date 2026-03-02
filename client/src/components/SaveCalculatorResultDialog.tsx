@@ -42,7 +42,7 @@ export function SaveCalculatorResultDialog({
 
   const { activeProjectId } = useProject();
   const { data: projects = [] } = trpc.projects.list.useQuery();
-  const saveMutation = trpc.projects.calculatorResults.save.useMutation();
+  const saveMutation = trpc.calculations.saveResult.useMutation();
 
   const handleSave = async () => {
     const projectId = selectedProjectId ? parseInt(selectedProjectId, 10) : activeProjectId;
@@ -55,11 +55,10 @@ export function SaveCalculatorResultDialog({
     setIsLoading(true);
     try {
       await saveMutation.mutateAsync({
-        projectId,
+        projectId: String(projectId),
         calculatorType,
-        inputData: JSON.stringify(inputData),
-        resultData: JSON.stringify(resultData),
-        notes: notes || undefined,
+        inputs: JSON.parse(JSON.stringify(inputData)),
+        outputs: JSON.parse(JSON.stringify(resultData)),
       });
 
       toast.success('Calculator result saved to project');

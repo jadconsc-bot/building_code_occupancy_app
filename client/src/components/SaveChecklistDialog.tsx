@@ -46,7 +46,7 @@ export function SaveChecklistDialog({
 
   const { activeProjectId } = useProject();
   const { data: projects = [] } = trpc.projects.list.useQuery();
-  const bulkSaveMutation = trpc.projects.checklistItems.bulkSave.useMutation();
+  const bulkSaveMutation = trpc.projectsLegacy.checklistItems.save.useMutation();
 
   const handleSave = async () => {
     const projectId = selectedProjectId ? parseInt(selectedProjectId, 10) : activeProjectId;
@@ -63,16 +63,16 @@ export function SaveChecklistDialog({
 
     setIsLoading(true);
     try {
-      await bulkSaveMutation.mutateAsync({
-        projectId,
-        items: items.map((item) => ({
+      for (const item of items) {
+        await bulkSaveMutation.mutateAsync({
+          projectId,
           phase: item.phase,
           itemId: item.itemId,
           itemText: item.itemText,
-          status: item.status,
+          isCompleted: item.status === 'pass' || item.status === 'conditional',
           notes: item.notes,
-        })),
-      });
+        });
+      }
 
       toast.success(`${items.length} checklist items saved to project`);
       setIsOpen(false);
