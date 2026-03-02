@@ -39,40 +39,80 @@ class OAuthService {
   }
 
   private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
+    try {
+      console.log("[SDK] Decoding state...");
+      const redirectUri = atob(state);
+      console.log("[SDK] Decoded state (redirect URI):", redirectUri);
+      return redirectUri;
+    } catch (error) {
+      console.error("[SDK] Failed to decode state:", error);
+      throw new Error("Invalid state parameter");
+    }
   }
 
   async getTokenByCode(
     code: string,
     state: string
   ): Promise<ExchangeTokenResponse> {
+    console.log("[SDK] Exchanging code for token");
+    console.log("[SDK] Code length:", code.length);
+    console.log("[SDK] State length:", state.length);
+    console.log("[SDK] OAuth server URL:", ENV.oAuthServerUrl);
+    
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
       code,
       redirectUri: this.decodeState(state),
     };
+    
+    console.log("[SDK] Exchange payload:", {
+      clientId: payload.clientId ? "SET" : "MISSING",
+      grantType: payload.grantType,
+      redirectUri: payload.redirectUri
+    });
 
-    const { data } = await this.client.post<ExchangeTokenResponse>(
-      EXCHANGE_TOKEN_PATH,
-      payload
-    );
-
-    return data;
+    try {
+      const { data } = await this.client.post<ExchangeTokenResponse>(
+        EXCHANGE_TOKEN_PATH,
+        payload
+      );
+      
+      console.log("[SDK] Token exchange response received");
+      console.log("[SDK] Response keys:", Object.keys(data));
+      
+      return data;
+    } catch (error) {
+      console.error("[SDK] Token exchange failed");
+      console.error("[SDK] Error:", error);
+      throw error;
+    }
   }
 
   async getUserInfoByToken(
     token: ExchangeTokenResponse
   ): Promise<GetUserInfoResponse> {
-    const { data } = await this.client.post<GetUserInfoResponse>(
-      GET_USER_INFO_PATH,
-      {
-        accessToken: token.accessToken,
-      }
-    );
+    console.log("[SDK] Fetching user info with token");
+    console.log("[SDK] Access token length:", token.accessToken?.length || 0);
+    
+    try {
+      const { data } = await this.client.post<GetUserInfoResponse>(
+        GET_USER_INFO_PATH,
+        {
+          accessToken: token.accessToken,
+        }
+      );
+      
+      console.log("[SDK] User info response received");
+      console.log("[SDK] User info keys:", Object.keys(data));
+      console.log("[SDK] User openId:", (data as any)?.openId);
 
-    return data;
+      return data;
+    } catch (error) {
+      console.error("[SDK] Failed to fetch user info");
+      console.error("[SDK] Error:", error);
+      throw error;
+    }
   }
 }
 
