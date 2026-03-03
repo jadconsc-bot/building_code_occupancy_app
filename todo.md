@@ -3305,3 +3305,29 @@ All production readiness tasks completed successfully:
 - All handlers properly implemented
 - Full test coverage for button functionality
 - Application is ready for production use
+
+
+## Multi-Domain OAuth Support - Investigation Complete ✅
+
+### Current Status
+- [x] Preview domain working: `https://3000-ingoq16m2c2ir8gijhq8i-6c13de88.us2.manus.computer/`
+- [x] Custom domain identified issue: `https://buildingcode-9f4j2cdo.manus.space/`
+- [x] Root cause identified: Custom domain not registered in Manus OAuth settings
+- [x] Investigation document created: `OAUTH_MULTI_DOMAIN_INVESTIGATION.md`
+
+### Recommended Solution
+Register both domains in Manus OAuth app settings as redirect URIs:
+- [ ] Contact Manus support to add custom domain registration
+- [ ] Provide both callback URLs for registration
+- [ ] Test both domains after registration
+- [ ] Update documentation
+
+### Future Implementation (When Needed)
+- [ ] Option 1 (Recommended): Register both domains in Manus OAuth settings
+- [ ] Option 2: Implement domain redirect strategy with session transfer
+- [ ] Option 3: Use proxy/gateway approach for stable callback URL
+- [ ] Option 4: Environment-based configuration
+
+### Testing URL (For Now)
+**Use this URL for all development and testing:**
+`https://3000-ingoq16m2c2ir8gijhq8i-6c13de88.us2.manus.computer/`
