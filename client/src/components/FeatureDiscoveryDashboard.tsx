@@ -136,11 +136,9 @@ export function FeatureDiscoveryDashboard() {
       <CardContent className="flex-1 flex flex-col">
         <CardDescription className="text-sm mb-4 flex-1">{feature.description}</CardDescription>
         <Link href={feature.href}>
-          <a className="w-full">
-            <Button variant="outline" size="sm" className="w-full">
-              Access <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </a>
+          <Button variant="outline" size="sm" className="w-full">
+            Access <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
         </Link>
       </CardContent>
     </Card>
