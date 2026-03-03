@@ -1,14 +1,13 @@
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
-// Use stable custom domain for OAuth redirect URI to match registered callback URL
-// This prevents "access denied" errors when accessing via preview domain
-const OAUTH_REDIRECT_URI = "https://buildingcode-9f4j2cdo.manus.space/api/oauth/callback";
-
+// Generate login URL at runtime so redirect URI reflects the current origin.
+// The redirect URI MUST match what's registered in Manus OAuth app settings
 export const getLoginUrl = () => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
+  const redirectUri = `${window.location.origin}/api/oauth/callback`;
   // State should be base64-encoded redirect URI for the callback to decode
-  const state = btoa(OAUTH_REDIRECT_URI);
+  const state = btoa(redirectUri);
 
   const url = new URL(`${oauthPortalUrl}/app-auth`);
   url.searchParams.set("appId", appId);

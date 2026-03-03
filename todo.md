@@ -3223,3 +3223,26 @@ All production readiness tasks completed successfully:
 - Users accessing via preview domain (*.manus.computer) will now be redirected to custom domain callback
 - OAuth callback URL will always match the registered URL in Manus OAuth app settings
 - "Access denied" error should no longer occur during OAuth login
+
+
+## OAuth Authentication - RESOLVED ✅
+
+### Issue: "Access Denied" on OAuth Login
+- [x] Identified root cause: OAuth callback URL mismatch between preview and custom domains
+- [x] Custom domain (buildingcode-9f4j2cdo.manus.space) was NOT registered in Manus OAuth app settings
+- [x] Preview domain (3000-*.manus.computer) IS registered and working correctly
+- [x] Reverted OAuth redirect URI to use dynamic window.location.origin for flexibility
+
+### Resolution
+- [x] OAuth login works correctly on preview domain
+- [x] Session cookie is set properly after OAuth callback
+- [x] App loads without "access denied" error
+- [x] All features accessible after successful login
+
+### Testing URL (for development)
+**https://3000-ingoq16m2c2ir8gijhq8i-6c13de88.us2.manus.computer/**
+
+### Notes for Future
+- Custom domain callback URL needs to be registered in Manus OAuth app settings for production use
+- Preview domain is suitable for development and testing
+- Session persistence works correctly across page reloads
