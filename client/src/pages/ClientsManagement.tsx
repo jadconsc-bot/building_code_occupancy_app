@@ -200,19 +200,23 @@ export default function ClientsManagement() {
     }
 
     if (editingClientId !== null) {
-      await updateClientMutation.mutateAsync({
-        clientId: editingClientId,
-        name: formData.name,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        companyName: formData.companyName || undefined,
-        address: formData.address || undefined,
-        city: formData.city || undefined,
-        province: formData.province || undefined,
-        postalCode: formData.postalCode || undefined,
-        industry: formData.industry || undefined,
-        notes: formData.notes || undefined,
-      });
+      try {
+        await updateClientMutation.mutateAsync({
+          clientId: editingClientId,
+          name: formData.name,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          companyName: formData.companyName || undefined,
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          province: formData.province || undefined,
+          postalCode: formData.postalCode || undefined,
+          industry: formData.industry || undefined,
+          notes: formData.notes || undefined,
+        });
+      } catch (error) {
+        console.error('Error updating client:', error);
+      }
     }
   };
 
@@ -308,64 +312,71 @@ export default function ClientsManagement() {
         </div>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Client</DialogTitle>
-            <DialogDescription>Update client information</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Client Name *</Label>
-              <Input
-                id="edit-name"
-                placeholder="e.g., John Smith"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+      {/* Edit Dialog - Only render when open to avoid hook issues */}
+      {isEditOpen && (
+        <Dialog open={isEditOpen} onOpenChange={(open) => {
+          if (!open) {
+            setIsEditOpen(false);
+            resetForm();
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Client</DialogTitle>
+              <DialogDescription>Update client information</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
+                <Label htmlFor="edit-name">Client Name *</Label>
                 <Input
-                  id="edit-email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  id="edit-name"
+                  placeholder="e.g., John Smith"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    placeholder="+1-403-555-0100"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
+                <Label htmlFor="edit-company">Company Name</Label>
                 <Input
-                  id="edit-phone"
-                  placeholder="+1-403-555-0100"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  id="edit-company"
+                  placeholder="Acme Construction Ltd"
+                  value={formData.companyName}
+                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 />
               </div>
+              <Button
+                className="w-full"
+                onClick={handleUpdateClient}
+                disabled={updateClientMutation.isPending}
+              >
+                {updateClientMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Update Client
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-company">Company Name</Label>
-              <Input
-                id="edit-company"
-                placeholder="Acme Construction Ltd"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-              />
-            </div>
-            <Button
-              className="w-full"
-              onClick={handleUpdateClient}
-              disabled={updateClientMutation.isPending}
-            >
-              {updateClientMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Update Client
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Clients Table */}
       <Card>

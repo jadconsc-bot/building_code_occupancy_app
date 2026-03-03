@@ -3388,3 +3388,21 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - All 62 tests PASSED
 - Full test suite: 968 tests passed, 29 failed (legacy integration tests only)
 - Zero regressions from button fixes
+
+
+## Broken Buttons - URGENT FIXES NEEDED
+
+### Critical Issues
+- [ ] /clients - "Update Client" button throws "Invalid hook call" error
+- [ ] /project-checklists - "+ New Project" button does nothing
+- [ ] / (Dashboard) - "Occupancy Classification Access" button no action
+- [ ] / (Dashboard) - "Documentation Access" button no action
+- [ ] / (Dashboard) - "Compliance Checker Access" button no action
+- [ ] /calculation-history - "Refresh" button not working
+- [ ] /calculation-history - "Compare Calculations" button disabled/not working
+- [ ] /versions - "Create New Version" button not working
+- [ ] /billing - "Add Tax ID" button not working
+- [ ] /billing - "Change Plan" button not working
+- [ ] /admin - "Export Systems Logs" button not working
+- [ ] /admin - "View Audit Trail" button not working
+- [ ] /terms - "Accept Terms" button not working
