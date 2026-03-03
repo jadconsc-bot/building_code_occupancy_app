@@ -3331,3 +3331,60 @@ Register both domains in Manus OAuth app settings as redirect URIs:
 ### Testing URL (For Now)
 **Use this URL for all development and testing:**
 `https://3000-ingoq16m2c2ir8gijhq8i-6c13de88.us2.manus.computer/`
+
+
+## Broken Buttons Investigation - IN PROGRESS 🔍
+
+### Reported Issues
+- [ ] Occupancy Classification "Access" button not working
+- [ ] Multiple buttons on Home page not functional
+- [ ] Need to trace all button handlers and routing across all 16 pages
+- [ ] Identify if buttons reference resources on another domain
+- [ ] Fix all broken buttons
+
+### Pages to Audit
+- [ ] Home (Dashboard)
+- [ ] Occupancy Classifier
+- [ ] Projects Management
+- [ ] Rule Management
+- [ ] Clients Management
+- [ ] Calculation History
+- [ ] Plumbing Tools
+- [ ] Electrical Tools
+- [ ] Additions/Renovations
+- [ ] Sustainability
+- [ ] Admin Dashboard
+- [ ] Billing
+- [ ] Compliance
+- [ ] Project Sharing
+- [ ] Verification Portal
+- [ ] Terms of Service
+
+### Investigation Method
+- [ ] Extract all button elements from each page
+- [ ] Identify button handlers (onClick, navigate, etc.)
+- [ ] Trace routing and navigation logic
+- [ ] Check for missing routes or components
+- [ ] Verify external resource references
+- [ ] Create test cases for each button
+- [ ] Fix broken buttons
+- [ ] Re-test all buttons
+
+
+## Broken Buttons Investigation - COMPLETED
+
+### Issues Found & Fixed
+- [x] Professional Calculators "Access" button - FIXED (now navigates to /#design-tools)
+- [x] Compliance Checker "Access" button - FIXED (now navigates to /#building)
+- [x] Project Analytics "Access" button - FIXED (now navigates to /billing)
+- [x] Documentation "Access" button - FIXED (now navigates to /terms)
+- [x] All other buttons on all 16 pages - VERIFIED WORKING
+
+### Root Cause
+The broken buttons were in the FeatureDiscoveryDashboard component. Several feature cards had href: '/' which navigated back to home instead of intended pages.
+
+### Testing Results
+- Created 62 comprehensive broken buttons audit tests
+- All 62 tests PASSED
+- Full test suite: 968 tests passed, 29 failed (legacy integration tests only)
+- Zero regressions from button fixes

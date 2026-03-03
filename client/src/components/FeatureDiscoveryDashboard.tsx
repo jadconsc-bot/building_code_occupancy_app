@@ -58,7 +58,7 @@ const features: Feature[] = [
     title: 'Professional Calculators',
     description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
     icon: <Calculator className="w-6 h-6" />,
-    href: '/',
+    href: '/#design-tools',
     category: 'tools',
     badge: '34+ Tools',
   },
@@ -85,7 +85,7 @@ const features: Feature[] = [
     title: 'Compliance Checker',
     description: 'Verify building plans against NBC 2025 requirements. Identify code infractions and get recommendations.',
     icon: <CheckCircle2 className="w-6 h-6" />,
-    href: '/',
+    href: '/#building',
     category: 'tools',
   },
   {
@@ -93,7 +93,7 @@ const features: Feature[] = [
     title: 'Project Analytics',
     description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
     icon: <TrendingUp className="w-6 h-6" />,
-    href: '/',
+    href: '/billing',
     category: 'professional',
   },
   {
@@ -101,7 +101,7 @@ const features: Feature[] = [
     title: 'Documentation',
     description: 'User guide, tutorials, and help articles. Learn how to use all features effectively.',
     icon: <BookOpen className="w-6 h-6" />,
-    href: '/',
+    href: '/terms',
     category: 'core',
   },
 ];
