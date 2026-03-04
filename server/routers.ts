@@ -36,7 +36,7 @@ export const appRouter = router({
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
