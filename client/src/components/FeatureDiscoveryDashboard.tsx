@@ -41,7 +41,7 @@ const features: Feature[] = [
     title: 'Occupancy Classification',
     description: 'Classify building occupancy types according to NBC 2025 standards. Search and filter through all occupancy groups.',
     icon: <Building2 className="w-6 h-6" />,
-    href: '/',
+    href: '/occupancy-classifier',
     category: 'core',
   },
   {
@@ -85,7 +85,7 @@ const features: Feature[] = [
     title: 'Compliance Checker',
     description: 'Verify building plans against NBC 2025 requirements. Identify code infractions and get recommendations.',
     icon: <CheckCircle2 className="w-6 h-6" />,
-    href: '/#building',
+    href: '/compliance',
     category: 'tools',
   },
   {
@@ -101,7 +101,7 @@ const features: Feature[] = [
     title: 'Documentation',
     description: 'User guide, tutorials, and help articles. Learn how to use all features effectively.',
     icon: <BookOpen className="w-6 h-6" />,
-    href: '/terms',
+    href: '/documentation',
     category: 'core',
   },
 ];
