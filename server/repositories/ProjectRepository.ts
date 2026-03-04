@@ -102,12 +102,12 @@ export class ProjectRepository {
         .values({
           userId: input.userId,
           name: input.name,
-          description: input.description || null,
-          occupancyCode: input.occupancyCode || null,
-          buildingType: input.buildingType || null,
+          occupancyCode: input.occupancyCode || 'A-1',
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+      
+      // userId field now properly included in insert
 
       // Fetch the created project
       const [created] = await db
@@ -220,6 +220,35 @@ export class ProjectRepository {
   /**
    * Get project statistics
    */
+  
+  /**
+   * Get calculation results for a project
+   */
+  async getProjectCalculations(projectId: number, userId: number) {
+    try {
+      const db = await getDb();
+      if (!db) {
+        throw new Error('Database connection failed');
+      }
+
+      // Verify ownership
+      await this.getProject(projectId, userId);
+
+      return await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.projectId, projectId))
+        .orderBy(desc(projectCalculatorResults.createdAt));
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+
+      console.error('[ProjectRepository] Failed to get project calculations:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get project calculations',
+      });
+    }
+  }
   async getProjectStats(id: number, userId: number) {
     try {
       const db = await getDb();

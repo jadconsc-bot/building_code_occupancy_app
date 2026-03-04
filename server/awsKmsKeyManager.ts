@@ -62,8 +62,8 @@ export class AWSKmsKeyManager {
 
       const command = new SignCommand({
         KeyId: this.keyId,
-        Message: data,
-        SigningAlgorithm: algorithm,
+        Message: Buffer.isBuffer(data) ? data : Buffer.from(data),
+        SigningAlgorithm: algorithm as any,
       });
 
       const response = await this.kmsClient.send(command);
@@ -109,9 +109,9 @@ export class AWSKmsKeyManager {
 
       const command = new VerifyCommand({
         KeyId: this.keyId,
-        Message: data,
-        Signature: signature,
-        SigningAlgorithm: algorithm,
+        Message: Buffer.isBuffer(data) ? data : Buffer.from(data),
+        Signature: Buffer.isBuffer(signature) ? signature : Buffer.from(signature),
+        SigningAlgorithm: algorithm as any,
       });
 
       const response = await this.kmsClient.send(command);

@@ -283,7 +283,7 @@ export const consultantRouter = router({
         });
 
         // Trigger offline queue sync
-        const syncResult = await persistenceManager.syncOfflineQueue(ctx.user.id);
+        const syncResult = await persistenceManager.syncOfflineQueue(String(ctx.user.id));
 
         return {
           success: true,

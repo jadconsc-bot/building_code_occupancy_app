@@ -7,7 +7,6 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
-  VisuallyHidden,
 } from "@/components/ui/dialog";
 
 interface ManusDialogProps {
@@ -70,9 +69,7 @@ export function ManusDialog({
               {title}
             </DialogTitle>
           ) : (
-            <VisuallyHidden>
-              <DialogTitle>Login Dialog</DialogTitle>
-            </VisuallyHidden>
+            <DialogTitle className="sr-only">Login Dialog</DialogTitle>
           )}
           <DialogDescription className="text-sm text-[#858481] leading-5 tracking-[-0.154px]">
             Please login with Manus to continue

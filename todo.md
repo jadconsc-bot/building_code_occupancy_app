@@ -3406,3 +3406,101 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] /admin - "Export Systems Logs" button not working
 - [ ] /admin - "View Audit Trail" button not working
 - [ ] /terms - "Accept Terms" button not working
+
+
+## Button Implementation - Phase 2 (In Progress)
+
+- [ ] Implement "New Project" button with Dialog and Form
+- [ ] Implement "Refresh" button on Calculation History page
+- [ ] Implement "Compare Calculations" button
+- [ ] Verify Dashboard Access buttons navigate correctly
+- [ ] Test all button implementations
+- [ ] Run full test suite to verify no regressions
+
+
+---
+
+## 🏛️ COURT-GRADE SECURITY HARDENING (New Phase)
+
+### Phase 1: Cryptographic Integrity & Calculation Versioning
+- [ ] Add SHA-256 hashing to calculation results table
+- [ ] Store JSON input snapshots with each calculation
+- [ ] Create calculation_versions table with hash storage and immutability
+- [ ] Implement deterministic reproducibility tests
+- [ ] Add calculation integrity verification endpoint (/api/verify-calculation)
+- [ ] Create hash validation tests (ensure same inputs = same hash)
+
+### Phase 2: Immutable Append-Only Audit Logs
+- [ ] Create audit_logs table with append-only constraint (no update/delete)
+- [ ] Add database-level trigger to prevent audit log modifications
+- [ ] Log all calculation changes with user ID, timestamp, and action
+- [ ] Log all rule modifications with change reason and approver
+- [ ] Create audit trail verification endpoint (/api/audit-trail)
+- [ ] Add immutability tests to verify logs cannot be altered
+
+### Phase 3: Rule Versioning & Governance
+- [ ] Add code_citation field to rules (NBC 2023 article references)
+- [ ] Add effective_date and last_modified_date to rules table
+- [ ] Create rule_change_log table for audit trail
+- [ ] Implement rule approval workflow (dual approval for changes)
+- [ ] Add rule version history endpoint (/api/rules/history)
+- [ ] Create rule change audit tests
+
+### Phase 4: Verification Portal (Public Read-Only)
+- [ ] Create public /verify/:calculationId endpoint (read-only)
+- [ ] Implement hash validation on verification page
+- [ ] Add tamper detection with hash comparison
+- [ ] Create "Authentic" / "Tampered" status display
+- [ ] Add QR code generation for report verification
+- [ ] Implement verification portal UI component
+- [ ] Add verification tests
+
+### Phase 5: PDF Forensic Traceability
+- [ ] Embed calculation ID in PDF metadata
+- [ ] Embed version ID in PDF metadata
+- [ ] Embed SHA-256 hash in PDF metadata
+- [ ] Add QR verification link to PDF footer
+- [ ] Create PDF validation tests
+- [ ] Implement PDF generation with forensic data
+
+### Phase 6: RBAC Enforcement (Server-Side Only)
+- [ ] Enforce role-based access at server level (not just UI)
+- [ ] Create role-based access control tests
+- [ ] Implement permission checks for all admin operations
+- [ ] Add role-based calculation visibility rules
+- [ ] Create audit log for all permission denials
+- [ ] Test RBAC with multiple user roles
+
+### Phase 7: Calculation Transparency
+- [ ] Add step-by-step formula documentation to results
+- [ ] Include applicable NBC 2023 articles in calculations
+- [ ] Show calculation methodology in reports
+- [ ] Add formula references to calculation results
+- [ ] Create transparent calculation display component
+- [ ] Add calculation transparency tests
+
+### Phase 8: Comprehensive Security Testing
+- [ ] Add unit tests for all calculators
+- [ ] Add integration tests for API endpoints
+- [ ] Add security tests for RBAC
+- [ ] Add hash integrity tests
+- [ ] Add audit log immutability tests
+- [ ] Add tamper detection tests
+- [ ] Add calculation reproducibility tests
+- [ ] Create security test suite (target: 50+ tests)
+
+### Phase 9: Documentation & Compliance
+- [ ] Create Expert Witness Readiness Checklist
+- [ ] Document calculation methodology
+- [ ] Create change management documentation
+- [ ] Add professional disclaimer to app
+- [ ] Create compliance verification guide
+- [ ] Document all security features
+- [ ] Create court-defensibility documentation
+
+### Phase 10: Enterprise Features (Optional)
+- [ ] Add professional subscription tier
+- [ ] Implement calculation signing with digital certificates
+- [ ] Add compliance report templates
+- [ ] Create insurance underwriter evaluation criteria
+- [ ] Add enterprise procurement security questionnaire pre-answers

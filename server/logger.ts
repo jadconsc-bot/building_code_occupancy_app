@@ -150,8 +150,8 @@ export class StructuredLogger {
 
     // In production, this would go to pino logger
     // For now, use console with structured format
-    const logMethod = console[level as keyof typeof console] || console.log;
-    logMethod(JSON.stringify(logEntry));
+    const logMethod = (console as any)[level as string] || console.log;
+    (logMethod as any)(JSON.stringify(logEntry));
   }
 
   /**

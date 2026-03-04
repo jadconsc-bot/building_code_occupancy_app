@@ -70,11 +70,15 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     calculationId,
   });
 
-  const exportMutation = trpc.calculations.exportForLegal.useMutation();
+  // TODO: Implement exportForLegal tRPC procedure
+  // const exportMutation = trpc.calculations.exportForLegal.useMutation();
 
   const [exportFormat, setExportFormat] = useState<'json' | 'json-ld' | 'pdf'>('json');
 
   const handleExport = async () => {
+    // TODO: Implement exportForLegal endpoint in Phase 5
+    alert('Export feature coming soon - will be implemented in Phase 5');
+    /*
     try {
       const result = await exportMutation.mutateAsync({
         calculationId,
@@ -95,6 +99,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     } catch (error) {
       alert('Failed to export calculation');
     }
+    */
   };
 
   const handleCopyId = () => {
@@ -252,14 +257,10 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
               </Select>
               <Button
                 onClick={handleExport}
-                disabled={exportMutation.isPending}
+                disabled={false}
                 className="gap-2"
               >
-                {exportMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
+                <Download className="w-4 h-4" />
                 Export
               </Button>
             </div>

@@ -127,7 +127,7 @@ export class PersistenceManager {
         ...calc,
         inputData: JSON.parse(calc.inputData),
         resultData: JSON.parse(calc.resultData),
-        calculationTrace: JSON.parse(calc.calculationTrace),
+        calculationTrace: calc.calculationTrace ? JSON.parse(calc.calculationTrace) : null,
         hash: this.generateHash(JSON.parse(calc.resultData)),
         version: calc.rulesetVersion,
       };
