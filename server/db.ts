@@ -191,9 +191,19 @@ export async function createClient(data: InsertClient): Promise<Client> {
   };
   
   const result = await db.insert(clients).values(safeData as any);
-  const clientId = (result as any).insertId || result[0];
+  
+  // MySQL2 returns result with insertId property
+  const resultObj = result as any;
+  const clientId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  
+  if (clientId === null || clientId === undefined) {
+    throw new Error('Failed to get client ID from insert result');
+  }
   
   const created = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!created[0]) {
+    throw new Error('Failed to retrieve created client');
+  }
   return created[0];
 }
 
@@ -232,7 +242,9 @@ export async function addProjectMember(data: InsertProjectMember): Promise<Proje
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(projectMembers).values(data as any);
-  const memberId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const memberId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (memberId === null || memberId === undefined) throw new Error('Failed to get member ID');
   
   const created = await db.select().from(projectMembers).where(eq(projectMembers.id, memberId)).limit(1);
   return created[0];
@@ -299,9 +311,11 @@ export async function createTeamRole(data: InsertTeamRole): Promise<TeamRole> {
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(teamRoles).values(data as any);
-  const roleId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const roleId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (roleId === null || roleId === undefined) throw new Error('Failed to get role ID');
   
-  const created = await db.select().from(teamRoles).where(eq(teamRoles.id, roleId as any)).limit(1);
+  const created = await db.select().from(teamRoles).where(eq(teamRoles.id, roleId)).limit(1);
   return created[0];
 }
 
@@ -355,9 +369,11 @@ export async function createUserSubscription(data: InsertUserSubscription): Prom
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(userSubscriptions).values(data as any);
-  const subId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const subId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (subId === null || subId === undefined) throw new Error('Failed to get subscription ID');
   
-  const created = await db.select().from(userSubscriptions).where(eq(userSubscriptions.id, subId as any)).limit(1);
+  const created = await db.select().from(userSubscriptions).where(eq(userSubscriptions.id, subId)).limit(1);
   return created[0];
 }
 
@@ -415,9 +431,11 @@ export async function createShareLink(data: InsertShareLink): Promise<ShareLink>
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(shareLinks).values(data as any);
-  const linkId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const linkId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (linkId === null || linkId === undefined) throw new Error('Failed to get share link ID');
   
-  const created = await db.select().from(shareLinks).where(eq(shareLinks.id, linkId as any)).limit(1);
+  const created = await db.select().from(shareLinks).where(eq(shareLinks.id, linkId)).limit(1);
   return created[0];
 }
 
@@ -461,9 +479,11 @@ export async function createVerificationToken(data: InsertVerificationToken): Pr
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(verificationTokens).values(data as any);
-  const tokenId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const tokenId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (tokenId === null || tokenId === undefined) throw new Error('Failed to get token ID');
   
-  const created = await db.select().from(verificationTokens).where(eq(verificationTokens.id, tokenId as any)).limit(1);
+  const created = await db.select().from(verificationTokens).where(eq(verificationTokens.id, tokenId)).limit(1);
   return created[0];
 }
 
@@ -501,9 +521,11 @@ export async function createCalculationVersion(data: InsertCalculationVersion): 
   if (!db) throw new Error("Database not available");
   
   const result = await db.insert(calculationVersions).values(data as any);
-  const versionId = (result as any).insertId || result[0];
+  const resultObj = result as any;
+  const versionId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  if (versionId === null || versionId === undefined) throw new Error('Failed to get version ID');
   
-  const created = await db.select().from(calculationVersions).where(eq(calculationVersions.id, versionId as any)).limit(1);
+  const created = await db.select().from(calculationVersions).where(eq(calculationVersions.id, versionId)).limit(1);
   return created[0];
 }
 
