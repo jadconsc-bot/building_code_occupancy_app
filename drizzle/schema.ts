@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, json, longtext } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -734,3 +734,105 @@ export const calculationLogs = mysqlTable("calculationLogs", {
 
 export type CalculationLog = typeof calculationLogs.$inferSelect;
 export type InsertCalculationLog = typeof calculationLogs.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * WEEK 1: AUDIT TRAIL TABLES (SaaS UPGRADE)
+ * For compliance audit trails, digital signatures, and modification tracking
+ * ============================================================================
+ */
+
+/**
+ * Compliance Audit Log - Complete immutable audit trail of all compliance analyses
+ * Tracks every compliance evaluation for regulatory compliance and legal defensibility
+ */
+export const complianceAuditLog = mysqlTable("complianceAuditLog", {
+  id: varchar("id", { length: 50 }).primaryKey(), // UUID
+  projectId: int("projectId").notNull(),
+  projectName: varchar("projectName", { length: 255 }),
+  
+  // Engineer info - links to users table
+  engineerId: int("engineerId").notNull(),
+  engineerName: varchar("engineerName", { length: 100 }),
+  engineerLicense: varchar("engineerLicense", { length: 50 }),
+  engineerEmail: varchar("engineerEmail", { length: 255 }),
+  
+  // Timing
+  timestamp: timestamp("timestamp").defaultNow(),
+  dateCompleted: timestamp("dateCompleted"),
+  
+  // Code compliance
+  codeVersion: varchar("codeVersion", { length: 20 }).notNull().default("NBC_2025"),
+  jurisdiction: varchar("jurisdiction", { length: 50 }).default("Canada"),
+  
+  // Rules that were evaluated (JSON from complianceEngine)
+  rulesEvaluated: text("rulesEvaluated").notNull(), // JSON array as string
+  projectData: text("projectData").notNull(), // JSON as string
+  
+  // Results from complianceEngine
+  totalRulesEvaluated: int("totalRulesEvaluated"),
+  totalRulesPassed: int("totalRulesPassed"),
+  totalRulesFailed: int("totalRulesFailed"),
+  compliancePercentage: decimal("compliancePercentage", { precision: 5, scale: 2 }),
+  overallStatus: varchar("overallStatus", { length: 20 }), // COMPLIANT, NON_COMPLIANT, CONDITIONAL
+  
+  // Digital signature
+  signatureImage: text("signatureImage"), // Base64 PNG
+  signatureTimestamp: timestamp("signatureTimestamp"),
+  signatureHash: varchar("signatureHash", { length: 500 }), // SHA256 for tamper-detection
+  
+  // Legal defensibility
+  isDefendable: boolean("isDefendable").default(true),
+  hasAllRules: boolean("hasAllRules").default(true),
+  isComprehensive: boolean("isComprehensive").default(true),
+  
+  // Standard assumptions/limitations
+  assumptions: text("assumptions"), // JSON string array
+  limitations: text("limitations"), // JSON string array
+  notes: text("notes"),
+  
+  // Security metadata
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  status: varchar("status", { length: 20 }).default("COMPLETED"), // DRAFT, COMPLETED, SIGNED
+  isArchived: boolean("isArchived").default(false),
+  
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").onUpdateNow(),
+});
+
+export type ComplianceAuditLog = typeof complianceAuditLog.$inferSelect;
+export type InsertComplianceAuditLog = typeof complianceAuditLog.$inferInsert;
+
+/**
+ * Audit Modification History - Track all changes to compliance data
+ * Complete history of modifications for traceability and compliance
+ */
+export const auditModificationHistory = mysqlTable("auditModificationHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  auditId: varchar("auditId", { length: 50 }).notNull(),
+  modifiedAt: timestamp("modifiedAt").defaultNow(),
+  modifiedBy: int("modifiedBy").notNull(), // Foreign key to users
+  changeDescription: text("changeDescription"),
+});
+
+export type AuditModificationHistory = typeof auditModificationHistory.$inferSelect;
+export type InsertAuditModificationHistory = typeof auditModificationHistory.$inferInsert;
+
+/**
+ * Audit Signatures - Digital signatures for compliance decisions
+ * Cryptographic signatures for legal defensibility and non-repudiation
+ */
+export const auditSignatures = mysqlTable("auditSignatures", {
+  id: int("id").autoincrement().primaryKey(),
+  auditId: varchar("auditId", { length: 50 }).notNull(),
+  signedBy: int("signedBy").notNull(), // Foreign key to users
+  signatureImage: text("signatureImage"), // Base64
+  signatureDate: timestamp("signatureDate").defaultNow(),
+  signatureType: varchar("signatureType", { length: 20 }), // ENGINEER, ARCHITECT, AHJ
+  signatureValid: boolean("signatureValid").default(true),
+});
+
+export type AuditSignature = typeof auditSignatures.$inferSelect;
+export type InsertAuditSignature = typeof auditSignatures.$inferInsert;

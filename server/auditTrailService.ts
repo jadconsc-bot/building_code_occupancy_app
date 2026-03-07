@@ -1,8 +1,7 @@
-import { db } from './db';
-import { complianceAuditLog, auditModificationHistory, auditSignatures } from '../drizzle/schema';
 import { eq, desc } from 'drizzle-orm';
 import { createHash } from 'crypto';
 import { v4 as uuid } from 'uuid';
+import { complianceAuditLog, auditModificationHistory, auditSignatures } from '../drizzle/schema';
 
 /**
  * Audit Trail Service
@@ -11,6 +10,19 @@ import { v4 as uuid } from 'uuid';
  * Works with Compliance.tsx page and report generation
  */
 export class AuditTrailService {
+  private db: any = null;
+
+  async initDb() {
+    if (!this.db) {
+      try {
+        const dbModule = await import('./db');
+        this.db = dbModule.db;
+      } catch (e) {
+        console.error('Failed to initialize database:', e);
+      }
+    }
+  }
+
   /**
    * Create audit log AFTER compliance evaluation
    * 
@@ -20,7 +32,6 @@ export class AuditTrailService {
   async createAuditLog(
     projectId: number,
     engineerId: number,
-    // These come from complianceEngine.ts
     complianceResults: {
       rule_trace: Array<{
         fired: boolean;
@@ -41,6 +52,9 @@ export class AuditTrailService {
       codeVersion?: string;
     }
   ): Promise<string> {
+    await this.initDb();
+    if (!this.db) throw new Error('Database not initialized');
+
     const auditId = uuid();
 
     // Extract rules that fired from compliance engine
@@ -70,8 +84,8 @@ export class AuditTrailService {
       jurisdiction: 'Canada',
 
       // Store rule evaluation results
-      rulesEvaluated: firedRules,
-      projectData,
+      rulesEvaluated: JSON.stringify(firedRules),
+      projectData: JSON.stringify(projectData),
 
       // Counts
       totalRulesEvaluated: totalRules,
@@ -88,25 +102,25 @@ export class AuditTrailService {
       isComprehensive: true,
 
       // Standard assumptions/limitations
-      assumptions: [
+      assumptions: JSON.stringify([
         'Building codes current for jurisdiction',
         'All components meet cited standards',
         'Professional engineer responsible for final design',
         'Analysis deterministic based on provided inputs',
-      ],
-      limitations: [
+      ]),
+      limitations: JSON.stringify([
         'Analysis based on provided inputs only',
         'Professional judgment required for edge cases',
         'Authority Having Jurisdiction approval required',
         'This is a recommendation, not a substitution for professional review',
-      ],
+      ]),
     };
 
     // Insert audit log
-    await db.insert(complianceAuditLog).values(entry as any);
+    await this.db.insert(complianceAuditLog).values(entry as any);
 
     // Log creation in modification history
-    await db.insert(auditModificationHistory).values({
+    await this.db.insert(auditModificationHistory).values({
       auditId,
       modifiedBy: engineerId,
       changeDescription: 'Audit log created',
@@ -124,10 +138,13 @@ export class AuditTrailService {
     engineerId: number,
     signatureImage: string // Base64 PNG from signature pad
   ): Promise<void> {
+    await this.initDb();
+    if (!this.db) throw new Error('Database not initialized');
+
     const signatureHash = this.generateSignatureHash(signatureImage);
 
     // Use transaction to ensure consistency
-    await db.transaction(async tx => {
+    await this.db.transaction(async (tx: any) => {
       // Update audit log
       await tx
         .update(complianceAuditLog)
@@ -162,7 +179,10 @@ export class AuditTrailService {
    * Used to show "✓ Verified" badge
    */
   async verifyAuditIntegrity(auditId: string): Promise<boolean> {
-    const audit = await db.query.complianceAuditLog.findFirst({
+    await this.initDb();
+    if (!this.db) return false;
+
+    const audit = await this.db.query.complianceAuditLog.findFirst({
       where: eq(complianceAuditLog.id, auditId),
     });
 
@@ -178,7 +198,10 @@ export class AuditTrailService {
    * Engineers download this for permit submission
    */
   async generateDefenseReport(auditId: string): Promise<string> {
-    const audit = await db.query.complianceAuditLog.findFirst({
+    await this.initDb();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const audit = await this.db.query.complianceAuditLog.findFirst({
       where: eq(complianceAuditLog.id, auditId),
     });
 
@@ -220,11 +243,11 @@ Signature Date: ${new Date(audit.signatureTimestamp || '').toLocaleString()}
 
 ASSUMPTIONS
 ===========
-${(audit.assumptions as string[]).map(a => `• ${a}`).join('\n')}
+${JSON.parse(audit.assumptions || '[]').map((a: string) => `• ${a}`).join('\n')}
 
 LIMITATIONS
 ===========
-${(audit.limitations as string[]).map(l => `• ${l}`).join('\n')}
+${JSON.parse(audit.limitations || '[]').map((l: string) => `• ${l}`).join('\n')}
 
 PROFESSIONAL LIABILITY STATEMENT
 ================================
@@ -243,7 +266,10 @@ Audit Trail System v1.0
    * Get all project audits (history)
    */
   async getProjectAudits(projectId: number): Promise<any[]> {
-    return db.query.complianceAuditLog.findMany({
+    await this.initDb();
+    if (!this.db) return [];
+
+    return this.db.query.complianceAuditLog.findMany({
       where: eq(complianceAuditLog.projectId, projectId),
       orderBy: [desc(complianceAuditLog.timestamp)],
     });
