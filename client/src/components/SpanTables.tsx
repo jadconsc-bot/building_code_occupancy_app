@@ -44,7 +44,10 @@ export function SpanTables() {
                     spacing16: groupedData?.[size]?.find(d => d.spacing === 406)?.span || 0,
                     spacing24: groupedData?.[size]?.find(d => d.spacing === 610)?.span || 0
                   }));
-                  exportSpanTableToExcel(selectedApplication, selectedSpecies, selectedGrade, formattedData);
+                  exportSpanTableToExcel({
+                    tableType: selectedApplication,
+                    spans: formattedData || []
+                  });
                 }
               }}
               variant="outline"

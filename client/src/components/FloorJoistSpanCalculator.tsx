@@ -144,7 +144,7 @@ export function FloorJoistSpanCalculator() {
 
             <div className="mt-4 pt-4 border-t border-primary/20 space-y-4">
               <Button
-                onClick={() => exportFloorJoistCalculatorToExcel(species, grade, joistSize, spacing, maxSpan)}
+                onClick={() => exportFloorJoistCalculatorToExcel({ species, grade, joistSize: joistSize, spacing, maxSpan })}
                 className="w-full"
                 variant="outline"
               >

@@ -173,12 +173,15 @@ export function InspectorChecklistGeneratorEnhanced({
                 checked: checkedItems.has(item.id)
               }));
               const completed = items.filter(item => item.checked).length;
-              exportChecklistToExcel(
-                occupancyCode,
-                selectedPhase,
-                items,
-                { checked: completed, total: items.length }
-              );
+              exportChecklistToExcel({
+                projectName: occupancyCode,
+                items: items.map(item => ({
+                  name: item.name,
+                  status: item.checked ? 'Completed' : 'Pending',
+                  notes: item.notes || '',
+                  inspector: ''
+                }))
+              });
             }}
             variant="outline"
             size="sm"

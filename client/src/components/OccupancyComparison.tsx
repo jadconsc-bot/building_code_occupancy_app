@@ -40,20 +40,9 @@ export function OccupancyComparison() {
         </h3>
         <Button
           onClick={() => {
-            exportComparisonToExcel(
-              leftOccupancy,
-              rightOccupancy,
-              {
-                loadFactors: {
-                  [leftOccupancy]: leftLoadFactors,
-                  [rightOccupancy]: rightLoadFactors
-                },
-                constructionLimits: {
-                  [leftOccupancy]: leftConstructionLimits,
-                  [rightOccupancy]: rightConstructionLimits
-                }
-              }
-            );
+            exportComparisonToExcel({
+              items: []
+            });
           }}
           variant="outline"
           size="sm"
