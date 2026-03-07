@@ -378,3 +378,385 @@ export async function exportColumnSpanToExcel(params: {
     data
   });
 }
+
+
+/**
+ * Export occupant load data to Excel
+ */
+export async function exportOccupantLoadToExcel(
+  occupancyType: string,
+  occupantLoadData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Occupant Load Analysis - ${occupancyType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Space Type', 'Area (m²)', 'Load Factor', 'Occupant Count']);
+
+  // Data rows
+  occupantLoadData.forEach(item => {
+    data.push([
+      item.spaceType,
+      item.area,
+      item.loadFactor,
+      item.occupantCount
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Occupant_Load_${occupancyType}`,
+    sheetName: 'Occupant Load',
+    data
+  });
+}
+
+/**
+ * Export water closet calculations to Excel
+ */
+export async function exportWaterClosetToExcel(
+  buildingType: string,
+  wcData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Water Closet Requirements - ${buildingType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Occupancy', 'Occupant Count', 'Required WC', 'Urinals', 'Lavatories']);
+
+  // Data rows
+  wcData.forEach(item => {
+    data.push([
+      item.occupancy,
+      item.occupantCount,
+      item.requiredWC,
+      item.urinals,
+      item.lavatories
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Water_Closet_${buildingType}`,
+    sheetName: 'WC Requirements',
+    data
+  });
+}
+
+/**
+ * Export travel distance calculations to Excel
+ */
+export async function exportTravelDistanceToExcel(
+  occupancyType: string,
+  travelDistanceData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Travel Distance Analysis - ${occupancyType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Space', 'Distance to Exit (m)', 'Maximum Allowed (m)', 'Compliant']);
+
+  // Data rows
+  travelDistanceData.forEach(item => {
+    data.push([
+      item.space,
+      item.distance,
+      item.maxAllowed,
+      item.compliant ? 'Yes' : 'No'
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Travel_Distance_${occupancyType}`,
+    sheetName: 'Travel Distance',
+    data
+  });
+}
+
+/**
+ * Export permit fee calculations to Excel
+ */
+export async function exportPermitFeeToExcel(
+  projectType: string,
+  feeData: any
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Permit Fee Calculation - ${projectType}`]);
+  data.push([]);
+
+  // Project Details
+  data.push(['Project Details']);
+  data.push(['Project Type:', feeData.projectType]);
+  data.push(['Construction Cost:', `$${feeData.constructionCost}`]);
+  data.push(['Floor Area:', `${feeData.floorArea} m²`]);
+  data.push([]);
+
+  // Fee Breakdown
+  data.push(['Fee Breakdown']);
+  data.push(['Description', 'Rate', 'Amount']);
+  
+  if (feeData.fees && Array.isArray(feeData.fees)) {
+    feeData.fees.forEach((fee: any) => {
+      data.push([fee.description, fee.rate, `$${fee.amount}`]);
+    });
+  }
+
+  data.push([]);
+  data.push(['Subtotal:', `$${feeData.subtotal}`]);
+  data.push(['Tax (if applicable):', `$${feeData.tax || 0}`]);
+  data.push(['Total Fee:', `$${feeData.total}`]);
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Permit_Fee_${projectType}`,
+    sheetName: 'Permit Fee',
+    data
+  });
+}
+
+/**
+ * Export fire separation data to Excel
+ */
+export async function exportFireSeparationToExcel(
+  buildingType: string,
+  fireSeparationData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Fire Separation Analysis - ${buildingType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Space Type', 'Required Rating (hrs)', 'Actual Rating (hrs)', 'Compliant']);
+
+  // Data rows
+  fireSeparationData.forEach(item => {
+    data.push([
+      item.spaceType,
+      item.requiredRating,
+      item.actualRating,
+      item.compliant ? 'Yes' : 'No'
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Fire_Separation_${buildingType}`,
+    sheetName: 'Fire Separation',
+    data
+  });
+}
+
+/**
+ * Export exit requirements data to Excel
+ */
+export async function exportExitRequirementsToExcel(
+  occupancyType: string,
+  exitData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Exit Requirements - ${occupancyType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Floor/Area', 'Occupant Load', 'Required Exits', 'Provided Exits', 'Compliant']);
+
+  // Data rows
+  exitData.forEach(item => {
+    data.push([
+      item.floor,
+      item.occupantLoad,
+      item.requiredExits,
+      item.providedExits,
+      item.compliant ? 'Yes' : 'No'
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Exit_Requirements_${occupancyType}`,
+    sheetName: 'Exit Requirements',
+    data
+  });
+}
+
+/**
+ * Export fire alarm data to Excel
+ */
+export async function exportFireAlarmToExcel(
+  buildingType: string,
+  alarmData: any
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Fire Alarm System Analysis - ${buildingType}`]);
+  data.push([]);
+
+  // System Details
+  data.push(['System Details']);
+  data.push(['Building Type:', buildingType]);
+  data.push(['System Type:', alarmData.systemType]);
+  data.push(['Coverage Area:', `${alarmData.coverageArea} m²`]);
+  data.push(['Number of Zones:', alarmData.zones]);
+  data.push([]);
+
+  // Requirements
+  data.push(['Requirements']);
+  data.push(['Requirement', 'Required', 'Provided', 'Compliant']);
+  
+  if (alarmData.requirements && Array.isArray(alarmData.requirements)) {
+    alarmData.requirements.forEach((req: any) => {
+      data.push([
+        req.name,
+        req.required ? 'Yes' : 'No',
+        req.provided ? 'Yes' : 'No',
+        req.compliant ? 'Yes' : 'No'
+      ]);
+    });
+  }
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Fire_Alarm_${buildingType}`,
+    sheetName: 'Fire Alarm',
+    data
+  });
+}
+
+/**
+ * Export emergency lighting data to Excel
+ */
+export async function exportEmergencyLightingToExcel(
+  buildingType: string,
+  lightingData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Emergency Lighting Analysis - ${buildingType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Location', 'Required (lux)', 'Provided (lux)', 'Duration (hrs)', 'Compliant']);
+
+  // Data rows
+  lightingData.forEach(item => {
+    data.push([
+      item.location,
+      item.requiredLux,
+      item.providedLux,
+      item.duration,
+      item.compliant ? 'Yes' : 'No'
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Emergency_Lighting_${buildingType}`,
+    sheetName: 'Emergency Lighting',
+    data
+  });
+}
+
+/**
+ * Export barrier-free design data to Excel
+ */
+export async function exportBarrierFreeToExcel(
+  projectType: string,
+  barrierFreeData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Barrier-Free Design Analysis - ${projectType}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Feature', 'Requirement', 'Provided', 'Compliant']);
+
+  // Data rows
+  barrierFreeData.forEach(item => {
+    data.push([
+      item.feature,
+      item.requirement,
+      item.provided ? 'Yes' : 'No',
+      item.compliant ? 'Yes' : 'No'
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Barrier_Free_${projectType}`,
+    sheetName: 'Barrier-Free',
+    data
+  });
+}
+
+/**
+ * Export municipal bylaws data to Excel
+ */
+export async function exportMunicipalBylawsToExcel(
+  municipality: string,
+  bylawData: any[]
+) {
+  const data: any[][] = [];
+
+  // Title
+  data.push([`Municipal Bylaws - ${municipality}`]);
+  data.push([]);
+
+  // Headers
+  data.push(['Bylaw', 'Requirement', 'Project Compliance', 'Notes']);
+
+  // Data rows
+  bylawData.forEach(item => {
+    data.push([
+      item.bylaw,
+      item.requirement,
+      item.compliant ? 'Compliant' : 'Non-Compliant',
+      item.notes || ''
+    ]);
+  });
+
+  data.push([]);
+  data.push(['Generated:', new Date().toLocaleString()]);
+
+  await exportToExcel({
+    filename: `Municipal_Bylaws_${municipality}`,
+    sheetName: 'Bylaws',
+    data
+  });
+}
