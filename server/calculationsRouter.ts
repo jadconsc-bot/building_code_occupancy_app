@@ -13,6 +13,7 @@ import { eq, and, desc, like, gte, lte } from 'drizzle-orm';
 import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
 import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
+import { FireResistanceRatingCalculator } from './calculators/fireResistanceRatingCalculator';
 
 /**
  * Calculation result schema for validation
@@ -513,9 +514,24 @@ export const calculationsRouter = router({
           message: 'Failed to fetch audit log',
         });
       }
+     }),
+
+  // Fire-Resistance Rating Calculator
+  calculateFireResistance: protectedProcedure
+    .input(
+      z.object({
+        occupancy: z.string(),
+        area_m2: z.number().optional(),
+        storeys: z.number().optional(),
+        construction_type: z.string().optional(),
+        sprinklers: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const calculator = new FireResistanceRatingCalculator();
+      return calculator.execute(input, {});
     }),
 });
-
 /**
  * Export router type for client-side usage
  */

@@ -17,9 +17,7 @@ import { calculationsRouter } from "./calculationsRouter";
 import { consultantRouter } from "./consultantRouter";
 import { monetizationRouter } from "./monetizationRouter";
 import { clientsRouter, projectMembersRouter, subscriptionsRouter, usageMetricsRouter, sharingRouter, verificationRouter, calculationVersioningRouter } from "./routers/phase2to5";
-import { FireResistanceRatingCalculator } from "./calculators/fireResistanceRatingCalculator";
-import { CompliancePathwayGenerator } from "./compliancePathwayGenerator";
-import { ReportGenerator } from "./reportGenerator";
+import { compliancePathwayRouter } from "./compliancePathwayRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -38,6 +36,7 @@ export const appRouter = router({
   sharing: sharingRouter,
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
+  compliancePathway: compliancePathwayRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
@@ -776,89 +775,6 @@ Return ONLY a valid JSON object in this exact format:
       }),
   }),
 
-  // Tier 1: Engineer-Grade Features
-  engineerTools: router({
-    // Fire-Resistance Rating Calculator
-    calculateFireResistance: protectedProcedure
-      .input(
-        z.object({
-          occupancy: z.string(),
-          area_m2: z.number(),
-          storeys: z.number(),
-          constructionType: z.string(),
-          sprinklers: z.boolean(),
-          buildingElements: z.array(z.string()).optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        const calculator = new FireResistanceRatingCalculator();
-        return calculator.execute(input, {});
-      }),
-
-    // Compliance Pathway Generator
-    generateCompliancePathway: protectedProcedure
-      .input(
-        z.object({
-          occupancy: z.string(),
-          area_m2: z.number(),
-          storeys: z.number(),
-          constructionType: z.string(),
-          sprinklers: z.boolean(),
-          proposedDesign: z.string().optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        return CompliancePathwayGenerator.generatePathway({}, input);
-      }),
-
-    // Report Generator - Calculator Report
-    generateCalculatorReport: protectedProcedure
-      .input(
-        z.object({
-          projectName: z.string(),
-          calculatorResults: z.record(z.string(), z.any()),
-          projectInfo: z.record(z.string(), z.any()).optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        return ReportGenerator.generateCalculatorReport(
-          input.calculatorResults,
-          {
-            name: input.projectName,
-            ...(input.projectInfo || {}),
-          }
-        );
-      }),
-
-    // Report Generator - Compliance Report
-    generateComplianceReport: protectedProcedure
-      .input(
-        z.object({
-          projectName: z.string(),
-          occupancy: z.string(),
-          area_m2: z.number(),
-          storeys: z.number(),
-          constructionType: z.string(),
-          sprinklers: z.boolean(),
-          compliancePathway: z.record(z.string(), z.any()),
-          projectInfo: z.record(z.string(), z.any()).optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        return ReportGenerator.generateComplianceReport(
-          input.compliancePathway,
-          {
-            name: input.projectName,
-            occupancy: input.occupancy,
-            area_m2: input.area_m2,
-            storeys: input.storeys,
-            constructionType: input.constructionType,
-            sprinklers: input.sprinklers,
-          },
-          input.projectInfo
-        );
-      }),
-  }),
 });
 
 export type AppRouter = typeof appRouter;

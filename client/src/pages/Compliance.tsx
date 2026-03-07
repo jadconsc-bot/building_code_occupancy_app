@@ -11,10 +11,41 @@ import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
+import { ScenarioComparison } from "@/components/ScenarioComparison";
+import { CompliancePathwayReport } from "@/components/CompliancePathwayReport";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
 
 export default function CompliancePage() {
   const params = useParams();
   const projectId = params.projectId ? parseInt(params.projectId) : 0;
+  const [complianceResult, setComplianceResult] = useState(null);
+  const [pathway, setPathway] = useState(null);
+  const [projectInfo, setProjectInfo] = useState({
+    name: 'My Project',
+    engineer: 'John Smith',
+  });
+
+  const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
+    onSuccess: (data) => {
+      setPathway(data);
+    },
+  });
+
+  const handleGeneratePathway = async () => {
+    if (!complianceResult) {
+      console.error('Run compliance analysis first');
+      return;
+    }
+
+    await pathwayMutation.mutateAsync({
+      complianceResult,
+      inputs: {
+        occupancy_major: 'D',
+        area_m2: 5000,
+      },
+    });
+  };
 
   if (!projectId) {
     return (
@@ -55,14 +86,39 @@ export default function CompliancePage() {
       {/* Main Content */}
       <div className="mt-6">
         <Tabs defaultValue="analyzer" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="analyzer">Analysis</TabsTrigger>
+          <TabsTrigger value="scenarios">What-If Scenarios</TabsTrigger>
+          <TabsTrigger value="pathway">Code Pathway</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="governance">Governance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analyzer" className="space-y-6 mt-6">
           <ComplianceAnalyzer projectId={projectId} />
+          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending}>
+            {pathwayMutation.isPending ? 'Generating...' : 'Generate Code Pathway'}
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="scenarios" className="space-y-6 mt-6">
+          <ScenarioComparison />
+        </TabsContent>
+
+        <TabsContent value="pathway" className="space-y-6 mt-6">
+          {pathway && (
+            <CompliancePathwayReport
+              pathway={pathway}
+              projectName={projectInfo.name}
+            />
+          )}
+          {!pathway && (
+            <Card className="bg-gray-50">
+              <CardContent className="pt-6">
+                <p className="text-sm text-gray-600">Generate a code pathway to see compliance requirements</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="snapshots" className="space-y-6 mt-6">
