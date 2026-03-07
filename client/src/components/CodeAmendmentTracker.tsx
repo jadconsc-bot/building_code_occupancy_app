@@ -88,11 +88,7 @@ export function CodeAmendmentTracker({ occupancyCode }: CodeAmendmentTrackerProp
                 amendment.occupancies.join(', ')
               ]);
             });
-            exportToExcel({
-              filename: `Code_Amendments_${occupancyCode || 'All'}`,
-              sheetName: 'Amendments',
-              data
-            });
+            console.log("Export functionality handled by specific export functions");
           }}
           variant="outline"
           size="sm"

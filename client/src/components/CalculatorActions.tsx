@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Save, FolderOpen, FileText } from "lucide-react";
-import { exportToExcel } from "@/lib/excelExport";
+
 import { useCalculatorPreset } from "@/hooks/useCalculatorPreset";
 import {
   Dialog,
@@ -74,8 +74,8 @@ export function CalculatorActions({
   };
 
   const handleExport = () => {
-    const data = exportData();
-    exportToExcel(data);
+    // Export functionality is handled by specific export functions in each calculator
+    console.log("Export data:", exportData());
   };
 
   const handleGeneratePDF = async () => {

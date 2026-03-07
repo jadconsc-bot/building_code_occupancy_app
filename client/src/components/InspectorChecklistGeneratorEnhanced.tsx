@@ -176,9 +176,9 @@ export function InspectorChecklistGeneratorEnhanced({
               exportChecklistToExcel({
                 projectName: occupancyCode,
                 items: items.map(item => ({
-                  name: item.name,
+                  name: item.description,
                   status: item.checked ? 'Completed' : 'Pending',
-                  notes: item.notes || '',
+                  notes: item.codeReference || '',
                   inspector: ''
                 }))
               });
