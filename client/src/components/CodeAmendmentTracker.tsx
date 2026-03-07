@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { codeAmendments, CodeAmendment } from '@/lib/codeAmendmentsData';
 import { FileText, AlertCircle, TrendingUp, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { exportToExcel } from '@/lib/excelExport';
 
 interface CodeAmendmentTrackerProps {
   occupancyCode?: string; // Optional: filter by occupancy
