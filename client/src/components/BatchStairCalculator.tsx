@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calculator, Plus, Trash2, Download, FileSpreadsheet, FileText, CheckCircle2, AlertCircle } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Workbook } from "exceljs";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -233,7 +233,7 @@ export function BatchStairCalculator() {
     toast.success("Exported to PDF successfully");
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const data = rows
       .filter(row => row.result)
       .map((row, index) => ({
@@ -253,17 +253,31 @@ export function BatchStairCalculator() {
       return;
     }
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Batch Stair Design");
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet("Batch Stair Design");
+    
+    // Add headers
+    worksheet.addRow(Object.keys(data[0]));
+    
+    // Add data rows
+    data.forEach(row => {
+      worksheet.addRow(Object.values(row));
+    });
     
     // Set column widths
-    worksheet['!cols'] = [
-      { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 18 },
-      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 }
+    worksheet.columns = [
+      { width: 10 }, { width: 15 }, { width: 15 }, { width: 18 },
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 15 }, { width: 15 }
     ];
 
-    XLSX.writeFile(workbook, `Batch_Stair_Design_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Batch_Stair_Design_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
     toast.success("Exported to Excel successfully");
   };
 

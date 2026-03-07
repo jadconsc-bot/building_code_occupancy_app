@@ -119,11 +119,11 @@ describe('Auth.me Endpoint', () => {
       }).not.toThrow();
     });
 
-    it('should handle invalid JWT token gracefully', () => {
+    it('should handle invalid JWT token gracefully', async () => {
       const mockVerifySession = vi.fn().mockResolvedValue(null);
       const result = mockVerifySession('invalid-token');
       
-      expect(result).resolves.toBeNull();
+      await expect(result).resolves.toBeNull();
     });
 
     it('should sync user from OAuth if not in database', () => {
@@ -179,7 +179,7 @@ describe('Auth.me Endpoint', () => {
       );
     });
 
-    it('should retrieve user by openId', () => {
+    it('should retrieve user by openId', async () => {
       const mockGetUserByOpenId = vi.fn().mockResolvedValue({
         id: 1,
         openId: 'test-id',
@@ -191,7 +191,7 @@ describe('Auth.me Endpoint', () => {
         createdAt: new Date(),
       });
 
-      expect(mockGetUserByOpenId('test-id')).resolves.toBeDefined();
+      await expect(mockGetUserByOpenId('test-id')).resolves.toBeDefined();
     });
   });
 

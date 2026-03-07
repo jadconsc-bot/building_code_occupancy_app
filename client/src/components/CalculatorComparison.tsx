@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeftRight, X, Plus, FileSpreadsheet } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Workbook } from "exceljs";
 import { toast } from "sonner";
 
 export interface ComparisonItem {
@@ -46,9 +46,10 @@ export function CalculatorComparison({ items, onRemoveItem, onClearAll }: Calcul
     );
   }
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
-      const workbook = XLSX.utils.book_new();
+      const workbook = new Workbook();
+      const worksheet = workbook.addWorksheet("Comparison");
       
       // Prepare comparison data
       const comparisonData = items.map((item, index) => {
@@ -66,14 +67,39 @@ export function CalculatorComparison({ items, onRemoveItem, onClearAll }: Calcul
         return row;
       });
       
-      const worksheet = XLSX.utils.json_to_sheet(comparisonData);
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Comparison");
+      // Add headers
+      worksheet.addRow(Object.keys(comparisonData[0]));
+      
+      // Add data rows
+      comparisonData.forEach(row => {
+        worksheet.addRow(Object.values(row));
+      });
+      
+      // Auto-size columns
+      worksheet.columns.forEach(column => {
+        let maxLength = 0;
+        column.eachCell?.({ includeEmpty: true }, (cell) => {
+          const cellLength = cell.value?.toString().length || 0;
+          if (cellLength > maxLength) {
+            maxLength = cellLength;
+          }
+        });
+        column.width = Math.min(maxLength + 2, 50);
+      });
       
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().split('T')[0];
       const filename = `calculator-comparison-${timestamp}.xlsx`;
       
-      XLSX.writeFile(workbook, filename);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
       toast.success("Comparison exported to Excel successfully!");
     } catch (error) {
       console.error("Export error:", error);
