@@ -13,22 +13,37 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport } from "@/components/CompliancePathwayReport";
+import { AuditTrailViewer } from "@/components/AuditTrailViewer";
+import { SignaturePad } from "@/components/SignaturePad";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function CompliancePage() {
   const params = useParams();
   const projectId = params.projectId ? parseInt(params.projectId) : 0;
   const [complianceResult, setComplianceResult] = useState(null);
   const [pathway, setPathway] = useState(null);
+  const [auditId, setAuditId] = useState<string | null>(null);
   const [projectInfo, setProjectInfo] = useState({
     name: 'My Project',
     engineer: 'John Smith',
   });
+  const [projectName, setProjectName] = useState('My Project');
+  const [engineerName, setEngineerName] = useState('John Smith');
+  const [engineerEmail, setEngineerEmail] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
 
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
     onSuccess: (data) => {
       setPathway(data);
+    },
+  });
+
+  const createAuditMutation = trpc.audit.createAuditLog.useMutation({
+    onSuccess: (data) => {
+      setAuditId(data.auditId);
     },
   });
 
@@ -45,6 +60,30 @@ export default function CompliancePage() {
         area_m2: 5000,
       },
     });
+  };
+
+  const handleCreateAudit = async () => {
+    if (!complianceResult) {
+      console.error('Run compliance analysis first');
+      return;
+    }
+
+    try {
+      await createAuditMutation.mutateAsync({
+        projectId,
+        complianceResults: complianceResult as any,
+        projectData: {},
+        projectInfo: {
+          name: projectName,
+          engineer: engineerName,
+          email: engineerEmail,
+          licenseNumber,
+          codeVersion: 'NBC_2025',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to create audit:', error);
+    }
   };
 
   if (!projectId) {
@@ -86,10 +125,11 @@ export default function CompliancePage() {
       {/* Main Content */}
       <div className="mt-6">
         <Tabs defaultValue="analyzer" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="analyzer">Analysis</TabsTrigger>
           <TabsTrigger value="scenarios">What-If Scenarios</TabsTrigger>
           <TabsTrigger value="pathway">Code Pathway</TabsTrigger>
+          <TabsTrigger value="audit">Audit Trail</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="governance">Governance</TabsTrigger>
         </TabsList>
@@ -119,6 +159,78 @@ export default function CompliancePage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-6 mt-6">
+          <div className="space-y-4">
+            {/* Engineer info section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Engineer Information</CardTitle>
+                <CardDescription>Required for audit trail creation</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="projectName">Project Name</Label>
+                  <Input
+                    id="projectName"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="Enter project name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="engineerName">Engineer Name</Label>
+                  <Input
+                    id="engineerName"
+                    value={engineerName}
+                    onChange={(e) => setEngineerName(e.target.value)}
+                    placeholder="Enter engineer name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="engineerEmail">Email</Label>
+                  <Input
+                    id="engineerEmail"
+                    value={engineerEmail}
+                    onChange={(e) => setEngineerEmail(e.target.value)}
+                    type="email"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="licenseNumber">Professional License Number</Label>
+                  <Input
+                    id="licenseNumber"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    placeholder="Enter license number"
+                  />
+                </div>
+                <Button
+                  onClick={handleCreateAudit}
+                  disabled={createAuditMutation.isPending || !complianceResult}
+                  className="w-full"
+                >
+                  {createAuditMutation.isPending ? 'Creating Audit Trail...' : 'Create Audit Trail'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Audit viewer */}
+            {auditId && (
+              <div className="space-y-4">
+                <AuditTrailViewer projectId={projectId} />
+                <SignaturePad
+                  auditId={auditId}
+                  engineerName={engineerName}
+                  onSignatureComplete={() => {
+                    console.log('Signature completed');
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="snapshots" className="space-y-6 mt-6">
