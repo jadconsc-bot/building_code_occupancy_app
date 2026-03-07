@@ -734,3 +734,83 @@ export const calculationLogs = mysqlTable("calculationLogs", {
 
 export type CalculationLog = typeof calculationLogs.$inferSelect;
 export type InsertCalculationLog = typeof calculationLogs.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * WEEK 1: AUDIT TRAIL TABLES (SaaS UPGRADE)
+ * For compliance audit trails, digital signatures, and modification tracking
+ * ============================================================================
+ */
+
+/**
+ * Compliance Audit Log - Complete immutable audit trail of all compliance analyses
+ * Tracks every action taken on compliance projects for regulatory compliance
+ */
+export const complianceAuditLog = mysqlTable("complianceAuditLog", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  snapshotId: varchar("snapshotId", { length: 100 }),
+  action: varchar("action", { length: 100 }).notNull(), // "analysis_run", "snapshot_created", "report_exported", "signature_added", "modification_tracked"
+  actionType: mysqlEnum("actionType", ["view", "create", "modify", "delete", "export", "sign", "verify"]).notNull(),
+  details: text("details"), // JSON with additional context
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  cryptographicHash: varchar("cryptographicHash", { length: 256 }), // SHA-256 hash for integrity
+  previousHash: varchar("previousHash", { length: 256 }), // Hash of previous entry (blockchain-like)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type ComplianceAuditLogEntry = typeof complianceAuditLog.$inferSelect;
+export type InsertComplianceAuditLogEntry = typeof complianceAuditLog.$inferInsert;
+
+/**
+ * Audit Signatures - Digital signatures for compliance decisions
+ * Cryptographic signatures for legal defensibility and non-repudiation
+ */
+export const auditSignatures = mysqlTable("auditSignatures", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  auditLogId: varchar("auditLogId", { length: 36 }).notNull(),
+  projectId: int("projectId").notNull(),
+  signedBy: int("signedBy").notNull(), // User ID
+  signatureType: varchar("signatureType", { length: 50 }).notNull(), // "approval", "review", "verification", "acknowledgment"
+  publicKey: text("publicKey"), // PEM format
+  signature: text("signature").notNull(), // Base64 encoded signature
+  certificateChain: text("certificateChain"), // PEM format certificate chain
+  signatureAlgorithm: varchar("signatureAlgorithm", { length: 50 }), // "RSA-2048", "SHA-256"
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  verifiedAt: timestamp("verifiedAt"),
+  verificationStatus: mysqlEnum("verificationStatus", ["pending", "verified", "failed"]).default("pending").notNull(),
+  verificationDetails: text("verificationDetails"), // JSON with verification context
+});
+
+export type AuditSignature = typeof auditSignatures.$inferSelect;
+export type InsertAuditSignature = typeof auditSignatures.$inferInsert;
+
+/**
+ * Audit Modification History - Track all changes to compliance data
+ * Complete history of modifications for traceability and compliance
+ */
+export const auditModificationHistory = mysqlTable("auditModificationHistory", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  auditLogId: varchar("auditLogId", { length: 36 }).notNull(),
+  projectId: int("projectId").notNull(),
+  modifiedBy: int("modifiedBy").notNull(), // User ID
+  entityType: varchar("entityType", { length: 50 }).notNull(), // "snapshot", "calculation", "report", "project"
+  entityId: varchar("entityId", { length: 100 }).notNull(),
+  changeType: mysqlEnum("changeType", ["created", "updated", "deleted", "restored"]).notNull(),
+  fieldName: varchar("fieldName", { length: 100 }), // Which field was modified
+  previousValue: text("previousValue"), // JSON of previous value
+  newValue: text("newValue"), // JSON of new value
+  reason: text("reason"), // Why the change was made
+  approvedBy: int("approvedBy"), // Admin user who approved (if required)
+  approvalStatus: mysqlEnum("approvalStatus", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  cryptographicHash: varchar("cryptographicHash", { length: 256 }), // SHA-256 hash for integrity
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type AuditModificationEntry = typeof auditModificationHistory.$inferSelect;
+export type InsertAuditModificationEntry = typeof auditModificationHistory.$inferInsert;
