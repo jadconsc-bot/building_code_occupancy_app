@@ -4079,3 +4079,78 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - Integration with compliance engine
 - Professional review integration
 - Decisions 11-12: Professional liability insurance and legal review
+
+
+---
+
+## 🚩 Week 4 Extension: Development Auth Mode & E2E Testing
+
+### Phase 1: Option C - Environment-Based Auth Toggle ✅ COMPLETE
+- [x] Created devAuth.ts - Mock authentication service with 3 dev users
+- [x] Created devOAuthRoutes.ts - Dev login routes with HTML form
+- [x] Updated env.ts - Added DEV_AUTH_MODE configuration
+- [x] Updated context.ts - Dev session token verification
+- [x] Updated index.ts - Dev routes registration
+- [x] Updated vite.ts - API route skip logic
+- [x] Updated const.ts - Dev auth mode detection
+- [x] Created devAuth.test.ts - 15 unit tests
+- [x] DEV_AUTH_MODE=true configured
+
+### Phase 2: Production Removal Documentation ✅ COMPLETE
+- [x] Created DEV_AUTH_REMOVAL_GUIDE.md - Complete removal instructions
+- [x] Created PRODUCTION_DELETION_CHECKLIST.md - Pre-deployment verification
+- [x] Created TEMP_FILES_INVENTORY.md - Comprehensive file inventory
+- [x] Added inline comments to all dev auth files
+- [x] Documented all code changes for reverting
+
+### Phase 3: Testing Infrastructure ✅ COMPLETE
+- [x] Created test-dev-auth-encryption.sh - Bash E2E test script
+- [x] Created test-e2e-comprehensive.sh - Production-ready test suite
+- [x] Implemented CRUD operation tests
+- [x] Implemented multi-user ownership verification tests
+- [x] Implemented error handling tests
+- [x] Implemented session management tests
+- [x] Implemented audit trail verification tests
+- [x] Implemented list and search operation tests
+
+### Phase 4: Interactive Testing Dashboard ⏳ IN PROGRESS
+- [ ] Create devTestDashboard.ts - Interactive HTML testing interface
+- [ ] Register /dev/test-dashboard route
+- [ ] Implement dev auth login form
+- [ ] Implement CRUD operation controls
+- [ ] Implement real-time results display
+- [ ] Implement multi-user testing interface
+- [ ] Implement audit trail viewer
+
+### 🚩 CRITICAL: Production Deletion Tasks (MUST COMPLETE BEFORE DEPLOYMENT)
+
+**Files to Delete (8 total):**
+- [ ] Delete server/_core/devAuth.ts
+- [ ] Delete server/_core/devOAuthRoutes.ts
+- [ ] Delete server/_core/devTestDashboard.ts
+- [ ] Delete server/__tests__/devAuth.test.ts
+- [ ] Delete test-dev-auth-encryption.sh
+- [ ] Delete test-e2e-comprehensive.sh
+- [ ] Delete DEV_AUTH_REMOVAL_GUIDE.md
+- [ ] Delete PRODUCTION_DELETION_CHECKLIST.md
+- [ ] Delete TEMP_FILES_INVENTORY.md
+
+**Code Changes to Revert (5 files):**
+- [ ] Edit server/_core/env.ts - Remove DEV_AUTH_MODE config
+- [ ] Edit server/_core/context.ts - Remove dev auth block
+- [ ] Edit server/_core/index.ts - Remove dev route registration
+- [ ] Edit server/_core/vite.ts - Remove API route skip logic
+- [ ] Edit client/src/const.ts - Remove dev auth functions
+
+**Environment & Verification:**
+- [ ] Remove DEV_AUTH_MODE environment variable
+- [ ] Verify no TypeScript errors
+- [ ] Verify all tests passing
+- [ ] Verify OAuth configuration
+- [ ] Security review completed
+- [ ] Production deployment approved
+
+**See these files for detailed removal instructions:**
+- PRODUCTION_DELETION_CHECKLIST.md
+- TEMP_FILES_INVENTORY.md
+- DEV_AUTH_REMOVAL_GUIDE.md
