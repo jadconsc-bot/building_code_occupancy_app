@@ -23,8 +23,8 @@ import { Label } from "@/components/ui/label";
 export default function CompliancePage() {
   const params = useParams();
   const projectId = params.projectId ? parseInt(params.projectId) : 0;
-  const [complianceResult, setComplianceResult] = useState(null);
-  const [pathway, setPathway] = useState(null);
+  const [complianceResult, setComplianceResult] = useState<any>(null);
+  const [pathway, setPathway] = useState<any>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [projectInfo, setProjectInfo] = useState({
     name: 'My Project',
@@ -135,8 +135,11 @@ export default function CompliancePage() {
         </TabsList>
 
         <TabsContent value="analyzer" className="space-y-6 mt-6">
-          <ComplianceAnalyzer projectId={projectId} />
-          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending}>
+          <ComplianceAnalyzer 
+            projectId={projectId}
+            onResultsChange={(results) => setComplianceResult(results)}
+          />
+          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending || !complianceResult}>
             {pathwayMutation.isPending ? 'Generating...' : 'Generate Code Pathway'}
           </Button>
         </TabsContent>
@@ -148,8 +151,15 @@ export default function CompliancePage() {
         <TabsContent value="pathway" className="space-y-6 mt-6">
           {pathway && (
             <CompliancePathwayReport
-              pathway={pathway}
-              projectName={projectInfo.name}
+              projectSummary={{
+                occupancy: 'D',
+                area_m2: 5000,
+                storeys: 1,
+                constructionType: 'Wood Frame',
+                sprinklers: false,
+              }}
+              justificationNarrative={pathway?.narrative || 'Compliance pathway generated'}
+              complianceSummary={pathway?.summary || 'See details below'}
             />
           )}
           {!pathway && (

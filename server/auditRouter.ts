@@ -30,7 +30,7 @@ export const auditRouter = router({
             isCompliant: z.boolean(),
           }),
         }),
-        projectData: z.record(z.any()),
+        projectData: z.record(z.string(), z.any()),
         projectInfo: z.object({
           name: z.string(),
           engineer: z.string(),

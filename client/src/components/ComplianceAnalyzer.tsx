@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import React from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,7 +27,12 @@ interface ComplianceInput {
   [key: string]: any;
 }
 
-export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
+interface ComplianceAnalyzerProps {
+  projectId: number;
+  onResultsChange?: (results: any) => void;
+}
+
+export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAnalyzerProps) {
   const { user } = useAuth();
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
@@ -53,11 +59,27 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
         province: 'Alberta',
       });
       setResult(analysisResult);
+      // Emit results to parent component for audit trail creation
+      onResultsChange?.(analysisResult);
     } catch (error) {
       console.error("Analysis failed:", error);
+      onResultsChange?.(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Also emit results when component mounts with existing result
+  React.useEffect(() => {
+    if (result) {
+      onResultsChange?.(result);
+    }
+  }, [result, onResultsChange]);
+
+  // Clear parent results when analysis is cleared
+  const handleClearResults = () => {
+    setResult(null);
+    onResultsChange?.(null);
   };
 
   const getStatusIcon = (status: string) => {

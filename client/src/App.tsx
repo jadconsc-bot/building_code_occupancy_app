@@ -14,7 +14,7 @@ import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
-import RuleManagement from "./pages/RuleManagement";
+// import RuleManagement from "./pages/RuleManagement"; // TODO: Week 2 - uncomment when ready
 import CalculationHistory from "./pages/CalculationHistory";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -35,7 +35,7 @@ function Router() {
         <Route path={"/"} component={Dashboard} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
-        <Route path={"/rule-management"} component={RuleManagement} />
+        {/* <Route path={"/rule-management"} component={RuleManagement} /> */} {/* TODO: Week 2 */}
         <Route path={"/calculation-history"} component={CalculationHistory} />
         <Route path={"/clients"} component={ClientsManagement} />
         <Route path={"/sharing"} component={ProjectSharing} />
