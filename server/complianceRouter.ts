@@ -8,6 +8,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { rulesets, complianceSnapshots, ruleChangelog, auditLog, ruleTests } from "../drizzle/schema";
 import { ComplianceEvaluator, createEvaluator, validateInputsForStrictMode, ComplianceInput } from "./complianceEngine";
+import { createCodeInterpreter } from "./codeInterpreterService";
 import { eq, and } from "drizzle-orm";
 
 export const complianceRouter = router({
@@ -331,5 +332,72 @@ export const complianceRouter = router({
       }
 
       return results;
+    }),
+
+  /**
+   * Interpret a building code clause
+   * Uses LLM to explain what a clause means in plain language
+   */
+  interpretClause: publicProcedure
+    .input(
+      z.object({
+        code: z.string(),
+        section: z.string(),
+        subsection: z.string().optional(),
+        description: z.string(),
+      })
+    )
+    .query(async ({ input }: any) => {
+      const interpreter = createCodeInterpreter();
+      return await interpreter.interpretClause(input);
+    }),
+
+  /**
+   * Interpret a compliance evaluation result
+   * Explains which rules fired and why
+   */
+  interpretComplianceResult: protectedProcedure
+    .input(z.object({ snapshotId: z.string() }))
+    .query(async ({ ctx, input }: any) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const snapshot = await db
+        .select()
+        .from(complianceSnapshots)
+        .where(eq(complianceSnapshots.snapshotId, input.snapshotId));
+
+      if (!snapshot.length) {
+        throw new Error("Snapshot not found");
+      }
+
+      if (snapshot[0].userId !== ctx.user.id) {
+        throw new Error("Unauthorized");
+      }
+
+      const snap = snapshot[0];
+      const ruleTrace = JSON.parse(snap.ruleTrace);
+      const complianceResult = {
+        complianceStatus: snap.complianceStatus,
+        compliance_flags: {},
+      };
+
+      const interpreter = createCodeInterpreter();
+      const interpretation = await interpreter.interpretCompliancePathway(
+        ruleTrace,
+        complianceResult
+      );
+
+      await db.insert(auditLog).values({
+        userId: ctx.user.id,
+        projectId: snap.projectId,
+        snapshotId: input.snapshotId,
+        action: "interpretation_requested",
+        details: JSON.stringify({
+          interpretationType: "compliance_pathway",
+        }),
+      });
+
+      return interpretation;
     }),
 });

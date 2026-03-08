@@ -21,6 +21,7 @@ import { compliancePathwayRouter } from "./compliancePathwayRouter";
 import { auditRouter } from "./auditRouter";
 import { ruleRouter } from "./ruleRouter";
 import { phase2Router } from "./phase2Router";
+import { professionalReviewRouter } from "./professionalReviewRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -43,6 +44,7 @@ export const appRouter = router({
   audit: auditRouter,
   rules: ruleRouter,
   phase2: phase2Router,
+  professionalReview: professionalReviewRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
