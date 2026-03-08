@@ -836,3 +836,55 @@ export const auditSignatures = mysqlTable("auditSignatures", {
 
 export type AuditSignature = typeof auditSignatures.$inferSelect;
 export type InsertAuditSignature = typeof auditSignatures.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * WEEK 2: RULE DATABASE FOUNDATION (SaaS UPGRADE)
+ * For managing building code rules with versioning and updates
+ * ============================================================================
+ */
+
+/**
+ * Rules Database - Centralized repository of building code rules
+ * Enables rule versioning, updates without code changes, and rule management
+ */
+export const rulesDatabase = mysqlTable("rulesDatabase", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Rule identification
+  ruleCode: varchar("ruleCode", { length: 50 }).notNull().unique(), // e.g., "OCC-B1-001"
+  
+  // Code version and jurisdiction
+  codeVersion: varchar("codeVersion", { length: 20 }).notNull(), // e.g., "NBC_2025"
+  jurisdiction: varchar("jurisdiction", { length: 50 }).default("Canada").notNull(),
+  
+  // Rule metadata
+  title: varchar("title", { length: 255 }).notNull(), // Rule title
+  description: text("description"), // Detailed description
+  category: varchar("category", { length: 100 }), // e.g., "OCCUPANCY", "EGRESS", "FIRE_SAFETY"
+  
+  // NBC reference
+  nbcReference: varchar("nbcReference", { length: 255 }), // e.g., "NBC 3.2.1"
+  
+  // Rule definition (JSON)
+  ruleData: json("ruleData").notNull(), // Contains conditions, triggers, exceptions
+  
+  // Rule status
+  isActive: boolean("isActive").default(true).notNull(),
+  effectiveDate: timestamp("effectiveDate").notNull(),
+  deprecatedDate: timestamp("deprecatedDate"), // When rule was deprecated
+  
+  // Audit trail
+  createdBy: int("createdBy").notNull(), // Foreign key to users
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedBy: int("updatedBy"), // Foreign key to users
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  
+  // Versioning
+  version: int("version").default(1).notNull(), // Rule version number
+  previousVersionId: int("previousVersionId"), // Link to previous version
+});
+
+export type RuleDatabase = typeof rulesDatabase.$inferSelect;
+export type InsertRuleDatabase = typeof rulesDatabase.$inferInsert;
