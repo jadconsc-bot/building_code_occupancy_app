@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/select';
 import { ChecklistStatusIcon, ChecklistStatus } from './ChecklistStatusIcon';
 import { ChecklistItemCompact } from './ChecklistItemWithStatus';
+import { Phase2ReportManager } from './Phase2ReportManager';
+import { Phase2ScenarioManager } from './Phase2ScenarioManager';
+import { Phase2BatchComparison } from './Phase2BatchComparison';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Search,
   Filter,
@@ -21,6 +25,9 @@ import {
   ChevronUp,
   Download,
   Trash2,
+  FileText,
+  GitBranch,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +48,7 @@ export function ProjectChecklistDashboard() {
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>('checklists');
 
   // Fetch projects list
   const { data: projects = [], isLoading } = trpc.projects.list.useQuery(
@@ -324,5 +332,132 @@ export function ProjectChecklistDashboard() {
         </Card>
       )}
     </div>
+  );
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsTrigger value="checklists" className="flex items-center gap-2">
+          <FileText size={16} />
+          <span className="hidden sm:inline">Checklists</span>
+        </TabsTrigger>
+        <TabsTrigger value="reports" className="flex items-center gap-2">
+          <FileText size={16} />
+          <span className="hidden sm:inline">Reports</span>
+        </TabsTrigger>
+        <TabsTrigger value="scenarios" className="flex items-center gap-2">
+          <GitBranch size={16} />
+          <span className="hidden sm:inline">Scenarios</span>
+        </TabsTrigger>
+        <TabsTrigger value="comparisons" className="flex items-center gap-2">
+          <BarChart3 size={16} />
+          <span className="hidden sm:inline">Comparisons</span>
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="checklists" className="space-y-4">
+        {/* Search and Filter Bar */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search checklists..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={selectedPhase} onValueChange={setSelectedPhase}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All Phases" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Phases</SelectItem>
+                    <SelectItem value="foundation">Foundation</SelectItem>
+                    <SelectItem value="framing">Framing</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="electrical">Electrical</SelectItem>
+                    <SelectItem value="plumbing">Plumbing</SelectItem>
+                    <SelectItem value="finishing">Finishing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Checklist Items */}
+        <div className="space-y-4">
+          {Object.entries(groupedByPhase).length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No checklist items found. {searchQuery && 'Try adjusting your search filters.'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            Object.entries(groupedByPhase).map(([phase, items]) => (
+              <Card key={phase}>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => togglePhase(phase)}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {expandedPhases.has(phase) ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      <div>
+                        <CardTitle className="text-lg">{phase.charAt(0).toUpperCase() + phase.slice(1)} Phase</CardTitle>
+                        <CardDescription>{items.length} items</CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline">{items.length}</Badge>
+                  </div>
+                </CardHeader>
+                {expandedPhases.has(phase) && (
+                  <CardContent className="space-y-3 border-t pt-4">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                        <ChecklistStatusIcon status={item.isCompleted === 1 ? 'pass' : 'pending'} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{item.itemText}</p>
+                          {item.notes && <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>}
+                          <p className="text-xs text-muted-foreground mt-2">{new Date(item.updatedAt).toLocaleDateString()}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="reports" className="space-y-4">
+        {activeProjectId && <Phase2ReportManager projectId={activeProjectId as number} />}
+      </TabsContent>
+
+      <TabsContent value="scenarios" className="space-y-4">
+        {activeProjectId && <Phase2ScenarioManager projectId={activeProjectId as number} />}
+      </TabsContent>
+
+      <TabsContent value="comparisons" className="space-y-4">
+        {activeProjectId && <Phase2BatchComparison projectId={activeProjectId as number} />}
+      </TabsContent>
+    </Tabs>
   );
 }
