@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -57,9 +58,12 @@ export function RequiredLegalAcknowledgment({
       {/* Modal cannot be closed without accepting - disable default close behavior */}
       <DialogContent
         className="max-w-2xl"
+        showCloseButton={false}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
+        {/* Hide the default close button with CSS - the X button is hidden */}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -207,3 +211,12 @@ export function RequiredLegalAcknowledgment({
     </Dialog>
   );
 }
+
+/**
+ * BLOCKING MODAL IMPLEMENTATION:
+ * - Dialog is set to open={true} with empty onOpenChange handler
+ * - onEscapeKeyDown and onPointerDownOutside are prevented
+ * - Default close button (X) is hidden via CSS selector [&>button[aria-label='Close']]:hidden
+ * - Users CANNOT dismiss this modal without accepting both checkboxes
+ * - This ensures legal compliance and audit trail logging
+ */

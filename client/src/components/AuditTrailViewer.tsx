@@ -32,8 +32,8 @@ export function AuditTrailViewer({ projectId }: AuditTrailViewerProps) {
     { enabled: !!selectedAuditId }
   );
 
-  const audits = auditData?.audits || [];
-  const selectedAudit = audits.find((a: any) => a.id === selectedAuditId);
+  const audits = (auditData?.audits || []) as any[];
+  const selectedAudit = audits.find((a: any) => a.id === selectedAuditId) as any;
 
   const handleDownloadReport = () => {
     if (!reportData?.report) return;
@@ -301,7 +301,7 @@ export function AuditTrailViewer({ projectId }: AuditTrailViewerProps) {
                   </div>
                 )}
 
-                {selectedAudit.limitations && (
+                {selectedAudit && selectedAudit.limitations && (
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium mb-2">Limitations</h4>
                     <ul className="text-sm space-y-1">

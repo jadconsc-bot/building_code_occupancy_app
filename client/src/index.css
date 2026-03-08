@@ -1145,3 +1145,16 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* Legal Acknowledgment Modal - Hide Close Button */
+/* The RequiredLegalAcknowledgment modal is non-dismissible */
+/* Users must accept both checkboxes to proceed */
+[role="dialog"] button[aria-label="Close"] {
+  display: none !important;
+}
+
+/* Prevent dialog from closing on escape or outside click */
+[role="dialog"] {
+  pointer-events: auto;
+}

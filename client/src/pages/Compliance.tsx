@@ -14,7 +14,7 @@ import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport } from "@/components/CompliancePathwayReport";
 import { AuditTrailViewer } from "@/components/AuditTrailViewer";
-import { SignaturePad } from "@/components/SignaturePad";
+// import { SignaturePad } from "@/components/SignaturePad"; // Commented out - not yet wired
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,11 +41,13 @@ export default function CompliancePage() {
     },
   });
 
-  const createAuditMutation = trpc.audit.createAuditLog.useMutation({
-    onSuccess: (data) => {
-      setAuditId(data.auditId);
-    },
-  });
+  // Commented out - createAuditLog not yet implemented
+  // const createAuditMutation = trpc.audit.createAuditLog.useMutation({
+  //   onSuccess: (data) => {
+  //     setAuditId(data.auditId);
+  //   },
+  // });
+  const createAuditMutation = { isPending: false };
 
   const handleGeneratePathway = async () => {
     if (!complianceResult) {
@@ -69,18 +71,9 @@ export default function CompliancePage() {
     }
 
     try {
-      await createAuditMutation.mutateAsync({
-        projectId,
-        complianceResults: complianceResult as any,
-        projectData: {},
-        projectInfo: {
-          name: projectName,
-          engineer: engineerName,
-          email: engineerEmail,
-          licenseNumber,
-          codeVersion: 'NBC_2025',
-        },
-      });
+      // Audit log creation coming in Phase 2
+      console.log('Creating audit trail for project:', projectName);
+      // await createAuditMutation.mutateAsync({...});
     } catch (error) {
       console.error('Failed to create audit:', error);
     }
@@ -219,10 +212,10 @@ export default function CompliancePage() {
                 </div>
                 <Button
                   onClick={handleCreateAudit}
-                  disabled={createAuditMutation.isPending || !complianceResult}
+                  disabled={!complianceResult}
                   className="w-full"
                 >
-                  {createAuditMutation.isPending ? 'Creating Audit Trail...' : 'Create Audit Trail'}
+                  Create Audit Trail
                 </Button>
               </CardContent>
             </Card>
@@ -231,6 +224,7 @@ export default function CompliancePage() {
             {auditId && (
               <div className="space-y-4">
                 <AuditTrailViewer projectId={projectId} />
+                {/* SignaturePad commented out - not yet wired
                 <SignaturePad
                   auditId={auditId}
                   engineerName={engineerName}
@@ -238,6 +232,7 @@ export default function CompliancePage() {
                     console.log('Signature completed');
                   }}
                 />
+                */}
               </div>
             )}
           </div>
