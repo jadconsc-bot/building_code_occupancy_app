@@ -239,4 +239,5 @@ export const ENCRYPTED_FIELDS = {
   projectData: ['projectData', 'projectName'],
   professionalLicenses: ['licenseNumber'],
   auditLog: ['userAgent', 'ipAddress'],
+  complianceSnapshots: ['snapshotData'],
 } as const;
