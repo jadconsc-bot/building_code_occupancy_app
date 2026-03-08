@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Download, CheckCircle2, AlertCircle, Clock, FileDown } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { auditRecordsToCSV, downloadCSV } from '@/lib/csvExport';
 
 interface AuditTrailViewerProps {
   projectId: number;
@@ -46,6 +47,38 @@ export function AuditTrailViewer({ projectId }: AuditTrailViewerProps) {
     document.body.removeChild(element);
   };
 
+  const handleDownloadCSV = () => {
+    if (audits.length === 0) return;
+
+    // Convert audits to CSV format
+    const csvContent = auditRecordsToCSV(
+      audits.map((audit: any) => ({
+        id: audit.id,
+        projectId: String(audit.projectId),
+        action: 'COMPLIANCE_ANALYSIS',
+        timestamp: audit.timestamp,
+        engineerName: audit.engineerName,
+        engineerEmail: audit.engineerEmail || '',
+        licenseNumber: audit.engineerLicense || '',
+        details: {
+          occupancy: audit.occupancy,
+          codeVersion: audit.codeVersion,
+          compliancePercentage: audit.compliancePercentage,
+          overallStatus: audit.overallStatus,
+          totalRulesEvaluated: audit.totalRulesEvaluated,
+          totalRulesPassed: audit.totalRulesPassed,
+          totalRulesFailed: audit.totalRulesFailed
+        },
+        hash: audit.hash,
+        verified: audit.status === 'SIGNED'
+      }))
+    );
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `audit-trail-${timestamp}.csv`;
+    downloadCSV(csvContent, filename);
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -81,7 +114,19 @@ export function AuditTrailViewer({ projectId }: AuditTrailViewerProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Audit Trail</span>
-          <Badge variant="outline">{audits.length} audits</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{audits.length} audits</Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownloadCSV}
+              disabled={audits.length === 0}
+              title="Download audit trail as CSV"
+            >
+              <FileDown className="w-4 h-4 mr-1" />
+              Export CSV
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
