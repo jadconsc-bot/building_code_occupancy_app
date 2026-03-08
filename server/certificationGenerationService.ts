@@ -295,12 +295,14 @@ export class CertificationGenerationService {
   }
 
   /**
-   * Get service info
+   * Get service information
    */
   getServiceInfo() {
     return {
-      signatureAlgorithm: this.signatureService.getAlgorithmInfo(),
-      timestampAuthority: this.timestampService.getProviderInfo(),
+      supportedAlgorithms: ['RSA-SHA256', 'ECDSA-SHA256'],
+      supportedTSAs: ['sectigo', 'digicert', 'globalsign'],
+      currentAlgorithm: this.signatureService.getAlgorithmInfo(),
+      currentTimestampAuthority: this.timestampService.getProviderInfo(),
       encryptionAlgorithm: 'AES-256-GCM',
     };
   }
