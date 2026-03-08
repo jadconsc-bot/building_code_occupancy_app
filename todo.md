@@ -3573,3 +3573,17 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
   - [x] Added LLM timeout handling (60s)
   - [x] Added request deduplication testing
   - [x] Added multi-user isolation testing
+
+
+## Phase 11: Rules Database Implementation
+- [x] Create rulesDatabase table in database
+- [x] Seed initial NBC 2025 rules (18 core rules)
+  - [x] Occupancy classification rules (6 rules)
+  - [x] Egress requirements (4 rules)
+  - [x] Fire safety requirements (4 rules)
+  - [x] Accessibility requirements (3 rules)
+  - [x] Construction type requirements (2 rules)
+- [x] Create seed script for future rule additions (scripts/seed-rules.mjs)
+- [ ] Expand rules database with provincial variations
+- [ ] Add rule versioning and deprecation tracking
+- [ ] Create admin interface for rule management

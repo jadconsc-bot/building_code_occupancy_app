@@ -1,0 +1,15 @@
+{
+  "query": "SELECT COUNT(*) as total_rules, codeVersion, jurisdiction FROM rulesDatabase GROUP BY codeVersion, jurisdiction;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT COUNT(*) as total_rules, codeVersion, jurisdiction FROM rulesDatabase GROUP BY codeVersion, jurisdiction;",
+  "rows": [
+    {
+      "total_rules": "19",
+      "codeVersion": "NBC_2025",
+      "jurisdiction": "Canada"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_rules\tcodeVersion\tjurisdiction\n19\tNBC_2025\tCanada\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}
