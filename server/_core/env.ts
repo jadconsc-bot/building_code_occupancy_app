@@ -17,6 +17,8 @@ const envSchema = z.object({
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
   VITE_APP_ID: z.string().optional(),
   VITE_OAUTH_PORTAL_URL: z.string().url().optional(),
+  // ⚠️ DEVELOPMENT ONLY - Remove for production
+  DEV_AUTH_MODE: z.string().default('false'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -54,6 +56,8 @@ export const ENV = {
   isProduction: validatedEnv.NODE_ENV === "production",
   forgeApiUrl: validatedEnv.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: validatedEnv.BUILT_IN_FORGE_API_KEY ?? "",
+  // ⚠️ DEVELOPMENT ONLY - Remove for production
+  devAuthMode: validatedEnv.DEV_AUTH_MODE === 'true',
 };
 
 /**
