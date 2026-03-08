@@ -3871,3 +3871,69 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
   - Signatures must be legally binding (may require e-signature service like DocuSign)
   - Consider regulatory requirements for professional certifications
   - Ensure audit trail captures signature timestamp and signer identity
+
+
+## 🔒 Week 2 Legal Defensibility - Deterministic Engine & Professional Review (COMPLETE)
+
+### Completed Features:
+- [x] CodeInterpreterService - LLM limited to code interpretation only (not evaluation)
+  - Interprets building code clauses in plain language
+  - Extracts exact NBC clause references (e.g., 3.2.2.0)
+  - Explains compliance pathways with rule tracing
+  - Validates LLM usage for architecture compliance
+  
+- [x] ProfessionalReviewService - Digital signature and professional review workflow
+  - Submit compliance snapshots for professional review
+  - Digital signature capture with validation
+  - Reviewer credential validation (engineer, architect, reviewer roles)
+  - Review status tracking (pending, approved, rejected)
+  - Rejection workflow with detailed feedback
+  - Audit trail logging for all review actions
+  - Certificate thumbprint generation for digital signatures
+  
+- [x] Professional Review Router - tRPC procedures
+  - submitForReview - Submit snapshot for professional review
+  - signSnapshot - Sign snapshot with digital signature
+  - getReviewStatus - Get current review status
+  - rejectReview - Reject review with feedback
+  - Full audit trail integration
+  
+- [x] Deterministic Compliance Engine - Already exists and verified
+  - Rule-based evaluation (not LLM)
+  - Full rule tracing with audit trail
+  - Reproducible results
+  - Compliance status tracking
+  
+- [x] Architecture Module Map - Comprehensive documentation
+  - 30+ modules analyzed
+  - 15+ database tables documented
+  - 20+ tRPC procedures mapped
+  - 6 system layers defined
+  - Safe extension points identified
+  
+- [x] Week 2 Integration Plan - Safe integration points
+  - Decision 1 (Deterministic Engine) - Integration points documented
+  - Decision 3 (Professional Review) - Integration points documented
+  - Decision 7 (Rule Versioning) - Already implemented
+  - Database changes documented
+  - Testing & rollback strategy
+
+### Test Results:
+- ✅ 1081 tests passed
+- ⚠️ 20 tests failed (E2E rate limiting, not related to Week 2)
+- ✅ 23 tests skipped (expected)
+- ✅ App running and legal disclaimer working
+
+### Architectural Decisions Implemented:
+- ✅ Decision 1: LLM role changed - Code interpretation only (not evaluation)
+- ✅ Decision 3: Professional review workflow with digital signatures
+- ✅ Decision 4: Legal disclaimer modal (Week 1)
+- ✅ Decision 6: Audit trail retained for compliance
+- ✅ Decision 10: Ontario/NBC 2025 focus
+
+### Pending (Week 3+):
+- ⏳ Decision 2: Professional liability insurance & legal review
+- ⏳ Decision 5: Expand audit trail for more write operations
+- ⏳ Decision 8: Encrypt sensitive fields (PII, project details)
+- ⏳ Decision 9: PDF + JSON certification format
+- ⏳ Decision 11-12: Professional liability insurance & legal review

@@ -66,7 +66,7 @@ describe('ProfessionalReviewService', () => {
       expect(result.complianceStatus).toBe('compliant');
       expect(result.signature).toBeDefined();
       expect(result.signature.signatureId).toBeDefined();
-      expect(result.signature.timestamp).toBeDefined();
+      expect(result.signature.signatureTimestamp).toBeDefined();
       expect(result.signedAt).toBeDefined();
     });
 
@@ -227,8 +227,8 @@ describe('ProfessionalReviewService', () => {
         'Does not meet requirements'
       );
 
-      expect(result.signature.timestamp).toBeDefined();
-      expect(typeof result.signature.timestamp).toBe('string');
+      expect(result.signature.signatureTimestamp).toBeDefined();
+      expect(result.signature.signatureTimestamp instanceof Date).toBe(true);
     });
   });
 
