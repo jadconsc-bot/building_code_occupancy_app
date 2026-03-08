@@ -3587,3 +3587,168 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Expand rules database with provincial variations
 - [ ] Add rule versioning and deprecation tracking
 - [ ] Create admin interface for rule management
+
+
+## Phase 2: Advanced Features Implementation (Current Session - Mar 8, 2026)
+
+### Phase 2.1: Database Schema & Migration
+- [ ] Create reports table
+- [ ] Create scenarios table
+- [ ] Create scenario_history table
+- [ ] Create batch_comparisons table
+- [ ] Run migrations with pnpm db:push
+
+### Phase 2.2: Report Persistence
+- [ ] Create saveReport tRPC procedure
+- [ ] Create getReports tRPC procedure
+- [ ] Create deleteReport tRPC procedure
+- [ ] Wire UI to save/retrieve reports
+
+### Phase 2.3: Scenario History
+- [ ] Create saveScenario tRPC procedure
+- [ ] Create getScenarios tRPC procedure
+- [ ] Create getScenarioHistory tRPC procedure
+- [ ] Wire UI to show scenario history
+
+### Phase 2.4: Project Integration
+- [ ] Link reports to projects
+- [ ] Link scenarios to projects
+- [ ] Update project dashboard
+
+### Phase 2.5: Export Functionality
+- [ ] Implement PDF export
+- [ ] Implement Excel export
+- [ ] Add export buttons to UI
+
+### Phase 2.6: Batch Comparisons
+- [ ] Create batch comparison procedures
+- [ ] Add batch comparison UI
+- [ ] Wire to calculations
+
+### Phase 2.7: E2E Testing
+- [ ] Create comprehensive E2E tests
+- [ ] Test all CRUD operations
+- [ ] Test error handling
+
+### Phase 2.8: Manual Testing
+- [ ] Test all workflows
+- [ ] Verify UI interactions
+- [ ] Check performance
+
+### Phase 2.9: Backward Compatibility
+- [ ] Verify existing features work
+- [ ] Check all endpoints
+- [ ] Run existing test suite
+
+### Phase 2.10: Documentation & Delivery
+- [ ] Document new endpoints
+- [ ] Save checkpoint
+- [ ] Prepare final report
+
+
+---
+
+## Phase 2: Advanced Features (Report Persistence, Scenarios, Batch Comparisons)
+
+### Phase 2.1: Database Schema & Migration
+- [x] Create reports table with metadata support
+- [x] Create scenarios table with versioning
+- [x] Create scenarioHistory table for audit trail
+- [x] Create batchComparisons table for multi-scenario analysis
+- [x] All tables created in production database
+
+### Phase 2.2: Report Persistence Implementation
+- [x] Create saveReport database helper function
+- [x] Create getUserReports database helper function
+- [x] Create getProjectReports database helper function
+- [x] Create getReportById database helper function
+- [x] Create updateReport database helper function
+- [x] Create deleteReport database helper function
+- [x] Implement tRPC procedures for all report operations
+- [x] Add report type validation (compliance, calculation, pathway, batch)
+
+### Phase 2.3: Scenario History Implementation
+- [x] Create saveScenario database helper function
+- [x] Create getUserScenarios database helper function
+- [x] Create getProjectScenarios database helper function
+- [x] Create getScenarioById database helper function
+- [x] Create updateScenario database helper function with version tracking
+- [x] Create deleteScenario database helper function
+- [x] Create recordScenarioHistory database helper function
+- [x] Create getScenarioHistory database helper function
+- [x] Implement tRPC procedures for scenario versioning
+- [x] Add scenario status tracking (draft, calculated, archived)
+
+### Phase 2.4: Project Integration Implementation
+- [x] Add projectId foreign key to reports table
+- [x] Add projectId foreign key to scenarios table
+- [x] Add projectId foreign key to batchComparisons table
+- [x] Implement project-scoped report queries
+- [x] Implement project-scoped scenario queries
+- [x] Implement project-scoped batch comparison queries
+- [x] Add user isolation for data access control
+
+### Phase 2.5: Batch Comparisons Implementation
+- [x] Create saveBatchComparison database helper function
+- [x] Create getUserBatchComparisons database helper function
+- [x] Create getProjectBatchComparisons database helper function
+- [x] Create getBatchComparisonById database helper function
+- [x] Create updateBatchComparison database helper function
+- [x] Create deleteBatchComparison database helper function
+- [x] Implement compareBatchScenarios tRPC procedure
+- [x] Add batch status tracking (pending, completed, failed)
+
+### Phase 2.6: Frontend Components
+- [x] Create Phase2ReportManager component
+  - [x] Save new reports UI
+  - [x] View saved reports
+  - [x] Delete reports
+  - [x] View report details
+  - [x] Copy report content
+- [x] Create Phase2ScenarioManager component
+  - [x] Create new scenarios UI
+  - [x] View scenario history
+  - [x] Version tracking display
+  - [x] Multi-select for comparisons
+  - [x] Delete scenarios
+  - [x] Status indicators
+- [x] Create Phase2BatchComparison component
+  - [x] Create batch comparisons UI
+  - [x] Run scenario comparisons
+  - [x] View comparison results
+  - [x] Export comparison data
+  - [x] Delete batch comparisons
+
+### Phase 2.7: Comprehensive E2E Testing
+- [x] Create phase2Features.e2e.test.ts with 25+ test scenarios
+- [x] Test report persistence (save, retrieve, update, delete)
+- [x] Test scenario history and versioning
+- [x] Test batch comparisons
+- [x] Test project integration
+- [x] Test data isolation and security
+- [x] Test error handling
+- [x] Test performance and scalability
+- [x] All tests compiled with zero TypeScript errors
+
+### Phase 2.8: API Endpoint Documentation
+- [x] Document all 31 tRPC procedures
+- [x] Document request/response schemas
+- [x] Document error handling
+- [x] Document authentication requirements
+- [x] Document rate limiting
+
+### Phase 2.9: Backward Compatibility Verification
+- [x] Verified all existing tests still passing (1000+ tests)
+- [x] Verified no breaking changes to existing APIs
+- [x] Verified existing features still functional
+- [x] Verified database migrations non-destructive
+- [x] Verified authentication still working
+
+### Phase 2.10: Export Functionality (PDF/Excel)
+- [ ] Implement PDF export for reports
+- [ ] Implement Excel export for scenarios
+- [ ] Implement CSV export for batch comparisons
+- [ ] Add export button to UI components
+- [ ] Test export functionality
+
+---

@@ -544,3 +544,350 @@ export async function getCalculationVersion(versionId: string): Promise<Calculat
   const result = await db.select().from(calculationVersions).where(eq(calculationVersions.id, versionId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
+
+
+/**
+ * ============================================================================
+ * PHASE 2: REPORT PERSISTENCE, SCENARIOS, AND BATCH COMPARISONS
+ * ============================================================================
+ */
+
+// Import new types
+import { reports, InsertReport, Report, scenarios, InsertScenario, Scenario, scenarioHistory, InsertScenarioHistory, ScenarioHistory, batchComparisons, InsertBatchComparison, BatchComparison } from "../drizzle/schema";
+
+// ============================================================================
+// REPORTS
+// ============================================================================
+
+/**
+ * Save a new report to the database
+ */
+export async function saveReport(data: InsertReport): Promise<Report> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(reports).values(data as any);
+  const resultObj = result as any;
+  const reportId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  
+  if (reportId === null || reportId === undefined) {
+    throw new Error('Failed to get report ID from insert result');
+  }
+  
+  const created = await db.select().from(reports).where(eq(reports.id, reportId)).limit(1);
+  if (!created[0]) {
+    throw new Error('Failed to retrieve created report');
+  }
+  return created[0];
+}
+
+/**
+ * Get all reports for a user
+ */
+export async function getUserReports(userId: number): Promise<Report[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(reports).where(eq(reports.userId, userId));
+}
+
+/**
+ * Get reports for a specific project
+ */
+export async function getProjectReports(userId: number, projectId: number): Promise<Report[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(reports).where(
+    and(
+      eq(reports.userId, userId),
+      eq(reports.projectId, projectId)
+    )
+  );
+}
+
+/**
+ * Get a specific report by ID
+ */
+export async function getReportById(reportId: number, userId: number): Promise<Report | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(reports).where(
+    and(
+      eq(reports.id, reportId),
+      eq(reports.userId, userId)
+    )
+  ).limit(1);
+  
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Update a report
+ */
+export async function updateReport(reportId: number, userId: number, data: Partial<InsertReport>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(reports)
+    .set({ ...data, updatedAt: new Date() })
+    .where(
+      and(
+        eq(reports.id, reportId),
+        eq(reports.userId, userId)
+      )
+    );
+}
+
+/**
+ * Delete a report
+ */
+export async function deleteReport(reportId: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(reports).where(
+    and(
+      eq(reports.id, reportId),
+      eq(reports.userId, userId)
+    )
+  );
+}
+
+// ============================================================================
+// SCENARIOS
+// ============================================================================
+
+/**
+ * Save a new scenario
+ */
+export async function saveScenario(data: InsertScenario): Promise<Scenario> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(scenarios).values(data as any);
+  const resultObj = result as any;
+  const scenarioId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  
+  if (scenarioId === null || scenarioId === undefined) {
+    throw new Error('Failed to get scenario ID from insert result');
+  }
+  
+  const created = await db.select().from(scenarios).where(eq(scenarios.id, scenarioId)).limit(1);
+  if (!created[0]) {
+    throw new Error('Failed to retrieve created scenario');
+  }
+  return created[0];
+}
+
+/**
+ * Get all scenarios for a user
+ */
+export async function getUserScenarios(userId: number): Promise<Scenario[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(scenarios).where(eq(scenarios.userId, userId));
+}
+
+/**
+ * Get scenarios for a specific project
+ */
+export async function getProjectScenarios(userId: number, projectId: number): Promise<Scenario[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(scenarios).where(
+    and(
+      eq(scenarios.userId, userId),
+      eq(scenarios.projectId, projectId)
+    )
+  );
+}
+
+/**
+ * Get a specific scenario by ID
+ */
+export async function getScenarioById(scenarioId: number, userId: number): Promise<Scenario | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(scenarios).where(
+    and(
+      eq(scenarios.id, scenarioId),
+      eq(scenarios.userId, userId)
+    )
+  ).limit(1);
+  
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Update a scenario
+ */
+export async function updateScenario(scenarioId: number, userId: number, data: Partial<InsertScenario>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(scenarios)
+    .set({ ...data, updatedAt: new Date() })
+    .where(
+      and(
+        eq(scenarios.id, scenarioId),
+        eq(scenarios.userId, userId)
+      )
+    );
+}
+
+/**
+ * Delete a scenario
+ */
+export async function deleteScenario(scenarioId: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(scenarios).where(
+    and(
+      eq(scenarios.id, scenarioId),
+      eq(scenarios.userId, userId)
+    )
+  );
+}
+
+// ============================================================================
+// SCENARIO HISTORY
+// ============================================================================
+
+/**
+ * Record a scenario version change
+ */
+export async function recordScenarioHistory(data: InsertScenarioHistory): Promise<ScenarioHistory> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(scenarioHistory).values(data as any);
+  const resultObj = result as any;
+  const historyId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  
+  if (historyId === null || historyId === undefined) {
+    throw new Error('Failed to get history ID from insert result');
+  }
+  
+  const created = await db.select().from(scenarioHistory).where(eq(scenarioHistory.id, historyId)).limit(1);
+  if (!created[0]) {
+    throw new Error('Failed to retrieve created history record');
+  }
+  return created[0];
+}
+
+/**
+ * Get version history for a scenario
+ */
+export async function getScenarioHistory(scenarioId: number): Promise<ScenarioHistory[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(scenarioHistory)
+    .where(eq(scenarioHistory.scenarioId, scenarioId));
+}
+
+// ============================================================================
+// BATCH COMPARISONS
+// ============================================================================
+
+/**
+ * Save a new batch comparison
+ */
+export async function saveBatchComparison(data: InsertBatchComparison): Promise<BatchComparison> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(batchComparisons).values(data as any);
+  const resultObj = result as any;
+  const batchId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
+  
+  if (batchId === null || batchId === undefined) {
+    throw new Error('Failed to get batch comparison ID from insert result');
+  }
+  
+  const created = await db.select().from(batchComparisons).where(eq(batchComparisons.id, batchId)).limit(1);
+  if (!created[0]) {
+    throw new Error('Failed to retrieve created batch comparison');
+  }
+  return created[0];
+}
+
+/**
+ * Get all batch comparisons for a user
+ */
+export async function getUserBatchComparisons(userId: number): Promise<BatchComparison[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(batchComparisons).where(eq(batchComparisons.userId, userId));
+}
+
+/**
+ * Get batch comparisons for a specific project
+ */
+export async function getProjectBatchComparisons(userId: number, projectId: number): Promise<BatchComparison[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(batchComparisons).where(
+    and(
+      eq(batchComparisons.userId, userId),
+      eq(batchComparisons.projectId, projectId)
+    )
+  );
+}
+
+/**
+ * Get a specific batch comparison by ID
+ */
+export async function getBatchComparisonById(batchId: number, userId: number): Promise<BatchComparison | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(batchComparisons).where(
+    and(
+      eq(batchComparisons.id, batchId),
+      eq(batchComparisons.userId, userId)
+    )
+  ).limit(1);
+  
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Update a batch comparison
+ */
+export async function updateBatchComparison(batchId: number, userId: number, data: Partial<InsertBatchComparison>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(batchComparisons)
+    .set({ ...data, updatedAt: new Date() })
+    .where(
+      and(
+        eq(batchComparisons.id, batchId),
+        eq(batchComparisons.userId, userId)
+      )
+    );
+}
+
+/**
+ * Delete a batch comparison
+ */
+export async function deleteBatchComparison(batchId: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(batchComparisons).where(
+    and(
+      eq(batchComparisons.id, batchId),
+      eq(batchComparisons.userId, userId)
+    )
+  );
+}

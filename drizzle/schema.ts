@@ -888,3 +888,79 @@ export const rulesDatabase = mysqlTable("rulesDatabase", {
 
 export type RuleDatabase = typeof rulesDatabase.$inferSelect;
 export type InsertRuleDatabase = typeof rulesDatabase.$inferInsert;
+
+
+/**
+ * Reports table for storing generated compliance and calculation reports
+ */
+export const reports = mysqlTable("reports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  projectId: int("projectId"), // Optional: link to project
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["compliance", "calculation", "pathway", "batch"]).notNull(),
+  content: json("content").notNull(), // Stores report data as JSON
+  metadata: json("metadata"), // Additional metadata (filters, parameters, etc.)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = typeof reports.$inferInsert;
+
+/**
+ * Scenarios table for storing what-if scenario configurations
+ */
+export const scenarios = mysqlTable("scenarios", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  projectId: int("projectId"), // Optional: link to project
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  type: mysqlEnum("type", ["fire_resistance", "compliance", "custom"]).notNull(),
+  inputData: json("inputData").notNull(), // Stores scenario parameters
+  resultData: json("resultData"), // Stores calculation results
+  status: mysqlEnum("status", ["draft", "calculated", "archived"]).default("draft").notNull(),
+  version: int("version").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Scenario = typeof scenarios.$inferSelect;
+export type InsertScenario = typeof scenarios.$inferInsert;
+
+/**
+ * Scenario history table for tracking version changes
+ */
+export const scenarioHistory = mysqlTable("scenarioHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  scenarioId: int("scenarioId").notNull(),
+  userId: int("userId").notNull(),
+  version: int("version").notNull(),
+  changes: json("changes"), // Stores what changed
+  previousData: json("previousData"), // Stores previous version data
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScenarioHistory = typeof scenarioHistory.$inferSelect;
+export type InsertScenarioHistory = typeof scenarioHistory.$inferInsert;
+
+/**
+ * Batch comparisons table for storing multi-scenario comparisons
+ */
+export const batchComparisons = mysqlTable("batchComparisons", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  projectId: int("projectId"), // Optional: link to project
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  scenarioIds: json("scenarioIds").notNull(), // Array of scenario IDs being compared
+  comparisonData: json("comparisonData"), // Stores comparison results
+  analysisType: varchar("analysisType", { length: 100 }), // Type of analysis (e.g., "fire_resistance", "compliance")
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BatchComparison = typeof batchComparisons.$inferSelect;
+export type InsertBatchComparison = typeof batchComparisons.$inferInsert;
