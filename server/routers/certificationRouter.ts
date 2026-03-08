@@ -28,7 +28,7 @@ const pdfExportService = new CertificatePdfExportService();
 /**
  * Certification Router
  */
-export const certificationRouter = router<{}>({
+export const certificationRouter = router({
   /**
    * Generate new certificate from compliance snapshot
    */
@@ -40,7 +40,7 @@ export const certificationRouter = router<{}>({
         userId: z.string(),
         rulesetId: z.string(),
         complianceStatus: z.enum(['compliant', 'non_compliant', 'needs_review']),
-        inputs: z.record(z.any()),
+        inputs: z.record(z.string(), z.any()),
         outputs: z.object({
           findings: z.array(
             z.object({
