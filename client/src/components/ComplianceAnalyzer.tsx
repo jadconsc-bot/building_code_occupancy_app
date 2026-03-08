@@ -108,6 +108,14 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
     }
   };
 
+  // Determine compliance status from result
+  const getComplianceStatus = (result: any): string => {
+    if (result.complianceStatus) return result.complianceStatus;
+    if (result.success === false) return "non_compliant";
+    if (result.infractions && result.infractions.length > 0) return "non_compliant";
+    return "compliant";
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -282,24 +290,24 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
         </CardContent>
       </Card>
 
-      {/* Results */}
+      {/* Results - Handle both LLM and deterministic engine formats */}
       {result && (
-        <Card className={`border-2 ${getStatusColor(result.complianceStatus)}`}>
+        <Card className={`border-2 ${getStatusColor(getComplianceStatus(result))}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {getStatusIcon(result.complianceStatus)}
+                {getStatusIcon(getComplianceStatus(result))}
                 <div>
                   <CardTitle>
-                    {result.complianceStatus === "compliant"
+                    {getComplianceStatus(result) === "compliant"
                       ? "Compliant"
-                      : result.complianceStatus === "non_compliant"
+                      : getComplianceStatus(result) === "non_compliant"
                         ? "Non-Compliant"
-                        : "Conditional"}
+                        : "Analysis Complete"}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Clock className="w-4 h-4" />
-                    {new Date(result.timestamp).toLocaleString()}
+                    {new Date(result.timestamp || Date.now()).toLocaleString()}
                   </CardDescription>
                 </div>
               </div>
@@ -308,58 +316,115 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="compliance" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="compliance">Compliance Status</TabsTrigger>
-                <TabsTrigger value="rules">Rule Trace</TabsTrigger>
-                <TabsTrigger value="details">Details</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="compliance" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(result.compliance_flags).map(([key, value]) => (
-                    <div key={key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      {value ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-medium capitalize">{key.replace(/_/g, " ")}</span>
-                    </div>
-                  ))}
+          <CardContent className="space-y-4">
+            {/* Handle LLM analysis format (infractions + summary) */}
+            {result.infractions && Array.isArray(result.infractions) && result.infractions.length > 0 ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-3">Analysis Summary</h3>
+                  <p className="text-sm text-gray-700 mb-4">{result.summary || 'No summary available'}</p>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="rules" className="space-y-3 mt-4">
-                <div className="max-h-96 overflow-y-auto space-y-2">
-                  {result.rule_trace.map((rule: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg border ${rule.fired ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">{rule.clause}</div>
-                          <div className="text-xs text-gray-600 mt-1">{rule.rule_id}</div>
+                <div>
+                  <h3 className="font-semibold mb-3">Identified Issues</h3>
+                  <div className="space-y-2">
+                    {result.infractions.map((infraction: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{infraction.code}: {infraction.description}</div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              <strong>Requirement:</strong> {infraction.requirement}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              <strong>Remediation:</strong> {infraction.remediation}
+                            </div>
+                            <div className="text-xs mt-1">
+                              <span
+                                className={`px-2 py-1 rounded ${
+                                  infraction.severity === 'critical'
+                                    ? 'bg-red-200 text-red-800'
+                                    : infraction.severity === 'major'
+                                      ? 'bg-orange-200 text-orange-800'
+                                      : 'bg-yellow-200 text-yellow-800'
+                                }`}
+                              >
+                                {infraction.severity?.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        {rule.fired ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </TabsContent>
+              </div>
+            ) : result.infractions && result.infractions.length === 0 ? (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="font-medium text-green-900">No Issues Found</p>
+                    <p className="text-sm text-green-800 mt-1">{result.summary || 'The design appears to comply with all applicable code requirements.'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Handle deterministic engine format (compliance_flags + rule_trace) */
+              <Tabs defaultValue="compliance" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="compliance">Compliance Status</TabsTrigger>
+                  <TabsTrigger value="rules">Rule Trace</TabsTrigger>
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="details" className="space-y-4 mt-4">
-                <div className="bg-gray-50 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                  <pre>{JSON.stringify(result.outputs, null, 2)}</pre>
-                </div>
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="compliance" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(result.compliance_flags || {}).map(([key, value]) => (
+                      <div key={key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        {value ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                        )}
+                        <span className="text-sm font-medium capitalize">{key.replace(/_/g, " ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="rules" className="space-y-3 mt-4">
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {(result.rule_trace || []).map((rule: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border ${
+                          rule.fired ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{rule.clause}</div>
+                            <div className="text-xs text-gray-600 mt-1">{rule.rule_id}</div>
+                          </div>
+                          {rule.fired ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="details" className="space-y-4 mt-4">
+                  <div className="bg-gray-50 p-4 rounded-lg font-mono text-xs overflow-x-auto">
+                    <pre>{JSON.stringify(result.outputs || result, null, 2)}</pre>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
 
             {/* Export Button */}
             <Button variant="outline" className="w-full mt-6" size="sm">

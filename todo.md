@@ -107,6 +107,7 @@
 - [x] Consolidate Print Guide, Export PDF, Export Checklist, Beta Feedback into single 'Exp Results' popover on mobile
 - [x] Fix speech recognition failure in DrawingAnalysis.tsx - corrected indentation so all recognition event handlers are inside the try block
 - [x] Fix canvas image display bug in DrawingAnalysis.tsx - added imageLoaded check to drawCanvas function to ensure image is drawn only after fully loaded
+- [x] Fix "Cannot convert undefined or null to object" error in ComplianceAnalyzer - Updated to handle both LLM analysis and deterministic engine response formats with defensive guards
 
 ## 📚 Documentation Needs
 - [ ] User guide for Inspector Checklist

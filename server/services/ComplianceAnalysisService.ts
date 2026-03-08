@@ -8,6 +8,7 @@
 import { invokeLLM } from '../_core/llm';
 import { TRPCError } from '@trpc/server';
 import { checkRateLimit, rateLimiters, requestDeduplicator } from '../_core/security';
+import { RuleService } from '../ruleService';
 
 export interface AnalyzePlanInput {
   planDescription: string;
@@ -61,7 +62,7 @@ export class ComplianceAnalysisService {
 
     return requestDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        const prompt = this.buildPlanAnalysisPrompt(input);
+        const prompt = await this.buildPlanAnalysisPrompt(input);
 
         const response = await Promise.race([
           invokeLLM({
@@ -156,7 +157,7 @@ export class ComplianceAnalysisService {
 
     return requestDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        const prompt = this.buildDrawingAnalysisPrompt(input);
+        const prompt = await this.buildDrawingAnalysisPrompt(input);
 
         const response = await Promise.race([
           invokeLLM({
@@ -249,9 +250,36 @@ export class ComplianceAnalysisService {
   }
 
   /**
-   * Build prompt for plan analysis
+   * Build prompt for plan analysis with dynamic rules from database
    */
-  private buildPlanAnalysisPrompt(input: AnalyzePlanInput): string {
+  private async buildPlanAnalysisPrompt(input: AnalyzePlanInput): Promise<string> {
+    // Load relevant rules from database
+    const codeVersion = 'NBC_2025'; // Default to latest code version
+    const jurisdiction = input.province || 'Canada'; // Default to Canada if province not specified
+    const rules = await RuleService.getRulesForVersion(codeVersion, jurisdiction);
+    
+    // Filter rules by occupancy type and building type
+    const relevantRules = (rules || []).filter(rule => {
+      if (!rule || !rule.ruleData) return false;
+      const ruleData = rule.ruleData as any;
+      const applicableOccupancies = ruleData?.applicableOccupancies || [];
+      const applicableTypes = ruleData?.applicableBuildingTypes || [];
+      
+      const occupancyMatch = applicableOccupancies.length === 0 || 
+        applicableOccupancies.includes(input.occupancyType);
+      const typeMatch = applicableTypes.length === 0 || 
+        !input.buildingType || 
+        applicableTypes.includes(input.buildingType);
+      
+      return occupancyMatch && typeMatch;
+    });
+    
+    // Format rules for inclusion in prompt
+    const rulesText = (relevantRules || []).slice(0, 20).map(rule => {
+      if (!rule) return '';
+      return `- ${rule.ruleCode || 'UNKNOWN'}: ${rule.title || 'No title'}\n  Reference: ${rule.nbcReference || 'N/A'}`;
+    }).filter(text => text).join('\n');
+    
     return `
 Analyze the following building plan for code compliance:
 
@@ -262,7 +290,10 @@ Province: ${input.province || 'Alberta'}
 Plan Description:
 ${input.planDescription}
 
-Please identify all code violations according to the National Building Code and provincial amendments.
+Applicable Building Code Rules:
+${rulesText || 'National Building Code of Canada 2025'}
+
+Please identify all code violations according to the rules listed above and the National Building Code.
 For each violation, provide:
 1. The specific code section violated
 2. Severity level (critical/major/minor)
@@ -275,9 +306,9 @@ Return a JSON object with an infractions array and a summary.
   }
 
   /**
-   * Build prompt for drawing analysis
+   * Build prompt for drawing analysis with dynamic rules from database
    */
-  private buildDrawingAnalysisPrompt(input: AnalyzeDrawingInput): string {
+  private async buildDrawingAnalysisPrompt(input: AnalyzeDrawingInput): Promise<string> {
     const analysisTypeDescriptions = {
       structural: 'structural integrity, load paths, and support systems',
       egress: 'emergency egress routes, exit widths, and travel distances',
