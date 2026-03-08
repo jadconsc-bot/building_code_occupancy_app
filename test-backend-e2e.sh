@@ -58,7 +58,6 @@ test_dev_login() {
   
   if echo "$response" | grep -q '"success":true'; then
     log_pass "Dev login successful"
-    log_info "Response: $response"
   else
     log_fail "Dev login failed"
     log_info "Response: $response"
@@ -75,7 +74,6 @@ test_check_auth() {
   
   if echo "$response" | grep -q '"result"'; then
     log_pass "Auth status check successful"
-    log_info "User authenticated"
   else
     log_fail "Auth status check failed"
     log_info "Response: $response"
@@ -87,18 +85,11 @@ test_check_auth() {
 test_create_client() {
   log_test "Create encrypted client"
   
-  client_data='{
-    "name": "Test Client",
-    "email": "test@example.com",
-    "phone": "+1-555-0000",
-    "address": "123 Test St",
-    "company": "Test Company"
-  }'
-  
+  # Properly formatted tRPC request
   response=$(curl -s -X POST \
     -H "Content-Type: application/json" \
     -b "$COOKIE_JAR" \
-    -d "{\"0\":{\"json\":$client_data}}" \
+    -d '{"0":{"json":{"name":"Test Client","email":"test@example.com","phone":"+1-555-0000","address":"123 Test St","company":"Test Company"}}}' \
     "$BASE_URL/api/trpc/encryptedClients.create")
   
   if echo "$response" | grep -q '"id"'; then
@@ -144,7 +135,6 @@ test_get_client() {
   
   if echo "$response" | grep -q '"email"'; then
     log_pass "Client retrieved and decrypted"
-    log_info "Client email decrypted successfully"
   else
     log_fail "Client retrieval failed"
     log_info "Response: $response"
@@ -156,16 +146,11 @@ test_get_client() {
 test_create_project() {
   log_test "Create encrypted project"
   
-  project_data='{
-    "name": "Test Project",
-    "address": "456 Project Ave",
-    "notes": "Test project notes"
-  }'
-  
+  # Properly formatted tRPC request
   response=$(curl -s -X POST \
     -H "Content-Type: application/json" \
     -b "$COOKIE_JAR" \
-    -d "{\"0\":{\"json\":$project_data}}" \
+    -d '{"0":{"json":{"name":"Test Project","address":"456 Project Ave","notes":"Test project notes"}}}' \
     "$BASE_URL/api/trpc/encryptedProjects.create")
   
   if echo "$response" | grep -q '"id"'; then
@@ -206,7 +191,6 @@ test_search_clients() {
   
   if echo "$response" | grep -q '"name"'; then
     log_pass "Client search successful (decrypt-then-filter)"
-    log_info "Search returned matching clients"
   else
     log_fail "Client search failed"
     log_info "Response: $response"
@@ -223,21 +207,14 @@ test_update_client() {
     return 1
   fi
   
-  update_data='{
-    "id": "'$CLIENT_ID'",
-    "name": "Updated Client",
-    "email": "updated@example.com"
-  }'
-  
   response=$(curl -s -X POST \
     -H "Content-Type: application/json" \
     -b "$COOKIE_JAR" \
-    -d "{\"0\":{\"json\":$update_data}}" \
+    -d "{\"0\":{\"json\":{\"id\":\"$CLIENT_ID\",\"name\":\"Updated Client\",\"email\":\"updated@example.com\"}}}" \
     "$BASE_URL/api/trpc/encryptedClients.update")
   
   if echo "$response" | grep -q '"id"'; then
     log_pass "Client updated with re-encryption"
-    log_info "Updated fields are re-encrypted"
   else
     log_fail "Client update failed"
     log_info "Response: $response"
@@ -255,7 +232,6 @@ test_logout() {
   
   if echo "$response" | grep -q '"success":true'; then
     log_pass "Logout successful"
-    log_info "Session cookie cleared"
   else
     log_fail "Logout failed"
     log_info "Response: $response"
