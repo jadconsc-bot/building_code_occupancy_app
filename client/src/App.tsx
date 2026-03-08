@@ -11,6 +11,9 @@ import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
+import { RequiredLegalAcknowledgment } from "./components/RequiredLegalAcknowledgment";
+import { useLocalStorage } from "@/_core/hooks/useLocalStorage";
+import { useState, useEffect } from "react";
 import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
@@ -26,7 +29,7 @@ import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
 import { NavigationHeader } from "./components/NavigationHeader";
 
-function Router() {
+function MainApp() {
   // make sure to consider if you need authentication for certain routes
   return (
     <>
@@ -57,6 +60,24 @@ function Router() {
 //   to keep consistent foreground/background color across components
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
+function AppWithLegalAcknowledgment() {
+  const [hasAcknowledgedLegal, setHasAcknowledgedLegal] = useLocalStorage(
+    'legal_acknowledgment_v1',
+    false
+  );
+
+  const handleAcknowledged = () => {
+    setHasAcknowledgedLegal(true);
+  };
+
+  // Show disclaimer on first use or if not acknowledged
+  if (!hasAcknowledgedLegal) {
+    return <RequiredLegalAcknowledgment onAcknowledged={handleAcknowledged} />;
+  }
+
+  return <MainApp />;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -73,7 +94,7 @@ function App() {
                     <Toaster />
                     <OfflineIndicator />
                     <HelpPanel />
-                    <Router />
+                    <AppWithLegalAcknowledgment />
                   </TooltipProvider>
                 </HelpSystemProvider>
               </CalculationHistoryProvider>

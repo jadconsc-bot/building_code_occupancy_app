@@ -139,4 +139,43 @@ export const auditRouter = router({
         count: audits.length,
       };
     }),
+
+  /**
+   * Log legal disclaimer acknowledgment
+   * Called from RequiredLegalAcknowledgment component
+   * Records when user accepts legal terms
+   */
+  logAcknowledgment: protectedProcedure
+    .input(
+      z.object({
+        acknowledgmentType: z.enum(['LEGAL_DISCLAIMER']),
+        timestamp: z.date(),
+        userAgent: z.string(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const auditId = await auditTrailService.createAuditLog(
+        0,
+        ctx.user.id,
+        {
+          rule_trace: [],
+          compliance_flags: { isCompliant: true },
+        },
+        {
+          acknowledgmentType: input.acknowledgmentType,
+          timestamp: input.timestamp.toISOString(),
+          userAgent: input.userAgent,
+        },
+        {
+          name: 'Legal Acknowledgment',
+          engineer: ctx.user.name || 'Unknown',
+        }
+      );
+
+      return {
+        success: true,
+        message: 'Legal acknowledgment recorded',
+        auditId,
+      };
+    }),
 });

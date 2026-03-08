@@ -1,0 +1,8 @@
+{
+  "query": "INSERT INTO projects (userId, name, status, createdAt, updatedAt) VALUES (1, 'Test Project - Phase 2', 'active', NOW(), NOW())",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute INSERT INTO projects (userId, name, status, createdAt, updatedAt) VALUES (1, 'Test Project - Phase 2', 'active', NOW(), NOW())",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1364 (HY000) at line 1: Field 'occupancyCode' doesn't have a default value"
+  ]
+}
