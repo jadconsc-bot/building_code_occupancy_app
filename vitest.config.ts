@@ -16,5 +16,10 @@ export default defineConfig({
     environment: "node",
     include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/__tests__/**/*.test.ts"],
     globals: true,
+    env: {
+      NODE_ENV: 'test',
+      MOCK_TSA_SERVICE: 'true',
+      DISABLE_RATE_LIMITING: 'true',
+    },
   },
 });

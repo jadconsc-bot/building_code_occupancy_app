@@ -104,7 +104,11 @@ export function createEncryptedRecord<T extends Record<string, any>>(
     const value = record[field];
     if (value !== null && value !== undefined) {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-      encrypted[field] = encryptField(stringValue, String(field)) as any;
+      const encryptedData = encryptField(stringValue, String(field));
+      // Serialize encrypted data to base64 string for tRPC transport
+      if (encryptedData) {
+        encrypted[field] = Buffer.from(JSON.stringify(encryptedData)).toString('base64') as any;
+      }
     }
   }
 
@@ -127,8 +131,21 @@ export function decryptDatabaseRecord<T extends Record<string, any>>(
 
   for (const field of fieldsToDecrypt) {
     const value = record[field];
-    if (value && typeof value === 'object' && 'ciphertext' in value) {
-      const plaintext = decryptField(value as EncryptedData, String(field));
+    let encryptedData: EncryptedData | null = null;
+    
+    if (typeof value === 'string') {
+      try {
+        const decoded = Buffer.from(value, 'base64').toString('utf-8');
+        encryptedData = JSON.parse(decoded);
+      } catch (e) {
+        // Not base64-encoded EncryptedData
+      }
+    } else if (value && typeof value === 'object' && 'ciphertext' in value) {
+      encryptedData = value as EncryptedData;
+    }
+    
+    if (encryptedData) {
+      const plaintext = decryptField(encryptedData, String(field));
       if (plaintext) {
         decrypted[field] = plaintext as any;
       }

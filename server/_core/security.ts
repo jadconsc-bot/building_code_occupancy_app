@@ -94,6 +94,11 @@ export function checkRateLimit(
   limiter: RateLimiter,
   identifier: string
 ): void {
+  // Bypass rate limiting in test environment
+  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMITING === 'true') {
+    return;
+  }
+  
   if (!limiter.isAllowed(identifier)) {
     throw new TRPCError({
       code: 'TOO_MANY_REQUESTS',

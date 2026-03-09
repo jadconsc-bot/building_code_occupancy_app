@@ -98,6 +98,11 @@ export class RFC3161TimestampService {
     hashAlgorithm: string = 'sha256'
   ): Promise<RFC3161TimestampResponse> {
     try {
+      // Use mock TSA in test environment
+      if (process.env.NODE_ENV === 'test' || process.env.MOCK_TSA_SERVICE === 'true') {
+        return this.createMockTimestampResponse(data, hashAlgorithm);
+      }
+
       const tsaConfig = TSA_PROVIDERS[this.provider];
 
       // Create message imprint (hash of data)
@@ -135,6 +140,57 @@ export class RFC3161TimestampService {
       logger.error('Failed to request timestamp', { error, provider: this.provider });
       throw error;
     }
+  }
+
+  /**
+   * Create mock timestamp response for testing
+   */
+  private createMockTimestampResponse(
+    data: Buffer | string,
+    hashAlgorithm: string
+  ): RFC3161TimestampResponse {
+    const tsaConfig = TSA_PROVIDERS[this.provider];
+    const now = new Date();
+    const messageImprint = crypto
+      .createHash(hashAlgorithm)
+      .update(typeof data === 'string' ? data : data.toString())
+      .digest('hex');
+
+    return {
+      timestamp: now,
+      tsaName: tsaConfig.name,
+      tsaUrl: tsaConfig.url,
+      timestampToken: Buffer.from(
+        JSON.stringify({
+          tst: now.toISOString(),
+          serial: Math.random().toString(36).substring(7),
+          accuracy: 1,
+        })
+      ).toString('base64'),
+      messageImprint,
+      serialNumber: Math.random().toString(36).substring(7),
+      accuracy: {
+        seconds: 1,
+      },
+      ordering: false,
+      nonce: this.nonce,
+      tst: {
+        version: 1,
+        messageImprint: {
+          hashAlgorithm,
+          hashedMessage: messageImprint,
+        },
+        serialNumber: Math.random().toString(36).substring(7),
+        genTime: now,
+        accuracy: {
+          seconds: 1,
+        },
+        ordering: false,
+        nonce: this.nonce,
+        tsa: tsaConfig.url,
+        extensions: {},
+      },
+    };
   }
 
   /**

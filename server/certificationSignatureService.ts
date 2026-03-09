@@ -124,6 +124,7 @@ export class CertificateSignatureService {
 
       const signature = {
         algorithm: this.algorithm,
+        signature: signatureValue.toString('base64'),
         signatureValue: signatureValue.toString('base64'),
         certificateChain: this.certificateChain.map(cert => cert.toString('base64')),
         signedAt: new Date(),
