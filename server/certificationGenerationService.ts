@@ -197,7 +197,7 @@ export class CertificationGenerationService {
           generatedBy: userId,
           generatedAt: new Date(),
           signatureAlgorithm: signature.algorithm,
-          timestampAuthority: timestamp.tsaName,
+          timestampAuthority: timestamp.tsaName || 'unknown',
           encryptionAlgorithm: 'AES-256-GCM',
         },
       };
@@ -305,13 +305,15 @@ export class CertificationGenerationService {
    */
   getServiceInfo() {
     const algorithmInfo = this.signatureService.getAlgorithmInfo();
+    const tsaInfo = this.timestampService.getProviderInfo();
     return {
       supportedAlgorithms: ['RSA-SHA256', 'ECDSA-SHA256'],
       supportedTSAs: ['sectigo', 'digicert', 'globalsign'],
       signatureAlgorithm: algorithmInfo?.algorithm || 'RSA-SHA256',
+      timestampAuthority: tsaInfo?.name || 'sectigo',
       encryptionAlgorithm: 'AES-256-GCM',
       currentAlgorithm: algorithmInfo,
-      currentTimestampAuthority: this.timestampService.getProviderInfo(),
+      currentTimestampAuthority: tsaInfo,
     };
   }
 }
