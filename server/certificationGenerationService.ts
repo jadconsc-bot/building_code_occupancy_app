@@ -304,12 +304,14 @@ export class CertificationGenerationService {
    * Get service information
    */
   getServiceInfo() {
+    const algorithmInfo = this.signatureService.getAlgorithmInfo();
     return {
       supportedAlgorithms: ['RSA-SHA256', 'ECDSA-SHA256'],
       supportedTSAs: ['sectigo', 'digicert', 'globalsign'],
-      currentAlgorithm: this.signatureService.getAlgorithmInfo(),
-      currentTimestampAuthority: this.timestampService.getProviderInfo(),
+      signatureAlgorithm: algorithmInfo?.algorithm || 'RSA-SHA256',
       encryptionAlgorithm: 'AES-256-GCM',
+      currentAlgorithm: algorithmInfo,
+      currentTimestampAuthority: this.timestampService.getProviderInfo(),
     };
   }
 }
