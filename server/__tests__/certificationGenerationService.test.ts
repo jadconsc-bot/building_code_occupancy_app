@@ -205,8 +205,7 @@ describe('Phase 3: Certification Generation Service Tests', () => {
       expect(cert1.certificateId).not.toBe(cert2.certificateId);
     });
 
-    // Deferred to Phase 2: Full verification implementation
-    it.skip('should accept custom compliance data', async () => {
+    it('should accept custom compliance data', async () => {
       const customData = {
         snapshotId: 'custom-snapshot',
         projectId: 'project-123',
@@ -234,8 +233,7 @@ describe('Phase 3: Certification Generation Service Tests', () => {
   });
 
   describe('Certificate Verification', () => {
-    // Deferred to Phase 2: Full verification implementation
-    it.skip('should verify valid certificate', async () => {
+    it('should verify valid certificate', async () => {
       const certification = await certService.generateCertification(
         'snapshot-123',
         'user-456',
@@ -285,14 +283,12 @@ describe('Phase 3: Certification Generation Service Tests', () => {
         signer: { userId: 'user-456', userName: 'John' },
       };
 
-       const verification = certService.verifyCertification(invalidCert);
-      // Deferred to Phase 2: Full verification implementation
-      // expect(verification.isValid).toBe(false);
-      // expect(verification.issues.some((issue) => issue.includes('compliance data'))).toBe(true);
+      const verification = certService.verifyCertification(invalidCert);
+      expect(verification.isValid).toBe(false);
+      expect(verification.issues.some((issue) => issue.includes('compliance data'))).toBe(true);
     });
 
-    // Deferred to Phase 2: Full verification implementation
-    it.skip('should return verification report with all fields', async () => {
+    it('should return verification report with all fields', async () => {
       const certification = await certService.generateCertification(
         'snapshot-123',
         'user-456',
@@ -448,8 +444,7 @@ describe('Phase 3: Certification Generation Service Tests', () => {
   });
 
   describe('End-to-End Certification Workflow', () => {
-    // Deferred to Phase 2: Full verification implementation
-    it.skip('should complete full certification generation and verification', async () => {
+    it('should complete full certification generation and verification', async () => {
       // 1. Generate certification
       const certification = await certService.generateCertification(
         'snapshot-123',
@@ -499,8 +494,7 @@ describe('Phase 3: Certification Generation Service Tests', () => {
       });
     });
 
-    // Deferred to Phase 2: Legacy data migration
-    it.skip('should maintain backwards compatibility with complianceSnapshots', async () => {
+    it('should maintain backwards compatibility with complianceSnapshots', async () => {
       const legacyData = {
         snapshotId: 'legacy-snapshot-123',
         projectId: 'project-456',
@@ -523,8 +517,10 @@ describe('Phase 3: Certification Generation Service Tests', () => {
       );
 
       expect(certification.sourceSnapshotId).toBe('legacy-snapshot-123');
-      expect(certification.compliance.projectId).toBe('project-456');
-      expect(certification.compliance.rulesetId).toBe('nbc_ae_2023_v1');
+      // Note: compliance data is encrypted, so we just verify the structure exists
+      expect(certification.encryptedCompliance).toBeDefined();
+      expect(certification.encryptedCompliance.iv).toBeDefined();
+      expect(certification.encryptedCompliance.ciphertext).toBeDefined();
     });
   });
 
@@ -560,8 +556,7 @@ describe('Phase 3: Certification Generation Service Tests', () => {
       expect(certification.signer.userId).toBe('user-456');
     });
 
-    // Deferred to Phase 2: Full verification implementation
-    it.skip('should handle verification of corrupted certificate', () => {
+    it('should handle verification of corrupted certificate', () => {
       const corruptedCert = {
         version: '1.0',
         certificateId: 'CERT-corrupted',

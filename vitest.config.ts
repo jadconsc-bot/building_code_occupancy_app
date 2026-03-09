@@ -21,7 +21,7 @@ export default defineConfig({
       NODE_ENV: 'test',
       MOCK_TSA_SERVICE: 'true',
       DISABLE_RATE_LIMITING: 'true',
-      VERIFY_CERTIFICATES: 'false',
+      VERIFY_CERTIFICATES: 'true',
     },
   },
 });
