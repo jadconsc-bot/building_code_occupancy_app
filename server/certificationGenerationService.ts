@@ -38,6 +38,12 @@ export class CertificationGenerationService {
   ) {
     this.signatureService = new CertificateSignatureService(signatureAlgorithm);
     this.timestampService = createRFC3161TimestampService(tsaProvider);
+    
+    // Auto-initialize with test keys in test environment
+    if (process.env.NODE_ENV === 'test') {
+      const { publicKey, privateKey } = generateRSAKeyPair();
+      this.signatureService.initializeWithKeyPair(privateKey, publicKey);
+    }
   }
 
   /**
