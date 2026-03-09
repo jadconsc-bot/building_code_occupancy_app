@@ -5,9 +5,9 @@ import { AlertCircle, RotateCcw, Check } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 interface SignaturePadProps {
-  auditId: string;
+  auditId?: string;
   engineerName: string;
-  onSignatureComplete?: () => void;
+  onSignatureComplete?: (signatureData: string) => void;
 }
 
 export function SignaturePad({
@@ -134,12 +134,12 @@ export function SignaturePad({
           ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
       }
-      onSignatureComplete?.();
+      onSignatureComplete?.(signatureImage);
     } catch (error) {
       console.error('Failed to sign audit:', error);
       // Still mark as signed even if notification fails
       setIsSigned(true);
-      onSignatureComplete?.();
+      onSignatureComplete?.(canvas.toDataURL('image/png'));
     } finally {
       setIsSubmitting(false);
     }

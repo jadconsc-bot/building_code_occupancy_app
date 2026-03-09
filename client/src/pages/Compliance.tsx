@@ -14,7 +14,7 @@ import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport } from "@/components/CompliancePathwayReport";
 import { AuditTrailViewer } from "@/components/AuditTrailViewer";
-// import { SignaturePad } from "@/components/SignaturePad"; // Commented out - not yet wired
+import { SignaturePad } from "@/components/SignaturePad";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,37 @@ export default function CompliancePage() {
   const [engineerName, setEngineerName] = useState('John Smith');
   const [engineerEmail, setEngineerEmail] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+
+  // Decision 1: Evaluate compliance deterministically
+  const evaluateComplianceMutation = trpc.compliance.evaluateCompliance.useMutation({
+    onSuccess: (data) => {
+      console.log('Compliance evaluation successful:', data);
+    },
+  });
+
+  // Decision 1: Interpret building code clauses
+  const interpretRulesMutation = trpc.compliance.interpretRules.useMutation({
+    onSuccess: (data) => {
+      console.log('Rules interpretation successful:', data);
+    },
+  });
+
+  // Decision 3: Submit for professional review
+  const submitForReviewMutation = trpc.compliance.submitForReview.useMutation({
+    onSuccess: (data) => {
+      console.log('Submitted for review:', data);
+      setShowSignaturePad(true);
+    },
+  });
+
+  // Decision 3: Sign review with digital signature
+  const signReviewMutation = trpc.compliance.signReview.useMutation({
+    onSuccess: (data) => {
+      console.log('Review signed successfully:', data);
+      setShowSignaturePad(false);
+    },
+  });
 
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
     onSuccess: (data) => {
@@ -71,11 +102,33 @@ export default function CompliancePage() {
     }
 
     try {
-      // Audit log creation coming in Phase 2
-      console.log('Creating audit trail for project:', projectName);
-      // await createAuditMutation.mutateAsync({...});
+      // Submit for professional review (Decision 3)
+      await submitForReviewMutation.mutateAsync({
+        snapshotId: complianceResult.snapshotId || 'snapshot-' + Date.now(),
+        projectId,
+        notes: `Compliance analysis for ${projectName}`,
+      });
     } catch (error) {
       console.error('Failed to create audit:', error);
+    }
+  };
+
+  const handleSignatureComplete = async (signatureData: string) => {
+    if (!complianceResult) {
+      console.error('No compliance result to sign');
+      return;
+    }
+
+    try {
+      // Sign review with digital signature (Decision 3)
+      await signReviewMutation.mutateAsync({
+        snapshotId: complianceResult.snapshotId || 'snapshot-' + Date.now(),
+        signature: signatureData,
+        signerRole: 'engineer',
+        licenseNumber: licenseNumber || undefined,
+      });
+    } catch (error) {
+      console.error('Failed to sign review:', error);
     }
   };
 
@@ -224,16 +277,15 @@ export default function CompliancePage() {
             {auditId && (
               <div className="space-y-4">
                 <AuditTrailViewer projectId={projectId} />
-                {/* SignaturePad commented out - not yet wired
-                <SignaturePad
-                  auditId={auditId}
-                  engineerName={engineerName}
-                  onSignatureComplete={() => {
-                    console.log('Signature completed');
-                  }}
-                />
-                */}
               </div>
+            )}
+
+            {/* Signature Pad - shown after submitting for review */}
+            {showSignaturePad && (
+              <SignaturePad
+                engineerName={engineerName}
+                onSignatureComplete={handleSignatureComplete}
+              />
             )}
           </div>
         </TabsContent>
