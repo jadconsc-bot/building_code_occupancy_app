@@ -18,6 +18,8 @@
 import { CertificateSignatureService, generateRSAKeyPair } from './certificationSignatureService';
 import { RFC3161TimestampService, createRFC3161TimestampService } from './rfc3161TimestampService';
 import { getEncryptionService } from './encryptionService';
+import { revocationService } from './certificateRevocationService';
+import { chainValidator } from './certificateChainValidator';
 import { logger } from './logger';
 
 /**
@@ -31,6 +33,8 @@ export class CertificationGenerationService {
   private signatureService: CertificateSignatureService;
   private timestampService: RFC3161TimestampService;
   private encryptionService = getEncryptionService();
+  private revocationService = revocationService;
+  private chainValidator = chainValidator;
 
   constructor(
     signatureAlgorithm: 'RSA-SHA256' | 'ECDSA-SHA256' = 'RSA-SHA256',
@@ -220,7 +224,125 @@ export class CertificationGenerationService {
   }
 
   /**
-   * Verify certification integrity
+   * Verify certification integrity (Phase 2: Full verification with revocation and chain validation)
+   */
+  async verifyCertificationFull(certification: any): Promise<{
+    isValid: boolean;
+    signatureValid: boolean;
+    timestampValid: boolean;
+    revocationValid: boolean;
+    chainValid: boolean;
+    issues: string[];
+  }> {
+    const issues: string[] = [];
+    let signatureValid = false;
+    let timestampValid = false;
+    let revocationValid = true;
+    let chainValid = true;
+
+    try {
+      // 1. Verify digital signature
+      signatureValid = this.signatureService.verifySignature(
+        {
+          version: certification.version,
+          certificateId: certification.certificateId,
+          generatedAt: certification.generatedAt,
+          sourceSnapshotId: certification.sourceSnapshotId,
+          legalDisclaimers: certification.legalDisclaimers,
+          compliance: certification.encryptedCompliance,
+          signer: certification.signer,
+        },
+        certification.digitalSignature
+      );
+
+      if (!signatureValid) {
+        issues.push('Digital signature verification failed');
+      }
+
+      // 2. Verify RFC 3161 timestamp
+      timestampValid = this.timestampService.verifyTimestamp(certification.rfc3161Timestamp);
+
+      if (!timestampValid) {
+        issues.push('RFC 3161 timestamp verification failed');
+      }
+
+      // 3. Phase 2: Check certificate revocation status
+      if (certification.certificateSerialNumber && certification.issuerName) {
+        const revocationResult = await this.revocationService.verifyCertificateNotRevoked(
+          certification.certificateSerialNumber,
+          certification.issuerName,
+          certification.crlUrl
+        );
+
+        revocationValid = revocationResult.isValid;
+        if (!revocationValid) {
+          issues.push(`Certificate revocation check failed: ${revocationResult.reason}`);
+        }
+      }
+
+      // 4. Phase 2: Validate certificate chain
+      if (certification.certificatePem) {
+        const chainResult = await this.chainValidator.validateChain(
+          certification.certificatePem,
+          certification.intermediatesCertificates || []
+        );
+
+        chainValid = chainResult.isValid;
+        if (!chainValid) {
+          issues.push(`Certificate chain validation failed: ${chainResult.issues.join(', ')}`);
+        }
+      }
+
+      // 5. Verify legal disclaimers are present
+      if (!certification.legalDisclaimers) {
+        issues.push('Legal disclaimers missing');
+      }
+
+      // 6. Verify encryption
+      if (!certification.encryptedCompliance) {
+        issues.push('Encrypted compliance data missing');
+      }
+
+      const isValid =
+        signatureValid &&
+        timestampValid &&
+        revocationValid &&
+        chainValid &&
+        issues.length === 0;
+
+      logger.info('Full certification verification completed (Phase 2)', {
+        certificateId: certification.certificateId,
+        isValid,
+        signatureValid,
+        timestampValid,
+        revocationValid,
+        chainValid,
+        issuesCount: issues.length,
+      });
+
+      return {
+        isValid,
+        signatureValid,
+        timestampValid,
+        revocationValid,
+        chainValid,
+        issues,
+      };
+    } catch (error) {
+      logger.error('Full certification verification failed', { error });
+      return {
+        isValid: false,
+        signatureValid,
+        timestampValid,
+        revocationValid: false,
+        chainValid: false,
+        issues: issues.concat(['Verification process failed: ' + (error instanceof Error ? error.message : String(error))]),
+      };
+    }
+  }
+
+  /**
+   * Verify certification integrity (MVP: Basic verification)
    */
   verifyCertification(certification: any): {
     isValid: boolean;
