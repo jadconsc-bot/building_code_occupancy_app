@@ -51,6 +51,11 @@
 
 ## 🚧 In Progress / Remaining Features
 
+### Certificate Management UI (Phase 4-6) - COMPLETED
+- [x] Phase 4: CertificateExport component with PDF/JSON/CSV export options
+- [x] Phase 5: PublicVerification component for certificate verification
+- [x] Phase 6: Route integration for /certificates path in App.tsx
+
 ### High Priority (Current Session)
 - [x] Quick-jump navigation within Building Code tab
   - Add sticky navigation bar with anchor links to major sections
@@ -4276,3 +4281,12 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [x] Create user guide for certificate generation
 - [x] Create developer guide for certificate integration
 - [x] Save final checkpoint
+
+## Certificate Management UI (Phase 3) - NEW
+- [ ] Create CertificateManagement page component with tabs
+- [ ] Create CertificateList component to display user certificates
+- [ ] Create CertificateGenerator component with form
+- [ ] Create CertificateExport component with PDF/JSON/CSV options
+- [ ] Create PublicVerification component for public verification
+- [ ] Wire components to 9 tRPC procedures
+- [ ] Test all components and verify backward compatibility

@@ -27,6 +27,7 @@ import CalculationVersioning from "./pages/CalculationVersioning";
 import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
+import CertificateManagement from "./pages/CertificateManagement";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function MainApp() {
@@ -45,6 +46,7 @@ function MainApp() {
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
         <Route path={"/verify"} component={VerificationPortal} />
+        <Route path={"/certificates"} component={CertificateManagement} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/404"} component={NotFound} />
