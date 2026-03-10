@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerDevOAuthRoutes } from "./devOAuthRoutes";
+import devAuthRouter from "./devAuthRouter";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import apiRoutes from "../routes";
@@ -41,6 +42,8 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // Development OAuth routes (if DEV_AUTH_MODE enabled) - MUST be BEFORE OAuth
   registerDevOAuthRoutes(app);
+  // Development auth routes (if DEV_AUTH_MODE enabled)
+  app.use('/api/dev-auth', devAuthRouter);
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // REST API routes

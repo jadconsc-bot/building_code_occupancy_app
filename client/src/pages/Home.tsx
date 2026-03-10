@@ -88,6 +88,7 @@ import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenera
 import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions, getComprehensiveSearchResults, getTabForKeyword } from "@/lib/searchKeywords";
 import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
+import { DevLogin } from "@/components/DevLogin";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -930,14 +931,18 @@ export default function Home() {
                   Logout ({user?.name || 'User'})
                 </Button>
               ) : (
-                <Button
-                  onClick={() => window.location.href = getLoginUrl()}
-                  variant="default"
-                  size="sm"
-                  className="text-xs bg-blue-600 hover:bg-blue-700"
-                >
-                  Login
-                </Button>
+                <div className="flex items-center gap-2">
+                  <DevLogin />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <Button
+                    onClick={() => window.location.href = getLoginUrl()}
+                    variant="default"
+                    size="sm"
+                    className="text-xs bg-blue-600 hover:bg-blue-700"
+                  >
+                    OAuth Login
+                  </Button>
+                </div>
               )}
               <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                 <SelectTrigger className="w-[80px] h-8 text-xs">
