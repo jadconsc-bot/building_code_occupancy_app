@@ -37,18 +37,24 @@ interface DevUser {
 const DEV_USERS: DevUser[] = [
   {
     id: 1,
+    email: "jadconsc@gmail.com",
+    password: "De3251ab",
+    name: "Senior Developer",
+  },
+  {
+    id: 2,
     email: "admin@dev.local",
     password: "admin123",
     name: "Admin User",
   },
   {
-    id: 2,
+    id: 3,
     email: "user1@dev.local",
     password: "user123",
     name: "Test User 1",
   },
   {
-    id: 3,
+    id: 4,
     email: "user2@dev.local",
     password: "user456",
     name: "Test User 2",
