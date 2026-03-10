@@ -4419,3 +4419,34 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Automated certificate renewal
 - [ ] Multi-signature support
 - [ ] Threshold cryptography for key management
+
+
+---
+
+## CRITICAL ISSUES AUDIT (March 10, 2026)
+
+### Navigation & Routing Issues
+- [ ] Compliance Checker returns 404 page
+- [ ] Occupancy link gives blank page
+- [ ] Projects link at top gives blank page
+- [ ] Rule Management link gives blank page
+- [ ] Calculation History link gives blank page
+
+### Button/Link Functionality Issues
+- [ ] Professional Calculator button does not work
+- [ ] New Project button on project checklist does not work
+- [ ] Add Tax ID button does not work
+- [ ] Change Plan button on billing does nothing
+- [ ] Cancel Subscription button shows warning but no action
+
+### Navigation Routing Issues
+- [ ] Project Analytics button takes user to Billing instead of Analytics
+- [ ] Create Scenario page shows raw code under "Input Data (JSON)" label
+
+### Theme Implementation Issues
+- [ ] New turquoise-blue color theme not applied systemwide
+- [ ] Theme only applied to few pages, not all components
+
+### Working Features (For Reference)
+- [x] Star Tutorial works
+- [x] Generate Report button works
