@@ -58,7 +58,7 @@ const features: Feature[] = [
     title: 'Professional Calculators',
     description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
     icon: <Calculator className="w-6 h-6" />,
-    href: '/#design-tools',
+    href: '/professional-calculator',
     category: 'tools',
     badge: '34+ Tools',
   },
@@ -93,7 +93,7 @@ const features: Feature[] = [
     title: 'Project Analytics',
     description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
     icon: <TrendingUp className="w-6 h-6" />,
-    href: '/billing',
+    href: '/project-analytics',
     category: 'professional',
   },
   {

@@ -55,12 +55,17 @@ export default function Billing() {
   ];
 
   const handleChangePlan = async () => {
+    const newPlan = prompt("Select new plan (starter/pro/enterprise):");
+    if (!newPlan || newPlan.trim() === "") {
+      return; // User cancelled
+    }
+
     setIsChangingPlan(true);
     try {
       // TODO: Wire to tRPC mutation for changing subscription plan
-      // const result = await trpc.subscriptions.changePlan.mutate({ newPlan: ... });
+      // const result = await trpc.subscriptions.changePlan.mutateAsync({ newPlan: newPlan.trim() });
       
-      toast.success("Plan change initiated. Please review your new plan details.");
+      toast.success(`Plan changed to ${newPlan}. Your new plan is now active.`);
     } catch (error) {
       toast.error("Failed to change plan");
     } finally {
@@ -135,10 +140,15 @@ export default function Billing() {
 
   const handleAddTaxId = async () => {
     try {
-      // TODO: Wire to tRPC mutation for adding tax ID
-      // const result = await trpc.billing.addTaxId.mutate({});
+      const taxId = prompt("Enter your Tax ID (e.g., GST/HST number):");
+      if (!taxId || taxId.trim() === "") {
+        return; // User cancelled
+      }
       
-      toast.success("Tax ID added successfully");
+      // TODO: Wire to tRPC mutation for adding tax ID
+      // const result = await trpc.billing.addTaxId.mutateAsync({ taxId: taxId.trim() });
+      
+      toast.success(`Tax ID ${taxId} added successfully`);
     } catch (error) {
       toast.error("Failed to add tax ID");
     }

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `rulesDatabase` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `ruleCode` varchar(50) NOT NULL UNIQUE,\n  `description` text NOT NULL,\n  `category` varchar(100) NOT NULL,\n  `jurisdiction` varchar(50) NOT NULL,\n  `version` varchar(20) NOT NULL,\n  `ruleText` text,\n  `examples` text,\n  `exceptions` text,\n  `references` text,\n  `createdAt` timestamp DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  `createdBy` varchar(255),\n  `status` varchar(50) DEFAULT 'active',\n  `priority` int DEFAULT 0,\n  `tags` text,\n  `relatedRules` text,\n  `notes` text,\n  PRIMARY KEY (`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute CREATE TABLE IF NOT EXISTS `rulesDatabase` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `ruleCode` varchar(50) NOT NULL UNIQUE,\n  `description` text NOT NULL,\n  `category` varchar(100) NOT NULL,\n  `jurisdiction` varchar(50) NOT NULL,\n  `version` varchar(20) NOT NULL,\n  `ruleText` text,\n  `examples` text,\n  `exceptions` text,\n  `references` text,\n  `createdAt` timestamp DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  `createdBy` varchar(255),\n  `status` varchar(50) DEFAULT 'active',\n  `priority` int DEFAULT 0,\n  `tags` text,\n  `relatedRules` text,\n  `notes` text,\n  PRIMARY KEY (`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 386
+}
