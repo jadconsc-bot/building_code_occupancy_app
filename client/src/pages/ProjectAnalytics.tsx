@@ -36,6 +36,7 @@ import {
   Shield,
   ArrowLeft,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,21 +49,48 @@ export default function ProjectAnalytics() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [selectedCalculation, setSelectedCalculation] = useState<any>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Fetch calculation details when modal opens
+  const { data: calculationDetails, isLoading: detailsLoading } = trpc.analytics.getCalculationDetails.useQuery(
+    { calculationId: selectedCalculation?.id || '', projectId: projectId || 0 },
+    { enabled: isDetailsOpen && !!selectedCalculation && !!projectId }
+  );
+
+  // Fetch all projects for selector
+  const { data: projects = [] } = trpc.projects.list.useQuery();
 
   // Get project ID from URL or use first project
   useEffect(() => {
     if (user?.id && !projectId) {
-      // Try to get projectId from URL params or use first project
       const params = new URLSearchParams(window.location.search);
       const id = params.get('projectId');
       if (id) {
         setProjectId(parseInt(id));
+      } else if (projects.length > 0) {
+        setProjectId(projects[0].id);
       } else {
-        // Default to project 1 for now - in production, show project selector
         setProjectId(1);
       }
     }
-  }, [user, projectId]);
+  }, [user, projectId, projects]);
+
+  const handleProjectChange = (newProjectId: string) => {
+    const id = parseInt(newProjectId);
+    setProjectId(id);
+    window.history.pushState({}, '', `?projectId=${id}`);
+  };
+
+  const handleViewCalculationDetails = (calc: any) => {
+    setSelectedCalculation(calc);
+    setIsDetailsOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsDetailsOpen(false);
+    setSelectedCalculation(null);
+  };
 
   // Fetch project analytics data using tRPC
   const { data: analyticsData, isLoading, error } = trpc.analytics.getProjectAnalytics.useQuery(
@@ -152,13 +180,81 @@ export default function ProjectAnalytics() {
   });
 
   const handleExportPDF = () => {
-    toast.success('Exporting project analytics as PDF...');
-    // TODO: Implement PDF export functionality using manus-md-to-pdf
+    try {
+      const markdownContent = generateMarkdownReport();
+      const blob = new Blob([markdownContent], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.name}-analytics-${new Date().toISOString().split('T')[0]}.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Report downloaded as Markdown');
+    } catch (error) {
+      toast.error('Failed to export PDF');
+    }
   };
 
   const handleExportCSV = () => {
-    toast.success('Exporting calculations as CSV...');
-    // TODO: Implement CSV export functionality
+    try {
+      const csvContent = generateCSVContent();
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.name}-calculations-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Calculations exported as CSV');
+    } catch (error) {
+      toast.error('Failed to export CSV');
+    }
+  };
+
+  const generateMarkdownReport = () => {
+    const lines: string[] = [];
+    lines.push('# Project Analytics Report');
+    lines.push(`## ${project.name}`);
+    lines.push(`**Address:** ${project.address || 'N/A'}`);
+    lines.push(`**Occupancy Code:** ${project.occupancyCode}`);
+    lines.push(`**Generated:** ${new Date().toLocaleString()}`);
+    lines.push('');
+    lines.push('## Summary Statistics');
+    lines.push(`- **Total Calculations:** ${stats.total}`);
+    lines.push(`- **Verified:** ${stats.verified}`);
+    lines.push(`- **Compliant:** ${stats.compliant}`);
+    lines.push(`- **Non-Compliant:** ${stats.nonCompliant}`);
+    lines.push(`- **Pending:** ${stats.pending}`);
+    lines.push('');
+    lines.push('## Calculations');
+    lines.push('| Name | Type | Result | Status | Verified | Date |');
+    lines.push('|------|------|--------|--------|----------|------|');
+    calculations.forEach(calc => {
+      lines.push(`| ${calc.name} | ${calc.type} | ${calc.result.value} ${calc.result.unit} | ${calc.complianceStatus} | ${calc.verified ? 'Yes' : 'No'} | ${new Date(calc.createdAt).toLocaleDateString()} |`);
+    });
+    return lines.join('\n');
+  };
+
+  const generateCSVContent = () => {
+    const headers = ['ID', 'Name', 'Type', 'Result Value', 'Result Unit', 'Status', 'Verified', 'Date'];
+    const rows: string[] = [headers.map(h => `"${h}"`).join(',')];
+    calculations.forEach(calc => {
+      rows.push([
+        calc.id,
+        `"${calc.name}"`,
+        calc.type,
+        calc.result.value,
+        calc.result.unit,
+        calc.complianceStatus,
+        calc.verified ? 'Yes' : 'No',
+        new Date(calc.createdAt).toISOString(),
+      ].join(','));
+    });
+    return rows.join('\n');
   };
 
   const getStatusBadge = (status: string) => {
@@ -200,7 +296,24 @@ export default function ProjectAnalytics() {
           </Button>
           
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex-1">
+              {projects.length > 1 && (
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-muted-foreground">Select Project:</label>
+                  <Select value={projectId?.toString() || ''} onValueChange={handleProjectChange}>
+                    <SelectTrigger className="w-full max-w-xs mt-1">
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((proj: any) => (
+                        <SelectItem key={proj.id} value={proj.id.toString()}>
+                          {proj.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <h1 className="text-4xl font-bold mb-2">{project.name}</h1>
               <p className="text-muted-foreground">{project.address}</p>
               <div className="flex items-center gap-4 mt-3 text-sm">
@@ -475,7 +588,11 @@ export default function ProjectAnalytics() {
                         </TableRow>
                       ) : (
                         filteredCalculations.map((calc) => (
-                          <TableRow key={calc.id} className="hover:bg-muted/50">
+                          <TableRow 
+                            key={calc.id} 
+                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => handleViewCalculationDetails(calc)}
+                          >
                             <TableCell>
                               <div>
                                 <p className="font-medium">{calc.name}</p>
@@ -575,6 +692,103 @@ export default function ProjectAnalytics() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Calculation Details Modal */}
+        {isDetailsOpen && selectedCalculation && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4 border-b">
+                <div>
+                  <CardTitle>Calculation Details</CardTitle>
+                  <CardDescription>{selectedCalculation.type}</CardDescription>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                {detailsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                ) : calculationDetails ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Calculation Name</p>
+                        <p className="text-base font-semibold">{calculationDetails.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Type</p>
+                        <p className="text-base font-semibold">{calculationDetails.type}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Created By</p>
+                        <p className="text-base font-semibold">{calculationDetails.createdBy}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Created Date</p>
+                        <p className="text-base font-semibold">
+                          {calculationDetails.createdAt ? new Date(calculationDetails.createdAt).toLocaleString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Verification Status</p>
+                      <div className="flex items-center gap-2">
+                        {calculationDetails.verified ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <span className="font-semibold text-green-600">Verified</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-5 h-5 text-yellow-600" />
+                            <span className="font-semibold text-yellow-600">Pending Verification</span>
+                          </>
+                        )}
+                      </div>
+                      {calculationDetails.signature && (
+                        <p className="text-xs text-muted-foreground mt-2 break-all font-mono">
+                          Signature: {calculationDetails.signature.substring(0, 50)}...
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Result Data</p>
+                      <div className="bg-muted p-3 rounded-lg font-mono text-sm overflow-x-auto">
+                        <pre>{JSON.stringify(calculationDetails.resultData, null, 2)}</pre>
+                      </div>
+                    </div>
+
+                    {calculationDetails.calculationTrace && (
+                      <div className="border-t pt-4">
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Calculation Trace</p>
+                        <div className="bg-muted p-3 rounded-lg font-mono text-sm overflow-x-auto max-h-40">
+                          <pre>{calculationDetails.calculationTrace}</pre>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Failed to load calculation details
+                  </div>
+                )}
+              </CardContent>
+              <div className="border-t p-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={handleCloseModal}>
+                  Close
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

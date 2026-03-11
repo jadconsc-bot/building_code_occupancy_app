@@ -223,6 +223,98 @@ export const analyticsRouter = router({
     }),
 
   /**
+   * Get detailed information about a specific calculation
+   */
+  getCalculationDetails: protectedProcedure
+    .input(z.object({ calculationId: z.string(), projectId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Database not available',
+        });
+      }
+
+      try {
+        // Verify project ownership
+        const project = await db
+          .select()
+          .from(projects)
+          .where(
+            and(
+              eq(projects.id, input.projectId),
+              eq(projects.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!project || project.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found',
+          });
+        }
+
+        // Fetch the specific calculation
+        const calculation = await db
+          .select()
+          .from(calculationResults)
+          .where(
+            and(
+              eq(calculationResults.id, input.calculationId),
+              eq(calculationResults.projectId, input.projectId)
+            )
+          )
+          .limit(1);
+
+        if (!calculation || calculation.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Calculation not found',
+          });
+        }
+
+        const calc = calculation[0];
+        const creator = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, calc.createdBy))
+          .limit(1);
+
+        // Parse result data
+        let resultData;
+        try {
+          resultData = JSON.parse(calc.resultData);
+        } catch {
+          resultData = { error: 'Failed to parse result data' };
+        }
+
+        return {
+          id: calc.id,
+          type: calc.calculatorType,
+          name: `${calc.calculatorType} Calculation`,
+          description: `Calculation performed using ${calc.calculatorType} calculator`,
+          createdAt: calc.createdAt,
+          createdBy: creator[0]?.name || 'Unknown',
+          verified: calc.signatureVerified,
+          signature: calc.cryptographicSignature || null,
+          resultData,
+          calculationTrace: calc.calculationTrace || '',
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error('[Analytics] Error fetching calculation details:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch calculation details',
+        });
+      }
+    }),
+
+  /**
    * Get compliance status for a project
    */
   getProjectCompliance: protectedProcedure

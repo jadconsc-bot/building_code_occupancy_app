@@ -1,17 +1,52 @@
+import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
 import { ProjectChecklistDashboard } from '@/components/ProjectChecklistDashboard';
 import { ProjectManager } from '@/components/ProjectManager';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 
 export default function ProjectChecklistsPage() {
   const { user, loading } = useAuth();
   const { activeProjectId, setActiveProjectId, getAllProjects, isLoading: projectsLoading } = useProject();
   const [, setLocation] = useLocation();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    occupancyCode: '',
+  });
   const projects = getAllProjects();
+
+  // Create project mutation
+  const createProjectMutation = trpc.projects.create.useMutation({
+    onSuccess: (newProject) => {
+      toast.success('Project created successfully');
+      setIsCreateOpen(false);
+      setFormData({ name: '', occupancyCode: '' });
+      setActiveProjectId(newProject.id);
+    },
+    onError: (error) => {
+      toast.error('Failed to create project: ' + error.message);
+    },
+  });
+
+  const handleCreateProject = async () => {
+    if (!formData.name.trim() || !formData.occupancyCode.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    await createProjectMutation.mutateAsync({
+      name: formData.name,
+      occupancyCode: formData.occupancyCode,
+    });
+  };
 
   if (loading) {
     return (
@@ -103,10 +138,56 @@ export default function ProjectChecklistsPage() {
                   <p className="text-sm text-muted-foreground">No projects yet</p>
                 )}
 
-                <Button variant="outline" className="w-full gap-2 mt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2 mt-4"
+                  onClick={() => setIsCreateOpen(true)}
+                >
                   <Plus size={16} />
                   New Project
                 </Button>
+
+                {/* Create Project Dialog */}
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Create New Project</DialogTitle>
+                      <DialogDescription>Add a new building code compliance project</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="project-name">Project Name *</Label>
+                        <Input
+                          id="project-name"
+                          placeholder="e.g., Downtown Office Tower"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="occupancy-code">Occupancy Code *</Label>
+                        <Input
+                          id="occupancy-code"
+                          placeholder="e.g., A, B, C, D, E, F"
+                          value={formData.occupancyCode}
+                          onChange={(e) => setFormData({ ...formData, occupancyCode: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleCreateProject}
+                          disabled={createProjectMutation.isPending}
+                        >
+                          {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </CardContent>
             </Card>
           </div>

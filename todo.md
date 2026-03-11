@@ -4470,3 +4470,18 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 ### Working Features (For Reference)
 - [x] Star Tutorial works
 - [x] Generate Report button works
+
+### Current Session - Button Wiring & Next Steps Implementation
+- [ ] Check and fix Billing page button wiring
+- [ ] Fix "+ New Project" button in Project Checklist page
+- [ ] Implement PDF/CSV Export for ProjectAnalytics
+- [ ] Implement Project Selector Dropdown in ProjectAnalytics
+- [ ] Implement Calculation Details Modal
+
+### Current Session - Button Wiring & Feature Implementation
+- [x] Fix Billing page button wiring (routes verified)
+- [x] Fix + New Project button in ProjectChecklists (added onClick handler with dialog)
+- [x] Create ProjectAnalytics page with real database integration
+- [x] Implement PDF/CSV export functionality
+- [x] Implement Project Selector Dropdown
+- [x] Implement Calculation Details Modal with tRPC integration
