@@ -29,6 +29,7 @@ import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
 import CertificateManagement from "./pages/CertificateManagement";
 import ProjectAnalytics from "./pages/ProjectAnalytics";
+import SharedWithMe from "./pages/SharedWithMe";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function MainApp() {
@@ -49,6 +50,7 @@ function MainApp() {
         <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/certificates"} component={CertificateManagement} />
         <Route path={"/project-analytics"} component={ProjectAnalytics} />
+        <Route path={"/shared-with-me"} component={SharedWithMe} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/404"} component={NotFound} />

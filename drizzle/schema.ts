@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, json, longtext } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, json, longtext, unique } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -964,3 +964,47 @@ export const batchComparisons = mysqlTable("batchComparisons", {
 
 export type BatchComparison = typeof batchComparisons.$inferSelect;
 export type InsertBatchComparison = typeof batchComparisons.$inferInsert;
+
+
+/**
+ * Project Shares - Tracks user-to-user project sharing
+ * Immutable record: once created, can only be soft-deleted via revokedAt
+ */
+export const projectShares = mysqlTable(
+  "projectShares",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("projectId").notNull(), // Project being shared
+    sharedByUserId: int("sharedByUserId").notNull(), // User who initiated the share
+    sharedWithUserId: int("sharedWithUserId").notNull(), // User receiving access
+    createdAt: timestamp("createdAt").defaultNow().notNull(), // When share was granted
+    revokedAt: timestamp("revokedAt"), // When share was revoked (NULL = active)
+  },
+  (table) => ({
+    // Prevent duplicate active shares of same project with same user
+    uniqueActiveShare: unique("unique_active_share").on(table.projectId, table.sharedWithUserId),
+  })
+);
+
+export type ProjectShare = typeof projectShares.$inferSelect;
+export type InsertProjectShare = typeof projectShares.$inferInsert;
+
+/**
+ * Collaboration Audit Log - Immutable audit trail of all collaboration actions
+ * Records: SHARED, UNSHARED, VIEWED, MODIFIED
+ * Never updated, only inserted
+ */
+export const collaborationAuditLog = mysqlTable("collaborationAuditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(), // Project involved in action
+  action: mysqlEnum("action", ["SHARED", "UNSHARED", "VIEWED", "MODIFIED"]).notNull(), // Type of collaboration action
+  sharedByUserId: int("sharedByUserId"), // User who performed the action
+  sharedWithUserId: int("sharedWithUserId"), // User affected by the action
+  details: json("details"), // Additional context (e.g., {reason: "...", ipAddress: "..."})
+  createdAt: timestamp("createdAt").defaultNow().notNull(), // Immutable timestamp
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("userAgent"), // Browser/client info for audit trail
+});
+
+export type CollaborationAuditLog = typeof collaborationAuditLog.$inferSelect;
+export type InsertCollaborationAuditLog = typeof collaborationAuditLog.$inferInsert;
