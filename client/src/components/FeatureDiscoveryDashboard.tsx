@@ -93,7 +93,7 @@ const features: Feature[] = [
     title: 'Project Analytics',
     description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
     icon: <TrendingUp className="w-6 h-6" />,
-    href: '/billing',
+    href: '/project-analytics',
     category: 'professional',
   },
   {
@@ -104,6 +104,22 @@ const features: Feature[] = [
     href: '/terms',
     category: 'core',
   },
+];
+
+export const validRoutes = [
+  '/',
+  '/project-checklists',
+  '/compliance/:projectId',
+  '/calculation-history',
+  '/clients',
+  '/sharing',
+  '/versions',
+  '/billing',
+  '/verify',
+  '/certificates',
+  '/project-analytics',
+  '/admin',
+  '/terms',
 ];
 
 export function FeatureDiscoveryDashboard() {

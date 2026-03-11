@@ -1,4 +1,3 @@
-import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -9,6 +8,7 @@ import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } 
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
+import { COOKIE_NAME } from "../shared/const";
 import { complianceRouter } from "./routers/complianceRouter";
 import { projectRouter } from "./routers/projectRouter";
 import { subscriptionRouter } from "./routers/subscriptionRouter";
@@ -25,6 +25,7 @@ import { professionalReviewRouter } from "./professionalReviewRouter";
 import { encryptedClientsRouter } from "./routers/encryptedClientsRouter";
 import { encryptedProjectsRouter } from "./routers/encryptedProjectsRouter";
 import { certificationRouter } from "./routers/certificationRouter";
+import { analyticsRouter } from "./routers/analyticsRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -51,6 +52,7 @@ export const appRouter = router({
   encryptedClients: encryptedClientsRouter,
   encryptedProjects: encryptedProjectsRouter,
   certification: certificationRouter,
+  analytics: analyticsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
