@@ -8,7 +8,7 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
-import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
+import { AuthHydrationWrapper } from "./components/AuthHydrationWrapper";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import { RequiredLegalAcknowledgment } from "./components/RequiredLegalAcknowledgment";
@@ -83,27 +83,27 @@ function AppWithLegalAcknowledgment() {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthHydrationProvider>
-        <ThemeProvider
-          defaultTheme="light"
-          // switchable
-        >
-          <ProjectProvider>
-            <ComparisonProvider>
-              <CalculationHistoryProvider>
-                <HelpSystemProvider>
-                  <TooltipProvider>
+      <ThemeProvider
+        defaultTheme="light"
+        // switchable
+      >
+        <ProjectProvider>
+          <ComparisonProvider>
+            <CalculationHistoryProvider>
+              <HelpSystemProvider>
+                <TooltipProvider>
+                  <AuthHydrationWrapper>
                     <Toaster />
                     <OfflineIndicator />
                     <HelpPanel />
                     <AppWithLegalAcknowledgment />
-                  </TooltipProvider>
-                </HelpSystemProvider>
-              </CalculationHistoryProvider>
-            </ComparisonProvider>
-          </ProjectProvider>
-        </ThemeProvider>
-      </AuthHydrationProvider>
+                  </AuthHydrationWrapper>
+                </TooltipProvider>
+              </HelpSystemProvider>
+            </CalculationHistoryProvider>
+          </ComparisonProvider>
+        </ProjectProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

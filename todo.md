@@ -49,6 +49,12 @@
 - [x] Alberta Building Code differences highlighted
 - [x] Region selector (Alberta/National)
 
+### Bug Fixes (Current Session)
+- [x] Fix React context initialization errors (AuthHydrationProvider hook issue)
+  - Moved auth hydration logic to AuthHydrationWrapper component
+  - Fixed hook call order to respect React Rules of Hooks
+  - Ensured tRPC provider is initialized before auth hooks are called
+
 ## 🚧 In Progress / Remaining Features
 
 ### Certificate Management UI (Phase 4-6) - COMPLETED
