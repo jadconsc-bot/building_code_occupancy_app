@@ -54,6 +54,13 @@
   - Moved auth hydration logic to AuthHydrationWrapper component
   - Fixed hook call order to respect React Rules of Hooks
   - Ensured tRPC provider is initialized before auth hooks are called
+- [x] Fix broken "Access" buttons on Dashboard (Professional Calculators & Project Checklist)
+  - Updated FeatureDiscoveryDashboard.tsx with correct route mappings
+  - Professional Calculators: /professional-calculator → /
+  - Rule Management: /rule-management → /admin
+  - Project Analytics: /project-analytics → /billing
+  - Documentation: /documentation → /terms
+  - Added 12 comprehensive tests to verify all button routes are valid
 
 ## 🚧 In Progress / Remaining Features
 
