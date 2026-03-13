@@ -12,7 +12,7 @@
  * Revision Control: Version tracking for algorithm changes
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { logger } from './logger';
 import { DigitalSignatureSchema, ComplianceCertificateSchema } from './certificationFormat.schema';
 

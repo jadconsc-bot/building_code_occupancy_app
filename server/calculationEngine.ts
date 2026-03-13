@@ -5,7 +5,7 @@
  * Provides immutable storage, audit trails, and legal defensibility
  */
 
-import crypto from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 /**
  * Calculation Engine for server-side execution with signing
@@ -33,7 +33,7 @@ export class CalculationEngine {
     });
 
     // Create SHA-256 hash
-    const hash = crypto.createHash('sha256').update(data).digest('hex');
+    const hash = createHash('sha256').update(data).digest('hex');
     
     // In production, sign with RSA private key
     // For demo, just return the hash
@@ -51,7 +51,7 @@ export class CalculationEngine {
       timestamp: Date.now(),
     });
 
-    const hash = crypto.createHash('sha256').update(data).digest('hex');
+    const hash = createHash('sha256').update(data).digest('hex');
     return hash === signature;
   }
 
@@ -102,7 +102,7 @@ export class CalculationEngine {
     const trace = this.generateTrace(calculatorType, inputs, outputs);
 
     return {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       calculatorType,
       inputs,
       outputs,
