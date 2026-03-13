@@ -12,7 +12,7 @@
  * - Legal audit trail for all revocation checks
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { logger } from './logger';
 
 /**

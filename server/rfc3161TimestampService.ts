@@ -14,7 +14,7 @@
  * Revision Control: Version tracking for timestamp format changes
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import https from 'https';
 import { logger } from './logger';
 

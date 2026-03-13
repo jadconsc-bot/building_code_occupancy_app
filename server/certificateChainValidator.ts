@@ -13,7 +13,7 @@
  * - Legal audit trail for all validations
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { logger } from './logger';
 
 /**

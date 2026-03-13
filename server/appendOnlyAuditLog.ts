@@ -8,7 +8,7 @@
  * - Legal defensibility for compliance records
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 interface AuditLogEntry {
   id: string;

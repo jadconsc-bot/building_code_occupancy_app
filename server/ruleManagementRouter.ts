@@ -9,7 +9,7 @@ import {
   digitalSignatures 
 } from "../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { TRPCError } from "@trpc/server";
 
 /**

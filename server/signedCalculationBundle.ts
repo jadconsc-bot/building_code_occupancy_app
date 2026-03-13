@@ -23,7 +23,7 @@
  * - HOW it was signed
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { logger } from './logger';
 import { timestampAuthority } from './rfc3161TimestampAuthority';
 import { kmsKeyManager } from './awsKmsKeyManager';

@@ -14,7 +14,7 @@
  * 6. Audit trail records the review and signature
  */
 
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 export interface ProfessionalReviewRequest {
   snapshotId: string;

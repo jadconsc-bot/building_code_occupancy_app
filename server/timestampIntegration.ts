@@ -5,7 +5,7 @@
  * Provides court-defensible timestamps for legally binding decisions
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 interface TimestampedSignature {
   signature: string;

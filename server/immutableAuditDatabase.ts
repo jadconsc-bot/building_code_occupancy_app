@@ -13,7 +13,7 @@
 
 import { db } from './db';
 import { logger } from './logger';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 /**
  * Audit record structure

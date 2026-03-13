@@ -12,7 +12,7 @@
  * - User agent data
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { logger } from './logger';
 
 export interface EncryptedData {

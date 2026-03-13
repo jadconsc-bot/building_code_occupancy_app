@@ -16,7 +16,7 @@
  */
 
 import { logger } from './logger';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 /**
  * Version information for a calculation

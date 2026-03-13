@@ -18,7 +18,7 @@
  * Status: Development Only
  */
 
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 /**
  * Development user interface

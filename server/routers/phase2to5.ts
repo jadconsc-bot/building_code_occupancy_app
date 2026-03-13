@@ -19,7 +19,7 @@ import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { v4 as uuidv4 } from "uuid";
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 /**
  * ============================================================================

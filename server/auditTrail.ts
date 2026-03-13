@@ -4,7 +4,7 @@
  * for legal defensibility and professional liability protection
  */
 
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 interface AuditEntry {
   timestamp: Date;

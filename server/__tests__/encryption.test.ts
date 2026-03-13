@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { EncryptionService } from '../_core/encryption/EncryptionService';
 import { EncryptedFieldsHelper, ENCRYPTED_FIELDS_CONFIG } from '../_core/encryption/EncryptedFieldsHelper';
 import { decryptDatabaseRecord, decryptRecords, createEncryptedRecord } from '../encryptedFieldsHelper';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // Skip encryption tests in MVP - will be fully tested in Phase 2
 const skipEncryptionTests = process.env.VERIFY_CERTIFICATES === 'false';
