@@ -4496,3 +4496,76 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Add Share button to Projects page
 - [ ] Add Share button to ProjectAnalytics page
 - [ ] Add "Shared with Me" link to navigation
+
+
+## 🔧 Current Session - Dev Login & Bug Fixes (March 14, 2026)
+
+### ✅ Completed This Session
+- [x] Fixed crypto imports across 22 files (Node.js compatibility)
+- [x] Set up local MySQL database for development
+- [x] Created `.env` file with dev auth configuration
+- [x] Implemented DEV_AUTH_MODE for local testing
+- [x] Fixed routing to display Home page with DevLogin form
+- [x] Increased PWA cache limit to 10 MB for large app bundle
+- [x] Dev login working: jadconsc@gmail.com / De3251ab
+
+### 🐛 Bugs Found - Current Session
+
+#### HIGH PRIORITY - Blocking Features
+- [ ] Projects list not loading on Projects page
+  - Users can create projects but can't see existing ones
+  - Database query might be failing or returning empty
+  - Need to check projectRouter.ts list procedure
+  
+- [ ] Rule Management returns 404 error
+  - Route /admin or /rule-management not properly configured
+  - Need to verify route exists in App.tsx
+  - Check if RuleManagement component is properly exported
+
+#### MEDIUM PRIORITY - Partial Functionality
+- [ ] Tax ID creation - unclear where data is stored
+  - Form shows "Tax ID created successfully" but no confirmation
+  - Need to verify database table and data persistence
+  - Should display created Tax ID or confirmation details
+  
+- [ ] Billing page buttons non-functional
+  - "Update Payment Method" button doesn't work
+  - "Add Another Card" button doesn't work
+  - "Edit Billing Address" button doesn't work
+  - Need to check BillingPage component handlers
+  
+- [ ] Invoice download not working
+  - Shows "Downloaded successfully" popup but no file downloads
+  - Need to verify file generation and download logic
+  - Check if invoice PDF is being created properly
+
+#### LOW PRIORITY - UI Polish
+- [ ] Settings button (next to Senior Developer name) does nothing
+  - Should open settings modal or navigate to settings page
+  - Currently just a placeholder
+  
+- [ ] Admin pages not accessible to dev user
+  - Expected behavior for non-admin role
+  - May need admin user for testing admin features
+  - Create separate admin dev account if needed
+
+### 📋 Testing Checklist
+- [x] Dev login works with correct credentials
+- [x] Dashboard loads after login
+- [x] Calculators pages accessible
+- [x] Classification codes page accessible
+- [x] Tools menu accessible
+- [ ] Projects can be created AND listed
+- [ ] Rule Management page loads without 404
+- [ ] Tax ID creation stores data properly
+- [ ] Billing page features work
+- [ ] Invoice download works
+- [ ] Settings button functionality works
+
+### 🎯 Next Steps
+1. Fix Projects list loading issue (HIGH)
+2. Fix Rule Management 404 error (HIGH)
+3. Verify Tax ID storage and display (MEDIUM)
+4. Implement billing page functionality (MEDIUM)
+5. Fix invoice download feature (MEDIUM)
+6. Implement settings button handler (LOW)
