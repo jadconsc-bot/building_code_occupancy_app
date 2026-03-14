@@ -205,8 +205,12 @@ export function ProjectDashboard() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="rounded-none">
                 Cancel
               </Button>
-              <Button onClick={createProject} disabled={!newProject.name || !newProject.occupancyCode} className="rounded-none">
-                Create Project
+              <Button 
+                onClick={handleCreateProject} 
+                disabled={!newProject.name || !newProject.occupancyCode || createProjectMutation.isPending}
+                className="rounded-none"
+              >
+                {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
               </Button>
             </div>
           </DialogContent>
@@ -242,7 +246,8 @@ export function ProjectDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteProject(project.id)}
+                      onClick={() => handleDeleteProject(project.id)}
+                      disabled={deleteProjectMutation.isPending}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
