@@ -38,7 +38,8 @@ function MainApp() {
     <>
       <NavigationHeader />
       <Switch>
-        <Route path={"/"} component={Dashboard} />
+        <Route path={"/"} component={Home} />
+        <Route path={"/dashboard"} component={Dashboard} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         {/* <Route path={"/rule-management"} component={RuleManagement} /> */} {/* TODO: Week 2 */}
