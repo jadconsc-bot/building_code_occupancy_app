@@ -31,80 +31,40 @@ export default function Projects() {
     status: "active",
   });
 
-  // Fetch projects using tRPC - using a placeholder query since we need to create it
-  const { data: projects = [], isLoading, refetch } = trpc.projects.list.useQuery();
+  // Fetch projects using tRPC
+  const { data: projects = [], isLoading } = trpc.projects.list.useQuery();
 
   // Create project mutation with optimistic UI
   const createProjectMutation = trpc.projects.create.useMutation({
-    onMutate: async (newProject) => {
-      await trpc.useUtils().projects.list.cancel();
-      const previousProjects = trpc.useUtils().projects.list.getData();
-
-      trpc.useUtils().projects.list.setData(undefined, (old) => [
-        ...(old || []),
-        { ...newProject, id: Date.now(), createdAt: new Date(), updatedAt: new Date() } as any,
-      ]);
-
-      return { previousProjects };
-    },
-    onError: (err, newProject, context) => {
-      if (context?.previousProjects) {
-        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
-      }
-      alert("Failed to create project: " + err.message);
-    },
     onSuccess: () => {
-      refetch();
+      trpc.useUtils().projects.list.invalidate();
       setIsCreateOpen(false);
       resetForm();
+    },
+    onError: (err) => {
+      alert("Failed to create project: " + err.message);
     },
   });
 
   // Update project mutation with optimistic UI
   const updateProjectMutation = trpc.projects.update.useMutation({
-    onMutate: async (updatedProject) => {
-      await trpc.useUtils().projects.list.cancel();
-      const previousProjects = trpc.useUtils().projects.list.getData();
-
-      trpc.useUtils().projects.list.setData(undefined, (old) =>
-        old?.map((p) => (p.id === updatedProject.id ? { ...p, ...updatedProject } : p))
-      );
-
-      return { previousProjects };
-    },
-    onError: (err, updatedProject, context) => {
-      if (context?.previousProjects) {
-        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
-      }
-      alert("Failed to update project: " + err.message);
-    },
     onSuccess: () => {
-      refetch();
+      trpc.useUtils().projects.list.invalidate();
       setIsEditOpen(false);
       resetForm();
+    },
+    onError: (err) => {
+      alert("Failed to update project: " + err.message);
     },
   });
 
   // Delete project mutation with optimistic UI
   const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onMutate: async (input: { id: number }) => {
-      await trpc.useUtils().projects.list.cancel();
-      const previousProjects = trpc.useUtils().projects.list.getData();
-
-      trpc.useUtils().projects.list.setData(undefined, (old) =>
-        old?.filter((p) => p.id !== input.id)
-      );
-
-      return { previousProjects };
-    },
-    onError: (err, projectId, context) => {
-      if (context?.previousProjects) {
-        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
-      }
-      alert("Failed to delete project: " + err.message);
-    },
     onSuccess: () => {
-      refetch();
+      trpc.useUtils().projects.list.invalidate();
+    },
+    onError: (err) => {
+      alert("Failed to delete project: " + err.message);
     },
   });
 
