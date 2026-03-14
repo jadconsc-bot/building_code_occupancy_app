@@ -95,6 +95,21 @@ export default function Home() {
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
 
+  // Show dev login form if not authenticated
+  if (!isAuthenticated && !loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
+          <p className="text-muted-foreground mb-6">
+            Professional building code compliance tools for architects, engineers, and inspectors
+          </p>
+          <DevLogin />
+        </div>
+      </div>
+    );
+  }
+
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
     if (typeof window !== 'undefined') {
