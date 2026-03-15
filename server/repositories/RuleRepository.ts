@@ -1,11 +1,20 @@
-import { eq, like, and, isNull, desc } from 'drizzle-orm';
-import { db } from '../db';
+import { getDb } from '../db';
 import {
   rulesLibrary,
   ruleApplications,
   customRules,
   ruleAuditTrail,
 } from '../../drizzle/schema';
+import {
+  and,
+  or,
+  eq,
+  like,
+  desc,
+  isNull,
+  isNotNull,
+  inArray,
+} from 'drizzle-orm';
 
 /**
  * RuleRepository - Data access for rules library
@@ -21,7 +30,10 @@ export class RuleRepository {
     category?: string,
     limit: number = 50
   ) {
-    let whereConditions = [];
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    let whereConditions: any[] = [];
 
     // Build search conditions
     if (query) {
@@ -45,10 +57,11 @@ export class RuleRepository {
     }
 
     // Execute query
-    const results = await db.query.rulesLibrary.findMany({
-      where: whereConditions.length > 0 ? and(...whereConditions) : undefined,
-      limit,
-    });
+    const results = await db
+      .select()
+      .from(rulesLibrary)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .limit(limit);
 
     return results;
   }
@@ -57,56 +70,79 @@ export class RuleRepository {
    * Get rule by ID
    */
   static async getById(id: number) {
-    const result = await db.query.rulesLibrary.findFirst({
-      where: eq(rulesLibrary.id, id),
-    });
-    return result || null;
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db
+      .select()
+      .from(rulesLibrary)
+      .where(eq(rulesLibrary.id, id))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   /**
    * Get rule by code
    */
   static async getByCode(code: string) {
-    const result = await db.query.rulesLibrary.findFirst({
-      where: eq(rulesLibrary.code, code),
-    });
-    return result || null;
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db
+      .select()
+      .from(rulesLibrary)
+      .where(eq(rulesLibrary.ruleCode, code))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   /**
    * Create new rule
+   * Uses insert().values() and returns the inserted record
    */
   static async create(input: {
-    code: string;
+    ruleCode: string;
     name: string;
     description: string;
     category: string;
     jurisdiction: string;
     keywords?: string;
     nbcReference?: string;
+    createdBy: number;
   }) {
-    const result = await db
-      .insert(rulesLibrary)
-      .values({
-        code: input.code,
-        name: input.name,
-        description: input.description,
-        category: input.category,
-        jurisdiction: input.jurisdiction,
-        keywords: input.keywords,
-        nbcReference: input.nbcReference,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
 
-    return result[0] || null;
+    const now = new Date();
+    await db.insert(rulesLibrary).values({
+      ruleCode: input.ruleCode,
+      name: input.name,
+      description: input.description,
+      category: input.category,
+      jurisdiction: input.jurisdiction,
+      keywords: input.keywords,
+      nbcReference: input.nbcReference,
+      createdBy: input.createdBy,
+      isActive: true,
+      isCustom: false,
+      codeEdition: 'NBC-2023',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Fetch and return the created record
+    return this.getByCode(input.ruleCode);
   }
 
   /**
    * Get all jurisdictions
    */
   static async getJurisdictions() {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
     const results = await db
       .selectDistinct({ jurisdiction: rulesLibrary.jurisdiction })
       .from(rulesLibrary)
@@ -119,6 +155,9 @@ export class RuleRepository {
    * Get all categories
    */
   static async getCategories() {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
     const results = await db
       .selectDistinct({ category: rulesLibrary.category })
       .from(rulesLibrary)
@@ -137,16 +176,33 @@ export class RuleApplicationRepository {
    * Apply rule to project or organization-wide
    */
   static async apply(ruleId: number, userId: number, projectId?: number) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    await db.insert(ruleApplications).values({
+      ruleId,
+      userId,
+      projectId: projectId || null,
+      appliedAt: now,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Fetch the last inserted record
     const result = await db
-      .insert(ruleApplications)
-      .values({
-        ruleId,
-        userId,
-        projectId: projectId || null,
-        appliedAt: new Date(),
-        status: 'active',
-      })
-      .returning();
+      .select()
+      .from(ruleApplications)
+      .where(
+        and(
+          eq(ruleApplications.ruleId, ruleId),
+          eq(ruleApplications.userId, userId),
+          projectId ? eq(ruleApplications.projectId, projectId) : isNull(ruleApplications.projectId)
+        )
+      )
+      .orderBy(desc(ruleApplications.appliedAt))
+      .limit(1);
 
     return result[0] || null;
   }
@@ -155,47 +211,59 @@ export class RuleApplicationRepository {
    * Check if rule already applied
    */
   static async checkExists(ruleId: number, projectId?: number) {
-    const result = await db.query.ruleApplications.findFirst({
-      where: and(
-        eq(ruleApplications.ruleId, ruleId),
-        projectId
-          ? eq(ruleApplications.projectId, projectId)
-          : isNull(ruleApplications.projectId),
-        eq(ruleApplications.status, 'active')
-      ),
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
 
-    return !!result;
+    const result = await db
+      .select()
+      .from(ruleApplications)
+      .where(
+        and(
+          eq(ruleApplications.ruleId, ruleId),
+          projectId
+            ? eq(ruleApplications.projectId, projectId)
+            : isNull(ruleApplications.projectId),
+          eq(ruleApplications.status, 'active')
+        )
+      )
+      .limit(1);
+
+    return result.length > 0;
   }
 
   /**
    * Get application by ID
    */
   static async getById(id: number) {
-    const result = await db.query.ruleApplications.findFirst({
-      where: eq(ruleApplications.id, id),
-      with: {
-        rule: true,
-      },
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
 
-    return result || null;
+    const result = await db
+      .select()
+      .from(ruleApplications)
+      .where(eq(ruleApplications.id, id))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   /**
    * Get rules applied to specific project
    */
   static async getProjectRules(projectId: number) {
-    const results = await db.query.ruleApplications.findMany({
-      where: and(
-        eq(ruleApplications.projectId, projectId),
-        eq(ruleApplications.status, 'active')
-      ),
-      with: {
-        rule: true,
-      },
-      orderBy: desc(ruleApplications.appliedAt),
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const results = await db
+      .select()
+      .from(ruleApplications)
+      .where(
+        and(
+          eq(ruleApplications.projectId, projectId),
+          eq(ruleApplications.status, 'active')
+        )
+      )
+      .orderBy(desc(ruleApplications.appliedAt));
 
     return results;
   }
@@ -204,16 +272,19 @@ export class RuleApplicationRepository {
    * Get organization-wide rules
    */
   static async getGlobalRules() {
-    const results = await db.query.ruleApplications.findMany({
-      where: and(
-        isNull(ruleApplications.projectId),
-        eq(ruleApplications.status, 'active')
-      ),
-      with: {
-        rule: true,
-      },
-      orderBy: desc(ruleApplications.appliedAt),
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const results = await db
+      .select()
+      .from(ruleApplications)
+      .where(
+        and(
+          isNull(ruleApplications.projectId),
+          eq(ruleApplications.status, 'active')
+        )
+      )
+      .orderBy(desc(ruleApplications.appliedAt));
 
     return results;
   }
@@ -222,43 +293,81 @@ export class RuleApplicationRepository {
    * Deactivate rule application
    */
   static async deactivate(id: number) {
-    const result = await db
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    await db
       .update(ruleApplications)
       .set({
         status: 'inactive',
         updatedAt: new Date(),
       })
-      .where(eq(ruleApplications.id, id))
-      .returning();
+      .where(eq(ruleApplications.id, id));
 
-    return result[0] || null;
+    return this.getById(id);
   }
 
   /**
    * Create custom rule
    */
   static async createCustomRule(input: {
-    code: string;
+    ruleCode: string;
     name: string;
     description: string;
     category: string;
     keywords?: string;
-    createdBy: string;
-    createdByUserId: number;
+    creatorId: number;
+    creatorName: string;
   }) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    await db.insert(customRules).values({
+      ruleCode: input.ruleCode,
+      name: input.name,
+      description: input.description,
+      category: input.category,
+      keywords: input.keywords,
+      creatorId: input.creatorId,
+      creatorName: input.creatorName,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Fetch and return the created record
+    return this.getCustomRuleByCode(input.ruleCode);
+  }
+
+  /**
+   * Get custom rule by ID
+   */
+  static async getCustomRuleById(id: number) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
     const result = await db
-      .insert(customRules)
-      .values({
-        code: input.code,
-        name: input.name,
-        description: input.description,
-        category: input.category,
-        keywords: input.keywords,
-        createdBy: input.createdBy,
-        createdByUserId: input.createdByUserId,
-        createdAt: new Date(),
-      })
-      .returning();
+      .select()
+      .from(customRules)
+      .where(eq(customRules.id, id))
+      .limit(1);
+
+    return result[0] || null;
+  }
+
+  /**
+   * Get custom rule by code
+   */
+  static async getCustomRuleByCode(code: string) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db
+      .select()
+      .from(customRules)
+      .where(eq(customRules.ruleCode, code))
+      .limit(1);
 
     return result[0] || null;
   }
@@ -279,18 +388,32 @@ export class AuditRepository {
     details: any,
     userName?: string
   ) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const now = new Date();
+    await db.insert(ruleAuditTrail).values({
+      action: action as any,
+      ruleCode,
+      ruleType: 'library',
+      userId,
+      userName: userName || 'Unknown',
+      details: details,
+      createdAt: now,
+    });
+
+    // Fetch the last inserted record
     const result = await db
-      .insert(ruleAuditTrail)
-      .values({
-        action: action as any,
-        ruleCode,
-        ruleType: 'library',
-        userId,
-        userName: userName || 'Unknown',
-        details: details,
-        createdAt: new Date(),
-      })
-      .returning();
+      .select()
+      .from(ruleAuditTrail)
+      .where(
+        and(
+          eq(ruleAuditTrail.ruleCode, ruleCode),
+          eq(ruleAuditTrail.userId, userId)
+        )
+      )
+      .orderBy(desc(ruleAuditTrail.createdAt))
+      .limit(1);
 
     return result[0] || null;
   }
@@ -299,11 +422,15 @@ export class AuditRepository {
    * Get audit trail for a rule (immutable records)
    */
   static async getTrail(ruleCode: string, limit: number = 50) {
-    const results = await db.query.ruleAuditTrail.findMany({
-      where: eq(ruleAuditTrail.ruleCode, ruleCode),
-      orderBy: desc(ruleAuditTrail.createdAt),
-      limit,
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const results = await db
+      .select()
+      .from(ruleAuditTrail)
+      .where(eq(ruleAuditTrail.ruleCode, ruleCode))
+      .orderBy(desc(ruleAuditTrail.createdAt))
+      .limit(limit);
 
     return results;
   }
@@ -312,11 +439,15 @@ export class AuditRepository {
    * Get all audit records for a user
    */
   static async getUserActions(userId: number, limit: number = 100) {
-    const results = await db.query.ruleAuditTrail.findMany({
-      where: eq(ruleAuditTrail.userId, userId),
-      orderBy: desc(ruleAuditTrail.createdAt),
-      limit,
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const results = await db
+      .select()
+      .from(ruleAuditTrail)
+      .where(eq(ruleAuditTrail.userId, userId))
+      .orderBy(desc(ruleAuditTrail.createdAt))
+      .limit(limit);
 
     return results;
   }
@@ -325,32 +456,32 @@ export class AuditRepository {
    * Get audit records by action type
    */
   static async getActionsByType(action: string, limit: number = 100) {
-    const results = await db.query.ruleAuditTrail.findMany({
-      where: eq(ruleAuditTrail.action, action as any),
-      orderBy: desc(ruleAuditTrail.createdAt),
-      limit,
-    });
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const results = await db
+      .select()
+      .from(ruleAuditTrail)
+      .where(eq(ruleAuditTrail.action, action as any))
+      .orderBy(desc(ruleAuditTrail.createdAt))
+      .limit(limit);
 
     return results;
   }
 
   /**
-   * Get recent audit trail (last N records)
+   * Get audit record by ID
    */
-  static async getRecent(limit: number = 100) {
-    const results = await db.query.ruleAuditTrail.findMany({
-      orderBy: desc(ruleAuditTrail.createdAt),
-      limit,
-    });
+  static async getById(id: number) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
 
-    return results;
+    const result = await db
+      .select()
+      .from(ruleAuditTrail)
+      .where(eq(ruleAuditTrail.id, id))
+      .limit(1);
+
+    return result[0] || null;
   }
-}
-
-// Helper function for OR conditions
-function or(...conditions: any[]) {
-  return conditions.reduce((acc, condition) => {
-    if (!acc) return condition;
-    return { [Symbol.for('or')]: [acc, condition] };
-  });
 }

@@ -94,10 +94,7 @@ export class ClaudeVisionClient {
       // STEP 2: Construct API request
       // This is the EXACT API request structure sent to Claude
       const response = await this.client.messages.create({
-        // MODEL STRING: Specifies which Claude model to use
-        model: this.MODEL, // 'claude-3-5-sonnet-20241022'
-
-        // Maximum tokens in response
+        model: this.MODEL,
         max_tokens: this.MAX_TOKENS,
 
         // Messages array with image and text
@@ -110,7 +107,7 @@ export class ClaudeVisionClient {
                 type: 'image',
                 source: {
                   type: 'base64', // Images passed as base64-encoded data
-                  media_type: mimeType, // application/pdf, image/png, image/jpeg
+                  media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', // application/pdf, image/png, image/jpeg
                   data: base64Image, // Base64-encoded image data
                 },
               },
@@ -122,7 +119,7 @@ export class ClaudeVisionClient {
             ],
           },
         ],
-      });
+      } as any);
 
       // STEP 3: Parse response
       // This is how the API response is parsed and returned
@@ -177,6 +174,7 @@ export class ClaudeVisionClient {
    * @param imageBuffer Image file buffer
    * @param mimeType MIME type
    * @param prompt Analysis prompt
+   * @param buildingCodeVariant Building code variant for audit trail
    * @param systemPrompt Optional system-level instructions
    * @returns LLMResponse
    */
@@ -204,8 +202,6 @@ export class ClaudeVisionClient {
       const response = await this.client.messages.create({
         model: this.MODEL,
         max_tokens: this.MAX_TOKENS,
-        // System prompt includes building code variant for audit trail
-        system: finalSystemPrompt,
         messages: [
           {
             role: 'user',
@@ -214,18 +210,18 @@ export class ClaudeVisionClient {
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: mimeType,
+                  media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
                   data: base64Image,
                 },
               },
               {
                 type: 'text',
-                text: prompt,
+                text: finalSystemPrompt,
               },
             ],
           },
         ],
-      });
+      } as any);
 
       const content = response.content[0];
 

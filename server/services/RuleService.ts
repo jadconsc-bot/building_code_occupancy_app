@@ -183,7 +183,7 @@ export class RuleService {
       // Log to audit trail
       await AuditRepository.logAction(
         'APPLY',
-        rule.code,
+        rule.ruleCode,
         userId,
         { ruleId, projectId }
       );
@@ -316,13 +316,17 @@ export class RuleService {
         });
       }
 
+      // Fetch rule to get rule code
+      const rule = await RuleRepository.getById(application.ruleId);
+      const ruleCode = rule?.ruleCode || 'unknown';
+
       // Deactivate in database
       const result = await RuleApplicationRepository.deactivate(applicationId);
 
       // Log to audit trail
       await AuditRepository.logAction(
         'DEACTIVATE',
-        application.rule.code,
+        ruleCode,
         userId,
         { applicationId, projectId }
       );
@@ -392,13 +396,13 @@ export class RuleService {
       // Create custom rule in transaction
       const result = await RuleApplicationRepository.createCustomRule(
         {
-          code: ruleCode,
+          ruleCode: ruleCode,
           name: input.name,
           description: input.description,
           category: input.category,
           keywords: input.keywords,
-          createdBy: userName,
-          createdByUserId: userId,
+          creatorName: userName,
+          creatorId: userId,
         }
       );
 
@@ -491,52 +495,60 @@ export class RuleService {
       monitoring.log('info', 'rules.seed', 'Starting', {});
 
     try {
+      // Use system user ID (1) for seeding
+      const systemUserId = 1;
+      
       const sampleRules = [
         {
-          code: 'NBC-2023-OCC-001',
+          ruleCode: 'NBC-2023-OCC-001',
           name: 'Occupancy Load Calculation',
-          description: 'Calculate occupancy load based on floor area and occupancy type',
+          description: 'Calculate occupancy load based on floor area and use',
           category: 'occupancy',
           jurisdiction: 'NBC',
           keywords: 'occupancy, load, calculation, area',
+          createdBy: systemUserId,
         },
         {
-          code: 'NBC-2023-FIRE-001',
+          ruleCode: 'NBC-2023-FIRE-001',
           name: 'Fire Separation Requirements',
           description: 'Determine required fire separation ratings between occupancies',
           category: 'fire',
           jurisdiction: 'NBC',
           keywords: 'fire, separation, rating, protection',
+          createdBy: systemUserId,
         },
         {
-          code: 'NBC-2023-EGRESS-001',
+          ruleCode: 'NBC-2023-EGRESS-001',
           name: 'Exit Door Width Requirements',
           description: 'Calculate minimum exit door widths based on occupant load',
           category: 'egress',
           jurisdiction: 'NBC',
           keywords: 'egress, exit, door, width',
+          createdBy: systemUserId,
         },
         {
-          code: 'AB-2023-OCC-001',
+          ruleCode: 'AB-2023-OCC-001',
           name: 'Alberta Occupancy Load',
           description: 'Alberta-specific occupancy load requirements',
           category: 'occupancy',
           jurisdiction: 'Alberta',
           keywords: 'occupancy, alberta, load',
+          createdBy: systemUserId,
         },
         {
-          code: 'CALGARY-2023-FIRE-001',
+          ruleCode: 'CALGARY-2023-FIRE-001',
           name: 'Calgary Fire Separation',
           description: 'Calgary municipal fire separation requirements',
           category: 'fire',
           jurisdiction: 'Calgary',
           keywords: 'fire, calgary, separation',
+          createdBy: systemUserId,
         },
       ];
 
       for (const rule of sampleRules) {
         // Check if already exists
-        const existing = await RuleRepository.getByCode(rule.code);
+        const existing = await RuleRepository.getByCode(rule.ruleCode);
         if (!existing) {
           await RuleRepository.create(rule);
         }
