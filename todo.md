@@ -4782,3 +4782,43 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Create webdev_save_checkpoint with comprehensive description
 - [ ] Verify checkpoint created successfully
 - [ ] Document all changes in commit message
+
+
+## Smart Retry Logic Implementation (Current Session - COMPLETED)
+- [x] Analyze current retry logic in DrawingDataService
+- [x] Implement error classification system
+  - [x] Identify retriable errors (429, 5xx, timeout)
+  - [x] Identify non-retriable errors (401, 403, 4xx)
+- [x] Add extractStatusCode method for robust error parsing
+- [x] Add isRetriableError method with proper precedence
+  - [x] Check 429 BEFORE generic 4xx range
+  - [x] Check 5xx BEFORE generic ranges
+  - [x] Check timeout errors
+  - [x] Fail fast on auth errors (401, 403)
+- [x] Update retry loop to use smart error classification
+  - [x] Fail immediately on non-retriable errors
+  - [x] Only retry on retriable errors with exponential backoff
+  - [x] Log error classification for debugging
+- [x] Map HTTP status codes to TRPC error codes
+  - [x] 401 → UNAUTHORIZED
+  - [x] 403 → FORBIDDEN
+  - [x] 400 → BAD_REQUEST
+  - [x] 404 → NOT_FOUND
+  - [x] 429 → TOO_MANY_REQUESTS
+  - [x] 5xx → INTERNAL_SERVER_ERROR
+- [x] Write comprehensive tests for retry logic
+  - [x] Test 401 (Unauthorized) - fail fast
+  - [x] Test 403 (Forbidden) - fail fast
+  - [x] Test 400 (Bad Request) - fail fast
+  - [x] Test 429 (Rate Limit) - retry with backoff
+  - [x] Test 5xx (Server Error) - retry with backoff
+  - [x] Test timeout errors - retry with backoff
+- [x] All tests passing (6/6 smart retry tests + 1464 total tests)
+- [x] TypeScript compilation passing (0 errors)
+
+**Key Benefits:**
+- Reduces token waste by failing fast on auth errors
+- Prevents unnecessary retries on client errors
+- Improves user experience with faster error feedback
+- Maintains resilience for transient server issues
+- Properly handles rate limiting with exponential backoff

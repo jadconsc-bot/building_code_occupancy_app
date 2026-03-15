@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DrawingDataService, DrawingDataExtractionInput, DrawingDataExtractionResult } from './DrawingDataService';
 import { TRPCError } from '@trpc/server';
+import { DrawingDataService, DrawingDataExtractionInput, DrawingDataExtractionResult } from './DrawingDataService';
 
 // Mock ClaudeVisionClient
 vi.mock('../integrations/ClaudeVisionClient', () => ({
@@ -440,6 +440,242 @@ describe('DrawingDataService Integration Tests', () => {
       // Assert
       expect(result).toBeDefined();
       expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Smart Retry Logic - Error Classification', () => {
+    it('should NOT retry on 401 (Unauthorized) - fail fast', async () => {
+      // Arrange
+      const authError = new Error('Unauthorized');
+      (authError as any).statusCode = 401;
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValue(authError);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 20,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 999,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-999',
+        },
+      };
+
+      // Act & Assert
+      const error = await service.extractDrawingData(input).catch(e => e);
+      expect(error).toBeInstanceOf(TRPCError);
+      expect((error as any).code).toBe('UNAUTHORIZED');
+      
+      // Verify: Only called once (no retries)
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT retry on 403 (Forbidden) - fail fast', async () => {
+      // Arrange
+      const forbiddenError = new Error('Forbidden');
+      (forbiddenError as any).statusCode = 403;
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValue(forbiddenError);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 21,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 888,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-888',
+        },
+      };
+
+      // Act & Assert
+      const error = await service.extractDrawingData(input).catch(e => e);
+      expect(error).toBeInstanceOf(TRPCError);
+      expect((error as any).code).toBe('FORBIDDEN');
+      
+      // Verify: Only called once (no retries)
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT retry on 400 (Bad Request) - fail fast', async () => {
+      // Arrange
+      const badRequestError = new Error('Bad Request');
+      (badRequestError as any).statusCode = 400;
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValue(badRequestError);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 22,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 777,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-777',
+        },
+      };
+
+      // Act & Assert
+      const error = await service.extractDrawingData(input).catch(e => e);
+      expect(error).toBeInstanceOf(TRPCError);
+      expect((error as any).code).toBe('BAD_REQUEST');
+      
+      // Verify: Only called once (no retries)
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    it('should RETRY on 429 (Rate Limit) with exponential backoff', async () => {
+      // Arrange
+      const rateLimitError = new Error('Too Many Requests');
+      (rateLimitError as any).statusCode = 429;
+
+      const mockResponse = {
+        content: JSON.stringify({
+          members: [],
+          assemblies: [],
+          connections: [],
+          materials: [],
+          dimensions: [],
+          annotations: [],
+          summary: 'Success after rate limit',
+        }),
+        model: 'claude-sonnet-4-6',
+        usage: {
+          input_tokens: 500,
+          output_tokens: 300,
+        },
+      };
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt).mockClear();
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValueOnce(rateLimitError)
+        .mockResolvedValueOnce(mockResponse);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 23,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 666,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-666',
+        },
+      };
+
+      // Act
+      const result = await service.extractDrawingData(input);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(2);
+    });
+
+    it('should RETRY on 5xx (Server Error) with exponential backoff', async () => {
+      // Arrange
+      const serverError = new Error('Internal Server Error');
+      (serverError as any).statusCode = 500;
+
+      const mockResponse = {
+        content: JSON.stringify({
+          members: [],
+          assemblies: [],
+          connections: [],
+          materials: [],
+          dimensions: [],
+          annotations: [],
+          summary: 'Success after server error',
+        }),
+        model: 'claude-sonnet-4-6',
+        usage: {
+          input_tokens: 500,
+          output_tokens: 300,
+        },
+      };
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt).mockClear();
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValueOnce(serverError)
+        .mockRejectedValueOnce(serverError)
+        .mockResolvedValueOnce(mockResponse);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 24,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 555,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-555',
+        },
+      };
+
+      // Act
+      const result = await service.extractDrawingData(input);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(3);
+    });
+
+    it('should RETRY on timeout errors', async () => {
+      // Arrange
+      const timeoutError = new Error('LLM API timeout');
+
+      const mockResponse = {
+        content: JSON.stringify({
+          members: [],
+          assemblies: [],
+          connections: [],
+          materials: [],
+          dimensions: [],
+          annotations: [],
+          summary: 'Success after timeout',
+        }),
+        model: 'claude-sonnet-4-6',
+        usage: {
+          input_tokens: 500,
+          output_tokens: 300,
+        },
+      };
+
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt).mockClear();
+      vi.mocked(claudeVisionClient.analyzeDrawingWithSystemPrompt)
+        .mockRejectedValueOnce(timeoutError)
+        .mockResolvedValueOnce(mockResponse);
+
+      const input: DrawingDataExtractionInput = {
+        analysisId: 25,
+        drawingBuffer: Buffer.from('fake-data'),
+        drawingMimeType: 'image/png',
+        analysisType: 'structural',
+        credentials: {
+          userId: 444,
+          userEmail: 'test@example.com',
+          ipAddress: '127.0.0.1',
+          sessionId: 'session-444',
+        },
+      };
+
+      // Act
+      const result = await service.extractDrawingData(input);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(claudeVisionClient.analyzeDrawingWithSystemPrompt).toHaveBeenCalledTimes(2);
     });
   });
 

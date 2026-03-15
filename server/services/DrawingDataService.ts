@@ -130,12 +130,122 @@ export interface DrawingDataExtractionResult {
   validationErrors?: z.ZodError[];
 }
 
+/**
+ * HTTP status code classification for retry decisions
+ */
+interface HttpError extends Error {
+  statusCode?: number;
+  message: string;
+}
+
 export class DrawingDataService {
   private readonly LLM_MODEL = 'claude-sonnet-4-6'; // Updated to latest model
   private readonly EXTRACTION_PROMPT_VERSION = '2.0'; // Incremented for building code variant support
   private readonly LLM_TIMEOUT_MS = 30000; // 30 seconds
   private readonly MAX_RETRIES = 3;
   private readonly MIN_CONFIDENCE_THRESHOLD = 0.5;
+
+  /**
+   * Determine if an error is retriable
+   * 
+   * RETRIABLE ERRORS:
+   * - 429 (Too Many Requests): Rate limit - retry with backoff
+   * - 5xx (Server Errors): Temporary server issues - retry with backoff
+   * - Timeout: Network issue - retry with backoff
+   * 
+   * NON-RETRIABLE ERRORS:
+   * - 401 (Unauthorized): Invalid credentials - fail fast
+   * - 403 (Forbidden): Access denied - fail fast
+   * - 400 (Bad Request): Invalid input - fail fast
+   * - 404 (Not Found): Resource missing - fail fast
+   * 
+   * @param error Error to classify
+   * @returns true if error is retriable, false otherwise
+   */
+  private isRetriableError(error: unknown): boolean {
+    // Extract status code if available
+    const statusCode = this.extractStatusCode(error);
+    
+    // RETRIABLE ERRORS (check these FIRST before generic ranges)
+    
+    // Retriable: Rate limit (429) - must check BEFORE generic 4xx range
+    if (statusCode === 429) {
+      return true;
+    }
+    
+    // Retriable: Server errors (5xx)
+    if (statusCode && statusCode >= 500) {
+      return true;
+    }
+    
+    // Retriable: Timeout errors
+    if (error instanceof Error && error.message.includes('timeout')) {
+      return true;
+    }
+    
+    // NON-RETRIABLE ERRORS
+    
+    // Non-retriable: Auth errors (401, 403)
+    if (statusCode === 401 || statusCode === 403) {
+      return false;
+    }
+    
+    // Non-retriable: Other client errors (400, 404, etc.)
+    if (statusCode && statusCode >= 400 && statusCode < 500) {
+      return false;
+    }
+    
+    // Default: Not retriable (fail fast on unknown errors)
+    return false;
+  }
+
+  /**
+   * Extract HTTP status code from error object
+   * 
+   * Handles various error formats:
+   * - { statusCode: number }
+   * - { status: number }
+   * - { response: { status: number } }
+   * - Error message containing status code
+   * 
+   * @param error Error object
+   * @returns Status code or undefined
+   */
+  private extractStatusCode(error: unknown): number | undefined {
+    if (!error) return undefined;
+    
+    // Direct statusCode property
+    if (typeof error === 'object' && 'statusCode' in error) {
+      const code = (error as any).statusCode;
+      if (typeof code === 'number') return code;
+    }
+    
+    // Direct status property
+    if (typeof error === 'object' && 'status' in error) {
+      const code = (error as any).status;
+      if (typeof code === 'number') return code;
+    }
+    
+    // Nested response.status
+    if (typeof error === 'object' && 'response' in error) {
+      const response = (error as any).response;
+      if (response && typeof response === 'object' && 'status' in response) {
+        const code = response.status;
+        if (typeof code === 'number') return code;
+      }
+    }
+    
+    // Try to extract from error message
+    if (error instanceof Error) {
+      const match = error.message.match(/\b(\d{3})\b/);
+      if (match) {
+        const code = parseInt(match[1], 10);
+        if (code >= 100 && code < 600) return code;
+      }
+    }
+    
+    return undefined;
+  }
 
   /**
    * Extract structured drawing data from file
@@ -167,7 +277,7 @@ export class DrawingDataService {
       // STEP 2: Generate extraction prompt
       const prompt = this.generateExtractionPrompt(input.analysisType);
 
-      // STEP 3: Call Claude Vision API with retry logic
+      // STEP 3: Call Claude Vision API with smart retry logic
       let llmResponse: LLMResponse | null = null;
       let lastError: Error | null = null;
 
@@ -182,22 +292,56 @@ export class DrawingDataService {
           break; // Success, exit retry loop
         } catch (error) {
           lastError = error as Error;
+          const statusCode = this.extractStatusCode(error);
+          const isRetriable = this.isRetriableError(error);
+          
           console.warn(`[DrawingDataService] LLM call attempt ${attempt} failed:`, {
             error: lastError.message,
+            statusCode,
+            isRetriable,
             attempt,
             maxRetries: this.MAX_RETRIES,
             buildingCodeVariant: input.buildingCodeVariant,
           });
 
+          // FAIL FAST: Do not retry on non-retriable errors (401, 403, 4xx)
+          if (!isRetriable) {
+            console.error(`[DrawingDataService] Non-retriable error (${statusCode}), failing immediately:`, {
+              error: lastError.message,
+              statusCode,
+              userId: input.credentials.userId,
+              analysisId: input.analysisId,
+            });
+            throw lastError;
+          }
+
           if (attempt < this.MAX_RETRIES) {
             // Exponential backoff: 1s, 2s, 4s
             const backoffMs = Math.pow(2, attempt - 1) * 1000;
+            console.info(`[DrawingDataService] Retrying in ${backoffMs}ms (attempt ${attempt}/${this.MAX_RETRIES})`);
             await this.sleep(backoffMs);
           }
         }
       }
 
       if (!llmResponse) {
+        // If we exhausted retries, throw the last error with appropriate code
+        const statusCode = this.extractStatusCode(lastError);
+        
+        if (statusCode === 429) {
+          throw new TRPCError({
+            code: 'TOO_MANY_REQUESTS',
+            message: 'API rate limit exceeded. Please try again later.',
+          });
+        }
+        
+        if (statusCode && statusCode >= 500) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Drawing analysis service temporarily unavailable. Please try again.',
+          });
+        }
+        
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to extract drawing data after retries. Please try again.',
@@ -272,16 +416,63 @@ export class DrawingDataService {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const statusCode = this.extractStatusCode(error);
+      
       console.error('[DrawingDataService.extractDrawingData] Error:', {
         error: errorMessage,
+        statusCode,
         analysisId: input.analysisId,
         userId: input.credentials.userId,
         buildingCodeVariant: input.buildingCodeVariant,
         timestamp: new Date().toISOString(),
       });
 
+      // Re-throw TRPCError as-is
       if (error instanceof TRPCError) {
         throw error;
+      }
+
+      // Map HTTP status codes to specific TRPC error codes
+      if (statusCode === 401) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Authentication failed. Please check your credentials.',
+        });
+      }
+      
+      if (statusCode === 403) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Access denied. You do not have permission to perform this action.',
+        });
+      }
+      
+      if (statusCode === 400) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid request. Please check your input and try again.',
+        });
+      }
+      
+      if (statusCode === 404) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Resource not found.',
+        });
+      }
+      
+      if (statusCode === 429) {
+        throw new TRPCError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'API rate limit exceeded. Please try again later.',
+        });
+      }
+      
+      if (statusCode && statusCode >= 500) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Drawing analysis service temporarily unavailable. Please try again.',
+        });
       }
 
       throw new TRPCError({
