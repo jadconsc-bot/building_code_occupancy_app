@@ -39,9 +39,17 @@ export const complianceRouter = router({
         imageUrl: z.string().url(),
         occupancyType: z.string(),
         analysisType: z.enum(['structural', 'egress', 'fire-safety', 'accessibility']),
+        disclaimerAcknowledged: z.boolean().refine(
+          (val) => val === true,
+          { message: 'You must acknowledge the disclaimer before proceeding' }
+        ),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // API-layer disclaimer validation (Prime Directive 2.0)
+      if (!input.disclaimerAcknowledged) {
+        throw new Error('Disclaimer must be acknowledged before analysis');
+      }
       // Track usage
       return complianceAnalysisService.analyzeDrawing(input, ctx.user.id);
     }),

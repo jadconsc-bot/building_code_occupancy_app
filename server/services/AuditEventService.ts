@@ -292,6 +292,140 @@ export class AuditEventService {
       });
     }
   }
+
+  /**
+   * Log professional review events atomically
+   *
+   * ATOMIC TRANSACTION: Both PROFESSIONAL_ACCEPTED and SIGNATURE_APPLIED
+   * are written together. If either fails, both are rolled back.
+   *
+   * Also updates drawingAnalyses status to VALID atomically.
+   *
+   * @param acceptanceEvent PROFESSIONAL_ACCEPTED audit event
+   * @param signatureEvent SIGNATURE_APPLIED audit event
+   * @param analysisId Analysis ID to update status
+   * @param signatureHash Digital signature hash
+   * @returns Both event IDs if successful
+   * @throws TRPCError if transaction fails (all changes rolled back)
+   */
+  async logProfessionalReviewAtomic(
+    acceptanceEvent: AuditEventInput,
+    signatureEvent: AuditEventInput,
+    analysisId: number,
+    signatureHash: string
+  ): Promise<{ acceptanceEventId: number; signatureEventId: number }> {
+    // Validate both events
+    const acceptanceValidation = AuditEventInputSchema.safeParse(acceptanceEvent);
+    const signatureValidation = AuditEventInputSchema.safeParse(signatureEvent);
+
+    if (!acceptanceValidation.success || !signatureValidation.success) {
+      console.error('[AuditEventService] Validation failed for atomic transaction');
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Invalid audit event input for professional review',
+      });
+    }
+
+    const acceptanceData = acceptanceValidation.data;
+    const signatureData = signatureValidation.data;
+
+    try {
+      const db = await getDb();
+      if (!db) {
+        throw new Error('Database connection not available');
+      }
+
+      // Import required schema tables
+      const { drawingAnalyses } = await import('../../drizzle/schema');
+      const { eq } = await import('drizzle-orm');
+
+      // Execute atomic transaction
+      const result = await (db as any).transaction(async (tx: any) => {
+        // Insert PROFESSIONAL_ACCEPTED event
+        const acceptanceResult = await tx
+          .insert(complianceAuditTrail)
+          .values({
+            analysisId: acceptanceData.analysisId,
+            userId: acceptanceData.userId,
+            action: 'PROFESSIONAL_ACCEPTED',
+            details: JSON.stringify(acceptanceData.details),
+            userEmail: acceptanceData.userEmail,
+            userFullName: acceptanceData.userFullName,
+            professionalLicenseNumber: acceptanceData.professionalLicenseNumber ?? null,
+            professionalAssociation: acceptanceData.professionalAssociation ?? null,
+            jurisdiction: acceptanceData.jurisdiction ?? null,
+            ipAddress: acceptanceData.ipAddress,
+            userAgent: acceptanceData.userAgent,
+            sessionId: acceptanceData.sessionId,
+          });
+
+        const acceptanceEventId = Array.isArray(acceptanceResult)
+          ? acceptanceResult[0]
+          : acceptanceResult;
+
+        // Insert SIGNATURE_APPLIED event
+        const signatureResult = await tx
+          .insert(complianceAuditTrail)
+          .values({
+            analysisId: signatureData.analysisId,
+            userId: signatureData.userId,
+            action: 'SIGNATURE_APPLIED',
+            details: JSON.stringify({
+              ...signatureData.details,
+              signatureHash,
+            }),
+            userEmail: signatureData.userEmail,
+            userFullName: signatureData.userFullName,
+            professionalLicenseNumber: signatureData.professionalLicenseNumber ?? null,
+            professionalAssociation: signatureData.professionalAssociation ?? null,
+            jurisdiction: signatureData.jurisdiction ?? null,
+            ipAddress: signatureData.ipAddress,
+            userAgent: signatureData.userAgent,
+            sessionId: signatureData.sessionId,
+          });
+
+        const signatureEventId = Array.isArray(signatureResult)
+          ? signatureResult[0]
+          : signatureResult;
+
+        // Update analysis status to VALID
+        await tx
+          .update(drawingAnalyses)
+          .set({
+            analysisStatus: 'VALID',
+            signatureHash,
+            validatedAt: new Date(),
+          })
+          .where(eq(drawingAnalyses.id, analysisId));
+
+        return { acceptanceEventId, signatureEventId };
+      });
+
+      console.log('[AuditEventService] Professional review logged atomically:', {
+        acceptanceEventId: result.acceptanceEventId,
+        signatureEventId: result.signatureEventId,
+        analysisId,
+        timestamp: new Date().toISOString(),
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AuditEventService] Atomic transaction failed:', {
+        error: errorMessage,
+        analysisId,
+      });
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to log professional review atomically. All changes rolled back.',
+      });
+    }
+  }
 }
 
 export const auditEventService = new AuditEventService();
