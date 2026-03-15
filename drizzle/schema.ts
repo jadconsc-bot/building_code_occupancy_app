@@ -1008,3 +1008,168 @@ export const collaborationAuditLog = mysqlTable("collaborationAuditLog", {
 
 export type CollaborationAuditLog = typeof collaborationAuditLog.$inferSelect;
 export type InsertCollaborationAuditLog = typeof collaborationAuditLog.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * RULES MANAGEMENT SYSTEM
+ * For jurisdiction-specific building code rules with search and application
+ * ============================================================================
+ */
+
+/**
+ * Rules Library - Pre-built rules for different jurisdictions
+ * Searchable by keyword, jurisdiction, category
+ * Supports NBC and provincial/municipal variations
+ */
+export const rulesLibrary = mysqlTable("rulesLibrary", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Rule identification
+  ruleCode: varchar("ruleCode", { length: 100 }).notNull().unique(), // e.g., "NBC-2023-OCC-001"
+  
+  // Rule content
+  name: varchar("name", { length: 255 }).notNull(), // Short title
+  description: text("description").notNull(), // Full description
+  category: varchar("category", { length: 100 }).notNull(), // e.g., "occupancy", "egress", "fire", "structural"
+  
+  // Jurisdiction and code reference
+  jurisdiction: varchar("jurisdiction", { length: 100 }).notNull(), // "NBC", "Alberta", "BC", "Ontario", "Calgary", "Edmonton", "Toronto", "Lethbridge", "Airdrie"
+  municipality: varchar("municipality", { length: 100 }), // Optional: specific municipality
+  codeEdition: varchar("codeEdition", { length: 50 }).notNull(), // e.g., "NBC-2023", "AE-2023"
+  nbcReference: varchar("nbcReference", { length: 255 }), // e.g., "NBC 3.2.2.47"
+  
+  // Keywords for search
+  keywords: text("keywords"), // Comma-separated: "loads,span,fire,egress,area,adjacency,height"
+  
+  // Rule metadata
+  applicableOccupancies: text("applicableOccupancies"), // JSON array of occupancy codes
+  applicableConstructionTypes: text("applicableConstructionTypes"), // JSON array
+  
+  // Status
+  isActive: boolean("isActive").default(true).notNull(),
+  isCustom: boolean("isCustom").default(false).notNull(), // true if user-created
+  
+  // Audit trail
+  createdBy: int("createdBy").notNull(), // User ID who created/imported
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedBy: int("updatedBy"), // User ID who last updated
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RuleLibrary = typeof rulesLibrary.$inferSelect;
+export type InsertRuleLibrary = typeof rulesLibrary.$inferInsert;
+
+/**
+ * Rule Applications - Link rules to projects
+ * Tracks which rules are applied to which projects
+ * Can be project-specific or organization-wide (global)
+ */
+export const ruleApplications = mysqlTable(
+  "ruleApplications",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    
+    // Rule being applied
+    ruleId: int("ruleId").notNull(), // FK to rulesLibrary
+    
+    // Applied to project or globally
+    projectId: int("projectId"), // NULL = organization-wide (global)
+    userId: int("userId").notNull(), // User who applied the rule
+    
+    // Application metadata
+    appliedAt: timestamp("appliedAt").defaultNow().notNull(),
+    status: mysqlEnum("status", ["active", "inactive", "archived"]).default("active").notNull(),
+    
+    // Compliance tracking
+    isCompliant: int("isCompliant"), // 0 = no, 1 = yes, NULL = not yet assessed
+    complianceNotes: text("complianceNotes"), // Why compliant/non-compliant
+    
+    // Audit trail
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    // Prevent duplicate active applications of same rule to same project
+    uniqueProjectRule: unique("unique_project_rule").on(table.ruleId, table.projectId),
+  })
+);
+
+export type RuleApplication = typeof ruleApplications.$inferSelect;
+export type InsertRuleApplication = typeof ruleApplications.$inferInsert;
+
+/**
+ * Custom Rules - User-created rules with full audit trail
+ * For organization-specific or project-specific compliance requirements
+ * Includes creator credentials and authorization tracking
+ */
+export const customRules = mysqlTable("customRules", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Rule identification
+  ruleCode: varchar("ruleCode", { length: 100 }).notNull().unique(), // e.g., "CUSTOM-2024-001"
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  
+  // Rule content
+  category: varchar("category", { length: 100 }).notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 100 }), // Optional: specific jurisdiction
+  keywords: text("keywords"), // Comma-separated for search
+  
+  // Creator information (audit trail)
+  creatorId: int("creatorId").notNull(), // User who created
+  creatorName: varchar("creatorName", { length: 255 }).notNull(),
+  creatorCredentials: text("creatorCredentials"), // JSON: profession, license, credentials
+  
+  // Authorization tracking
+  authorizedBy: int("authorizedBy"), // Admin/manager who approved
+  authorizedAt: timestamp("authorizedAt"), // When authorized
+  
+  // Status
+  isActive: boolean("isActive").default(true).notNull(),
+  
+  // Audit trail
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CustomRule = typeof customRules.$inferSelect;
+export type InsertCustomRule = typeof customRules.$inferInsert;
+
+/**
+ * Rule Audit Trail - Immutable audit log for all rule operations
+ * Tracks: creation, application, modification, deletion
+ * Never updated, only inserted
+ */
+export const ruleAuditTrail = mysqlTable("ruleAuditTrail", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // What happened
+  action: mysqlEnum("action", ["CREATED", "APPLIED", "MODIFIED", "DEACTIVATED", "DELETED"]).notNull(),
+  
+  // Which rule
+  ruleId: int("ruleId"), // FK to rulesLibrary or customRules
+  ruleCode: varchar("ruleCode", { length: 100 }).notNull(),
+  ruleType: mysqlEnum("ruleType", ["library", "custom"]).notNull(),
+  
+  // Which project (if applicable)
+  projectId: int("projectId"), // NULL if organization-wide
+  
+  // Who did it
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 255 }).notNull(),
+  userCredentials: text("userCredentials"), // JSON snapshot of credentials at time of action
+  
+  // Details
+  details: json("details"), // Additional context
+  
+  // Security metadata
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  // Immutable timestamp
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RuleAuditTrail = typeof ruleAuditTrail.$inferSelect;
+export type InsertRuleAuditTrail = typeof ruleAuditTrail.$inferInsert;

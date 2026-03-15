@@ -27,6 +27,7 @@ import { encryptedProjectsRouter } from "./routers/encryptedProjectsRouter";
 import { certificationRouter } from "./routers/certificationRouter";
 import { analyticsRouter } from "./routers/analyticsRouter";
 import { collaborationRouter } from "./routers/collaborationRouter";
+import { rulesRouter } from "./routers/rulesRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -47,7 +48,7 @@ export const appRouter = router({
   calculationVersioning: calculationVersioningRouter,
   compliancePathway: compliancePathwayRouter,
   audit: auditRouter,
-  rules: ruleRouter,
+  rules: rulesRouter,
   phase2: phase2Router,
   professionalReview: professionalReviewRouter,
   encryptedClients: encryptedClientsRouter,
