@@ -4682,3 +4682,50 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Performance testing (< 200ms response time)
 - [ ] Security audit
 - [ ] Documentation review
+
+## NBC Drawing Analyzer Integration 🔄 IN PROGRESS
+
+### Phase 2: Architecture Design ✅ COMPLETE
+- [x] Analyzed existing compliance system
+- [x] Created integration architecture design
+- [x] Designed three-layer architecture (Service/Repository/Data)
+- [x] Identified legal defensibility requirements
+- [x] Created senior coder report
+
+### Phase 3: Service Layer Implementation 🔄 NEXT
+- [ ] Implement DrawingAnalysisService (orchestration)
+- [ ] Implement StructuralAnalysisService (load path, bracing, members)
+- [ ] Implement FireSafetyAnalysisService (assembly, fireblocking, penetrations)
+- [ ] Implement ConnectionAnalysisService (fasteners, edge distance, capacity)
+- [ ] Implement ComplianceScoringService (0-100 scoring algorithm)
+- [ ] Add comprehensive error handling
+- [ ] Implement caching strategy
+- [ ] Add monitoring and logging
+
+### Phase 4: Repository Layer Implementation
+- [ ] Create DrawingAnalysisRepository (CRUD operations)
+- [ ] Create NBCRuleRepository (versioned rules)
+- [ ] Create ComplianceAuditRepository (immutable audit trail)
+- [ ] Implement database migrations
+- [ ] Add proper indexing and optimization
+
+### Phase 5: Frontend Integration
+- [ ] Create drawing upload component
+- [ ] Implement analysis progress tracking
+- [ ] Add compliance score visualization
+- [ ] Create issues & violations display
+- [ ] Add recommendations section
+- [ ] Implement report generation
+
+### Phase 6: Comprehensive Testing
+- [ ] Write unit tests for all services
+- [ ] Create integration tests
+- [ ] Implement E2E tests
+- [ ] Performance testing
+- [ ] Audit trail verification tests
+
+### Phase 7: Documentation & Review
+- [ ] Update API documentation
+- [ ] Create user guides
+- [ ] Senior code review
+- [ ] Legal defensibility verification
