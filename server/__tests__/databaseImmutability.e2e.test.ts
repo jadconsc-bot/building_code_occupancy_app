@@ -10,14 +10,15 @@
  * 6. Verify audit trail integrity detection
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getDb } from '../db';
 import { complianceAuditTrail } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
+import { createTestAnalysis, cleanupTestAnalysis } from './helpers/testFixtures';
 
 describe('Database Immutability E2E Test Suite', () => {
   let db: any;
-  const testAnalysisId = 6666;
+  let testAnalysisId: number;
 
   beforeAll(async () => {
     db = await getDb();
@@ -25,6 +26,15 @@ describe('Database Immutability E2E Test Suite', () => {
       throw new Error('Database connection failed');
     }
     console.log('[Database Immutability Tests] Database connected');
+    testAnalysisId = await createTestAnalysis();
+    console.log('[Database Immutability Tests] Created test analysis:', testAnalysisId);
+  });
+
+  afterAll(async () => {
+    if (testAnalysisId) {
+      await cleanupTestAnalysis(testAnalysisId);
+      console.log('[Database Immutability Tests] Cleaned up test data');
+    }
   });
 
   /**

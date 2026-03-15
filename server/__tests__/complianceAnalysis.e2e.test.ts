@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { appRouter } from '../routers';
 import type { TrpcContext } from '../_core/context';
 import { TRPCError } from '@trpc/server';
+import { createTestAnalysis, cleanupTestAnalysis } from './helpers/testFixtures';
 
 /**
  * Create an authenticated context for testing
@@ -43,10 +44,18 @@ function createAuthContext(userId: number = 1): TrpcContext {
 describe('Compliance Analysis E2E Tests', () => {
   let caller: ReturnType<typeof appRouter.createCaller>;
   let ctx: TrpcContext;
+  let testAnalysisId: number;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     ctx = createAuthContext();
     caller = appRouter.createCaller(ctx);
+    testAnalysisId = await createTestAnalysis();
+  });
+
+  afterEach(async () => {
+    if (testAnalysisId) {
+      await cleanupTestAnalysis(testAnalysisId);
+    }
   });
 
   describe('Residential Building Analysis', () => {

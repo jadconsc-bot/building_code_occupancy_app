@@ -22,13 +22,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { auditEventService } from '../services/AuditEventService';
 import { getDb } from '../db';
-import { complianceAuditTrail } from '../../drizzle/schema';
+import { complianceAuditTrail, drawingAnalyses } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
+import { createTestAnalysis, cleanupTestAnalysis } from './helpers/testFixtures';
 
 describe('Audit Events E2E Test Suite', () => {
   let db: any;
-  const testAnalysisId = 9999; // Test analysis ID
+  let testAnalysisId: number;
   const testUserId = 1;
   const testUserEmail = 'test@example.com';
   const testUserName = 'Test User';
@@ -40,6 +41,15 @@ describe('Audit Events E2E Test Suite', () => {
       throw new Error('Database connection failed');
     }
     console.log('[E2E Tests] Database connected');
+    testAnalysisId = await createTestAnalysis({ userId: testUserId });
+    console.log('[E2E Tests] Created test analysis:', testAnalysisId);
+  });
+
+  afterAll(async () => {
+    if (testAnalysisId) {
+      await cleanupTestAnalysis(testAnalysisId);
+      console.log('[E2E Tests] Cleaned up test data');
+    }
   });
 
   /**

@@ -10,13 +10,14 @@
  * 6. Analysis status updated to VALID or REJECTED
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { auditEventService } from '../services/AuditEventService';
 import { getDb } from '../db';
+import { createTestAnalysis, cleanupTestAnalysis } from './helpers/testFixtures';
 
 describe('Professional Review Panel E2E Test Suite', () => {
   let db: any;
-  const testAnalysisId = 7777;
+  let testAnalysisId: number;
   const testProfessionalId = 2;
   const testSessionId = `professional_test_${Date.now()}`;
 
@@ -24,6 +25,15 @@ describe('Professional Review Panel E2E Test Suite', () => {
     db = await getDb();
     if (!db) {
       throw new Error('Database connection failed');
+    }
+    testAnalysisId = await createTestAnalysis({ userId: testProfessionalId });
+    console.log('[Professional Review Tests] Created test analysis:', testAnalysisId);
+  });
+
+  afterAll(async () => {
+    if (testAnalysisId) {
+      await cleanupTestAnalysis(testAnalysisId);
+      console.log('[Professional Review Tests] Cleaned up test data');
     }
   });
 

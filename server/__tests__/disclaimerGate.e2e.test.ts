@@ -9,13 +9,14 @@
  * 5. Upload is allowed after disclaimer acceptance
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { auditEventService } from '../services/AuditEventService';
 import { getDb } from '../db';
+import { createTestAnalysis, cleanupTestAnalysis } from './helpers/testFixtures';
 
 describe('Disclaimer Gate E2E Test Suite', () => {
   let db: any;
-  const testAnalysisId = 8888;
+  let testAnalysisId: number;
   const testUserId = 1;
   const testSessionId = `disclaimer_test_${Date.now()}`;
 
@@ -23,6 +24,15 @@ describe('Disclaimer Gate E2E Test Suite', () => {
     db = await getDb();
     if (!db) {
       throw new Error('Database connection failed');
+    }
+    testAnalysisId = await createTestAnalysis({ userId: testUserId });
+    console.log('[Disclaimer Gate Tests] Created test analysis:', testAnalysisId);
+  });
+
+  afterAll(async () => {
+    if (testAnalysisId) {
+      await cleanupTestAnalysis(testAnalysisId);
+      console.log('[Disclaimer Gate Tests] Cleaned up test data');
     }
   });
 
