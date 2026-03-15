@@ -49,11 +49,11 @@ export function DevLogin({ onLoginSuccess }: DevLoginProps) {
       const data = await response.json();
       document.cookie = `dev-session=${data.token}; path=/; max-age=86400`;
 
-      toast.success('Dev login successful! Reloading...');
+      toast.success('Dev login successful! Redirecting to dashboard...');
       
-      // Reload page to trigger auth check
+      // Redirect to dashboard
       setTimeout(() => {
-        window.location.reload();
+        window.location.href = '/dashboard';
       }, 500);
 
       onLoginSuccess?.();
