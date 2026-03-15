@@ -1,0 +1,37 @@
+{
+  "query": "SHOW TABLES LIKE 'drawing%'; SHOW TABLES LIKE 'compliance%'; SHOW TABLES LIKE 'nbc%'; SHOW TABLES LIKE 'disclaimer%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SHOW TABLES LIKE 'drawing%'; SHOW TABLES LIKE 'compliance%'; SHOW TABLES LIKE 'nbc%'; SHOW TABLES LIKE 'disclaimer%';",
+  "rows": [
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "drawingAnalyses"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "drawingDataExtractions"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "Tables_in_9F4J2CDosTHNgtZbintBLn (compliance%)"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "complianceAuditTrail"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "complianceEvaluationResults"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "Tables_in_9F4J2CDosTHNgtZbintBLn (nbc%)"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "nbcRules"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "Tables_in_9F4J2CDosTHNgtZbintBLn (disclaimer%)"
+    },
+    {
+      "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)": "disclaimerAcknowledgments"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_9F4J2CDosTHNgtZbintBLn (drawing%)\ndrawingAnalyses\ndrawingDataExtractions\nTables_in_9F4J2CDosTHNgtZbintBLn (compliance%)\ncomplianceAuditTrail\ncomplianceEvaluationResults\nTables_in_9F4J2CDosTHNgtZbintBLn (nbc%)\nnbcRules\nTables_in_9F4J2CDosTHNgtZbintBLn (disclaimer%)\ndisclaimerAcknowledgments\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}

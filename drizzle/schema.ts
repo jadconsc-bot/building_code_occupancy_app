@@ -1173,3 +1173,223 @@ export const ruleAuditTrail = mysqlTable("ruleAuditTrail", {
 
 export type RuleAuditTrail = typeof ruleAuditTrail.$inferSelect;
 export type InsertRuleAuditTrail = typeof ruleAuditTrail.$inferInsert;
+
+
+/**
+ * Drawing Analysis - Main analysis records
+ * Tracks drawing uploads, analysis status, compliance scores, and professional validation
+ */
+export const drawingAnalyses = mysqlTable("drawingAnalyses", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  
+  // Drawing file references
+  drawingUrl: text("drawingUrl").notNull(),
+  drawingHash: varchar("drawingHash", { length: 64 }).notNull(), // SHA-256 hash
+  drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }), // S3 key for immutable snapshot
+  drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }), // MIME type
+  drawingSnapshotSize: int("drawingSnapshotSize"), // File size in bytes
+  
+  // Analysis metadata
+  analysisType: mysqlEnum("analysisType", ["structural", "fire-safety", "connections", "comprehensive"]),
+  analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"])
+    .notNull()
+    .default("DRAFT"),
+  
+  // Compliance results
+  complianceScore: int("complianceScore"), // 0-100
+  complianceLevel: mysqlEnum("complianceLevel", ["approved", "conditional", "revision", "rejected"]),
+  
+  // Detailed analysis results (JSON)
+  structuralStatus: text("structuralStatus"), // JSON
+  fireSafetyStatus: text("fireSafetyStatus"), // JSON
+  connectionStatus: text("connectionStatus"), // JSON
+  issues: text("issues"), // JSON array of issues
+  recommendations: text("recommendations"), // JSON array of recommendations
+  
+  // Disclaimer tracking
+  disclaimerAcknowledged: boolean("disclaimerAcknowledged").notNull().default(false),
+  disclaimerAcknowledgedAt: timestamp("disclaimerAcknowledgedAt"),
+  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
+  
+  // Versioning
+  llmModelVersion: varchar("llmModelVersion", { length: 50 }), // e.g., "claude-vision-4"
+  ruleEngineVersion: varchar("ruleEngineVersion", { length: 20 }), // e.g., "1.0"
+  
+  // Professional validation
+  validatedAt: timestamp("validatedAt"),
+  validatedByUserId: int("validatedByUserId"),
+  validatedByLicenseNumber: varchar("validatedByLicenseNumber", { length: 100 }),
+  validatedByAssociation: varchar("validatedByAssociation", { length: 100 }), // e.g., "APEGA", "AIBC"
+  
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DrawingAnalysis = typeof drawingAnalyses.$inferSelect;
+export type InsertDrawingAnalysis = typeof drawingAnalyses.$inferInsert;
+
+/**
+ * Drawing Data Extractions - LLM extraction results
+ * Stores structured drawing data extracted by Claude Vision
+ */
+export const drawingDataExtractions = mysqlTable("drawingDataExtractions", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  
+  // Extracted data (JSON)
+  extractedData: text("extractedData").notNull(), // JSON - structured DrawingData
+  
+  // Extraction metadata
+  extractionModel: varchar("extractionModel", { length: 50 }).notNull(), // e.g., "claude-vision-4"
+  extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }).notNull(),
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }), // 0.0-1.0
+  
+  // Timestamps
+  extractedAt: timestamp("extractedAt").defaultNow().notNull(),
+});
+
+export type DrawingDataExtraction = typeof drawingDataExtractions.$inferSelect;
+export type InsertDrawingDataExtraction = typeof drawingDataExtractions.$inferInsert;
+
+/**
+ * NBC Rules - Versioned compliance rules
+ * Stores NBC 2020 rules for deterministic compliance evaluation
+ */
+export const nbcRules = mysqlTable("nbcRules", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Rule identification
+  ruleId: varchar("ruleId", { length: 50 }).notNull().unique(), // e.g., "NBC-3.1.5.1"
+  section: varchar("section", { length: 20 }).notNull(), // e.g., "3.1.5.1"
+  clause: varchar("clause", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  
+  // Categorization
+  category: mysqlEnum("category", ["structural", "fire-safety", "connections", "materials", "csa"])
+    .notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 50 }), // e.g., "national", "AB", "BC", "ON"
+  
+  // Versioning
+  ruleVersion: int("ruleVersion").notNull().default(1),
+  isActive: boolean("isActive").notNull().default(true),
+  
+  // Evaluation metadata
+  requiredFields: text("requiredFields"), // JSON array of required DrawingData fields
+  evaluationLogic: varchar("evaluationLogic", { length: 500 }), // Description of evaluation logic
+  
+  // Audit trail
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdByUserId: int("createdByUserId"),
+});
+
+export type NBCRule = typeof nbcRules.$inferSelect;
+export type InsertNBCRule = typeof nbcRules.$inferInsert;
+
+/**
+ * Compliance Evaluation Results - Rule evaluation results
+ * Stores results of evaluating each rule against drawing data
+ */
+export const complianceEvaluationResults = mysqlTable("complianceEvaluationResults", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  ruleId: int("ruleId").notNull(),
+  ruleVersion: int("ruleVersion").notNull(),
+  
+  // Evaluation result
+  evaluationResult: mysqlEnum("evaluationResult", ["PASS", "FAIL", "CONDITIONAL", "UNABLE_TO_EVALUATE"])
+    .notNull(),
+  
+  // Detailed results (JSON)
+  evaluationDetails: text("evaluationDetails"), // JSON with evaluation details
+  
+  // Timestamp
+  evaluatedAt: timestamp("evaluatedAt").defaultNow().notNull(),
+});
+
+export type ComplianceEvaluationResult = typeof complianceEvaluationResults.$inferSelect;
+export type InsertComplianceEvaluationResult = typeof complianceEvaluationResults.$inferInsert;
+
+/**
+ * Compliance Audit Trail - Immutable audit log
+ * Records all actions taken on analyses with full credential capture
+ * CRITICAL: This table must be immutable (no UPDATE/DELETE at DB layer)
+ */
+export const complianceAuditTrail = mysqlTable("complianceAuditTrail", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  userId: int("userId").notNull(),
+  
+  // Action details
+  action: varchar("action", { length: 100 }).notNull(), // e.g., "DRAWING_UPLOADED", "EXTRACTION_COMPLETED"
+  details: text("details").notNull(), // JSON with action-specific details
+  
+  // User credentials
+  userEmail: varchar("userEmail", { length: 255 }).notNull(),
+  userFullName: varchar("userFullName", { length: 255 }),
+  
+  // Professional credentials (for professional review events)
+  professionalLicenseNumber: varchar("professionalLicenseNumber", { length: 100 }),
+  professionalAssociation: varchar("professionalAssociation", { length: 100 }), // e.g., "APEGA"
+  jurisdiction: varchar("jurisdiction", { length: 100 }), // Province/territory
+  
+  // Request context (forensic traceability)
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("userAgent"), // Browser/device fingerprint
+  sessionId: varchar("sessionId", { length: 255 }), // Session identifier
+  
+  // Server-side timestamp (NEVER client-side)
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type ComplianceAuditTrail = typeof complianceAuditTrail.$inferSelect;
+export type InsertComplianceAuditTrail = typeof complianceAuditTrail.$inferInsert;
+
+/**
+ * Disclaimer Acknowledgments - Disclaimer tracking
+ * Records all disclaimer acknowledgments for legal proof of informed consent
+ */
+export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Disclaimer details
+  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
+  disclaimerText: text("disclaimerText").notNull(), // Full text of disclaimer
+  
+  // Request context
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  // Server-side timestamp
+  acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+});
+
+export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;
+export type InsertDisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferInsert;
+
+/**
+ * Indexes for query performance
+ */
+// Drawing Analyses indexes
+export const drawingAnalysesIndexes = {
+  analysisStatus: true, // Query by status
+  disclaimerAcknowledged: true, // Query by disclaimer status
+  validatedAt: true, // Query by validation date
+  drawingHash: true, // Query by hash (integrity verification)
+  projectId: true, // Query by project
+  userId: true, // Query by user
+};
+
+// Compliance Audit Trail indexes
+export const complianceAuditTrailIndexes = {
+  userEmail: true, // Query by email
+  professionalLicenseNumber: true, // Query by professional
+  jurisdiction: true, // Query by jurisdiction
+  sessionId: true, // Query by session
+  action: true, // Query by action type
+  analysisId: true, // Query by analysis
+};
