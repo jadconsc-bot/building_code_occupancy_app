@@ -14,8 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { trpc } from '@/lib/trpc';
+import { CURRENT_DISCLAIMER_VERSION } from '@shared/constants/DISCLAIMER_CONSTANTS';
 
 interface DisclaimerGateProps {
   onAccepted: () => void;
@@ -37,42 +38,20 @@ This tool is NOT a substitute for professional engineering review, consultation,
 
 BUILDING CODES VARY BY JURISDICTION
 
-Building codes vary by jurisdiction. Local amendments, provincial regulations, and municipal bylaws may supersede or modify national code requirements. This tool provides analysis based on the base code edition only. Local variations must be independently verified.
-
-NO WARRANTIES
-
-This compliance analysis engine is provided "AS IS" without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
-
-AI ANALYSIS IS NON-DETERMINISTIC
-
-Results may vary between analyses due to the non-deterministic nature of AI models. Professional verification is required before relying on results for any legal, regulatory, or commercial purpose.
-
-LIABILITY LIMITATION
-
-In no event shall the developers, providers, or operators of this tool be liable for any indirect, incidental, special, consequential, or punitive damages arising from the use of or inability to use the analysis results.
+Building codes and regulations vary significantly by jurisdiction. This tool may not reflect all local requirements or recent code updates.
 
 I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
 
 I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
 `;
 
-export function DisclaimerGate({ onAccepted, disclaimerVersion = '1.0' }: DisclaimerGateProps) {
+export function DisclaimerGate({ onAccepted, disclaimerVersion = CURRENT_DISCLAIMER_VERSION }: DisclaimerGateProps) {
   const { user } = useAuth();
   const [understands, setUnderstands] = useState(false);
   const [accepts, setAccepts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAlreadyAccepted, setIsAlreadyAccepted] = useState(false);
-
-  // Check if user has already accepted disclaimer in this session
-  useEffect(() => {
-    const sessionKey = `disclaimer_accepted_${user?.id}`;
-    const sessionAccepted = sessionStorage.getItem(sessionKey);
-    if (sessionAccepted === 'true') {
-      setIsAlreadyAccepted(true);
-      onAccepted();
-    }
-  }, [user?.id, onAccepted]);
 
   const logDisclaimerMutation = trpc.audit.logEvent.useMutation();
 
@@ -91,92 +70,82 @@ export function DisclaimerGate({ onAccepted, disclaimerVersion = '1.0' }: Discla
     setError(null);
 
     try {
-      // Get request context
-      const ipAddress = '0.0.0.0'; // Will be overridden by server
-      const userAgent = navigator.userAgent;
-      const sessionId = sessionStorage.getItem('sessionId') || `session_${Date.now()}`;
-
-      // Log DISCLAIMER_ACKNOWLEDGED audit event
+      // Log disclaimer acknowledgment event
       await logDisclaimerMutation.mutateAsync({
-        analysisId: 0, // Placeholder - will be set when analysis is created
         userId: user.id,
+        analysisId: 0, // Placeholder for pre-analysis
         action: 'DISCLAIMER_ACKNOWLEDGED',
-        userEmail: user.email || '',
-        userFullName: user.name || '',
         details: {
           disclaimerVersion,
           timestamp: new Date().toISOString(),
-          accepted: true,
         },
-        ipAddress,
-        userAgent,
-        sessionId,
+        userEmail: user.email || '',
+        userFullName: user.name || '',
+        ipAddress: '0.0.0.0', // Will be captured server-side
+        userAgent: navigator.userAgent,
+        sessionId: sessionStorage.getItem('sessionId') || '',
       });
 
-      // Store acceptance in session
-      const sessionKey = `disclaimer_accepted_${user.id}`;
-      sessionStorage.setItem(sessionKey, 'true');
-      sessionStorage.setItem('sessionId', sessionId);
-
-      console.log('[DisclaimerGate] Disclaimer accepted:', {
-        userId: user.id,
-        version: disclaimerVersion,
-        timestamp: new Date().toISOString(),
-      });
+      // Store in session to prevent re-prompting
+      sessionStorage.setItem('disclaimerAccepted', 'true');
+      sessionStorage.setItem('disclaimerVersion', disclaimerVersion);
 
       onAccepted();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to log disclaimer acceptance';
-      console.error('[DisclaimerGate] Error:', errorMessage);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to log disclaimer acknowledgment');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // If already accepted in this session, don't render
+  // Check if already accepted in this session
+  useEffect(() => {
+    const sessionAccepted = sessionStorage.getItem('disclaimerAccepted');
+    if (sessionAccepted === 'true') {
+      setIsAlreadyAccepted(true);
+      onAccepted();
+    }
+  }, [user?.id, onAccepted]);
+
   if (isAlreadyAccepted) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-red-300 bg-red-50">
-        <CardHeader className="border-b border-red-200 bg-red-100">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
-            <CardTitle className="text-red-900">REQUIRED LEGAL ACKNOWLEDGMENT</CardTitle>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <CardHeader className="bg-red-50 border-b border-red-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+            <CardTitle className="text-red-600">REQUIRED LEGAL ACKNOWLEDGMENT</CardTitle>
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
+        <CardContent className="p-6 space-y-6">
           {/* Disclaimer Text */}
-          <div className="bg-white p-4 rounded-lg border border-red-200 space-y-4 text-sm whitespace-pre-wrap">
-            {DISCLAIMER_TEXT}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm font-bold text-red-600 mb-3">NOT A PROFESSIONAL ENGINEER SERVICE</p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{DISCLAIMER_TEXT}</p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-100 border border-red-300 text-red-800 px-4 py-3 rounded">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
               {error}
             </div>
           )}
 
           {/* Checkboxes */}
-          <div className="space-y-4 bg-white p-4 rounded-lg border border-red-200">
+          <div className="space-y-4">
             <div className="flex items-start gap-3">
               <Checkbox
                 id="understands"
                 checked={understands}
                 onCheckedChange={(checked) => setUnderstands(checked as boolean)}
-                className="mt-1"
+                disabled={isLoading}
               />
-              <Label
-                htmlFor="understands"
-                className="text-sm font-medium leading-relaxed cursor-pointer"
-              >
-                I understand that this analysis requires review and acceptance by a licensed
-                Professional Engineer or Architect before it has any legal validity.
+              <Label htmlFor="understands" className="text-sm cursor-pointer">
+                I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
               </Label>
             </div>
 
@@ -185,14 +154,10 @@ export function DisclaimerGate({ onAccepted, disclaimerVersion = '1.0' }: Discla
                 id="accepts"
                 checked={accepts}
                 onCheckedChange={(checked) => setAccepts(checked as boolean)}
-                className="mt-1"
+                disabled={isLoading}
               />
-              <Label
-                htmlFor="accepts"
-                className="text-sm font-medium leading-relaxed cursor-pointer"
-              >
-                I accept all terms, conditions, disclaimers, and limitations of liability outlined
-                above and acknowledge the risks of using this tool.
+              <Label htmlFor="accepts" className="text-sm cursor-pointer">
+                I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
               </Label>
             </div>
           </div>
@@ -201,25 +166,14 @@ export function DisclaimerGate({ onAccepted, disclaimerVersion = '1.0' }: Discla
           <Button
             onClick={handleProceed}
             disabled={!understands || !accepts || isLoading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            size="lg"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white"
           >
-            {isLoading ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Processing...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                I Accept - Proceed to Upload
-              </>
-            )}
+            {isLoading ? 'Processing...' : 'Proceed to Upload'}
           </Button>
 
-          {/* Info Text */}
-          <p className="text-xs text-gray-600 text-center">
-            This modal cannot be dismissed. You must accept the terms to proceed.
+          {/* Version Info */}
+          <p className="text-xs text-gray-500 text-center">
+            Disclaimer Version: {disclaimerVersion}
           </p>
         </CardContent>
       </Card>

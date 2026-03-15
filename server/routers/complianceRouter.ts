@@ -11,6 +11,7 @@ import { quotaMiddleware } from '../_core/middleware';
 import { ComplianceEvaluator, createEvaluator, ComplianceInput } from '../complianceEngine';
 import { CodeInterpreterService, type ClauseReference } from '../codeInterpreterService';
 import { ProfessionalReviewService } from '../professionalReviewService';
+import { CURRENT_DISCLAIMER_VERSION, isValidDisclaimerVersion } from '../../shared/constants/DISCLAIMER_CONSTANTS';
 
 export const complianceRouter = router({
   /**
@@ -43,12 +44,19 @@ export const complianceRouter = router({
           (val) => val === true,
           { message: 'You must acknowledge the disclaimer before proceeding' }
         ),
+        disclaimerVersion: z.string().refine(
+          (val) => isValidDisclaimerVersion(val),
+          { message: `Disclaimer version must be ${CURRENT_DISCLAIMER_VERSION}` }
+        ),
       })
     )
     .mutation(async ({ ctx, input }) => {
       // API-layer disclaimer validation (Prime Directive 2.0)
       if (!input.disclaimerAcknowledged) {
         throw new Error('Disclaimer must be acknowledged before analysis');
+      }
+      if (!isValidDisclaimerVersion(input.disclaimerVersion)) {
+        throw new Error(`Invalid disclaimer version. Expected ${CURRENT_DISCLAIMER_VERSION}, got ${input.disclaimerVersion}`);
       }
       // Track usage
       return complianceAnalysisService.analyzeDrawing(input, ctx.user.id);
