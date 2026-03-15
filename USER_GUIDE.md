@@ -13,11 +13,12 @@
 3. [Occupancy Classifications](#occupancy-classifications)
 4. [NBC 2025 Design Calculators](#nbc-2025-design-calculators)
 5. [Project Management Features](#project-management-features)
-6. [Advanced Features](#advanced-features)
-7. [Mobile Features](#mobile-features)
-8. [Keyboard Shortcuts](#keyboard-shortcuts)
-9. [Troubleshooting](#troubleshooting)
-10. [References](#references)
+6. [Rules Management System](#rules-management-system) **NEW**
+7. [Advanced Features](#advanced-features)
+8. [Mobile Features](#mobile-features)
+9. [Keyboard Shortcuts](#keyboard-shortcuts)
+10. [Troubleshooting](#troubleshooting)
+11. [References](#references)
 
 ---
 
@@ -808,3 +809,212 @@ This application is based on the following authoritative sources:
 ---
 
 *For the latest updates and additional resources, visit the application at your deployment URL.*
+
+
+---
+
+## Rules Management System
+
+**New in Version 2.1** | **Released:** March 2026
+
+The Rules Management System is a powerful new feature that enables organizations to create, manage, and apply building code rules across projects. This system provides comprehensive rule tracking with full audit trails for legal defensibility and compliance documentation.
+
+### Overview
+
+The Rules Management System serves as a centralized repository for building code rules and compliance requirements. It allows you to:
+
+- **Search and filter** pre-built rules by jurisdiction, category, and keywords
+- **Apply rules** to specific projects or organization-wide
+- **Create custom rules** with full credentials tracking
+- **Track compliance** with immutable audit trails
+- **Generate reports** for legal and regulatory purposes
+
+### Accessing Rules Management
+
+To access the Rules Management System:
+
+1. From the main dashboard, click **"Rules Management"** in the navigation menu
+2. You will see the Rules Management interface with search and filter options
+3. Use the search bar to find rules by keyword (e.g., "occupancy", "fire separation", "egress")
+4. Filter by **Jurisdiction** (NBC, Alberta, BC, Ontario, Calgary, Edmonton, Toronto, Lethbridge, Airdrie)
+5. Filter by **Category** (occupancy, fire, egress, structural, electrical, plumbing, hvac, accessibility, energy)
+
+### Searching for Rules
+
+The search functionality provides powerful filtering capabilities:
+
+**Keyword Search:** Type keywords to search across rule names, descriptions, NBC references, and keywords. For example:
+- "occupancy load" - finds all rules related to occupancy calculations
+- "fire separation" - finds fire safety rules
+- "egress" - finds exit and egress requirements
+
+**Jurisdiction Filtering:** Select a specific jurisdiction to see rules applicable to that region:
+- **NBC** - National Building Code (applies across Canada)
+- **Alberta** - Alberta-specific amendments
+- **BC** - British Columbia-specific amendments
+- **Ontario** - Ontario-specific amendments
+- **Calgary** - Calgary municipal requirements
+- **Edmonton** - Edmonton municipal requirements
+- **Toronto** - Toronto municipal requirements
+- **Lethbridge** - Lethbridge municipal requirements
+- **Airdrie** - Airdrie municipal requirements
+
+**Category Filtering:** Select a category to see rules for a specific discipline:
+- **Occupancy** - Building occupancy classification and load requirements
+- **Fire** - Fire safety, separation, and protection requirements
+- **Egress** - Exit and emergency egress requirements
+- **Structural** - Structural design and load requirements
+- **Electrical** - Electrical system requirements
+- **Plumbing** - Plumbing and drainage requirements
+- **HVAC** - Heating, ventilation, and air conditioning requirements
+- **Accessibility** - Barrier-free design and accessibility requirements
+- **Energy** - Energy efficiency and thermal performance requirements
+
+### Applying Rules to Projects
+
+Once you find a relevant rule, you can apply it to your project:
+
+1. Click the **"Apply Rule"** button next to the rule
+2. Select whether to apply the rule to:
+   - **This Project Only** - Rule applies only to the current project
+   - **Organization-Wide** - Rule applies to all projects (admin only)
+3. Click **"Confirm"** to apply the rule
+4. The rule will now appear in your project's applied rules list
+
+### Viewing Applied Rules
+
+To see rules applied to your current project:
+
+1. Navigate to **"Project Settings"** or **"Applied Rules"** section
+2. You will see a list of all rules applied to the project
+3. Each rule shows:
+   - Rule code and name
+   - Category and jurisdiction
+   - Date applied
+   - Compliance status (if tracked)
+   - Option to remove or deactivate
+
+### Creating Custom Rules
+
+If you need to create a rule specific to your organization or project:
+
+1. Click **"Create Custom Rule"** button
+2. Fill in the rule details:
+   - **Rule Name** (minimum 5 characters)
+   - **Description** (minimum 20 characters, explain the requirement in detail)
+   - **Category** (select from available categories)
+   - **Keywords** (optional, for better searchability)
+3. Click **"Create"** to save the rule
+4. The rule will be marked as custom and associated with your user credentials
+5. Custom rules can be applied to projects just like pre-built rules
+
+### Audit Trail and Legal Defensibility
+
+All rule operations are tracked in an immutable audit trail for legal defensibility:
+
+- **Rule Creation** - When and by whom each rule was created
+- **Rule Application** - When and by whom rules were applied to projects
+- **Rule Deactivation** - When and by whom rules were removed from projects
+- **Custom Rule Authorization** - Credentials of rule creators and authorizers
+
+To view the audit trail:
+
+1. Select a rule from the search results
+2. Click **"View Audit Trail"** or **"History"**
+3. You will see a complete record of all actions on this rule
+4. This audit trail can be exported for compliance documentation
+
+### Best Practices
+
+**For Effective Rule Management:**
+
+- **Search thoroughly** before creating custom rules - the pre-built library may already contain what you need
+- **Use consistent naming** for custom rules to make them searchable
+- **Document your rules clearly** - detailed descriptions help team members understand requirements
+- **Apply rules early** in the project design phase to ensure compliance from the start
+- **Review audit trails** regularly to ensure all rule applications are properly documented
+- **Update rules** when building code changes or new amendments are released
+
+**For Compliance:**
+
+- Keep audit trails as evidence of due diligence
+- Document which rules apply to each project
+- Track rule compliance status throughout the project lifecycle
+- Generate compliance reports for regulatory submissions
+- Maintain records of custom rules and their authorization
+
+### Troubleshooting
+
+**Cannot find a specific rule:**
+- Try different keywords or search terms
+- Check if the rule applies to your selected jurisdiction
+- Create a custom rule if the requirement is not in the pre-built library
+
+**Rule not applying to project:**
+- Ensure you have permission to apply rules (admin may be required)
+- Check that the rule is marked as active
+- Verify the project is selected before applying the rule
+
+**Need to remove a rule:**
+- Click the **"Deactivate"** or **"Remove"** button next to the applied rule
+- This will be recorded in the audit trail
+- The rule will no longer apply to the project
+
+### Integration with Project Checklists
+
+Rules are integrated with the project checklist system to provide context-aware compliance requirements:
+
+- When you create a project checklist, applicable rules are automatically suggested
+- Each checklist item can be linked to relevant rules
+- Compliance status for each rule is tracked in the project dashboard
+- Reports can be generated showing rule compliance status
+
+---
+
+## Coding Protocol and Development Standards
+
+**New in Version 2.1** | **Effective:** March 2026
+
+The project now follows a disciplined engineering protocol documented in **CODING_PROTOCOL.md**. This protocol ensures all code is complete, predictable, maintainable, and fully aligned with requirements.
+
+### Key Principles
+
+The protocol enforces a 10-step development workflow:
+
+1. **Problem Definition** - Clear feature description, user flow, data flow, success criteria, and edge cases
+2. **UX-Backend Contract** - Explicit API endpoints, request/response schemas, error codes, and validation rules
+3. **Architecture Plan** - File structure, component hierarchy, service layer, and repository pattern
+4. **Coding Standards** - Meaningful names, single-purpose functions, comprehensive error handling, and logging
+5. **Integration Discipline** - Frontend validation, backend validation, no silent failures, all states handled
+6. **Testing Requirements** - Unit tests, integration tests, manual UX tests, and edge case coverage
+7. **Definition of Done** - Code reviewed, UX tested, API contract respected, error states handled, no TODOs
+8. **Self-Review Checklist** - Logic clean, names meaningful, duplication eliminated, all states handled
+9. **Deployment Readiness** - Feature flags, environment variables, API keys secured, monitoring, rollback plan
+10. **Continuous Improvement** - Reflect on what slowed you down, patterns that repeated, and process improvements
+
+### Architectural Patterns
+
+All code follows established architectural patterns:
+
+- **Service Layer** - Business logic separated from UI and data access
+- **Repository Pattern** - Data access abstracted from business logic
+- **Middleware Pattern** - Authorization and security enforced consistently
+- **Caching Pattern** - Performance improved with TTL-based caching
+- **Rate Limiting** - Expensive operations protected against abuse
+- **Monitoring Pattern** - Operations tracked and errors logged
+- **Transaction Pattern** - Atomic operations wrapped in database transactions
+
+### For Developers
+
+When working on features:
+
+1. Read **CODING_PROTOCOL.md** before starting
+2. Follow the 10-step workflow strictly
+3. Pass the 22-point audit checklist before deployment
+4. Never merge code without tests
+5. Never leave TODOs or debug console.log statements
+6. Document all public APIs and edge cases
+
+For more details, see the **CODING_PROTOCOL.md** document in the project root.
+
+---
