@@ -5,16 +5,26 @@
  * Handles plan analysis, drawing analysis, and code interpretation.
  */
 
+import { analyzeCompliance } from '../llm';
 import { invokeLLM } from '../_core/llm';
 import { TRPCError } from '@trpc/server';
 import { checkRateLimit, rateLimiters, requestDeduplicator } from '../_core/security';
 import { RuleService } from '../ruleService';
+import { logger } from '../logger';
 
 export interface AnalyzePlanInput {
   planDescription: string;
   occupancyType: string;
   buildingType?: string;
   province?: string;
+  analysisId?: string;
+}
+
+export interface AnalyzePlanMetadata {
+  analysis: string;
+  source: 'claude' | 'manus';
+  usedFallback: boolean;
+  confidence: number;
 }
 
 export interface AnalyzePlanOutput {
@@ -52,8 +62,9 @@ export interface AnalyzeDrawingOutput {
 export class ComplianceAnalysisService {
   /**
    * Analyze building plan for code compliance
+   * Returns metadata about which LLM was used
    */
-  async analyzePlan(input: AnalyzePlanInput, userId: number): Promise<AnalyzePlanOutput> {
+  async analyzePlan(input: AnalyzePlanInput, userId: number): Promise<AnalyzePlanOutput & AnalyzePlanMetadata> {
     // Check rate limit (10 per hour per user)
     checkRateLimit(rateLimiters.llm, `user:${userId}:plan`);
 
@@ -62,18 +73,35 @@ export class ComplianceAnalysisService {
 
     return requestDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        const prompt = await this.buildPlanAnalysisPrompt(input);
+        // Use Claude with Manus fallback for compliance analysis
+        const result = await analyzeCompliance(
+          input.planDescription,
+          input.occupancyType,
+          input.province || 'Ontario',
+          {
+            analysisId: `plan-${userId}-${Date.now()}`,
+            userId: String(userId),
+          }
+        );
 
+        logger.info('✅ [Compliance Analysis] Analysis complete', {
+          source: result.source,
+          usedFallback: result.usedFallback,
+          confidence: result.confidence,
+          userId,
+        });
+
+        // Parse the analysis result
         const response = await Promise.race([
           invokeLLM({
             messages: [
               {
                 role: 'system',
-                content: 'You are a building code compliance expert. Analyze the provided plan description and identify any code violations. Return a JSON object with infractions array.',
+                content: 'You are a building code compliance expert. Parse the provided analysis and extract infractions. Return a JSON object with infractions array.',
               },
               {
                 role: 'user',
-                content: prompt,
+                content: `Analysis Result:\n${result.analysis}\n\nExtract infractions from this analysis.`,
               },
             ],
             response_format: {
@@ -112,12 +140,16 @@ export class ComplianceAnalysisService {
 
         const content = (response as any).choices[0].message.content;
         if (!content) {
-          return {
-            success: false,
-            infractions: [],
-            summary: 'No response from analysis',
-            error: 'Empty response from LLM',
-          };
+        return {
+          success: false,
+          infractions: [],
+          summary: 'No response from analysis',
+          error: 'Empty response from LLM',
+          analysis: '',
+          source: 'manus' as const,
+          usedFallback: true,
+          confidence: 0,
+        };
         }
 
         const parsed = JSON.parse(content as string);
@@ -126,6 +158,10 @@ export class ComplianceAnalysisService {
           success: true,
           infractions: parsed.infractions || [],
           summary: parsed.summary || '',
+          analysis: typeof result.analysis === 'string' ? result.analysis : JSON.stringify(result.analysis),
+          source: (result.source as 'claude' | 'manus'),
+          usedFallback: result.usedFallback,
+          confidence: result.confidence,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -137,6 +173,10 @@ export class ComplianceAnalysisService {
           infractions: [],
           summary: '',
           error: `Analysis failed: ${message}`,
+          analysis: '',
+          source: 'manus' as const,
+          usedFallback: true,
+          confidence: 0,
         };
       }
     });

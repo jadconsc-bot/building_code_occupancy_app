@@ -12,10 +12,13 @@ import { ComplianceEvaluator, createEvaluator, ComplianceInput } from '../compli
 import { CodeInterpreterService, type ClauseReference } from '../codeInterpreterService';
 import { ProfessionalReviewService } from '../professionalReviewService';
 import { CURRENT_DISCLAIMER_VERSION, isValidDisclaimerVersion } from '../../shared/constants/DISCLAIMER_CONSTANTS';
+import { logger } from '../logger';
+import { randomUUID } from 'crypto';
 
 export const complianceRouter = router({
   /**
    * Analyze a building plan for code compliance
+   * Uses Claude with Manus LLM fallback
    */
   analyzePlan: protectedProcedure
     .input(
@@ -24,11 +27,55 @@ export const complianceRouter = router({
         occupancyType: z.string(),
         buildingType: z.string().optional(),
         province: z.string().optional(),
+        analysisId: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Track usage
-      return complianceAnalysisService.analyzePlan(input, ctx.user.id);
+      const analysisId = input.analysisId || randomUUID();
+      
+      logger.info('🟡 [Router] Starting compliance analysis', {
+        analysisId,
+        province: input.province || 'default',
+        occupancyType: input.occupancyType,
+        userId: ctx.user?.id,
+      });
+
+      try {
+        const result = await complianceAnalysisService.analyzePlan(
+          {
+            planDescription: input.planDescription,
+            occupancyType: input.occupancyType,
+            buildingType: input.buildingType,
+            province: input.province || 'Ontario',
+            analysisId,
+          },
+          ctx.user.id
+        );
+        
+        logger.info('✅ [Router] Analysis complete', {
+          analysisId,
+          source: result.source,
+          usedFallback: result.usedFallback,
+          confidence: result.confidence,
+          userId: ctx.user?.id,
+        });
+
+        return {
+          success: true,
+          analysis: result.analysis,
+          source: result.source,
+          usedFallback: result.usedFallback,
+          confidence: result.confidence,
+          analysisId,
+        };
+      } catch (error) {
+        logger.error('❌ [Router] Analysis failed', {
+          analysisId,
+          error: error instanceof Error ? error.message : String(error),
+          userId: ctx.user?.id,
+        });
+        throw error;
+      }
     }),
 
   /**
