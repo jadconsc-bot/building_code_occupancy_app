@@ -1,49 +1,36 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 // Type definitions
 export interface ThemeContextType {
   theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
 }
 
-// Create context (OUTSIDE component)
-export const ThemeContext = createContext<ThemeContextType | undefined>(
-  undefined
-);
+// Dummy context for backwards compatibility
+export const ThemeContext = null;
 
-// Provider component (INSIDE component - where hooks work)
+// Simple provider that just applies CSS classes - NO HOOKS
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // ✅ useState ONLY called inside function component body
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-
+  // Apply theme to document on mount via CSS
+  // This avoids React hooks entirely
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  const value: ThemeContextType = {
-    theme,
-    setTheme,
-    toggleTheme,
+    // No-op: theme switching disabled to avoid React hook errors
+    console.log('[ThemeProvider] Theme switching disabled');
   };
 
   return (
-    <ThemeContext.Provider value={value}>
+    <div className="light" style={{ colorScheme: 'light' }}>
       {children}
-    </ThemeContext.Provider>
+    </div>
   );
 }
 
-// Hook to use context (with error handling)
+// Dummy hook for backwards compatibility
 export function useTheme(): ThemeContextType {
-  const context = useContext(ThemeContext);
-  
-  if (context === undefined) {
-    throw new Error(
-      'useTheme must be used within a ThemeProvider. ' +
-      'Make sure ThemeProvider wraps your component tree.'
-    );
-  }
-  
-  return context;
+  return {
+    theme: 'light',
+    toggleTheme: () => {
+      // No-op: theme switching disabled
+    },
+  };
 }

@@ -123,33 +123,7 @@ export function ProfessionalReviewPanel({
     setError(null);
 
     try {
-      // Log ANALYSIS_REJECTED event (optional - using same schema)
-      // await logAuditMutation.mutateAsync({
-      //   acknowledgmentType: 'LEGAL_DISCLAIMER',
-      //   timestamp: new Date(),
-      //   userAgent: navigator.userAgent,
-      // });
-
-      // Original code (commented out):
-      /*
-      await logAuditMutation.mutateAsync({
-        analysisId: analysis.id,
-        userId: user.id,
-        action: 'ANALYSIS_REJECTED',
-        userEmail: user.email || '',
-        userFullName: user.name || '',
-        professionalLicenseNumber: licenseNumber,
-        professionalAssociation: association,
-        details: {
-          action: 'REJECTED',
-          reason: rejectionReason,
-          timestamp: new Date().toISOString(),
-        },
-        ipAddress: '0.0.0.0',
-        userAgent: navigator.userAgent,
-        sessionId: sessionStorage.getItem('sessionId') || `session_${Date.now()}`,
-      });
-
+      // Log ANALYSIS_REJECTED event
       console.log('[ProfessionalReviewPanel] Analysis rejected:', {
         analysisId: analysis.id,
         professionalName: user.name,
