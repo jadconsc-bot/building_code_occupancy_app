@@ -20,6 +20,9 @@ import { TRPCError } from '@trpc/server';
 import { CertificationGenerationService } from '../certificationGenerationService';
 import { CertificatePdfExportService } from '../services/certificatePdfExportService';
 import { logger } from '../logger';
+import { extractIpAddress } from '../utils/ipExtractor';
+import { db } from '../db';
+import { signatureLogs } from '../../drizzle/schema';
 
 // Initialize services
 const certificationService = new CertificationGenerationService('RSA-SHA256', 'sectigo');
@@ -28,7 +31,75 @@ const pdfExportService = new CertificatePdfExportService();
 /**
  * Certification Router
  */
+
 export const certificationRouter = router({
+  /**
+   * Submit digitally signed analysis
+   * Records signature immutably with audit trail
+   */
+  submitSignedAnalysis: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        signature: z.string(), // PNG data URI from SignaturePad
+        engineerName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'User not authenticated',
+        });
+      }
+
+      try {
+        // Extract real IP
+        const ipAddress = extractIpAddress(ctx.req);
+        const userAgent = ctx.req.headers?.['user-agent'] || 'unknown';
+
+        // Store signature (immutable via Fix #1)
+        if (!db) throw new Error('Database not initialized');
+        const result = await db.insert(signatureLogs).values({
+          id: Math.random().toString(36).substr(2, 9),
+          calculationResultId: input.analysisId,
+          operation: 'sign',
+          status: 'success',
+          signatureAlgorithm: 'SHA-256',
+          details: JSON.stringify({
+            signature: input.signature,
+            engineerName: input.engineerName,
+            ipAddress,
+            userAgent,
+            userId,
+          }),
+        });
+
+        const signatureId = result[0];
+
+        logger.info('✅ [Certification] Analysis signed', {
+          analysisId: input.analysisId,
+          signatureId,
+          userId,
+          ipAddress,
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          success: true,
+          signatureId,
+          message: 'Analysis signed and certified',
+        };
+      } catch (error) {
+        logger.error('❌ [Certification] Failed to submit signature', error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to submit signature',
+        });
+      }
+    }),
+
   /**
    * Generate new certificate from compliance snapshot
    */

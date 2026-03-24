@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download, PenTool } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SignaturePad } from "@/components/SignaturePad";
 
 interface ComplianceInput {
   occupancy_major: string;
@@ -39,9 +41,27 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
   const [inputs, setInputs] = useState<ComplianceInput>({ occupancy_major: "" });
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Fix #4: Signature workflow state
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [isSigned, setIsSigned] = useState(false);
+  const [analysisId] = useState(Math.random().toString(36).substr(2, 9)); // Generate unique analysis ID
 
   const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
   const analysisHistory = trpc.compliance.getHistory.useQuery({});
+  
+  // Fix #4: Signature submission mutation
+  const submitSignatureMutation = trpc.certification.submitSignedAnalysis.useMutation({
+    onSuccess: () => {
+      setShowSignatureModal(false);
+      setIsSigned(true);
+      console.log('✅ Analysis signed and submitted', { analysisId });
+    },
+    onError: (error) => {
+      console.error('❌ Failed to submit signature', error);
+    },
+  });
 
   const handleInputChange = (key: string, value: string | number | boolean | undefined) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -80,6 +100,21 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
   const handleClearResults = () => {
     setResult(null);
     onResultsChange?.(null);
+    setIsSigned(false);
+    setSignature(null);
+  };
+  
+  // Fix #4: Handle signature submission
+  const handleSignAndSubmit = async () => {
+    if (!signature) {
+      console.error('No signature provided');
+      return;
+    }
+
+    await submitSignatureMutation.mutateAsync({
+      analysisId,
+      signature,
+    });
   };
 
   const getStatusIcon = (status: string) => {
@@ -426,14 +461,89 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
               </Tabs>
             )}
 
+            {/* Fix #4: Sign & Submit Section */}
+            {!isSigned ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                <p className="text-sm font-semibold text-blue-900 mb-3">
+                  🖊️ Professional Sign-Off Required
+                </p>
+                <p className="text-sm text-blue-800 mb-4">
+                  For this analysis to be legally defensible and submittable to authorities, it must be digitally signed by a licensed professional engineer.
+                </p>
+                <Button
+                  onClick={() => setShowSignatureModal(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                >
+                  Sign & Submit Analysis
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+                <p className="text-sm text-green-900 font-semibold">
+                  Analysis digitally signed and submitted
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  Signature immutably recorded in audit trail
+                </p>
+              </div>
+            )}
+
             {/* Export Button */}
-            <Button variant="outline" className="w-full mt-6" size="sm">
+            <Button variant="outline" className="w-full mt-4" size="sm">
               <Download className="w-4 h-4 mr-2" />
               Export as PDF
             </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Fix #4: Signature Modal */}
+      <Dialog open={showSignatureModal} onOpenChange={setShowSignatureModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              🖊️ Digital Signature - Professional Certification
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+              <p className="text-sm text-yellow-900 font-semibold">⚠️ Legal Notice</p>
+              <p className="text-xs text-yellow-800 mt-1">
+                By signing, you certify that you are a licensed professional engineer and that this analysis is accurate and complies with applicable building codes.
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Sign below to certify compliance. Your signature will be recorded in the audit trail and cannot be modified.
+            </p>
+
+            {/* Signature Pad Component */}
+            <SignaturePad
+              engineerName={user?.name || 'Professional Engineer'}
+              onSignatureComplete={setSignature}
+            />
+
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowSignatureModal(false)}
+                disabled={submitSignatureMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSignAndSubmit}
+                disabled={!signature || submitSignatureMutation.isPending}
+                className="flex-1"
+              >
+                {submitSignatureMutation.isPending ? 'Submitting...' : 'Submit Signature'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
