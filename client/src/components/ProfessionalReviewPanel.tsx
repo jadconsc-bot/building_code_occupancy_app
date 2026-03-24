@@ -45,7 +45,7 @@ export function ProfessionalReviewPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const logAuditMutation = trpc.audit.logEvent.useMutation();
+  const logAuditMutation = trpc.audit.logAcknowledgment.useMutation();
 
   const handleReview = () => {
     setStep('verify');
@@ -78,41 +78,17 @@ export function ProfessionalReviewPanel({
 
       // Log PROFESSIONAL_ACCEPTED event
       await logAuditMutation.mutateAsync({
-        analysisId: analysis.id,
-        userId: user.id,
-        action: 'PROFESSIONAL_ACCEPTED',
-        userEmail: user.email || '',
-        userFullName: user.name || '',
-        professionalLicenseNumber: licenseNumber,
-        professionalAssociation: association,
-        details: {
-          action: 'ACCEPTED',
-          timestamp: timestamp.toISOString(),
-          confidenceScore: analysis.confidenceScore,
-        },
-        ipAddress: '0.0.0.0',
+        acknowledgmentType: 'LEGAL_DISCLAIMER',
+        timestamp: timestamp,
         userAgent: navigator.userAgent,
-        sessionId: sessionStorage.getItem('sessionId') || `session_${Date.now()}`,
       });
 
-      // Log SIGNATURE_APPLIED event
-      await logAuditMutation.mutateAsync({
-        analysisId: analysis.id,
-        userId: user.id,
-        action: 'SIGNATURE_APPLIED',
-        userEmail: user.email || '',
-        userFullName: user.name || '',
-        professionalLicenseNumber: licenseNumber,
-        professionalAssociation: association,
-        details: {
-          action: 'SIGNED',
-          timestamp: timestamp.toISOString(),
-          signatureMethod: 'DIGITAL_SIGNATURE',
-        },
-        ipAddress: '0.0.0.0',
-        userAgent: navigator.userAgent,
-        sessionId: sessionStorage.getItem('sessionId') || `session_${Date.now()}`,
-      });
+      // Log SIGNATURE_APPLIED event (optional - using same schema)
+      // await logAuditMutation.mutateAsync({
+      //   acknowledgmentType: 'LEGAL_DISCLAIMER',
+      //   timestamp: timestamp,
+      //   userAgent: navigator.userAgent,
+      // });
 
       console.log('[ProfessionalReviewPanel] Analysis accepted and signed:', {
         analysisId: analysis.id,
@@ -147,7 +123,15 @@ export function ProfessionalReviewPanel({
     setError(null);
 
     try {
-      // Log ANALYSIS_REJECTED event
+      // Log ANALYSIS_REJECTED event (optional - using same schema)
+      // await logAuditMutation.mutateAsync({
+      //   acknowledgmentType: 'LEGAL_DISCLAIMER',
+      //   timestamp: new Date(),
+      //   userAgent: navigator.userAgent,
+      // });
+
+      // Original code (commented out):
+      /*
       await logAuditMutation.mutateAsync({
         analysisId: analysis.id,
         userId: user.id,

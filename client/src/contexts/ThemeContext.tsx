@@ -1,64 +1,49 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState, ReactNode } from 'react';
 
-type Theme = "light" | "dark";
-
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme?: () => void;
-  switchable: boolean;
+// Type definitions
+export interface ThemeContextType {
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+// Create context (OUTSIDE component)
+export const ThemeContext = createContext<ThemeContextType | undefined>(
+  undefined
+);
 
-interface ThemeProviderProps {
-  children: React.ReactNode;
-  defaultTheme?: Theme;
-  switchable?: boolean;
-}
+// Provider component (INSIDE component - where hooks work)
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  // ✅ useState ONLY called inside function component body
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-export function ThemeProvider({
-  children,
-  defaultTheme = "light",
-  switchable = false,
-}: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (switchable) {
-      const stored = localStorage.getItem("theme");
-      return (stored as Theme) || defaultTheme;
-    }
-    return defaultTheme;
-  });
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-
-    if (switchable) {
-      localStorage.setItem("theme", theme);
-    }
-  }, [theme, switchable]);
-
-  const toggleTheme = switchable
-    ? () => {
-        setTheme(prev => (prev === "light" ? "dark" : "light"));
-      }
-    : undefined;
+  const value: ThemeContextType = {
+    theme,
+    setTheme,
+    toggleTheme,
+  };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-export function useTheme() {
+// Hook to use context (with error handling)
+export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used within ThemeProvider");
+  
+  if (context === undefined) {
+    throw new Error(
+      'useTheme must be used within a ThemeProvider. ' +
+      'Make sure ThemeProvider wraps your component tree.'
+    );
   }
+  
   return context;
 }

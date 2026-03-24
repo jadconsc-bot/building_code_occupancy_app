@@ -88,10 +88,7 @@ function AppWithLegalAcknowledgment() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider>
         <ProjectProvider>
           <ComparisonProvider>
             <CalculationHistoryProvider>
