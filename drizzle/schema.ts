@@ -1343,6 +1343,9 @@ export const complianceAuditTrail = mysqlTable("complianceAuditTrail", {
   
   // Server-side timestamp (NEVER client-side)
   timestamp: timestamp("timestamp").defaultNow().notNull(),
+  
+  // Immutability flag - prevents modification of audit records
+  isImmutable: boolean("is_immutable").notNull().default(true),
 });
 
 export type ComplianceAuditTrail = typeof complianceAuditTrail.$inferSelect;
@@ -1366,6 +1369,9 @@ export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments",
   
   // Server-side timestamp
   acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+  
+  // Immutability flag - prevents modification of disclaimer records
+  isImmutable: boolean("is_immutable").notNull().default(true),
 });
 
 export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;

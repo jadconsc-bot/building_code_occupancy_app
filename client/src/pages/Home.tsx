@@ -89,6 +89,7 @@ import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutoco
 import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 import { DevLogin } from "@/components/DevLogin";
+import { DisclaimerGate } from "@/components/DisclaimerGate";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
@@ -905,7 +906,11 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [filteredData, focusedIndex]);
 
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
   return (
+    <DisclaimerGate onAccepted={() => setDisclaimerAccepted(true)}>
+      {disclaimerAccepted && (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
       <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
@@ -2831,5 +2836,7 @@ export default function Home() {
         getSectionsForGroup={getSectionsForGroup}
       />
     </div>
+      )}
+    </DisclaimerGate>
   );
 }

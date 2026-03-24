@@ -9,16 +9,16 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
-import { CURRENT_DISCLAIMER_VERSION } from '@shared/constants/DISCLAIMER_CONSTANTS';
 
 interface DisclaimerGateProps {
+  children?: React.ReactNode;
   onAccepted: () => void;
   disclaimerVersion?: string;
 }
@@ -45,15 +45,44 @@ I understand that this tool is NOT a substitute for professional engineering rev
 I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
 `;
 
-export function DisclaimerGate({ onAccepted, disclaimerVersion = CURRENT_DISCLAIMER_VERSION }: DisclaimerGateProps) {
+export function DisclaimerGate({ 
+  children, 
+  onAccepted, 
+  disclaimerVersion = "1.0" 
+}: DisclaimerGateProps) {
   const { user } = useAuth();
   const [understands, setUnderstands] = useState(false);
   const [accepts, setAccepts] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAlreadyAccepted, setIsAlreadyAccepted] = useState(false);
 
-  const logDisclaimerMutation = trpc.audit.logEvent.useMutation();
+  // Query: Check if user already accepted disclaimer
+  const checkDisclaimerQuery = trpc.auth.hasAcceptedDisclaimer.useQuery(
+    { version: disclaimerVersion },
+    { enabled: !!user }
+  );
+
+  // Mutation: Accept disclaimer
+  const acceptDisclaimerMutation = trpc.auth.acceptDisclaimer.useMutation({
+    onSuccess: () => {
+      setIsAlreadyAccepted(true);
+      onAccepted();
+    },
+    onError: (error) => {
+      setError(error.message || 'Failed to accept disclaimer');
+      setIsLoading(false);
+    },
+  });
+
+  // Check if already accepted on mount
+  useEffect(() => {
+    if (!checkDisclaimerQuery.isLoading && checkDisclaimerQuery.data?.accepted) {
+      setIsAlreadyAccepted(true);
+      onAccepted();
+    }
+    setIsLoading(checkDisclaimerQuery.isLoading);
+  }, [checkDisclaimerQuery.isLoading, checkDisclaimerQuery.data, onAccepted]);
 
   const handleProceed = async () => {
     if (!understands || !accepts) {
@@ -70,113 +99,112 @@ export function DisclaimerGate({ onAccepted, disclaimerVersion = CURRENT_DISCLAI
     setError(null);
 
     try {
-      // Log disclaimer acknowledgment event
-      await logDisclaimerMutation.mutateAsync({
-        userId: user.id,
-        analysisId: 0, // Placeholder for pre-analysis
-        action: 'DISCLAIMER_ACKNOWLEDGED',
-        details: {
-          disclaimerVersion,
-          timestamp: new Date().toISOString(),
-        },
-        userEmail: user.email || '',
-        userFullName: user.name || '',
-        ipAddress: '0.0.0.0', // Will be captured server-side
-        userAgent: navigator.userAgent,
-        sessionId: sessionStorage.getItem('sessionId') || '',
+      await acceptDisclaimerMutation.mutateAsync({
+        version: disclaimerVersion,
       });
-
-      // Store in session to prevent re-prompting
-      sessionStorage.setItem('disclaimerAccepted', 'true');
-      sessionStorage.setItem('disclaimerVersion', disclaimerVersion);
-
-      onAccepted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log disclaimer acknowledgment');
-    } finally {
-      setIsLoading(false);
+      // Error is handled in onError callback
     }
   };
 
-  // Check if already accepted in this session
-  useEffect(() => {
-    const sessionAccepted = sessionStorage.getItem('disclaimerAccepted');
-    if (sessionAccepted === 'true') {
-      setIsAlreadyAccepted(true);
-      onAccepted();
-    }
-  }, [user?.id, onAccepted]);
-
+  // If already accepted, show children
   if (isAlreadyAccepted) {
-    return null;
+    return <>{children}</>;
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-full max-w-2xl">
+          <CardContent className="p-6 flex items-center justify-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="bg-red-50 border-b border-red-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
-            <CardTitle className="text-red-600">REQUIRED LEGAL ACKNOWLEDGMENT</CardTitle>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-6 space-y-6">
-          {/* Disclaimer Text */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm font-bold text-red-600 mb-3">NOT A PROFESSIONAL ENGINEER SERVICE</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{DISCLAIMER_TEXT}</p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
+    <>
+      {/* Non-dismissible modal backdrop */}
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <CardHeader className="bg-red-50 border-b border-red-200">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+              <CardTitle className="text-red-600">REQUIRED LEGAL ACKNOWLEDGMENT</CardTitle>
             </div>
-          )}
+          </CardHeader>
 
-          {/* Checkboxes */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="understands"
-                checked={understands}
-                onCheckedChange={(checked) => setUnderstands(checked as boolean)}
-                disabled={isLoading}
-              />
-              <Label htmlFor="understands" className="text-sm cursor-pointer">
-                I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
-              </Label>
+          <CardContent className="p-6 space-y-6">
+            {/* Disclaimer Text */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm font-bold text-red-600 mb-3">NOT A PROFESSIONAL ENGINEER SERVICE</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{DISCLAIMER_TEXT}</p>
             </div>
 
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="accepts"
-                checked={accepts}
-                onCheckedChange={(checked) => setAccepts(checked as boolean)}
-                disabled={isLoading}
-              />
-              <Label htmlFor="accepts" className="text-sm cursor-pointer">
-                I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
-              </Label>
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            {/* Checkboxes */}
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="understands"
+                  checked={understands}
+                  onCheckedChange={(checked) => setUnderstands(checked as boolean)}
+                  disabled={acceptDisclaimerMutation.isPending}
+                />
+                <Label htmlFor="understands" className="text-sm cursor-pointer">
+                  I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
+                </Label>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="accepts"
+                  checked={accepts}
+                  onCheckedChange={(checked) => setAccepts(checked as boolean)}
+                  disabled={acceptDisclaimerMutation.isPending}
+                />
+                <Label htmlFor="accepts" className="text-sm cursor-pointer">
+                  I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
+                </Label>
+              </div>
             </div>
-          </div>
 
-          {/* Proceed Button */}
-          <Button
-            onClick={handleProceed}
-            disabled={!understands || !accepts || isLoading}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            {isLoading ? 'Processing...' : 'Proceed to Upload'}
-          </Button>
+            {/* Proceed Button */}
+            <Button
+              onClick={handleProceed}
+              disabled={!understands || !accepts || acceptDisclaimerMutation.isPending}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {acceptDisclaimerMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'I Accept - Continue to CodeComply'
+              )}
+            </Button>
 
-          {/* Version Info */}
-          <p className="text-xs text-gray-500 text-center">
-            Disclaimer Version: {disclaimerVersion}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+            {/* Version Info */}
+            <p className="text-xs text-gray-500 text-center">
+              Disclaimer Version: {disclaimerVersion}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Show children only if accepted */}
+      {isAlreadyAccepted && <>{children}</>}
+    </>
   );
 }
