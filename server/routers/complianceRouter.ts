@@ -14,6 +14,7 @@ import { ProfessionalReviewService } from '../professionalReviewService';
 import { CURRENT_DISCLAIMER_VERSION, isValidDisclaimerVersion } from '../../shared/constants/DISCLAIMER_CONSTANTS';
 import { logger } from '../logger';
 import { randomUUID } from 'crypto';
+import { extractClientIp, extractUserAgent } from '../utils/ipExtraction';
 
 export const complianceRouter = router({
   /**
@@ -33,11 +34,17 @@ export const complianceRouter = router({
     .mutation(async ({ ctx, input }) => {
       const analysisId = input.analysisId || randomUUID();
       
+      // ✅ FIX #3: Extract real IP for audit trail
+      const ipAddress = extractClientIp(ctx.req);
+      const userAgent = extractUserAgent(ctx.req);
+      
       logger.info('🟡 [Router] Starting compliance analysis', {
         analysisId,
         province: input.province || 'default',
         occupancyType: input.occupancyType,
         userId: ctx.user?.id,
+        ipAddress,  // ← NOW REAL
+        userAgent: userAgent.substring(0, 50),
       });
 
       try {
@@ -58,6 +65,7 @@ export const complianceRouter = router({
           usedFallback: result.usedFallback,
           confidence: result.confidence,
           userId: ctx.user?.id,
+          ipAddress,  // ← NOW REAL
         });
 
         return {
@@ -73,6 +81,7 @@ export const complianceRouter = router({
           analysisId,
           error: error instanceof Error ? error.message : String(error),
           userId: ctx.user?.id,
+          ipAddress,  // ← NOW REAL
         });
         throw error;
       }

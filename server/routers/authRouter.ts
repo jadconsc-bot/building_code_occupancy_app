@@ -4,7 +4,7 @@ import { getDb } from "../db";
 import { disclaimerAcknowledgments } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { extractIpAddress } from "../utils/ipExtractor";
+import { extractClientIp, extractUserAgent } from "../utils/ipExtraction";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { COOKIE_NAME } from "../../shared/const";
 
@@ -99,9 +99,16 @@ export const disclaimerRouter = router({
           };
         }
 
-        // Extract real IP address from request
-        const ipAddress = extractIpAddress(ctx.req);
-        const userAgent = ctx.req.headers?.["user-agent"] || "unknown";
+        // ✅ FIX #3: Extract real IP address from request headers
+        // Handles proxies (AWS, Cloudflare, Nginx) for legal audit trail
+        const ipAddress = extractClientIp(ctx.req);
+        const userAgent = extractUserAgent(ctx.req);
+
+        console.log("🌐 [Auth] Real IP extracted", {
+          ipAddress,
+          userAgent: userAgent.substring(0, 50),
+          userId,
+        });
 
         // Get full disclaimer text
         const disclaimerText = `REQUIRED LEGAL ACKNOWLEDGMENT
