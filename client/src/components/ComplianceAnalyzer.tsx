@@ -15,6 +15,7 @@ import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download, PenTool 
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignaturePad } from "@/components/SignaturePad";
+import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 
 interface ComplianceInput {
   occupancy_major: string;
@@ -47,16 +48,23 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
   const [signature, setSignature] = useState<string | null>(null);
   const [isSigned, setIsSigned] = useState(false);
   const [analysisId] = useState(Math.random().toString(36).substr(2, 9)); // Generate unique analysis ID
+  const [signatureId, setSignatureId] = useState<string | null>(null);
+  
+  // Fix #5: Professional review state
+  const [isReviewComplete, setIsReviewComplete] = useState(false);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
 
   const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
   const analysisHistory = trpc.compliance.getHistory.useQuery({});
   
   // Fix #4: Signature submission mutation
   const submitSignatureMutation = trpc.certification.submitSignedAnalysis.useMutation({
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setShowSignatureModal(false);
       setIsSigned(true);
-      console.log('✅ Analysis signed and submitted', { analysisId });
+      setSignatureId(data.signatureId || data.id);
+      setShowReviewPanel(true);
+      console.log('✅ Analysis signed and submitted', { analysisId, signatureId: data.signatureId });
     },
     onError: (error) => {
       console.error('❌ Failed to submit signature', error);
@@ -542,6 +550,32 @@ export function ComplianceAnalyzer({ projectId, onResultsChange }: ComplianceAna
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fix #5: Professional Review Panel Modal */}
+      <Dialog open={showReviewPanel} onOpenChange={setShowReviewPanel}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              👨‍💼 Professional Review & Approval
+            </DialogTitle>
+          </DialogHeader>
+
+          {result && (
+            <ProfessionalReviewPanel
+              analysis={{
+                id: parseInt(analysisId),
+                issues: result.infractions || [],
+                recommendations: result.recommendations || [],
+                confidenceScore: result.confidence_score || 0.85,
+              }}
+              onReviewComplete={(accepted) => {
+                setIsReviewComplete(true);
+                setShowReviewPanel(false);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

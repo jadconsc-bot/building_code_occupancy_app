@@ -708,7 +708,7 @@ export const signatureLogs = mysqlTable("signatureLogs", {
   id: varchar("id", { length: 36 }).primaryKey(), // UUID
   calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
   operation: varchar("operation", { length: 50 }).notNull(), // "sign", "verify"
-  status: mysqlEnum("status", ["success", "failure"]).notNull(),
+  status: mysqlEnum("status", ["success", "failure", "rejected"]).notNull(),
   keyId: varchar("keyId", { length: 100 }),
   signatureAlgorithm: varchar("signatureAlgorithm", { length: 50 }), // "RSA-2048", "SHA-256"
   details: text("details"), // JSON with additional context

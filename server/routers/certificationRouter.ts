@@ -624,6 +624,103 @@ export const certificationRouter = router({
     }),
 
   /**
+   * Submit professional review and approval
+   * Records PROFESSIONAL_ACCEPTED and SIGNATURE_APPLIED events
+   */
+  submitProfessionalReview: protectedProcedure
+    .input(
+      z.object({
+        analysisId: z.string(),
+        licenseNumber: z.string(),
+        association: z.string(),
+        approved: z.boolean(),
+        rejectionReason: z.string().optional(),
+        signature: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'User not authenticated',
+        });
+      }
+
+      try {
+        const ipAddress = extractIpAddress(ctx.req);
+        const userAgent = ctx.req.headers?.['user-agent'] || 'unknown';
+        const timestamp = new Date();
+
+        if (!db) throw new Error('Database not initialized');
+
+        const reviewEventId = Math.random().toString(36).substr(2, 9);
+        await db.insert(signatureLogs).values({
+          id: reviewEventId,
+          calculationResultId: input.analysisId,
+          operation: 'professional_review',
+          status: input.approved ? 'success' : 'rejected',
+          signatureAlgorithm: 'SHA-256',
+          details: JSON.stringify({
+            licenseNumber: input.licenseNumber,
+            association: input.association,
+            approved: input.approved,
+            rejectionReason: input.rejectionReason,
+            ipAddress,
+            userAgent,
+            userId,
+            timestamp: timestamp.toISOString(),
+          }),
+        });
+
+        let signatureId = null;
+        if (input.approved && input.signature) {
+          signatureId = Math.random().toString(36).substr(2, 9);
+          await db.insert(signatureLogs).values({
+            id: signatureId,
+            calculationResultId: input.analysisId,
+            operation: 'sign',
+            status: 'success',
+            signatureAlgorithm: 'SHA-256',
+            details: JSON.stringify({
+              signature: input.signature,
+              licenseNumber: input.licenseNumber,
+              association: input.association,
+              ipAddress,
+              userAgent,
+              userId,
+              timestamp: timestamp.toISOString(),
+            }),
+          });
+        }
+
+        logger.info('✅ [Professional Review] Review submitted', {
+          analysisId: input.analysisId,
+          reviewEventId,
+          signatureId,
+          approved: input.approved,
+          userId,
+          ipAddress,
+          timestamp: timestamp.toISOString(),
+        });
+
+        return {
+          success: true,
+          reviewEventId,
+          signatureId,
+          approved: input.approved,
+          message: input.approved ? 'Analysis approved and signed' : 'Analysis rejected',
+        };
+      } catch (error) {
+        logger.error('❌ [Professional Review] Failed to submit review', error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to submit professional review',
+        });
+      }
+    }),
+
+  /**
    * Get certification service info
    */
   getServiceInfo: publicProcedure.query(async () => {
