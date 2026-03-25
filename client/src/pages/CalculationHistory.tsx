@@ -1,12 +1,12 @@
 /**
  * Calculation History Page - Updated with tRPC Integration
- * 
- * Displays a history of all calculations performed by the user
- * Fetches real data from database via tRPC procedures
- * Allows retrieval, verification, and export of previous results
+ *
+ * Displays a history of all calculations performed by the user.
+ * Fetches real data from database via tRPC procedures.
+ * Allows retrieval, verification, and export of previous results.
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -48,10 +58,10 @@ import {
   Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
-/**
- * Calculation detail view
- */
+// ─── Calculation Detail Dialog ────────────────────────────────────────────────
+
 interface CalculationDetailProps {
   calculationId: string;
   onClose: () => void;
@@ -70,41 +80,19 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     calculationId,
   });
 
-  // TODO: Implement exportForLegal tRPC procedure
-  // const exportMutation = trpc.calculations.exportForLegal.useMutation();
-
   const [exportFormat, setExportFormat] = useState<'json' | 'json-ld' | 'pdf'>('json');
 
-  const handleExport = async () => {
-    // TODO: Implement exportForLegal endpoint in Phase 5
-    alert('Export feature coming soon - will be implemented in Phase 5');
-    /*
-    try {
-      const result = await exportMutation.mutateAsync({
-        calculationId,
-        format: exportFormat as 'json' | 'json-ld' | 'pdf',
-      });
-
-      // Create download link
-      const dataStr = JSON.stringify(result.data, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.filename;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      alert(`Export successful: Calculation exported as ${exportFormat.toUpperCase()}`);
-    } catch (error) {
-      alert('Failed to export calculation');
-    }
-    */
+  // Export is a server-side operation (Phase 5 implementation).
+  // The server will generate a signed, tamper-evident export package.
+  const handleExport = () => {
+    toast.info(
+      `${exportFormat.toUpperCase()} export is a server-side operation and will be available in Phase 5.`
+    );
   };
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(calculationId);
-    alert('Calculation ID copied to clipboard');
+    toast.success('Calculation ID copied to clipboard');
   };
 
   if (isLoading) {
@@ -119,18 +107,14 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     );
   }
 
-  if (!calculation) {
-    return null;
-  }
+  if (!calculation) return null;
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{calculation.displayName}</DialogTitle>
-          <DialogDescription>
-            Calculation ID: {calculationId}
-          </DialogDescription>
+          <DialogDescription>Calculation ID: {calculationId}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -184,29 +168,19 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
           {/* Calculation Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Calculator Type
-              </label>
+              <label className="text-sm font-medium text-muted-foreground">Calculator Type</label>
               <p className="mt-1 font-mono text-sm">{calculation.calculatorType}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Performed On
-              </label>
-              <p className="mt-1 text-sm">
-                {format(new Date(calculation.timestamp), 'PPpp')}
-              </p>
+              <label className="text-sm font-medium text-muted-foreground">Performed On</label>
+              <p className="mt-1 text-sm">{format(new Date(calculation.timestamp), 'PPpp')}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Ruleset Version
-              </label>
+              <label className="text-sm font-medium text-muted-foreground">Ruleset Version</label>
               <p className="mt-1 text-sm">{calculation.rulesetVersion}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Input Fields
-              </label>
+              <label className="text-sm font-medium text-muted-foreground">Input Fields</label>
               <p className="mt-1 text-sm">{Object.keys(calculation.inputs).length} fields</p>
             </div>
           </div>
@@ -232,7 +206,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
             <div>
               <label className="text-sm font-medium">References</label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {calculation.references.map((ref: any) => (
+                {calculation.references.map((ref: string) => (
                   <Badge key={ref} variant="outline">
                     {ref}
                   </Badge>
@@ -245,21 +219,20 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
           <div className="space-y-3">
             <label className="text-sm font-medium">Export Format</label>
             <div className="flex gap-2">
-              <Select value={exportFormat} onValueChange={(v: any) => setExportFormat(v)}>
+              <Select
+                value={exportFormat}
+                onValueChange={(v) => setExportFormat(v as 'json' | 'json-ld' | 'pdf')}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="json">JSON (Standard)</SelectItem>
                   <SelectItem value="json-ld">JSON-LD (Semantic Web)</SelectItem>
-                  <SelectItem value="pdf">PDF (Court-Ready)</SelectItem>
+                  <SelectItem value="pdf">PDF (Print-Ready)</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                onClick={handleExport}
-                disabled={false}
-                className="gap-2"
-              >
+              <Button onClick={handleExport} className="gap-2">
                 <Download className="w-4 h-4" />
                 Export
               </Button>
@@ -272,10 +245,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
               <label className="text-sm font-medium">Audit Trail</label>
               <div className="mt-2 space-y-2 max-h-40 overflow-auto">
                 {auditLog.auditLog.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="p-2 bg-muted rounded text-xs"
-                  >
+                  <div key={entry.id} className="p-2 bg-muted rounded text-xs">
                     <div className="font-medium">{entry.action}</div>
                     <div className="text-muted-foreground">{entry.actor}</div>
                     <div className="text-muted-foreground">
@@ -295,9 +265,8 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
   );
 }
 
-/**
- * Calculation History Page
- */
+// ─── Calculation History Page ─────────────────────────────────────────────────
+
 export default function CalculationHistoryPage() {
   const { user, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -305,8 +274,8 @@ export default function CalculationHistoryPage() {
   const [filterCalculator, setFilterCalculator] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
   const [page, setPage] = useState(0);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  // Fetch calculation history
   const { data: historyData, isLoading, refetch } = trpc.calculations.getHistory.useQuery(
     {
       calculatorType: filterCalculator === 'all' ? undefined : filterCalculator,
@@ -315,30 +284,27 @@ export default function CalculationHistoryPage() {
       limit: 50,
       offset: page * 50,
     },
-    {
-      enabled: !!user,
-    }
+    { enabled: !!user }
   );
 
-  // Fetch statistics
   const { data: stats } = trpc.calculations.getStats.useQuery(undefined, {
     enabled: !!user,
   });
 
-  // Delete mutation
   const deleteMutation = trpc.calculations.delete.useMutation({
     onSuccess: () => {
-      alert('Calculation deleted successfully');
+      toast.success('Calculation deleted');
       refetch();
     },
     onError: () => {
-      alert('Failed to delete calculation');
+      toast.error('Failed to delete calculation');
     },
   });
 
-  const handleDelete = (calculationId: string) => {
-    if (confirm('Are you sure you want to delete this calculation?')) {
-      deleteMutation.mutate({ calculationId });
+  const handleDeleteConfirm = () => {
+    if (deleteTargetId) {
+      deleteMutation.mutate({ calculationId: deleteTargetId });
+      setDeleteTargetId(null);
     }
   };
 
@@ -360,9 +326,7 @@ export default function CalculationHistoryPage() {
     );
   }
 
-  const calculatorTypes = stats
-    ? Object.keys(stats.byCalculatorType)
-    : [];
+  const calculatorTypes = stats ? Object.keys(stats.byCalculatorType) : [];
 
   return (
     <div className="container max-w-6xl py-8 space-y-8">
@@ -424,7 +388,9 @@ export default function CalculationHistoryPage() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {stats.totalCalculations > 0
-                  ? Math.round((stats.verifiedCalculations / stats.totalCalculations) * 100)
+                  ? Math.round(
+                      (stats.verifiedCalculations / stats.totalCalculations) * 100
+                    )
                   : 0}
                 %
               </div>
@@ -440,7 +406,6 @@ export default function CalculationHistoryPage() {
           <CardTitle className="text-lg">Search & Filter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -454,14 +419,16 @@ export default function CalculationHistoryPage() {
             />
           </div>
 
-          {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Calculator Type</label>
-              <Select value={filterCalculator} onValueChange={(v) => {
-                setFilterCalculator(v);
-                setPage(0);
-              }}>
+              <Select
+                value={filterCalculator}
+                onValueChange={(v) => {
+                  setFilterCalculator(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -564,7 +531,7 @@ export default function CalculationHistoryPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleDelete(calc.id)}
+                          onClick={() => setDeleteTargetId(calc.id)}
                           disabled={deleteMutation.isPending}
                           className="gap-2 text-destructive hover:text-destructive"
                         >
@@ -578,13 +545,9 @@ export default function CalculationHistoryPage() {
             </div>
           )}
 
-          {/* Pagination */}
           {historyData && historyData.hasMore && (
             <div className="mt-4 flex justify-center">
-              <Button
-                onClick={() => setPage(page + 1)}
-                disabled={isLoading}
-              >
+              <Button onClick={() => setPage(page + 1)} disabled={isLoading}>
                 Load More
               </Button>
             </div>
@@ -599,6 +562,30 @@ export default function CalculationHistoryPage() {
           onClose={() => setSelectedCalculation(null)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Calculation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this calculation record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

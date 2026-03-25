@@ -365,6 +365,13 @@ export const sharingRouter = router({
       await db.deactivateShareLink(input.linkId);
       return { success: true };
     }),
+
+  /**
+   * List all share links created by the current user (across all projects)
+   */
+  listAll: protectedProcedure.query(async ({ ctx }) => {
+    return await db.getUserShareLinks(ctx.user.id);
+  }),
 });
 
 /**
