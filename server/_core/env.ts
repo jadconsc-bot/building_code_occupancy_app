@@ -30,11 +30,15 @@ function validateEnv(): Env {
   try {
     const result = envSchema.parse(process.env);
 
-    if (result.NODE_ENV === 'production' && result.DEV_AUTH_MODE === 'true') {
+    const isProductionEnv =
+      result.NODE_ENV === 'production' ||
+      process.env.MANUS_ENVIRONMENT === 'production';
+
+    if (isProductionEnv && result.DEV_AUTH_MODE === 'true') {
       throw new Error(
         '[SECURITY VIOLATION] DEV_AUTH_MODE cannot be enabled in production. ' +
         'This bypasses all OAuth authentication. ' +
-        'Remove DEV_AUTH_MODE or set it to "false" in your production environment.'
+        'Remove DEV_AUTH_MODE from your production environment variables.'
       );
     }
 
