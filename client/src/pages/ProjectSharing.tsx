@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,8 @@ export default function ProjectSharing() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const revokeShareLinkMutation = trpc.sharing.revokeShareLink.useMutation();
+
   const [shareLinks, setShareLinks] = useState([
     {
       id: "link-1",
@@ -50,10 +53,7 @@ export default function ProjectSharing() {
   const handleDeleteShareLink = async (linkId: string) => {
     setIsDeleting(linkId);
     try {
-      // TODO: Wire to tRPC mutation for revoking share link
-      // const result = await trpc.sharing.revokeShareLink.mutate({ linkId });
-      
-      // Optimistic update
+      await revokeShareLinkMutation.mutateAsync({ linkId });
       setShareLinks(prev => prev.filter(link => link.id !== linkId));
       toast.success("Share link revoked successfully");
     } catch (error) {

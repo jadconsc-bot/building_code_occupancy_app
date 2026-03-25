@@ -355,6 +355,16 @@ export const sharingRouter = router({
       await db.deactivateShareLink(input.linkId);
       return { success: true };
     }),
+
+  /**
+   * Revoke a share link (alias for deactivateShareLink)
+   */
+  revokeShareLink: protectedProcedure
+    .input(z.object({ linkId: z.string() }))
+    .mutation(async ({ input }) => {
+      await db.deactivateShareLink(input.linkId);
+      return { success: true };
+    }),
 });
 
 /**
