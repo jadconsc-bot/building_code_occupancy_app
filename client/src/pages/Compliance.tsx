@@ -19,6 +19,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export default function CompliancePage() {
   const params = useParams();
@@ -36,32 +37,16 @@ export default function CompliancePage() {
   const [licenseNumber, setLicenseNumber] = useState('');
   const [showSignaturePad, setShowSignaturePad] = useState(false);
 
-  // Decision 1: Evaluate compliance deterministically
-  const evaluateComplianceMutation = trpc.compliance.evaluateCompliance.useMutation({
-    onSuccess: (data) => {
-      console.log('Compliance evaluation successful:', data);
-    },
-  });
-
-  // Decision 1: Interpret building code clauses
-  const interpretRulesMutation = trpc.compliance.interpretRules.useMutation({
-    onSuccess: (data) => {
-      console.log('Rules interpretation successful:', data);
-    },
-  });
-
   // Decision 3: Submit for professional review
   const submitForReviewMutation = trpc.compliance.submitForReview.useMutation({
-    onSuccess: (data) => {
-      console.log('Submitted for review:', data);
+    onSuccess: () => {
       setShowSignaturePad(true);
     },
   });
 
   // Decision 3: Sign review with digital signature
   const signReviewMutation = trpc.compliance.signReview.useMutation({
-    onSuccess: (data) => {
-      console.log('Review signed successfully:', data);
+    onSuccess: () => {
       setShowSignaturePad(false);
     },
   });
@@ -72,17 +57,9 @@ export default function CompliancePage() {
     },
   });
 
-  // Commented out - createAuditLog not yet implemented
-  // const createAuditMutation = trpc.audit.createAuditLog.useMutation({
-  //   onSuccess: (data) => {
-  //     setAuditId(data.auditId);
-  //   },
-  // });
-  const createAuditMutation = { isPending: false };
-
   const handleGeneratePathway = async () => {
     if (!complianceResult) {
-      console.error('Run compliance analysis first');
+      toast.error('Run compliance analysis first');
       return;
     }
 
@@ -97,7 +74,7 @@ export default function CompliancePage() {
 
   const handleCreateAudit = async () => {
     if (!complianceResult) {
-      console.error('Run compliance analysis first');
+      toast.error('Run compliance analysis first');
       return;
     }
 
@@ -109,13 +86,13 @@ export default function CompliancePage() {
         notes: `Compliance analysis for ${projectName}`,
       });
     } catch (error) {
-      console.error('Failed to create audit:', error);
+      toast.error('Failed to create audit trail');
     }
   };
 
   const handleSignatureComplete = async (signatureData: string) => {
     if (!complianceResult) {
-      console.error('No compliance result to sign');
+      toast.error('No compliance result to sign');
       return;
     }
 
@@ -128,7 +105,7 @@ export default function CompliancePage() {
         licenseNumber: licenseNumber || undefined,
       });
     } catch (error) {
-      console.error('Failed to sign review:', error);
+      toast.error('Failed to sign review');
     }
   };
 
@@ -265,7 +242,7 @@ export default function CompliancePage() {
                 </div>
                 <Button
                   onClick={handleCreateAudit}
-                  disabled={!complianceResult}
+                  disabled={!complianceResult || submitForReviewMutation.isPending}
                   className="w-full"
                 >
                   Create Audit Trail

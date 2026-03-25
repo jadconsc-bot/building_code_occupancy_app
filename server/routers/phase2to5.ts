@@ -355,6 +355,23 @@ export const sharingRouter = router({
       await db.deactivateShareLink(input.linkId);
       return { success: true };
     }),
+
+  /**
+   * Revoke a share link (alias for deactivateShareLink)
+   */
+  revokeShareLink: protectedProcedure
+    .input(z.object({ linkId: z.string() }))
+    .mutation(async ({ input }) => {
+      await db.deactivateShareLink(input.linkId);
+      return { success: true };
+    }),
+
+  /**
+   * List all share links created by the current user (across all projects)
+   */
+  listAll: protectedProcedure.query(async ({ ctx }) => {
+    return await db.getUserShareLinks(ctx.user.id);
+  }),
 });
 
 /**
@@ -389,7 +406,7 @@ export const verificationRouter = router({
    */
   verify: publicProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const verificationToken = await db.getVerificationTokenByToken(input.token);
       if (!verificationToken) throw new Error("Invalid verification token");
       if (!verificationToken.isPublic) throw new Error("Token is not public");

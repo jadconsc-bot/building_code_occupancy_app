@@ -450,8 +450,15 @@ export async function getShareLinkByToken(token: string): Promise<ShareLink | un
 export async function getProjectShareLinks(projectId: number): Promise<ShareLink[]> {
   const db = await getDb();
   if (!db) return [];
-  
+
   return await db.select().from(shareLinks).where(eq(shareLinks.projectId, projectId));
+}
+
+export async function getUserShareLinks(userId: number): Promise<ShareLink[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(shareLinks).where(eq(shareLinks.createdBy, userId));
 }
 
 export async function updateShareLinkAccessCount(linkId: string): Promise<void> {

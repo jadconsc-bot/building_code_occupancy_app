@@ -11,9 +11,12 @@ import { createContext } from "./context";
 import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
 import { logEnvStatus } from "./env";
+import { validateSecurityConfig } from "./securityValidator";
 
 // Validate environment variables at startup
 logEnvStatus();
+// Enforce security-critical settings (throws if production + devAuthMode)
+validateSecurityConfig();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {

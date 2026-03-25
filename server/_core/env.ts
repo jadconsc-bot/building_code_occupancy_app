@@ -28,13 +28,27 @@ export type Env = z.infer<typeof envSchema>;
  */
 function validateEnv(): Env {
   try {
-    return envSchema.parse(process.env);
+    const result = envSchema.parse(process.env);
+
+    const isProductionEnv =
+      result.NODE_ENV === 'production' ||
+      process.env.MANUS_ENVIRONMENT === 'production';
+
+    if (isProductionEnv && result.DEV_AUTH_MODE === 'true') {
+      throw new Error(
+        '[SECURITY VIOLATION] DEV_AUTH_MODE cannot be enabled in production. ' +
+        'This bypasses all OAuth authentication. ' +
+        'Remove DEV_AUTH_MODE from your production environment variables.'
+      );
+    }
+
+    return result;
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.issues
         .map((err: any) => `${err.path.join('.')}: ${err.message}`)
         .join('\n');
-      
+
       throw new Error(
         `Environment variable validation failed:\n${issues}\n\n` +
         'Required variables: OAUTH_SERVER_URL, JWT_SECRET, DATABASE_URL'

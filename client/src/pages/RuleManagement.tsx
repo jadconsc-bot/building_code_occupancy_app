@@ -13,12 +13,15 @@ import { Search, Plus, Edit2, Trash2, AlertCircle, CheckCircle2, ArrowLeft } fro
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
 import { useLocation } from 'wouter';
+import { toast as sonnerToast } from 'sonner';
 
-// Simple toast notification helper
 const useToast = () => ({
-  toast: (props: any) => {
-    console.log('Notification:', props.title, '-', props.description);
-    // Could integrate with a toast library here
+  toast: (props: { title: string; description?: string; variant?: string }) => {
+    if (props.variant === 'destructive') {
+      sonnerToast.error(props.title, { description: props.description });
+    } else {
+      sonnerToast.success(props.title, { description: props.description });
+    }
   },
 });
 

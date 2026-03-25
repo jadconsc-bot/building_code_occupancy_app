@@ -29,6 +29,9 @@ import { analyticsRouter } from "./routers/analyticsRouter";
 import { collaborationRouter } from "./routers/collaborationRouter";
 import { rulesRouter } from "./routers/rulesRouter";
 import { disclaimerRouter } from "./routers/authRouter";
+import { aiRouter } from "./routers/aiRouter";
+import { adminRouter } from "./routers/adminRouter";
+import { billingRouter } from "./routers/billingRouter";
 
 
 export const appRouter = router({
@@ -59,6 +62,9 @@ export const appRouter = router({
   analytics: analyticsRouter,
   collaboration: collaborationRouter,
   auth: disclaimerRouter,
+  ai: aiRouter,
+  admin: adminRouter,
+  billing: billingRouter,
 
   // Plan Analysis
   analyzePlan: publicProcedure

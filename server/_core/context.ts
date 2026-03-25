@@ -5,6 +5,7 @@ import { parse as parseCookieHeader } from "cookie";
 import * as db from "../db";
 import { getDevUserById } from "./devAuth";
 import { ENV } from "./env";
+import { isDevAuthModeAllowed } from "./securityValidator";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -21,9 +22,9 @@ export async function createContext(
     // First try OAuth authentication (production)
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
-    // If OAuth fails, try dev authentication (development only)
-    // ⚠️ DEVELOPMENT ONLY - REMOVE FOR PRODUCTION
-    if (ENV.devAuthMode) {
+    // If OAuth fails, try dev authentication (local development only)
+    // ⚠️ isDevAuthModeAllowed() blocks this in production and Manus sandbox
+    if (isDevAuthModeAllowed()) {
       try {
         const cookies = parseCookieHeader(opts.req.headers.cookie || "");
         const devSessionCookie = cookies["dev-session"];

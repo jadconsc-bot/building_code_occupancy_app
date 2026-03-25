@@ -583,9 +583,7 @@ export default function Home() {
   };
 
   const exportChecklistPDF = async () => {
-    console.log('exportChecklistPDF called, selectedGroup:', selectedGroup);
     if (!selectedGroup) {
-      console.log('No selectedGroup, returning early');
       return;
     }
 
@@ -640,7 +638,6 @@ export default function Home() {
       });
     }
 
-    console.log('Calling generatePDFChecklist with sections:', sections);
     try {
       await generatePDFChecklist({
         occupancyCode: selectedGroup.code,
@@ -648,9 +645,7 @@ export default function Home() {
         sections,
         includeQRCode: true,
       });
-      console.log('generatePDFChecklist completed successfully');
     } catch (error) {
-      console.error('Error in exportChecklistPDF:', error);
       toast.error('Failed to generate checklist PDF');
     }
   };
@@ -695,7 +690,6 @@ export default function Home() {
         // Stop the stream immediately - we just needed permission
         stream.getTracks().forEach(track => track.stop());
       } catch (err: any) {
-        console.error('Microphone permission error:', err);
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
           toast.error("Microphone access denied. Please allow microphone access in your browser settings.");
         } else if (err.name === 'NotFoundError') {
@@ -728,8 +722,6 @@ export default function Home() {
 
       recognition.onerror = (event: any) => {
         setIsListening(false);
-        console.error('Speech recognition error:', event.error, event);
-        
         switch (event.error) {
           case 'no-speech':
             toast.error('No speech detected. Please try again and speak clearly.');
@@ -816,7 +808,6 @@ export default function Home() {
 
       recognition.start();
     } catch (err: any) {
-      console.error('Failed to start speech recognition:', err);
       toast.error('Failed to start voice recognition. Please try again.');
       setIsListening(false);
     }
