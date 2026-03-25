@@ -58,7 +58,7 @@ export default function CertificateManagement() {
   // Export PDF mutation
   const exportPdfMutation = trpc.certification.exportCertificatePDF.useMutation({
     onSuccess: (data) => {
-      toast.success(`Certificate exported — ${data.filename ?? "certificate.pdf"}`);
+      toast.success(`Certificate exported — ${data.fileName ?? "certificate.pdf"}`);
     },
     onError: (error) => {
       toast.error(error.message ?? "Export failed");

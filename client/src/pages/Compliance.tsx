@@ -92,7 +92,7 @@ export default function CompliancePage() {
 
   const handleSignatureComplete = async (signatureData: string) => {
     if (!complianceResult) {
-      console.error('No compliance result to sign');
+      toast.error('No compliance result to sign');
       return;
     }
 

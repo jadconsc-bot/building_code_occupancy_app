@@ -112,6 +112,22 @@ export default function Billing() {
     },
   });
 
+  const updatePaymentMethodMutation = trpc.billing.updatePaymentMethod.useMutation({
+    onError: (error) => { toast.error(error.message); },
+  });
+
+  const addPaymentMethodMutation = trpc.billing.addPaymentMethod.useMutation({
+    onError: (error) => { toast.error(error.message); },
+  });
+
+  const updateBillingAddressMutation = trpc.billing.updateBillingAddress.useMutation({
+    onError: (error) => { toast.error(error.message); },
+  });
+
+  const addTaxIdMutation = trpc.billing.addTaxId.useMutation({
+    onError: (error) => { toast.error(error.message); },
+  });
+
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const currentTierRank = tierRank(subscriptionData?.tier ?? "free");
@@ -126,11 +142,6 @@ export default function Billing() {
   };
 
   const isPlanMutating = upgradeMutation.isPending || downgradeMutation.isPending;
-
-  // Payment and invoice features require Stripe integration (Phase 3+)
-  const notifyStripeRequired = (feature: string) => {
-    toast.info(`${feature} requires Stripe integration — coming in a future release.`);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -354,13 +365,15 @@ export default function Billing() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => notifyStripeRequired("Update Payment Method")}
+                  disabled={updatePaymentMethodMutation.isPending}
+                  onClick={() => updatePaymentMethodMutation.mutate({ paymentMethodId: "" })}
                 >
                   Update Payment Method
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => notifyStripeRequired("Add Another Card")}
+                  disabled={addPaymentMethodMutation.isPending}
+                  onClick={() => addPaymentMethodMutation.mutate({ paymentMethodId: "" })}
                 >
                   Add Another Card
                 </Button>
@@ -382,7 +395,8 @@ export default function Billing() {
               </div>
               <Button
                 variant="outline"
-                onClick={() => notifyStripeRequired("Billing Address update")}
+                disabled={updateBillingAddressMutation.isPending}
+                onClick={() => updateBillingAddressMutation.mutate({ line1: "", city: "", province: "", postalCode: "" })}
               >
                 Edit Billing Address
               </Button>
@@ -405,7 +419,8 @@ export default function Billing() {
           </p>
           <Button
             variant="outline"
-            onClick={() => notifyStripeRequired("Tax ID management")}
+            disabled={addTaxIdMutation.isPending}
+            onClick={() => addTaxIdMutation.mutate({ taxId: "" })}
           >
             Add Tax ID
           </Button>

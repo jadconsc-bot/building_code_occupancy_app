@@ -406,7 +406,7 @@ export const verificationRouter = router({
    */
   verify: publicProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const verificationToken = await db.getVerificationTokenByToken(input.token);
       if (!verificationToken) throw new Error("Invalid verification token");
       if (!verificationToken.isPublic) throw new Error("Token is not public");

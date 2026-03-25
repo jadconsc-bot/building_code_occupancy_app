@@ -11,17 +11,29 @@ import { monetizationService } from '../services/MonetizationService';
 
 export const subscriptionRouter = router({
   /**
-   * Get current subscription info
+   * Get current subscription info, including computed tier for the client.
    */
   getCurrent: protectedProcedure.query(async ({ ctx }) => {
-    return subscriptionService.getSubscription(ctx.user.id);
+    const sub = await subscriptionService.getSubscription(ctx.user.id);
+    // Compute tier from planId: 0 = free (default), 1 = pro, 2+ = enterprise
+    const tier: 'free' | 'pro' | 'enterprise' =
+      sub.planId === 0 ? 'free' : sub.planId === 1 ? 'pro' : 'enterprise';
+    return { ...sub, tier };
   }),
 
   /**
-   * Get all available plans
+   * Get all available plans, shaped for the client (id, name, tier, price).
    */
   getPlans: publicProcedure.query(async () => {
-    return subscriptionService.getAllPlans();
+    return subscriptionService.getAllPlans().map((p, i) => ({
+      id: i + 1,
+      tier: p.tier,
+      name: p.tier.charAt(0).toUpperCase() + p.tier.slice(1),
+      price: (p.monthlyPrice / 100).toFixed(2),
+      monthlyLimit: p.monthlyLimit,
+      features: p.features,
+      description: p.description,
+    }));
   }),
 
   /**
