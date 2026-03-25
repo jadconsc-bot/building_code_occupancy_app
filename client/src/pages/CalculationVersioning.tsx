@@ -4,15 +4,23 @@
  */
 
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowRight, Copy, Eye, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CalculationVersioning() {
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [, navigate] = useLocation();
+
+  const handleCreateNewVersion = () => {
+    toast.info("Open a calculation from Calculation History, then use View → Export to create a new version.");
+    navigate("/calculation-history");
+  };
 
   // Mock data for demo
   const versions = [
@@ -112,10 +120,23 @@ export default function CalculationVersioning() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedVersion(version.id)}
+                            title="Select version"
+                          >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(JSON.stringify(version.resultData));
+                              toast.success(`v${version.versionNumber} result copied`);
+                            }}
+                            title="Copy result"
+                          >
                             <Copy className="w-4 h-4" />
                           </Button>
                         </div>
@@ -245,7 +266,7 @@ export default function CalculationVersioning() {
           <p className="text-sm text-muted-foreground">
             Use the recalculation feature to update inputs and create a new version while preserving the complete audit trail.
           </p>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleCreateNewVersion}>
             <RotateCcw className="w-4 h-4" />
             Create New Version
           </Button>

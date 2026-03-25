@@ -258,7 +258,7 @@ export default function AdminDashboard() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditUser(u.id)}
-                              disabled={editingUserId === u.id}
+                              disabled={editingUserId === u.id || editUserMutation.isPending}
                             >
                               {editingUserId === u.id ? "Editing..." : "Edit"}
                             </Button>
