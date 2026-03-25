@@ -41,7 +41,7 @@ const features: Feature[] = [
     title: 'Occupancy Classification',
     description: 'Classify building occupancy types according to NBC 2025 standards. Search and filter through all occupancy groups.',
     icon: <Building2 className="w-6 h-6" />,
-    href: '/occupancy-classifier',
+    href: '/',
     category: 'core',
   },
   {

@@ -32,8 +32,8 @@ export default function RuleManagement() {
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showNewRuleDialog, setShowNewRuleDialog] = useState(false);
   const [showCustomRuleDialog, setShowCustomRuleDialog] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
@@ -46,8 +46,8 @@ export default function RuleManagement() {
   const { data: categories = [] } = trpc.rules.getCategories.useQuery();
   const { data: searchResults = [] } = trpc.rules.search.useQuery({
     query: searchQuery,
-    jurisdiction: selectedJurisdiction || undefined,
-    category: selectedCategory || undefined,
+    jurisdiction: selectedJurisdiction === 'all' ? undefined : selectedJurisdiction,
+    category: selectedCategory === 'all' ? undefined : selectedCategory,
     limit: 100,
   });
 
@@ -97,8 +97,8 @@ export default function RuleManagement() {
         rule.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (rule.keywords?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
       
-      const matchesJurisdiction = !selectedJurisdiction || rule.jurisdiction === selectedJurisdiction;
-      const matchesCategory = !selectedCategory || rule.category === selectedCategory;
+      const matchesJurisdiction = selectedJurisdiction === 'all' || rule.jurisdiction === selectedJurisdiction;
+      const matchesCategory = selectedCategory === 'all' || rule.category === selectedCategory;
       
       return matchesSearch && matchesJurisdiction && matchesCategory;
     });
@@ -176,7 +176,7 @@ export default function RuleManagement() {
                       <SelectValue placeholder="All Jurisdictions" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Jurisdictions</SelectItem>
+                      <SelectItem value="all">All Jurisdictions</SelectItem>
                       {jurisdictions.map((j: string) => (
                         <SelectItem key={j} value={j}>
                           {j}
@@ -193,7 +193,7 @@ export default function RuleManagement() {
                       <SelectValue placeholder="All Categories" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Categories</SelectItem>
+                      <SelectItem value="all">All Categories</SelectItem>
                       {categories.map((c: string) => (
                         <SelectItem key={c} value={c}>
                           {c.charAt(0).toUpperCase() + c.slice(1)}

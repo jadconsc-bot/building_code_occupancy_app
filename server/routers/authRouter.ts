@@ -151,14 +151,19 @@ I accept all terms, conditions, disclaimers, and limitations of liability outlin
           acceptanceId: (result as any).insertId,
         };
       } catch (error) {
-        console.error("❌ [Auth] Failed to accept disclaimer", {
+        console.error("❌ [Auth] acceptDisclaimer FAILED", {
           userId,
           version: input.version,
-          error: error instanceof Error ? error.message : String(error),
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          errorCode: (error as any)?.code,
+          errorSql: (error as any)?.sql,
+          errorErrno: (error as any)?.errno,
+          errorSqlState: (error as any)?.sqlState,
         });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to record disclaimer acceptance",
+          message: `Failed to record disclaimer acceptance: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
       }
     }),
