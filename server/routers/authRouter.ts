@@ -2,7 +2,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
 import { disclaimerAcknowledgments } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { extractClientIp, extractUserAgent } from "../utils/ipExtraction";
 import { getSessionCookieOptions } from "../_core/cookies";
@@ -41,7 +41,7 @@ export const disclaimerRouter = router({
 
         // Query using Drizzle ORM
         const results = await db.select().from(disclaimerAcknowledgments)
-          .where(eq(disclaimerAcknowledgments.userId, userId) && eq(disclaimerAcknowledgments.disclaimerVersion, input.version))
+          .where(and(eq(disclaimerAcknowledgments.userId, userId), eq(disclaimerAcknowledgments.disclaimerVersion, input.version)))
           .limit(1) as any;
 
         const acceptance = results?.[0];
@@ -78,15 +78,13 @@ export const disclaimerRouter = router({
       try {
         const db = await getDb();
         if (!db) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Database not available",
-          });
+          // DB unavailable — still allow the user to proceed (logging best-effort)
+          return { success: true, alreadyAccepted: false, acceptanceId: null };
         }
 
         // Check if already accepted
         const results = await db.select().from(disclaimerAcknowledgments)
-          .where(eq(disclaimerAcknowledgments.userId, userId) && eq(disclaimerAcknowledgments.disclaimerVersion, input.version))
+          .where(and(eq(disclaimerAcknowledgments.userId, userId), eq(disclaimerAcknowledgments.disclaimerVersion, input.version)))
           .limit(1) as any;
 
         const existing = results?.[0];
