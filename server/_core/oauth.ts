@@ -9,11 +9,23 @@ import { eq } from "drizzle-orm";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
+const GOOGLE_REDIRECT_URI_STATIC = process.env.GOOGLE_REDIRECT_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI || !JWT_SECRET) {
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !JWT_SECRET) {
   console.warn("[OAuth] WARNING: Google OAuth credentials not fully configured");
+}
+
+/**
+ * Get dynamic redirect URI based on the request host
+ * This ensures the redirect URI matches the actual domain being accessed
+ */
+function getRedirectUri(req: Request): string {
+  const protocol = req.secure ? 'https' : 'http';
+  const host = req.get('host');
+  const redirectUri = `${protocol}://${host}/api/oauth/callback`;
+  console.log(`[OAuth] Using redirect URI: ${redirectUri}`);
+  return redirectUri;
 }
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -44,9 +56,10 @@ async function createSessionToken(openId: string, name: string): Promise<string>
 /**
  * Exchange Google authorization code for access token
  */
-async function exchangeCodeForToken(code: string): Promise<any> {
+async function exchangeCodeForToken(code: string, redirectUri: string): Promise<any> {
   try {
     console.log("[OAuth] Exchanging Google authorization code for token...");
+    console.log(`[OAuth] Using redirect URI for token exchange: ${redirectUri}`);
 
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -55,7 +68,7 @@ async function exchangeCodeForToken(code: string): Promise<any> {
         code,
         client_id: GOOGLE_CLIENT_ID!,
         client_secret: GOOGLE_CLIENT_SECRET!,
-        redirect_uri: GOOGLE_REDIRECT_URI!,
+        redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }).toString(),
     });
@@ -175,10 +188,13 @@ export function registerOAuthRoutes(app: Express) {
       (req as any).session = (req as any).session || {};
       (req as any).session.oauthState = state;
 
+      // Get dynamic redirect URI based on actual host
+      const redirectUri = getRedirectUri(req);
+
       // Build Google authorization URL
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID!);
-      authUrl.searchParams.set("redirect_uri", GOOGLE_REDIRECT_URI!);
+      authUrl.searchParams.set("redirect_uri", redirectUri);
       authUrl.searchParams.set("response_type", "code");
       authUrl.searchParams.set("scope", "openid profile email");
       authUrl.searchParams.set("state", state);
@@ -226,9 +242,13 @@ export function registerOAuthRoutes(app: Express) {
         return res.redirect("/login?error=csrf_validation_failed");
       }
 
+      // Get dynamic redirect URI for token exchange
+      const redirectUri = getRedirectUri(req);
+      console.log(`[OAuth] Token exchange redirect URI: ${redirectUri}`);
+
       // Exchange code for access token
       console.log("[OAuth] Attempting code exchange...");
-      const tokens = await exchangeCodeForToken(code);
+      const tokens = await exchangeCodeForToken(code, redirectUri);
 
       // Fetch user profile from Google
       console.log("[OAuth] Fetching user profile...");
