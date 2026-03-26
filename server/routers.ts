@@ -28,7 +28,7 @@ import { certificationRouter } from "./routers/certificationRouter";
 import { analyticsRouter } from "./routers/analyticsRouter";
 import { collaborationRouter } from "./routers/collaborationRouter";
 import { rulesRouter } from "./routers/rulesRouter";
-import { disclaimerRouter } from "./routers/authRouter";
+import { authRouter } from "./routers/authRouter";
 import { aiRouter } from "./routers/aiRouter";
 import { adminRouter } from "./routers/adminRouter";
 import { billingRouter } from "./routers/billingRouter";
@@ -61,7 +61,7 @@ export const appRouter = router({
   certification: certificationRouter,
   analytics: analyticsRouter,
   collaboration: collaborationRouter,
-  auth: disclaimerRouter,
+  auth: authRouter,
   ai: aiRouter,
   admin: adminRouter,
   billing: billingRouter,

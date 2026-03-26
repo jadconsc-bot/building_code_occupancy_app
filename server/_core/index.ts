@@ -12,6 +12,8 @@ import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
 import { logEnvStatus } from "./env";
 import { validateSecurityConfig } from "./securityValidator";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -40,6 +42,20 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  
+  // ✅ FIX #4: Configure CORS with credentials support
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,  // ✅ CRITICAL: Allow cookies in CORS requests
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+    exposedHeaders: ["Set-Cookie"],
+    maxAge: 3600,
+  }));
+  
+  // ✅ Parse cookies
+  app.use(cookieParser());
+  
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
