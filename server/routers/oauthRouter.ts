@@ -196,7 +196,7 @@ async function createOrUpdateUser(userProfile: any) {
       });
       
       return { 
-        id: result[0].insertId || 0, 
+        id: (result as any)[0]?.id || 0, 
         email: userProfile.email, 
         name: userProfile.name 
       };

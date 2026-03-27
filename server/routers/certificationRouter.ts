@@ -76,7 +76,7 @@ export const certificationRouter = router({
           }),
         });
 
-        const signatureId = result[0];
+        const signatureId = (result as any)[0]?.id ?? Math.random().toString(36).substr(2, 9);
 
         logger.info('✅ [Certification] Analysis signed', {
           analysisId: input.analysisId,

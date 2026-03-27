@@ -1,4 +1,4 @@
-import { integer, pgEnum, pgTable, text, timestamp, varchar, boolean, date, numeric, json, unique } from "drizzle-orm/postgres";
+import { integer, pgEnum, pgTable, text, timestamp, varchar, boolean, date, numeric, json, unique } from "drizzle-orm/pg-core";
 
 /**
  * Core user table backing auth flow.
@@ -16,7 +16,7 @@ export const users = pgTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: pgEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: pgEnum("role", ["user", "admin"]).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -88,7 +88,7 @@ export const projects = pgTable("projects", {
   occupancyCode: varchar("occupancyCode", { length: 10 }).notNull(),
   template: varchar("template", { length: 50 }), // e.g., "residential", "commercial", "industrial"
   notes: text("notes"),
-  status: pgEnum("status", ["active", "completed", "archived"]).default("active").notNull(),
+  status: pgEnum("status", ["active", "completed", "archived"]).notNull(),
   overallProgress: integer("overallProgress").default(0).notNull(), // 0-100 percentage
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
@@ -167,7 +167,7 @@ export const complianceSnapshots = pgTable("complianceSnapshots", {
   projectId: integer("projectId").notNull(),
   userId: integer("userId").notNull(),
   rulesetId: varchar("rulesetId", { length: 100 }).notNull(), // Reference to rulesets table
-  mode: pgEnum("mode", ["strict", "soft"]).default("soft").notNull(),
+  mode: pgEnum("mode", ["strict", "soft"]).notNull(),
   inputs: text("inputs").notNull(), // JSON of all inputs
   outputs: text("outputs").notNull(), // JSON of all outputs
   ruleTrace: text("ruleTrace").notNull(), // JSON array of which rules fired
@@ -240,7 +240,7 @@ export type InsertRuleTest = typeof ruleTests.$inferInsert;
 export const ruleEditorRoles = pgTable("ruleEditorRoles", {
   id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   userId: integer("userId").notNull().unique(),
-  role: pgEnum("role", ["viewer", "editor", "reviewer", "admin"]).default("viewer").notNull(),
+  role: pgEnum("role", ["viewer", "editor", "reviewer", "admin"]).notNull(),
   profession: varchar("profession", { length: 100 }), // e.g., "Architect", "Engineer", "Building Official"
   licenseNumber: varchar("licenseNumber", { length: 100 }).unique(),
   licenseProvince: varchar("licenseProvince", { length: 50 }), // e.g., "Alberta", "Ontario"
@@ -269,7 +269,7 @@ export const ruleChangeRequests = pgTable("ruleChangeRequests", {
   proposedValue: text("proposedValue"), // JSON of proposed rule
   justification: text("justification").notNull(), // Why this change is needed
   codeReference: varchar("codeReference", { length: 255 }), // e.g., "NBC 3.2.2.47"
-  status: pgEnum("status", ["pending", "approved", "rejected", "implemented"]).default("pending").notNull(),
+  status: pgEnum("status", ["pending", "approved", "rejected", "implemented"]).notNull(),
   approvedBy: integer("approvedBy"), // Admin user ID
   approvalNotes: text("approvalNotes"),
   digitalSignature: text("digitalSignature"), // Cryptographic signature
@@ -336,7 +336,7 @@ export const digitalSignatures = pgTable("digitalSignatures", {
   certificateChain: text("certificateChain"), // PEM format certificate chain
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   verifiedAt: timestamp("verifiedAt"),
-  verificationStatus: pgEnum("verificationStatus", ["pending", "verified", "failed"]).default("pending").notNull(),
+  verificationStatus: pgEnum("verificationStatus", ["pending", "verified", "failed"]).notNull(),
 });
 
 export type DigitalSignature = typeof digitalSignatures.$inferSelect;
@@ -439,7 +439,7 @@ export const calculationChallenges = pgTable("calculationChallenges", {
   challengedBy: integer("challengedBy").notNull(),
   reason: text("reason").notNull(),
   details: text("details"),
-  status: pgEnum("status", ["open", "investigating", "resolved", "dismissed"]).default("open").notNull(),
+  status: pgEnum("status", ["open", "investigating", "resolved", "dismissed"]).notNull(),
   resolution: text("resolution"),
   resolvedBy: integer("resolvedBy"),
   resolvedAt: timestamp("resolvedAt"),
@@ -473,7 +473,7 @@ export const clients = pgTable("clients", {
   postalCode: varchar("postalCode", { length: 20 }),
   companyName: varchar("companyName", { length: 255 }),
   industry: varchar("industry", { length: 100 }), // e.g., "residential", "commercial", "industrial"
-  status: pgEnum("status", ["active", "inactive", "archived"]).default("active").notNull(),
+  status: pgEnum("status", ["active", "inactive", "archived"]).notNull(),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
@@ -490,7 +490,7 @@ export const projectMembers = pgTable("projectMembers", {
   id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   projectId: integer("projectId").notNull(),
   userId: integer("userId").notNull(),
-  role: pgEnum("role", ["owner", "editor", "reviewer", "viewer"]).default("viewer").notNull(),
+  role: pgEnum("role", ["owner", "editor", "reviewer", "viewer"]).notNull(),
   permissions: text("permissions"), // JSON array of specific permissions
   addedBy: integer("addedBy").notNull(), // User who added this member
   addedAt: timestamp("addedAt").defaultNow().notNull(),
@@ -557,8 +557,8 @@ export const userSubscriptions = pgTable("userSubscriptions", {
   id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   userId: integer("userId").notNull().unique(),
   planId: integer("planId").notNull(),
-  status: pgEnum("status", ["active", "paused", "cancelled", "expired"]).default("active").notNull(),
-  billingCycle: pgEnum("billingCycle", ["monthly", "yearly"]).default("monthly").notNull(),
+  status: pgEnum("status", ["active", "paused", "cancelled", "expired"]).notNull(),
+  billingCycle: pgEnum("billingCycle", ["monthly", "yearly"]).notNull(),
   currentPeriodStart: timestamp("currentPeriodStart").notNull(),
   currentPeriodEnd: timestamp("currentPeriodEnd").notNull(),
   cancelledAt: timestamp("cancelledAt"),
@@ -606,7 +606,7 @@ export const shareLinks = pgTable("shareLinks", {
   projectId: integer("projectId").notNull(),
   createdBy: integer("createdBy").notNull(),
   token: varchar("token", { length: 64 }).notNull().unique(), // Random token for URL
-  accessLevel: pgEnum("accessLevel", ["view_only", "comment", "download"]).default("view_only").notNull(),
+  accessLevel: pgEnum("accessLevel", ["view_only", "comment", "download"]).notNull(),
   expiresAt: timestamp("expiresAt"), // null for never expires
   maxAccessCount: integer("maxAccessCount"), // null for unlimited
   accessCount: integer("accessCount").default(0).notNull(),
@@ -920,7 +920,7 @@ export const scenarios = pgTable("scenarios", {
   type: pgEnum("type", ["fire_resistance", "compliance", "custom"]).notNull(),
   inputData: json("inputData").notNull(), // Stores scenario parameters
   resultData: json("resultData"), // Stores calculation results
-  status: pgEnum("status", ["draft", "calculated", "archived"]).default("draft").notNull(),
+  status: pgEnum("status", ["draft", "calculated", "archived"]).notNull(),
   version: integer("version").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
@@ -957,7 +957,7 @@ export const batchComparisons = pgTable("batchComparisons", {
   scenarioIds: json("scenarioIds").notNull(), // Array of scenario IDs being compared
   comparisonData: json("comparisonData"), // Stores comparison results
   analysisType: varchar("analysisType", { length: 100 }), // Type of analysis (e.g., "fire_resistance", "compliance")
-  status: pgEnum("status", ["pending", "completed", "failed"]).default("pending").notNull(),
+  status: pgEnum("status", ["pending", "completed", "failed"]).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
@@ -1079,7 +1079,7 @@ export const ruleApplications = pgTable(
     
     // Application metadata
     appliedAt: timestamp("appliedAt").defaultNow().notNull(),
-    status: pgEnum("status", ["active", "inactive", "archived"]).default("active").notNull(),
+    status: pgEnum("status", ["active", "inactive", "archived"]).notNull(),
     
     // Compliance tracking
     isCompliant: integer("isCompliant"), // 0 = no, 1 = yes, NULL = not yet assessed
