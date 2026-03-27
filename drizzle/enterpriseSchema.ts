@@ -18,14 +18,14 @@ import {
   primaryKey,
   foreignKey,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/mysql-core';
 import { users } from './schema';
 
 // ============================================================================
 // CLIENTS TABLE - For consultants to manage their clients
 // ============================================================================
 
-export const clients = pgTable(
+export const clients = mysqlTable(
   'clients',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -40,7 +40,7 @@ export const clients = pgTable(
     companyName: varchar('company_name', { length: 255 }),
     industry: varchar('industry', { length: 100 }),
     notes: text('notes'),
-    status: pgEnum('status', ['active', 'inactive', 'archived']).default('active'),
+    status: mysqlEnum('status', ['active', 'inactive', 'archived']).default('active'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
   },
@@ -54,7 +54,7 @@ export const clients = pgTable(
 // TEAMS TABLE - For firm management and collaboration
 // ============================================================================
 
-export const teams = pgTable(
+export const teams = mysqlTable(
   'teams',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -63,7 +63,7 @@ export const teams = pgTable(
     description: text('description'),
     logo: varchar('logo', { length: 500 }),
     website: varchar('website', { length: 255 }),
-    status: pgEnum('status', ['active', 'inactive', 'suspended']).default('active'),
+    status: mysqlEnum('status', ['active', 'inactive', 'suspended']).default('active'),
     memberCount: int('member_count').default(1),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
@@ -77,16 +77,16 @@ export const teams = pgTable(
 // TEAM MEMBERS TABLE - For team collaboration
 // ============================================================================
 
-export const teamMembers = pgTable(
+export const teamMembers = mysqlTable(
   'team_members',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
     teamId: varchar('team_id', { length: 36 }).notNull(),
     userId: varchar('user_id', { length: 36 }).notNull(),
-    role: pgEnum('role', ['owner', 'admin', 'member', 'viewer']).default('member'),
+    role: mysqlEnum('role', ['owner', 'admin', 'member', 'viewer']).default('member'),
     permissions: json('permissions').default({}),
     joinedAt: timestamp('joined_at').defaultNow(),
-    status: pgEnum('status', ['active', 'inactive', 'invited']).default('active'),
+    status: mysqlEnum('status', ['active', 'inactive', 'invited']).default('active'),
   },
   (table) => ({
     teamIdIdx: index('team_id_idx').on(table.teamId),
@@ -98,16 +98,16 @@ export const teamMembers = pgTable(
 // PROJECT MEMBERS TABLE - For project collaboration
 // ============================================================================
 
-export const projectMembers = pgTable(
+export const projectMembers = mysqlTable(
   'project_members',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
     projectId: varchar('project_id', { length: 36 }).notNull(),
     userId: varchar('user_id', { length: 36 }).notNull(),
-    role: pgEnum('role', ['owner', 'editor', 'viewer', 'client']).default('viewer'),
+    role: mysqlEnum('role', ['owner', 'editor', 'viewer', 'client']).default('viewer'),
     permissions: json('permissions').default({}),
     addedAt: timestamp('added_at').defaultNow(),
-    status: pgEnum('status', ['active', 'inactive', 'invited']).default('active'),
+    status: mysqlEnum('status', ['active', 'inactive', 'invited']).default('active'),
   },
   (table) => ({
     projectIdIdx: index('project_id_idx').on(table.projectId),
@@ -119,20 +119,20 @@ export const projectMembers = pgTable(
 // SUBSCRIPTIONS TABLE - For monetization and billing
 // ============================================================================
 
-export const subscriptions = pgTable(
+export const subscriptions = mysqlTable(
   'subscriptions',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
     userId: varchar('user_id', { length: 36 }).notNull(),
     teamId: varchar('team_id', { length: 36 }),
-    tier: pgEnum('tier', ['free', 'professional', 'enterprise']).default('free'),
-    status: pgEnum('status', ['active', 'inactive', 'cancelled', 'past_due']).default(
+    tier: mysqlEnum('tier', ['free', 'professional', 'enterprise']).default('free'),
+    status: mysqlEnum('status', ['active', 'inactive', 'cancelled', 'past_due']).default(
       'active'
     ),
     stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
     stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
     monthlyPrice: decimal('monthly_price', { precision: 10, scale: 2 }).default('0.00'),
-    billingCycle: pgEnum('billing_cycle', ['monthly', 'annual']).default('monthly'),
+    billingCycle: mysqlEnum('billing_cycle', ['monthly', 'annual']).default('monthly'),
     currentPeriodStart: timestamp('current_period_start'),
     currentPeriodEnd: timestamp('current_period_end'),
     cancelledAt: timestamp('cancelled_at'),
@@ -150,7 +150,7 @@ export const subscriptions = pgTable(
 // USAGE METRICS TABLE - For tracking usage and limits
 // ============================================================================
 
-export const usageMetrics = pgTable(
+export const usageMetrics = mysqlTable(
   'usage_metrics',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -177,7 +177,7 @@ export const usageMetrics = pgTable(
 // INVOICES TABLE - For billing history
 // ============================================================================
 
-export const invoices = pgTable(
+export const invoices = mysqlTable(
   'invoices',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -185,7 +185,7 @@ export const invoices = pgTable(
     stripeInvoiceId: varchar('stripe_invoice_id', { length: 255 }),
     amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
     currency: varchar('currency', { length: 3 }).default('CAD'),
-    status: pgEnum('status', ['draft', 'sent', 'paid', 'failed', 'cancelled']).default(
+    status: mysqlEnum('status', ['draft', 'sent', 'paid', 'failed', 'cancelled']).default(
       'draft'
     ),
     invoiceDate: timestamp('invoice_date').notNull(),
@@ -206,7 +206,7 @@ export const invoices = pgTable(
 // GLOBAL AUDIT LOGS TABLE - For compliance and security
 // ============================================================================
 
-export const globalAuditLogs = pgTable(
+export const globalAuditLogs = mysqlTable(
   'global_audit_logs',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -217,7 +217,7 @@ export const globalAuditLogs = pgTable(
     details: json('details').default({}),
     ipAddress: varchar('ip_address', { length: 45 }),
     userAgent: varchar('user_agent', { length: 500 }),
-    status: pgEnum('status', ['success', 'failure']).default('success'),
+    status: mysqlEnum('status', ['success', 'failure']).default('success'),
     timestamp: timestamp('timestamp').defaultNow(),
     hash: varchar('hash', { length: 64 }), // SHA-256 for integrity
     previousHash: varchar('previous_hash', { length: 64 }), // Chain link
@@ -234,7 +234,7 @@ export const globalAuditLogs = pgTable(
 // STRIPE CUSTOMERS TABLE - For payment integration
 // ============================================================================
 
-export const stripeCustomers = pgTable(
+export const stripeCustomers = mysqlTable(
   'stripe_customers',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -256,7 +256,7 @@ export const stripeCustomers = pgTable(
 // COMPLIANCE CERTIFICATES TABLE - For legal defensibility
 // ============================================================================
 
-export const complianceCertificates = pgTable(
+export const complianceCertificates = mysqlTable(
   'compliance_certificates',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
@@ -265,7 +265,7 @@ export const complianceCertificates = pgTable(
     issuedBy: varchar('issued_by', { length: 255 }).notNull(),
     issuedDate: timestamp('issued_date').notNull(),
     expiresDate: timestamp('expires_date'),
-    status: pgEnum('status', ['valid', 'expired', 'revoked']).default('valid'),
+    status: mysqlEnum('status', ['valid', 'expired', 'revoked']).default('valid'),
     publicKeyFingerprint: varchar('public_key_fingerprint', { length: 64 }),
     signatureAlgorithm: varchar('signature_algorithm', { length: 50 }),
     metadata: json('metadata').default({}),

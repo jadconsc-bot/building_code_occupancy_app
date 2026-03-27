@@ -1,5 +1,5 @@
-import { eq, and, or, isNull, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { eq, and, or, isNull } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, bookmarks, notes, InsertBookmark, InsertNote, clients, InsertClient, Client, projectMembers, InsertProjectMember, ProjectMember, teamRoles, InsertTeamRole, TeamRole, subscriptionPlans, InsertSubscriptionPlan, SubscriptionPlan, userSubscriptions, InsertUserSubscription, UserSubscription, usageMetrics, InsertUsageMetric, UsageMetric, shareLinks, InsertShareLink, ShareLink, verificationTokens, InsertVerificationToken, VerificationToken, calculationVersions, InsertCalculationVersion, CalculationVersion } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -71,17 +71,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    // PostgreSQL upsert using onConflict
-    try {
-      await db.insert(users).values(values).onConflict().doNothing();
-    } catch (e) {
-      // If insert fails due to conflict, update instead
-      if ((e as any).code === '23505') { // unique_violation
-        await db.update(users).set(updateSet).where(eq(users.openId, values.openId));
-      } else {
-        throw e;
-      }
-    }
+    await db.insert(users).values(values).onDuplicateKeyUpdate({
+      set: updateSet,
+    });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -200,9 +192,9 @@ export async function createClient(data: InsertClient): Promise<Client> {
   
   const result = await db.insert(clients).values(safeData as any);
   
-  // PostgreSQL returns result array
+  // MySQL2 returns result with insertId property
   const resultObj = result as any;
-  const clientId = resultObj?.[0]?.id;
+  const clientId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
   
   if (clientId === null || clientId === undefined) {
     throw new Error('Failed to get client ID from insert result');
@@ -251,7 +243,7 @@ export async function addProjectMember(data: InsertProjectMember): Promise<Proje
   
   const result = await db.insert(projectMembers).values(data as any);
   const resultObj = result as any;
-  const memberId = resultObj?.[0]?.id;
+  const memberId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
   if (memberId === null || memberId === undefined) throw new Error('Failed to get member ID');
   
   const created = await db.select().from(projectMembers).where(eq(projectMembers.id, memberId)).limit(1);
@@ -320,7 +312,7 @@ export async function createTeamRole(data: InsertTeamRole): Promise<TeamRole> {
   
   const result = await db.insert(teamRoles).values(data as any);
   const resultObj = result as any;
-  const roleId = resultObj?.[0]?.id;
+  const roleId = resultObj?.insertId ?? resultObj?.[0]?.insertId;
   if (roleId === null || roleId === undefined) throw new Error('Failed to get role ID');
   
   const created = await db.select().from(teamRoles).where(eq(teamRoles.id, roleId)).limit(1);
