@@ -9,7 +9,7 @@ import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } 
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
-import { complianceRouter } from "./routers/complianceRouter";
+import { complianceRouter } from "./complianceRouter";
 import { projectRouter } from "./routers/projectRouter";
 import { subscriptionRouter } from "./routers/subscriptionRouter";
 import { ruleManagementRouter } from "./ruleManagementRouter";

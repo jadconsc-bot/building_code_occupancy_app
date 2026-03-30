@@ -1,25 +1,5 @@
-/**
- * ProjectTabView - Professional Compliance Dashboard
- * 
- * Single project detail view showing:
- * - Status bar (project name, address, compliance badge)
- * - Critical findings (occupancy, egress, travel distance)
- * - Context-aware action button
- * 
- * Architecture: Immutable props, deterministic logic, legally defensible
- * Per PROJECT_TAB_SPECIFICATION v1.0
- */
-
-import React, { useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
-import { trpc } from '@/lib/trpc';
-import { AlertCircle, ChevronLeft } from 'lucide-react';
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
-type ComplianceStatus = 'PASS' | 'FAIL' | 'IN_REVIEW' | 'UNKNOWN';
+import { trpc } from "@/lib/trpc";
+import { useLocation } from "wouter";
 
 interface ProjectTabViewProps {
   readonly projectId: string;
@@ -27,443 +7,257 @@ interface ProjectTabViewProps {
   readonly onBack?: () => void;
 }
 
-interface StatusBarProps {
-  readonly name: string;
-  readonly address: string;
-  readonly codeEdition: string;
-  readonly status: ComplianceStatus;
-  readonly isLoading?: boolean;
-  readonly error?: Error | null;
-}
+export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
+  const [, setLocation] = useLocation();
+  const numericProjectId = Number(projectId);
 
-interface FindingsSummaryProps {
-  readonly occupancyCurrent: number | null;
-  readonly occupancyMax: number | null;
-  readonly egressProvided: number | null;
-  readonly egressRequired: number | null;
-  readonly travelDistance: number | null;
-  readonly isLoading?: boolean;
-  readonly error?: Error | null;
-}
-
-interface ActionButtonProps {
-  readonly projectId: string;
-  readonly hasPlan: boolean;
-  readonly hasFindings: boolean;
-  readonly isLoading?: boolean;
-  readonly error?: Error | null;
-  readonly onNavigate: (route: string, params?: Record<string, any>) => void;
-}
-
-// ============================================================================
-// PURE FUNCTIONS - Deterministic, no side effects
-// ============================================================================
-
-/**
- * Get badge configuration based on compliance status
- * Immutable, pure function
- */
-const getBadgeConfig = (status: ComplianceStatus) => {
-  const config: Record<ComplianceStatus, { bg: string; text: string; label: string }> = {
-    PASS: { bg: '#10B981', text: 'white', label: 'PASS' },
-    FAIL: { bg: '#EF4444', text: 'white', label: 'FAIL' },
-    IN_REVIEW: { bg: '#FBBF24', text: '#78350F', label: 'IN REVIEW' },
-    UNKNOWN: { bg: '#D1D5DB', text: '#374151', label: '—' },
-  };
-  return config[status] || config.UNKNOWN;
-};
-
-/**
- * Determine if occupancy is within limits
- */
-const isOccupancyOK = (current: number | null, max: number | null): boolean | null => {
-  if (current === null || max === null) return null;
-  return current < max;
-};
-
-/**
- * Determine if egress requirements are met
- */
-const isEgressOK = (provided: number | null, required: number | null): boolean | null => {
-  if (provided === null || required === null) return null;
-  return provided >= required;
-};
-
-/**
- * Determine if travel distance is within limits (40m)
- */
-const isTravelDistanceOK = (actual: number | null, limit: number = 40): boolean | null => {
-  if (actual === null) return null;
-  return actual <= limit;
-};
-
-/**
- * Get indicator color (green = OK, red = violation)
- */
-const getIndicatorColor = (isOK: boolean | null): string => {
-  if (isOK === null) return '#D1D5DB'; // Gray for unknown
-  return isOK ? '#10B981' : '#EF4444'; // Green or red
-};
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-/**
- * StatusBar - Project metadata + compliance badge
- * 88px height, immutable props
- */
-const StatusBar: React.FC<StatusBarProps> = ({
-  name,
-  address,
-  codeEdition,
-  status,
-  isLoading,
-  error,
-}) => {
-  const badgeConfig = getBadgeConfig(status);
-
-  return (
-    <div className="bg-white border border-border rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        {/* Left: Project Info */}
-        <div className="flex-1">
-          <h2 className="text-base font-bold text-gray-900">
-            {isLoading ? '—' : name}
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {isLoading ? '—' : address}
-          </p>
-        </div>
-
-        {/* Center: Code Edition */}
-        <div className="mx-4 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-          {codeEdition}
-        </div>
-
-        {/* Right: Compliance Badge */}
-        <div
-          className="px-3 py-2 rounded font-bold text-sm whitespace-nowrap"
-          style={{
-            backgroundColor: badgeConfig.bg,
-            color: badgeConfig.text,
-          }}
-        >
-          {badgeConfig.label}
-        </div>
-      </div>
-    </div>
+  // ── Data fetching ──────────────────────────────────────────
+  const projectQuery = trpc.projects.get.useQuery(
+    { id: numericProjectId },
+    { enabled: !!projectId }
   );
-};
 
-/**
- * MetricRow - Single finding metric with status indicator
- */
-const MetricRow: React.FC<{
-  label: string;
-  value: string;
-  isOK: boolean | null;
-}> = ({ label, value, isOK }) => (
-  <div className="flex items-center justify-between py-3 border-b last:border-b-0">
-    <div>
-      <p className="text-xs font-medium text-gray-700">{label}</p>
-      <p className="text-xs text-gray-600">{value}</p>
-    </div>
-    <div
-      className="w-4 h-4 rounded-full flex-shrink-0"
-      style={{
-        backgroundColor: getIndicatorColor(isOK),
-      }}
-    />
-  </div>
-);
-
-/**
- * FindingsSummary - Critical findings panel
- * Shows occupancy, egress, travel distance with status indicators
- */
-const FindingsSummary: React.FC<FindingsSummaryProps> = ({
-  occupancyCurrent,
-  occupancyMax,
-  egressProvided,
-  egressRequired,
-  travelDistance,
-  isLoading,
-  error,
-}) => {
-  const occupancyOK = isOccupancyOK(occupancyCurrent, occupancyMax);
-  const egressOK = isEgressOK(egressProvided, egressRequired);
-  const travelOK = isTravelDistanceOK(travelDistance);
-
-  if (error) {
-    return (
-      <div className="bg-white border border-border rounded-lg p-4 text-center">
-        <p className="text-xs text-gray-500">Data unavailable</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white border border-border rounded-lg p-4">
-      <MetricRow
-        label="Occupancy Load"
-        value={
-          occupancyCurrent != null && occupancyMax != null
-            ? `${occupancyCurrent} / ${occupancyMax} persons`
-            : '— / —'
-        }
-        isOK={occupancyOK}
-      />
-      <MetricRow
-        label="Egress Doors"
-        value={
-          egressProvided != null && egressRequired != null
-            ? `${egressProvided} / ${egressRequired} required`
-            : '— / —'
-        }
-        isOK={egressOK}
-      />
-      <MetricRow
-        label="Travel Distance"
-        value={
-          travelDistance != null
-            ? `${travelDistance}m / 40m limit`
-            : '—m / 40m'
-        }
-        isOK={travelOK}
-      />
-    </div>
+  const snapshotsQuery = trpc.compliance.getProjectSnapshots.useQuery(
+    { projectId: numericProjectId },
+    { enabled: !!projectId }
   );
-};
 
-/**
- * ActionButton - Context-aware button for next action
- * Text changes based on project state
- */
-const ActionButton: React.FC<ActionButtonProps> = ({
-  projectId,
-  hasPlan,
-  hasFindings,
-  isLoading,
-  error,
-  onNavigate,
-}) => {
-  // Determine button state based on project state
-  let buttonText = 'Upload Floor Plan';
-  let buttonAction = () => onNavigate(`/project/${projectId}/drawing-analyzer`, { mode: 'upload' });
-
-  if (hasPlan && hasFindings) {
-    buttonText = 'Review Findings';
-    buttonAction = () => onNavigate(`/project/${projectId}/compliance`);
-  } else if (hasPlan && !hasFindings) {
-    buttonText = 'View Full Report';
-    buttonAction = () => onNavigate(`/project/${projectId}/report`);
-  }
-
-  if (error) {
-    buttonText = 'Retry';
-    buttonAction = () => window.location.reload();
-  }
-
-  return (
-    <button
-      onClick={buttonAction}
-      disabled={isLoading}
-      className="w-full h-10 px-4 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-    >
-      {isLoading ? (
-        <>
-          <span className="inline-block animate-spin mr-2">⟳</span>
-          Loading...
-        </>
-      ) : (
-        buttonText
-      )}
-    </button>
+  const calculationsQuery = trpc.calculations.getProjectCalculations.useQuery(
+    { projectId },
+    { enabled: !!projectId }
   );
-};
 
-/**
- * ErrorAlert - Dismissible error notification
- */
-const ErrorAlert: React.FC<{
-  message: string;
-  onDismiss: () => void;
-  onRetry: () => void;
-}> = ({ message, onDismiss, onRetry }) => (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-    <div className="flex-1">
-      <p className="text-sm text-red-900">{message}</p>
-      <div className="flex gap-2 mt-2">
-        <button
-          onClick={onRetry}
-          className="text-xs text-red-700 hover:text-red-900 font-medium underline"
-        >
-          Retry
-        </button>
-        <button
-          onClick={onDismiss}
-          className="text-xs text-red-700 hover:text-red-900 font-medium underline"
-        >
-          Dismiss
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-/**
- * ProjectTabView - Main container
- * Orchestrates data fetching and renders sub-components
- */
-export const ProjectTabView: React.FC<ProjectTabViewProps> = ({
-  projectId,
-  onNavigate = () => {},
-  onBack,
-}) => {
-  const [errorDismissed, setErrorDismissed] = useState(false);
-
-  // Fetch all data in parallel using React Query
-  const [projectQuery, complianceQuery, drawingQuery] = useQueries({
-    queries: [
-      {
-        queryKey: ['project', projectId],
-        queryFn: async () => {
-          // Mock implementation - replace with actual tRPC call
-          // const result = await trpc.project.getById.query({ projectId });
-          return {
-            id: projectId,
-            name: 'Sample Project',
-            address: '123 Main St, Calgary, AB, Canada',
-            code_edition: 'NBC 2025',
-            plan_id: 'plan-123',
-            created_at: new Date(),
-            last_modified: new Date(),
-          };
-        },
-        staleTime: 5 * 60 * 1000, // 5 minutes
-      },
-      {
-        queryKey: ['compliance', projectId],
-        queryFn: async () => {
-          // Mock implementation - replace with actual tRPC call
-          // const result = await trpc.compliance.getStatus.query({ projectId });
-          return {
-            overall_status: 'PASS' as ComplianceStatus,
-            active_findings_count: 0,
-            last_audit_timestamp: new Date(),
-          };
-        },
-        staleTime: 5 * 60 * 1000,
-      },
-      {
-        queryKey: ['drawing', projectId],
-        queryFn: async () => {
-          // Mock implementation - replace with actual tRPC call
-          // const result = await trpc.drawing.getAnalysis.query({ projectId });
-          return {
-            occupancy_load: 45,
-            occupancy_max: 50,
-            egress_provided: 2,
-            egress_required: 2,
-            travel_distance_max: 35,
-          };
-        },
-        staleTime: 5 * 60 * 1000,
-        enabled: !!projectQuery.data?.plan_id, // Skip if no plan
-      },
-    ],
-  });
-
-  // Determine overall loading and error states
-  const hasError =
-    projectQuery.isError ||
-    complianceQuery.isError ||
-    (projectQuery.data?.plan_id && drawingQuery.isError);
+  // ── Derived state ──────────────────────────────────────────
+  const project = projectQuery.data;
+  const snapshots = snapshotsQuery.data ?? [];
+  const calculations = calculationsQuery.data ?? [];
 
   const isLoading =
     projectQuery.isLoading ||
-    complianceQuery.isLoading ||
-    (projectQuery.data?.plan_id && drawingQuery.isLoading);
+    snapshotsQuery.isLoading ||
+    calculationsQuery.isLoading;
 
-  // Handle 404
-  if (projectQuery.isError && (projectQuery.error as any)?.code === 'NOT_FOUND') {
+  const isError =
+    projectQuery.isError ||
+    snapshotsQuery.isError ||
+    calculationsQuery.isError;
+
+  // Most recent snapshot drives the status badge
+  const latestSnapshot = snapshots.length > 0
+    ? snapshots.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0]
+    : null;
+
+  // Compliance status badge
+  const complianceStatus: "PASS" | "FAIL" | "IN_REVIEW" | "UNKNOWN" =
+    !latestSnapshot
+      ? "UNKNOWN"
+      : latestSnapshot.complianceStatus === "compliant"
+      ? "PASS"
+      : latestSnapshot.complianceStatus === "non_compliant"
+      ? "FAIL"
+      : "IN_REVIEW";
+
+  // Extract metrics from latest snapshot outputs
+  const snapshotOutputs = latestSnapshot
+    ? (() => {
+        try {
+          return typeof latestSnapshot.outputs === "string"
+            ? JSON.parse(latestSnapshot.outputs)
+            : latestSnapshot.outputs;
+        } catch {
+          return {};
+        }
+      })()
+    : {};
+
+  // Occupancy load — from occupantLoad calculator result
+  const occupantCalc = calculations
+    .filter((c) => c.calculatorType === "occupantLoad")
+    .sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+
+  const occupantResults = occupantCalc
+    ? (() => {
+        try {
+          return typeof occupantCalc.outputs === "string"
+            ? JSON.parse(occupantCalc.outputs)
+            : occupantCalc.outputs;
+        } catch {
+          return {};
+        }
+      })()
+    : {};
+
+  const occupancyCurrent: number = occupantResults.adjustedOccupantLoad ?? 0;
+  const occupancyMax: number = occupantResults.baseOccupantLoad ?? 0;
+
+  // Travel distance — from snapshot outputs
+  const travelDistanceActual: number =
+    snapshotOutputs.travel_distance_m ?? 0;
+  const travelDistanceMax = 40; // NBC maximum
+
+  // Egress — from snapshot outputs
+  const egressProvided: number = snapshotOutputs.exits ?? 0;
+  const egressRequired: number =
+    typeof snapshotOutputs.exits_required === "number"
+      ? snapshotOutputs.exits_required
+      : 0;
+
+  // Indicator colors
+  const occupancyColor =
+    occupancyCurrent === 0
+      ? "text-muted-foreground"
+      : occupancyCurrent <= occupancyMax
+      ? "text-green-600"
+      : "text-red-600";
+
+  const travelColor =
+    travelDistanceActual === 0
+      ? "text-muted-foreground"
+      : travelDistanceActual <= travelDistanceMax
+      ? "text-green-600"
+      : "text-red-600";
+
+  const egressColor =
+    egressProvided === 0
+      ? "text-muted-foreground"
+      : egressProvided >= egressRequired
+      ? "text-green-600"
+      : "text-red-600";
+
+  // Action button logic
+  const hasCalculations = calculations.length > 0;
+  const hasFindings = complianceStatus === "FAIL" || complianceStatus === "IN_REVIEW";
+
+  const actionLabel = !hasCalculations
+    ? "Upload Plan"
+    : hasFindings
+    ? "Review Findings"
+    : "View Report";
+
+  const handleAction = () => {
+    if (!hasCalculations || hasFindings) {
+      setLocation(`/compliance/${projectId}`);
+    } else {
+      setLocation(`/compliance/${projectId}`);
+    }
+  };
+
+  // Badge config
+  const badgeConfig = {
+    PASS: { label: "PASS", className: "bg-green-100 text-green-800 border-green-300" },
+    FAIL: { label: "FAIL", className: "bg-red-100 text-red-800 border-red-300" },
+    IN_REVIEW: { label: "IN REVIEW", className: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    UNKNOWN: { label: "NO DATA", className: "bg-gray-100 text-gray-600 border-gray-300" },
+  };
+
+  const badge = badgeConfig[complianceStatus];
+
+  // ── Loading state ──────────────────────────────────────────
+  if (isLoading) {
     return (
-      <div className="p-6 text-center">
-        <p className="text-red-600 font-medium">Project not found</p>
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────
+  if (isError || !project) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <p>Failed to load project. Please try again.</p>
         <button
-          onClick={() => onNavigate('/projects')}
-          className="mt-2 text-blue-600 hover:text-blue-700 underline text-sm"
+          onClick={onBack}
+          className="mt-2 text-sm underline"
         >
-          Back to Projects
+          Go back
         </button>
       </div>
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────
   return (
-    <div className="space-y-4 p-6">
+    <div className="max-w-2xl mx-auto p-4 space-y-4">
+
       {/* Back button */}
-      {onBack && (
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </button>
-      )}
+      <button
+        onClick={onBack}
+        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+      >
+        ← Back to Projects
+      </button>
 
-      {/* Error Alert */}
-      {hasError && !errorDismissed && (
-        <ErrorAlert
-          message="Unable to load project data. Please refresh."
-          onDismiss={() => setErrorDismissed(true)}
-          onRetry={() => {
-            projectQuery.refetch();
-            complianceQuery.refetch();
-            drawingQuery.refetch();
-          }}
-        />
-      )}
+      {/* STATUS BAR */}
+      <div className="rounded-lg border bg-card p-4 space-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold leading-tight">{project.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {project.address ?? "No address on file"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {project.occupancyCode} · {project.template ?? "NBC 2023"}
+            </p>
+          </div>
+          <span
+            className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded border ${badge.className}`}
+          >
+            {badge.label}
+          </span>
+        </div>
+      </div>
 
-      {/* Status Bar */}
-      <StatusBar
-        name={projectQuery.data?.name || '—'}
-        address={projectQuery.data?.address || '—'}
-        codeEdition={projectQuery.data?.code_edition || 'NBC 2025'}
-        status={complianceQuery.data?.overall_status || 'UNKNOWN'}
-        isLoading={projectQuery.isLoading}
-        error={projectQuery.error}
-      />
+      {/* FINDINGS SUMMARY */}
+      <div className="rounded-lg border bg-card p-4">
+        <h3 className="text-sm font-medium mb-3">Key Metrics</h3>
+        <div className="space-y-2">
 
-      {/* Critical Findings */}
-      <FindingsSummary
-        occupancyCurrent={drawingQuery.data?.occupancy_load ?? null}
-        occupancyMax={drawingQuery.data?.occupancy_max ?? null}
-        egressProvided={drawingQuery.data?.egress_provided ?? null}
-        egressRequired={drawingQuery.data?.egress_required ?? null}
-        travelDistance={drawingQuery.data?.travel_distance_max ?? null}
-        isLoading={drawingQuery.isLoading}
-        error={drawingQuery.error}
-      />
+          {/* Occupancy */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Occupant Load</span>
+            <span className={`font-medium ${occupancyColor}`}>
+              {occupancyCurrent > 0
+                ? `${occupancyCurrent} persons (max ${occupancyMax})`
+                : "—"}
+            </span>
+          </div>
 
-      {/* Action Button */}
-      <ActionButton
-        projectId={projectId}
-        hasPlan={!!projectQuery.data?.plan_id}
-        hasFindings={(complianceQuery.data?.active_findings_count ?? 0) > 0}
-        isLoading={isLoading}
-        error={hasError ? new Error('Data unavailable') : null}
-        onNavigate={onNavigate}
-      />
+          {/* Travel Distance */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Travel Distance</span>
+            <span className={`font-medium ${travelColor}`}>
+              {travelDistanceActual > 0
+                ? `${travelDistanceActual}m (max ${travelDistanceMax}m)`
+                : "—"}
+            </span>
+          </div>
+
+          {/* Egress */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Egress Doors</span>
+            <span className={`font-medium ${egressColor}`}>
+              {egressRequired > 0
+                ? `${egressProvided} provided, ${egressRequired} required`
+                : "—"}
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ACTION BUTTON */}
+      <button
+        onClick={handleAction}
+        className="w-full rounded-lg bg-primary text-primary-foreground py-3 text-sm font-semibold hover:bg-primary/90 transition-colors"
+      >
+        {actionLabel}
+      </button>
+
     </div>
   );
-};
-
-export default ProjectTabView;
+}
