@@ -47,6 +47,7 @@ import {
   Circle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { DisclaimerGate } from "@/components/DisclaimerGate";
 import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
@@ -366,7 +367,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     },
     onError: (error) => {
       console.error("PD2.0 analysis error:", error);
-      alert("Analysis failed: " + error.message);
+      toast.error("Analysis failed: " + error.message);
       setIsAnalyzing(false);
     },
   });
@@ -384,13 +385,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         });
         setShowAiResults(true);
       } else {
-        alert(data.error || "Failed to analyze drawing");
+        toast.error(data.error || "Failed to analyze drawing");
       }
       setIsAnalyzing(false);
     },
     onError: (error) => {
       console.error("AI analysis error:", error);
-      alert("Failed to analyze drawing. Please try again.");
+      toast.error("Failed to analyze drawing. Please try again.");
       setIsAnalyzing(false);
     },
   });
@@ -398,7 +399,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // Handle export to compliance (Phase 2)
   const handleExportToCompliance = async () => {
     if (!projectId || !savedAnalysisId) {
-      alert("Please complete an analysis first");
+      toast.error("Please complete an analysis first");
       return;
     }
     
@@ -410,14 +411,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       });
       
       // Show success notification
-      alert(`Findings exported to compliance report. Status: ${result.complianceStatus}`);
+      toast.success(`Findings exported to compliance report. Status: ${result.complianceStatus}`);
       
       // Invalidate queries to refresh ProjectTabView
       await utils.compliance.getProjectSnapshots.invalidate({ projectId });
       await utils.projects.get.invalidate({ id: projectId });
     } catch (error) {
       console.error("Failed to export findings:", error);
-      alert("Failed to export findings. Please try again.");
+      toast.error("Failed to export findings. Please try again.");
     }
   };
   
@@ -452,7 +453,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
     reader.onerror = () => {
       setIsLoading(false);
-      alert("Error loading file. Please try again.");
+      toast.error("Error loading file. Please try again.");
     };
     reader.readAsDataURL(file);
   };
@@ -477,7 +478,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
     reader.onerror = () => {
       setIsLoading(false);
-      alert("Error capturing photo. Please try again.");
+      toast.error("Error capturing photo. Please try again.");
     };
     reader.readAsDataURL(file);
   };
@@ -486,7 +487,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const runAiAnalysis = () => {
     if (!drawingImage) return;
     if (!disclaimerAcknowledged) {
-      alert("You must acknowledge the disclaimer before running analysis.");
+      toast.error("You must acknowledge the disclaimer before running analysis.");
       return;
     }
     
@@ -2019,7 +2020,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // Run compliance check
   const runComplianceCheck = () => {
     if (!selectedZone) {
-      alert("Please select a zone to check compliance against.");
+      toast.error("Please select a zone to check compliance against.");
       return;
     }
 

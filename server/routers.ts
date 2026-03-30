@@ -861,7 +861,8 @@ Return ONLY a valid JSON object in this exact format:
             eq(projectCalculatorResults.calculatorType, "drawingAnalysis")
           )
         )
-        .orderBy(desc(projectCalculatorResults.createdAt));
+        .orderBy(desc(projectCalculatorResults.createdAt))
+        .limit(20);
 
       return results.map((r) => ({
         id: r.id,
