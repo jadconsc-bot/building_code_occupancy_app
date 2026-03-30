@@ -10,28 +10,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit2, Trash2, Search, Loader2, FileText, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Loader2, Users, FileText, Calendar } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -42,47 +31,80 @@ export default function Projects() {
     status: "active",
   });
 
-  // Fetch projects using tRPC
-  const { data: projects = [], isLoading } = trpc.projects.list.useQuery();
-
-  const utils = trpc.useUtils();
+  // Fetch projects using tRPC - using a placeholder query since we need to create it
+  const { data: projects = [], isLoading, refetch } = trpc.projects.list.useQuery();
 
   // Create project mutation with optimistic UI
   const createProjectMutation = trpc.projects.create.useMutation({
+    onMutate: async (newProject) => {
+      await trpc.useUtils().projects.list.cancel();
+      const previousProjects = trpc.useUtils().projects.list.getData();
+
+      trpc.useUtils().projects.list.setData(undefined, (old) => [
+        ...(old || []),
+        { ...newProject, id: Date.now(), createdAt: new Date(), updatedAt: new Date() } as any,
+      ]);
+
+      return { previousProjects };
+    },
+    onError: (err, newProject, context) => {
+      if (context?.previousProjects) {
+        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
+      }
+      alert("Failed to create project: " + err.message);
+    },
     onSuccess: () => {
-      utils.projects.list.invalidate();
+      refetch();
       setIsCreateOpen(false);
       resetForm();
-      toast.success("Project created");
-    },
-    onError: (err) => {
-      toast.error(err.message ?? "Failed to create project");
     },
   });
 
   // Update project mutation with optimistic UI
   const updateProjectMutation = trpc.projects.update.useMutation({
+    onMutate: async (updatedProject) => {
+      await trpc.useUtils().projects.list.cancel();
+      const previousProjects = trpc.useUtils().projects.list.getData();
+
+      trpc.useUtils().projects.list.setData(undefined, (old) =>
+        old?.map((p) => (p.id === updatedProject.id ? { ...p, ...updatedProject } : p))
+      );
+
+      return { previousProjects };
+    },
+    onError: (err, updatedProject, context) => {
+      if (context?.previousProjects) {
+        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
+      }
+      alert("Failed to update project: " + err.message);
+    },
     onSuccess: () => {
-      utils.projects.list.invalidate();
+      refetch();
       setIsEditOpen(false);
       resetForm();
-      toast.success("Project updated");
-    },
-    onError: (err) => {
-      toast.error(err.message ?? "Failed to update project");
     },
   });
 
   // Delete project mutation with optimistic UI
   const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onSuccess: () => {
-      utils.projects.list.invalidate();
-      setDeleteTargetId(null);
-      toast.success("Project deleted");
+    onMutate: async (input: { id: number }) => {
+      await trpc.useUtils().projects.list.cancel();
+      const previousProjects = trpc.useUtils().projects.list.getData();
+
+      trpc.useUtils().projects.list.setData(undefined, (old) =>
+        old?.filter((p) => p.id !== input.id)
+      );
+
+      return { previousProjects };
     },
-    onError: (err) => {
-      toast.error(err.message ?? "Failed to delete project");
-      setDeleteTargetId(null);
+    onError: (err, projectId, context) => {
+      if (context?.previousProjects) {
+        trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
+      }
+      alert("Failed to delete project: " + err.message);
+    },
+    onSuccess: () => {
+      refetch();
     },
   });
 
@@ -126,11 +148,11 @@ export default function Projects() {
 
   const handleCreateProject = async () => {
     if (!formData.name.trim()) {
-      toast.error("Project name is required");
+      alert("Project name is required");
       return;
     }
     if (!formData.occupancyCode.trim()) {
-      toast.error("Occupancy code is required");
+      alert("Occupancy code is required");
       return;
     }
 
@@ -156,11 +178,11 @@ export default function Projects() {
 
   const handleUpdateProject = async () => {
     if (!formData.name.trim()) {
-      toast.error("Project name is required");
+      alert("Project name is required");
       return;
     }
     if (!formData.occupancyCode.trim()) {
-      toast.error("Occupancy code is required");
+      alert("Occupancy code is required");
       return;
     }
 
@@ -174,9 +196,9 @@ export default function Projects() {
     }
   };
 
-  const handleDeleteConfirm = () => {
-    if (deleteTargetId !== null) {
-      deleteProjectMutation.mutate({ id: deleteTargetId });
+  const handleDeleteProject = async (projectId: number) => {
+    if (confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
+      await deleteProjectMutation.mutateAsync({ id: projectId });
     }
   };
 
@@ -415,7 +437,7 @@ export default function Projects() {
                       variant="ghost"
                       size="sm"
                       className="text-destructive"
-                      onClick={() => setDeleteTargetId(project.id)}
+                      onClick={() => handleDeleteProject(project.id)}
                       disabled={deleteProjectMutation.isPending}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -427,34 +449,6 @@ export default function Projects() {
           ))
         )}
       </div>
-
-      {/* Delete Confirmation */}
-      <AlertDialog
-        open={deleteTargetId !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the project and all associated data. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteProjectMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Delete"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

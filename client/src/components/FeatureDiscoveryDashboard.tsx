@@ -41,7 +41,7 @@ const features: Feature[] = [
     title: 'Occupancy Classification',
     description: 'Classify building occupancy types according to NBC 2025 standards. Search and filter through all occupancy groups.',
     icon: <Building2 className="w-6 h-6" />,
-    href: '/',
+    href: '/occupancy-classifier',
     category: 'core',
   },
   {
@@ -58,7 +58,7 @@ const features: Feature[] = [
     title: 'Professional Calculators',
     description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
     icon: <Calculator className="w-6 h-6" />,
-    href: '/',
+    href: '/#design-tools',
     category: 'tools',
     badge: '34+ Tools',
   },
@@ -67,7 +67,7 @@ const features: Feature[] = [
     title: 'Rule Management',
     description: 'Professional rule editor with digital signatures, audit trails, and admin authorization. For authorized users only.',
     icon: <Shield className="w-6 h-6" />,
-    href: '/admin',
+    href: '/rule-management',
     category: 'professional',
     badge: 'Admin Only',
   },
@@ -93,7 +93,7 @@ const features: Feature[] = [
     title: 'Project Analytics',
     description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
     icon: <TrendingUp className="w-6 h-6" />,
-    href: '/project-analytics',
+    href: '/billing',
     category: 'professional',
   },
   {
@@ -101,25 +101,9 @@ const features: Feature[] = [
     title: 'Documentation',
     description: 'User guide, tutorials, and help articles. Learn how to use all features effectively.',
     icon: <BookOpen className="w-6 h-6" />,
-    href: '/terms',
+    href: '/documentation',
     category: 'core',
   },
-];
-
-export const validRoutes = [
-  '/',
-  '/project-checklists',
-  '/compliance/:projectId',
-  '/calculation-history',
-  '/clients',
-  '/sharing',
-  '/versions',
-  '/billing',
-  '/verify',
-  '/certificates',
-  '/project-analytics',
-  '/admin',
-  '/terms',
 ];
 
 export function FeatureDiscoveryDashboard() {

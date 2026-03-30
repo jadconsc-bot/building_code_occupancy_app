@@ -16,7 +16,7 @@
  * 5. Can verify timestamp validity at any future time
  */
 
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 import axios from 'axios';
 import { logger } from './logger';
 

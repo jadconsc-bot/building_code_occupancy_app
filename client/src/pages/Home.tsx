@@ -88,15 +88,12 @@ import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenera
 import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions, getComprehensiveSearchResults, getTabForKeyword } from "@/lib/searchKeywords";
 import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
-import { DevLogin } from "@/components/DevLogin";
-import { DisclaimerGate } from "@/components/DisclaimerGate";
 
 export default function Home() {
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
 
-  // IMPORTANT: All hooks must be called unconditionally before any early returns
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -104,6 +101,20 @@ export default function Home() {
     }
     return false;
   });
+
+  useEffect(() => {
+    if (isAuthenticated && !hasSeenOnboarding && !showOnboarding) {
+      const timer = setTimeout(() => setShowOnboarding(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, hasSeenOnboarding, showOnboarding]);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding-completed', 'true');
+    setHasSeenOnboarding(true);
+    setShowOnboarding(false);
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
@@ -137,14 +148,6 @@ export default function Home() {
     return saved || "AB";
   });
 
-  // All useEffect hooks
-  useEffect(() => {
-    if (isAuthenticated && !hasSeenOnboarding && !showOnboarding) {
-      const timer = setTimeout(() => setShowOnboarding(true), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, hasSeenOnboarding, showOnboarding]);
-
   // Tab order for navigation
   const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
 
@@ -168,39 +171,6 @@ export default function Home() {
     localStorage.setItem("active_tab", activeTab);
   }, [activeTab]);
 
-  // Handle initial load from URL hash
-  useEffect(() => {
-    const hash = window.location.hash.replace("#", "");
-    if (hash) {
-      const group = occupancyData.find(g => g.code === hash);
-      if (group) {
-        setSelectedGroup(group);
-        addToHistory(group.id);
-      }
-    }
-  }, []);
-
-  // Early return for unauthenticated users - AFTER all hooks
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
-          <p className="text-muted-foreground mb-6">
-            Professional building code compliance tools for architects, engineers, and inspectors
-          </p>
-          <DevLogin />
-        </div>
-      </div>
-    );
-  }
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('onboarding-completed', 'true');
-    setHasSeenOnboarding(true);
-    setShowOnboarding(false);
-  };
-
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
   };
@@ -218,6 +188,18 @@ export default function Home() {
     // Update URL hash for sharing
     window.location.hash = group.code;
   };
+
+  // Handle initial load from URL hash
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash) {
+      const group = occupancyData.find(g => g.code === hash);
+      if (group) {
+        setSelectedGroup(group);
+        addToHistory(group.id);
+      }
+    }
+  }, []);
 
   const copyShareLink = () => {
     if (selectedGroup) {
@@ -584,7 +566,9 @@ export default function Home() {
   };
 
   const exportChecklistPDF = async () => {
+    console.log('exportChecklistPDF called, selectedGroup:', selectedGroup);
     if (!selectedGroup) {
+      console.log('No selectedGroup, returning early');
       return;
     }
 
@@ -639,6 +623,7 @@ export default function Home() {
       });
     }
 
+    console.log('Calling generatePDFChecklist with sections:', sections);
     try {
       await generatePDFChecklist({
         occupancyCode: selectedGroup.code,
@@ -646,7 +631,9 @@ export default function Home() {
         sections,
         includeQRCode: true,
       });
+      console.log('generatePDFChecklist completed successfully');
     } catch (error) {
+      console.error('Error in exportChecklistPDF:', error);
       toast.error('Failed to generate checklist PDF');
     }
   };
@@ -691,6 +678,7 @@ export default function Home() {
         // Stop the stream immediately - we just needed permission
         stream.getTracks().forEach(track => track.stop());
       } catch (err: any) {
+        console.error('Microphone permission error:', err);
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
           toast.error("Microphone access denied. Please allow microphone access in your browser settings.");
         } else if (err.name === 'NotFoundError') {
@@ -723,6 +711,8 @@ export default function Home() {
 
       recognition.onerror = (event: any) => {
         setIsListening(false);
+        console.error('Speech recognition error:', event.error, event);
+        
         switch (event.error) {
           case 'no-speech':
             toast.error('No speech detected. Please try again and speak clearly.');
@@ -809,6 +799,7 @@ export default function Home() {
 
       recognition.start();
     } catch (err: any) {
+      console.error('Failed to start speech recognition:', err);
       toast.error('Failed to start voice recognition. Please try again.');
       setIsListening(false);
     }
@@ -898,11 +889,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [filteredData, focusedIndex]);
 
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-
   return (
-    <DisclaimerGate onAccepted={() => setDisclaimerAccepted(true)}>
-      {disclaimerAccepted && (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
       <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
@@ -943,18 +930,14 @@ export default function Home() {
                   Logout ({user?.name || 'User'})
                 </Button>
               ) : (
-                <div className="flex items-center gap-2">
-                  <DevLogin />
-                  <span className="text-xs text-muted-foreground">or</span>
-                  <Button
-                    onClick={() => window.location.href = getLoginUrl()}
-                    variant="default"
-                    size="sm"
-                    className="text-xs bg-blue-600 hover:bg-blue-700"
-                  >
-                    OAuth Login
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => window.location.href = getLoginUrl()}
+                  variant="default"
+                  size="sm"
+                  className="text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  Login
+                </Button>
               )}
               <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                 <SelectTrigger className="w-[80px] h-8 text-xs">
@@ -2828,7 +2811,5 @@ export default function Home() {
         getSectionsForGroup={getSectionsForGroup}
       />
     </div>
-      )}
-    </DisclaimerGate>
   );
 }

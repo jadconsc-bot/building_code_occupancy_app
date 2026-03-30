@@ -1,36 +1,64 @@
-import { ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-// Type definitions
-export interface ThemeContextType {
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
+type Theme = "light" | "dark";
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme?: () => void;
+  switchable: boolean;
 }
 
-// Dummy context for backwards compatibility
-export const ThemeContext = null;
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Simple provider that just applies CSS classes - NO HOOKS
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Apply theme to document on mount via CSS
-  // This avoids React hooks entirely
-  const toggleTheme = () => {
-    // No-op: theme switching disabled to avoid React hook errors
-    console.log('[ThemeProvider] Theme switching disabled');
-  };
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: Theme;
+  switchable?: boolean;
+}
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "light",
+  switchable = false,
+}: ThemeProviderProps) {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (switchable) {
+      const stored = localStorage.getItem("theme");
+      return (stored as Theme) || defaultTheme;
+    }
+    return defaultTheme;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+
+    if (switchable) {
+      localStorage.setItem("theme", theme);
+    }
+  }, [theme, switchable]);
+
+  const toggleTheme = switchable
+    ? () => {
+        setTheme(prev => (prev === "light" ? "dark" : "light"));
+      }
+    : undefined;
 
   return (
-    <div className="light" style={{ colorScheme: 'light' }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
       {children}
-    </div>
+    </ThemeContext.Provider>
   );
 }
 
-// Dummy hook for backwards compatibility
-export function useTheme(): ThemeContextType {
-  return {
-    theme: 'light',
-    toggleTheme: () => {
-      // No-op: theme switching disabled
-    },
-  };
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider");
+  }
+  return context;
 }

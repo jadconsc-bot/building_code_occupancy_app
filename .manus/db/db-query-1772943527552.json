@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO reports (userId, projectId, name, type, content, metadata, createdAt, updatedAt) VALUES (1, 1, 'Test Report - Direct Insert', 'compliance', '{\"status\": \"compliant\", \"infractions\": []}', NULL, NOW(), NOW());",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute INSERT INTO reports (userId, projectId, name, type, content, metadata, createdAt, updatedAt) VALUES (1, 1, 'Test Report - Direct Insert', 'compliance', '{\"status\": \"compliant\", \"infractions\": []}', NULL, NOW(), NOW());",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 54
-}

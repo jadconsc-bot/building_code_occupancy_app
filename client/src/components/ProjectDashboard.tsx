@@ -1,6 +1,4 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FolderOpen, Plus, Trash2, Building2, TrendingUp } from 'lucide-react';
+import { FolderOpen, Plus, Trash2, FileText, Calendar, Building2, TrendingUp } from 'lucide-react';
 import { occupancyData } from '@/lib/occupancyData';
-import { projectTemplates } from '@/lib/projectTemplates';
-import { trpc } from '@/lib/trpc';
-import { useProject } from '@/contexts/ProjectContext';
-import { toast } from 'sonner';
+import { projectTemplates, getTemplateById } from '@/lib/projectTemplates';
 
 export interface Project {
   id: string;
@@ -35,6 +30,7 @@ export interface Project {
 }
 
 export function ProjectDashboard() {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newProject, setNewProject] = useState({
     name: '',
@@ -44,51 +40,60 @@ export function ProjectDashboard() {
     templateId: ''
   });
 
-  // Get projects from ProjectContext (synced from database)
-  const { getAllProjects, setActiveProjectId } = useProject();
-  const projects = getAllProjects();
+  // Load projects from localStorage on mount
+  useEffect(() => {
+    const savedProjects = localStorage.getItem('buildingCodeProjects');
+    if (savedProjects) {
+      setProjects(JSON.parse(savedProjects));
+    }
+  }, []);
 
-  // Create project mutation
-  const createProjectMutation = trpc.projects.create.useMutation({
-    onSuccess: (dbProject) => {
-      toast.success('Project created successfully');
-      setIsCreateDialogOpen(false);
-      setNewProject({ name: '', address: '', occupancyCode: '', notes: '', templateId: '' });
-      setActiveProjectId(parseInt(dbProject.id.toString()));
-    },
-    onError: (error) => {
-      toast.error('Failed to create project: ' + error.message);
-    },
-  });
+  // Save projects to localStorage whenever they change
+  useEffect(() => {
+    if (projects.length > 0) {
+      localStorage.setItem('buildingCodeProjects', JSON.stringify(projects));
+    }
+  }, [projects]);
 
-  // Delete project mutation
-  const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onSuccess: () => {
-      toast.success('Project deleted successfully');
-    },
-    onError: (error) => {
-      toast.error('Failed to delete project: ' + error.message);
-    },
-  });
-
-  const handleCreateProject = async () => {
+  const createProject = () => {
     if (!newProject.name || !newProject.occupancyCode) {
-      toast.error('Please fill in required fields');
       return;
     }
 
-    await createProjectMutation.mutateAsync({
+    const occupancy = occupancyData.find(occ => occ.code === newProject.occupancyCode);
+    
+    const project: Project = {
+      id: `proj-${Date.now()}`,
       name: newProject.name,
-      description: newProject.address || '',
+      address: newProject.address,
       occupancyCode: newProject.occupancyCode,
-      buildingType: newProject.occupancyCode,
-    });
+      occupancyName: occupancy?.name || '',
+      createdDate: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      checklistProgress: {
+        foundation: 0,
+        framing: 0,
+        mechanical: 0,
+        insulation: 0,
+        drywall: 0,
+        final: 0
+      },
+      notes: newProject.notes
+    };
+
+    setProjects([...projects, project]);
+    setNewProject({ name: '', address: '', occupancyCode: '', notes: '', templateId: '' });
+    setIsCreateDialogOpen(false);
   };
 
-  const handleDeleteProject = (id: string) => {
+  const deleteProject = (id: string) => {
     if (confirm('Are you sure you want to delete this project?')) {
-      const numId = parseInt(id);
-      deleteProjectMutation.mutate({ id: numId });
+      setProjects(projects.filter(p => p.id !== id));
+      // Update localStorage
+      const updatedProjects = projects.filter(p => p.id !== id);
+      if (updatedProjects.length === 0) {
+        localStorage.removeItem('buildingCodeProjects');
+      }
     }
   };
 
@@ -144,48 +149,48 @@ export function ProjectDashboard() {
 
               <div className="space-y-2">
                 <Label htmlFor="occupancy">Occupancy Type *</Label>
-                <Select
-                  value={newProject.occupancyCode}
-                  onValueChange={(value) => setNewProject({ ...newProject, occupancyCode: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select occupancy" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {occupancyData.map((occ) => (
-                      <SelectItem key={occ.code} value={occ.code}>
-                        {occ.code} - {occ.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <Select
+                    value={newProject.occupancyCode}
+                    onValueChange={(value) => setNewProject({ ...newProject, occupancyCode: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select occupancy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {occupancyData.map((occ) => (
+                        <SelectItem key={occ.code} value={occ.code}>
+                          {occ.code} - {occ.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="template">Project Template (Optional)</Label>
-                <Select
-                  value={newProject.templateId}
-                  onValueChange={(value) => setNewProject({ ...newProject, templateId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Start from scratch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No template (blank project)</SelectItem>
-                    {projectTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name} - {template.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Templates include pre-configured inspection checklists and typical requirements
-                </p>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template">Project Template (Optional)</Label>
+                  <Select
+                    value={newProject.templateId}
+                    onValueChange={(value) => setNewProject({ ...newProject, templateId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Start from scratch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No template (blank project)</SelectItem>
+                      {projectTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name} - {template.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Templates include pre-configured inspection checklists and typical requirements
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="project-notes">Notes</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="project-notes">Notes</Label>
                 <Input
                   id="project-notes"
                   placeholder="Optional project notes"
@@ -200,12 +205,8 @@ export function ProjectDashboard() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="rounded-none">
                 Cancel
               </Button>
-              <Button 
-                onClick={handleCreateProject} 
-                disabled={!newProject.name || !newProject.occupancyCode || createProjectMutation.isPending}
-                className="rounded-none"
-              >
-                {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
+              <Button onClick={createProject} disabled={!newProject.name || !newProject.occupancyCode} className="rounded-none">
+                Create Project
               </Button>
             </div>
           </DialogContent>
@@ -241,8 +242,7 @@ export function ProjectDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteProject(project.id)}
-                      disabled={deleteProjectMutation.isPending}
+                      onClick={() => deleteProject(project.id)}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -271,13 +271,88 @@ export function ProjectDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Created: {new Date(project.createdDate).toLocaleDateString()}</span>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center p-2 bg-muted/30 rounded">
+                      <p className="font-bold">{project.checklistProgress.foundation}%</p>
+                      <p className="text-muted-foreground">Foundation</p>
+                    </div>
+                    <div className="text-center p-2 bg-muted/30 rounded">
+                      <p className="font-bold">{project.checklistProgress.framing}%</p>
+                      <p className="text-muted-foreground">Framing</p>
+                    </div>
+                    <div className="text-center p-2 bg-muted/30 rounded">
+                      <p className="font-bold">{project.checklistProgress.mechanical}%</p>
+                      <p className="text-muted-foreground">Mechanical</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border">
+                    <Calendar className="w-3 h-3" />
+                    <span>Created {new Date(project.createdDate).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Button className="w-full rounded-none" variant="outline">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Open Project
+                    </Button>
+                    <Button className="w-full rounded-none" variant="default" onClick={() => {
+                      localStorage.setItem(`project-${project.id}`, JSON.stringify(project));
+                      alert(`Project "${project.name}" saved successfully!`);
+                    }}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Save Project
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Summary Stats */}
+      {projects.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 overflow-y-auto max-h-[150px]">
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Projects</p>
+                  <p className="text-2xl font-bold">{projects.length}</p>
+                </div>
+                <FolderOpen className="w-8 h-8 text-primary opacity-20" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg Progress</p>
+                  <p className="text-2xl font-bold">
+                    {Math.round(projects.reduce((sum, p) => sum + getOverallProgress(p), 0) / projects.length)}%
+                  </p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-primary opacity-20" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-none border-border overflow-hidden">
+            <CardContent className="pt-6 overflow-y-auto">
+              <div className="flex items-center justify-between overflow-hidden">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Completed</p>
+                  <p className="text-2xl font-bold">
+                    {projects.filter(p => getOverallProgress(p) === 100).length}
+                  </p>
+                </div>
+                <FileText className="w-8 h-8 text-primary opacity-20" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

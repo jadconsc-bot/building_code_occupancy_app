@@ -13,42 +13,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport } from "@/components/CompliancePathwayReport";
-import { AuditTrailViewer } from "@/components/AuditTrailViewer";
-import { SignaturePad } from "@/components/SignaturePad";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
 
 export default function CompliancePage() {
   const params = useParams();
   const projectId = params.projectId ? parseInt(params.projectId) : 0;
-  const [complianceResult, setComplianceResult] = useState<any>(null);
-  const [pathway, setPathway] = useState<any>(null);
-  const [auditId, setAuditId] = useState<string | null>(null);
+  const [complianceResult, setComplianceResult] = useState(null);
+  const [pathway, setPathway] = useState(null);
   const [projectInfo, setProjectInfo] = useState({
     name: 'My Project',
     engineer: 'John Smith',
-  });
-  const [projectName, setProjectName] = useState('My Project');
-  const [engineerName, setEngineerName] = useState('John Smith');
-  const [engineerEmail, setEngineerEmail] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [showSignaturePad, setShowSignaturePad] = useState(false);
-
-  // Decision 3: Submit for professional review
-  const submitForReviewMutation = trpc.compliance.submitForReview.useMutation({
-    onSuccess: () => {
-      setShowSignaturePad(true);
-    },
-  });
-
-  // Decision 3: Sign review with digital signature
-  const signReviewMutation = trpc.compliance.signReview.useMutation({
-    onSuccess: () => {
-      setShowSignaturePad(false);
-    },
   });
 
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
@@ -59,7 +34,7 @@ export default function CompliancePage() {
 
   const handleGeneratePathway = async () => {
     if (!complianceResult) {
-      toast.error('Run compliance analysis first');
+      console.error('Run compliance analysis first');
       return;
     }
 
@@ -70,43 +45,6 @@ export default function CompliancePage() {
         area_m2: 5000,
       },
     });
-  };
-
-  const handleCreateAudit = async () => {
-    if (!complianceResult) {
-      toast.error('Run compliance analysis first');
-      return;
-    }
-
-    try {
-      // Submit for professional review (Decision 3)
-      await submitForReviewMutation.mutateAsync({
-        snapshotId: complianceResult.snapshotId || 'snapshot-' + Date.now(),
-        projectId,
-        notes: `Compliance analysis for ${projectName}`,
-      });
-    } catch (error) {
-      toast.error('Failed to create audit trail');
-    }
-  };
-
-  const handleSignatureComplete = async (signatureData: string) => {
-    if (!complianceResult) {
-      toast.error('No compliance result to sign');
-      return;
-    }
-
-    try {
-      // Sign review with digital signature (Decision 3)
-      await signReviewMutation.mutateAsync({
-        snapshotId: complianceResult.snapshotId || 'snapshot-' + Date.now(),
-        signature: signatureData,
-        signerRole: 'engineer',
-        licenseNumber: licenseNumber || undefined,
-      });
-    } catch (error) {
-      toast.error('Failed to sign review');
-    }
   };
 
   if (!projectId) {
@@ -148,21 +86,17 @@ export default function CompliancePage() {
       {/* Main Content */}
       <div className="mt-6">
         <Tabs defaultValue="analyzer" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="analyzer">Analysis</TabsTrigger>
           <TabsTrigger value="scenarios">What-If Scenarios</TabsTrigger>
           <TabsTrigger value="pathway">Code Pathway</TabsTrigger>
-          <TabsTrigger value="audit">Audit Trail</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
           <TabsTrigger value="governance">Governance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analyzer" className="space-y-6 mt-6">
-          <ComplianceAnalyzer 
-            projectId={projectId}
-            onResultsChange={(results) => setComplianceResult(results)}
-          />
-          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending || !complianceResult}>
+          <ComplianceAnalyzer projectId={projectId} />
+          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending}>
             {pathwayMutation.isPending ? 'Generating...' : 'Generate Code Pathway'}
           </Button>
         </TabsContent>
@@ -174,15 +108,8 @@ export default function CompliancePage() {
         <TabsContent value="pathway" className="space-y-6 mt-6">
           {pathway && (
             <CompliancePathwayReport
-              projectSummary={{
-                occupancy: 'D',
-                area_m2: 5000,
-                storeys: 1,
-                constructionType: 'Wood Frame',
-                sprinklers: false,
-              }}
-              justificationNarrative={pathway?.narrative || 'Compliance pathway generated'}
-              complianceSummary={pathway?.summary || 'See details below'}
+              pathway={pathway}
+              projectName={projectInfo.name}
             />
           )}
           {!pathway && (
@@ -192,79 +119,6 @@ export default function CompliancePage() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="audit" className="space-y-6 mt-6">
-          <div className="space-y-4">
-            {/* Engineer info section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Engineer Information</CardTitle>
-                <CardDescription>Required for audit trail creation</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="projectName">Project Name</Label>
-                  <Input
-                    id="projectName"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="Enter project name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="engineerName">Engineer Name</Label>
-                  <Input
-                    id="engineerName"
-                    value={engineerName}
-                    onChange={(e) => setEngineerName(e.target.value)}
-                    placeholder="Enter engineer name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="engineerEmail">Email</Label>
-                  <Input
-                    id="engineerEmail"
-                    value={engineerEmail}
-                    onChange={(e) => setEngineerEmail(e.target.value)}
-                    type="email"
-                    placeholder="Enter email address"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="licenseNumber">Professional License Number</Label>
-                  <Input
-                    id="licenseNumber"
-                    value={licenseNumber}
-                    onChange={(e) => setLicenseNumber(e.target.value)}
-                    placeholder="Enter license number"
-                  />
-                </div>
-                <Button
-                  onClick={handleCreateAudit}
-                  disabled={!complianceResult || submitForReviewMutation.isPending}
-                  className="w-full"
-                >
-                  Create Audit Trail
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Audit viewer */}
-            {auditId && (
-              <div className="space-y-4">
-                <AuditTrailViewer projectId={projectId} />
-              </div>
-            )}
-
-            {/* Signature Pad - shown after submitting for review */}
-            {showSignaturePad && (
-              <SignaturePad
-                engineerName={engineerName}
-                onSignatureComplete={handleSignatureComplete}
-              />
-            )}
-          </div>
         </TabsContent>
 
         <TabsContent value="snapshots" className="space-y-6 mt-6">

@@ -8,12 +8,9 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
-import { AuthHydrationWrapper } from "./components/AuthHydrationWrapper";
+import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
-import { RequiredLegalAcknowledgment } from "./components/RequiredLegalAcknowledgment";
-import { useLocalStorage } from "@/_core/hooks/useLocalStorage";
-import { useState, useEffect } from "react";
 import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
@@ -27,19 +24,15 @@ import CalculationVersioning from "./pages/CalculationVersioning";
 import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
-import CertificateManagement from "./pages/CertificateManagement";
-import ProjectAnalytics from "./pages/ProjectAnalytics";
-import SharedWithMe from "./pages/SharedWithMe";
 import { NavigationHeader } from "./components/NavigationHeader";
 
-function MainApp() {
+function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <>
       <NavigationHeader />
       <Switch>
-        <Route path={"/"} component={Home} />
-        <Route path={"/dashboard"} component={Dashboard} />
+        <Route path={"/"} component={Dashboard} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />
@@ -49,9 +42,6 @@ function MainApp() {
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
         <Route path={"/verify"} component={VerificationPortal} />
-        <Route path={"/certificates"} component={CertificateManagement} />
-        <Route path={"/project-analytics"} component={ProjectAnalytics} />
-        <Route path={"/shared-with-me"} component={SharedWithMe} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/404"} component={NotFound} />
@@ -67,45 +57,30 @@ function MainApp() {
 //   to keep consistent foreground/background color across components
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
-function AppWithLegalAcknowledgment() {
-  const [hasAcknowledgedLegal, setHasAcknowledgedLegal] = useLocalStorage(
-    'legal_acknowledgment_v1',
-    false
-  );
-
-  const handleAcknowledged = () => {
-    setHasAcknowledgedLegal(true);
-  };
-
-  // Show disclaimer on first use or if not acknowledged
-  if (!hasAcknowledgedLegal) {
-    return <RequiredLegalAcknowledgment onAcknowledged={handleAcknowledged} />;
-  }
-
-  return <MainApp />;
-}
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <ProjectProvider>
-          <ComparisonProvider>
-            <CalculationHistoryProvider>
-              <HelpSystemProvider>
-                <TooltipProvider>
-                  <AuthHydrationWrapper>
+      <AuthHydrationProvider>
+        <ThemeProvider
+          defaultTheme="light"
+          // switchable
+        >
+          <ProjectProvider>
+            <ComparisonProvider>
+              <CalculationHistoryProvider>
+                <HelpSystemProvider>
+                  <TooltipProvider>
                     <Toaster />
                     <OfflineIndicator />
                     <HelpPanel />
-                    <AppWithLegalAcknowledgment />
-                  </AuthHydrationWrapper>
-                </TooltipProvider>
-              </HelpSystemProvider>
-            </CalculationHistoryProvider>
-          </ComparisonProvider>
-        </ProjectProvider>
-      </ThemeProvider>
+                    <Router />
+                  </TooltipProvider>
+                </HelpSystemProvider>
+              </CalculationHistoryProvider>
+            </ComparisonProvider>
+          </ProjectProvider>
+        </ThemeProvider>
+      </AuthHydrationProvider>
     </ErrorBoundary>
   );
 }

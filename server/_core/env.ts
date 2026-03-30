@@ -17,8 +17,6 @@ const envSchema = z.object({
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
   VITE_APP_ID: z.string().optional(),
   VITE_OAUTH_PORTAL_URL: z.string().url().optional(),
-  // ⚠️ DEVELOPMENT ONLY - Remove for production
-  DEV_AUTH_MODE: z.string().default('false'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -28,27 +26,13 @@ export type Env = z.infer<typeof envSchema>;
  */
 function validateEnv(): Env {
   try {
-    const result = envSchema.parse(process.env);
-
-    const isProductionEnv =
-      result.NODE_ENV === 'production' ||
-      process.env.MANUS_ENVIRONMENT === 'production';
-
-    if (isProductionEnv && result.DEV_AUTH_MODE === 'true') {
-      throw new Error(
-        '[SECURITY VIOLATION] DEV_AUTH_MODE cannot be enabled in production. ' +
-        'This bypasses all OAuth authentication. ' +
-        'Remove DEV_AUTH_MODE from your production environment variables.'
-      );
-    }
-
-    return result;
+    return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.issues
         .map((err: any) => `${err.path.join('.')}: ${err.message}`)
         .join('\n');
-
+      
       throw new Error(
         `Environment variable validation failed:\n${issues}\n\n` +
         'Required variables: OAUTH_SERVER_URL, JWT_SECRET, DATABASE_URL'
@@ -70,8 +54,6 @@ export const ENV = {
   isProduction: validatedEnv.NODE_ENV === "production",
   forgeApiUrl: validatedEnv.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: validatedEnv.BUILT_IN_FORGE_API_KEY ?? "",
-  // ⚠️ DEVELOPMENT ONLY - Remove for production
-  devAuthMode: validatedEnv.DEV_AUTH_MODE === 'true',
 };
 
 /**

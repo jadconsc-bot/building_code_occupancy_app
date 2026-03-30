@@ -1,1 +1,0 @@
-ALTER TABLE `signatureLogs` MODIFY COLUMN `status` enum('success','failure','rejected') NOT NULL;

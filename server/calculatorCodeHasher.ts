@@ -6,7 +6,7 @@
  * Provides legal defensibility by proving which code version was used
  */
 
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 

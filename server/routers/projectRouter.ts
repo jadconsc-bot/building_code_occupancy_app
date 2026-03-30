@@ -14,10 +14,7 @@ export const projectRouter = router({
    * Get all projects for current user
    */
   list: protectedProcedure.query(async ({ ctx }) => {
-    console.log('[projectRouter.list] Fetching projects for user:', ctx.user.id);
-    const projects = await projectRepository.getUserProjects(ctx.user.id);
-    console.log('[projectRouter.list] Found projects:', projects.length, 'projects');
-    return projects;
+    return projectRepository.getUserProjects(ctx.user.id);
   }),
 
   /**

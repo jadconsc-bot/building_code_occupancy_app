@@ -1,3 +1,4 @@
+import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -8,7 +9,6 @@ import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } 
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
-import { COOKIE_NAME } from "../shared/const";
 import { complianceRouter } from "./routers/complianceRouter";
 import { projectRouter } from "./routers/projectRouter";
 import { subscriptionRouter } from "./routers/subscriptionRouter";
@@ -18,21 +18,6 @@ import { consultantRouter } from "./consultantRouter";
 import { monetizationRouter } from "./monetizationRouter";
 import { clientsRouter, projectMembersRouter, subscriptionsRouter, usageMetricsRouter, sharingRouter, verificationRouter, calculationVersioningRouter } from "./routers/phase2to5";
 import { compliancePathwayRouter } from "./compliancePathwayRouter";
-import { auditRouter } from "./auditRouter";
-import { ruleRouter } from "./ruleRouter";
-import { phase2Router } from "./phase2Router";
-import { professionalReviewRouter } from "./professionalReviewRouter";
-import { encryptedClientsRouter } from "./routers/encryptedClientsRouter";
-import { encryptedProjectsRouter } from "./routers/encryptedProjectsRouter";
-import { certificationRouter } from "./routers/certificationRouter";
-import { analyticsRouter } from "./routers/analyticsRouter";
-import { collaborationRouter } from "./routers/collaborationRouter";
-import { rulesRouter } from "./routers/rulesRouter";
-import { disclaimerRouter } from "./routers/authRouter";
-import { aiRouter } from "./routers/aiRouter";
-import { adminRouter } from "./routers/adminRouter";
-import { billingRouter } from "./routers/billingRouter";
-
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -52,19 +37,16 @@ export const appRouter = router({
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
   compliancePathway: compliancePathwayRouter,
-  audit: auditRouter,
-  rules: rulesRouter,
-  phase2: phase2Router,
-  professionalReview: professionalReviewRouter,
-  encryptedClients: encryptedClientsRouter,
-  encryptedProjects: encryptedProjectsRouter,
-  certification: certificationRouter,
-  analytics: analyticsRouter,
-  collaboration: collaborationRouter,
-  auth: disclaimerRouter,
-  ai: aiRouter,
-  admin: adminRouter,
-  billing: billingRouter,
+  auth: router({
+    me: protectedProcedure.query(opts => opts.ctx.user),
+    logout: protectedProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return {
+        success: true,
+      } as const;
+    }),
+  }),
 
   // Plan Analysis
   analyzePlan: publicProcedure

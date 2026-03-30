@@ -34,7 +34,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const convertedProjects: Project[] = dbProjects.map((dbProject) => {
         const occupancy = occupancyData.find((o) => o.code === dbProject.occupancyCode);
         return {
-          id: dbProject.id.toString(), // Keep as string for consistency with local state
+          id: dbProject.id.toString(),
           name: dbProject.name,
           address: dbProject.address || '',
           occupancyCode: dbProject.occupancyCode,
@@ -42,7 +42,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           createdDate: dbProject.createdAt.toISOString(),
           lastModified: dbProject.updatedAt.toISOString(),
           checklistProgress: {
-            foundation: dbProject.overallProgress || 0,
+            foundation: 0,
             framing: 0,
             mechanical: 0,
             insulation: 0,
@@ -78,14 +78,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects(updatedProjects);
   };
 
-  const getProject = (id: number | string) => {
-    const idStr = typeof id === 'number' ? id.toString() : id;
-    return projects.find(p => p.id === idStr);
+  const getProject = (id: number): Project | undefined => {
+    return projects.find(p => p.id === id.toString());
   };
 
-  const getAllProjects = () => {
-    // Return projects sorted by creation date (newest first)
-    return [...projects].sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime());
+  const getAllProjects = (): Project[] => {
+    return projects;
   };
 
   return (
