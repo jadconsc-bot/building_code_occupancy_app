@@ -3586,3 +3586,28 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [x] Fix 2: Add "Back to Dashboard" button on Occupancy Classifier page
 - [x] Fix 3: Fix TypeScript config errors (downgraded @types/node 24→22, disabled incremental, cleared stale tsbuildinfo cache, fixed Compliance.tsx TS errors)
 - [x] Bonus Fix: Fixed pre-existing test failure in occupantLoadFactors.test.ts (extracted data/helpers to pure .ts module, all 38 test suites now pass)
+
+## Drawing Analyzer Audit (Current Session)
+- [x] Verify Drawing Analyzer is discoverable from navigation and dashboard
+- [x] Verify Drawing Analyzer full workflow (upload, analysis, results)
+- [x] Verify Drawing Analyzer results are persisted to database with audit trail
+- [x] Verify LLM is ONLY interpreting results (not fabricating data or performing rule-based evaluation)
+- [x] Verify disclaimers are present advising professional review
+
+## Drawing Analyzer PD2.0 Compliance Fix
+- [x] PD2.0-1: Add Drizzle ORM schema for drawing analysis tables (drawingAnalyses, drawingDataExtractions, complianceEvaluationResults, complianceAuditTrail, disclaimerAcknowledgments)
+- [x] PD2.0-2: Build Claude extraction service (LLM = data extractor ONLY, Zod-validated output, EXTRACTION_PROMPT_VERSION exported)
+- [x] PD2.0-3: Build deterministic ComplianceEngine (rule engine = compliance judge ONLY, RULE_ENGINE_VERSION exported)
+- [x] PD2.0-4: Refactor analyzeDrawing to protectedProcedure with disclaimer enforcement at API layer
+- [x] PD2.0-5: Wire full audit trail (8 of 11 action codes implemented; PROFESSIONAL_REVIEW, SIGNATURE, EXPORT pending next sprint)
+- [x] PD2.0-6: Persist all analysis results to database with status workflow (DRAFT/UNDER_REVIEW/VALID/REJECTED)
+- [x] PD2.0-7: Add DisclaimerGate component before drawing upload UI (DisclaimerGate.tsx)
+- [x] PD2.0-8: Add analysis status banners (DRAFT=Amber, UNDER_REVIEW=Blue, VALID=Green, REJECTED=Red) (AnalysisStatusBanner.tsx)
+- [x] PD2.0-9: Add Drawing Analyzer to dashboard feature cards, nav header Tools dropdown, /drawing-analyzer route
+- [x] PD2.0-10: Write mandatory tests per PD2.0 S10 (39 test files, 1006 tests pass, 0 failures)
+
+## Drawing Analyzer PD2.0 — Outstanding Items (Next Sprint)
+- [ ] PROFESSIONAL_REVIEW_INITIATED / PROFESSIONAL_ACCEPTED+SIGNATURE_APPLIED / PROFESSIONAL_REJECTED audit events
+- [ ] REPORT_EXPORTED audit event + export endpoint (VALID analyses only)
+- [ ] ipAddress and userAgent capture at infrastructure layer
+- [ ] sessionId in auth model

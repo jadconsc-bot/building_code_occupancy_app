@@ -1,0 +1,287 @@
+/**
+ * Drawing Extraction Service — Stage 1 of the Two-Stage Analysis Pipeline
+ *
+ * ============================================================================
+ * PRIME DIRECTIVE 2.0 §4.1 — LLM BOUNDARY RULE (CRITICAL)
+ * ============================================================================
+ * This service is the ONLY place where the LLM is invoked.
+ * The LLM's role is STRICTLY LIMITED to:
+ *   - Reading the drawing image
+ *   - Extracting observable measurements, dimensions, materials, and features
+ *   - Pointing to relevant NBC clauses that APPLY to what was observed
+ *   - Returning structured JSON data validated by Zod
+ *
+ * The LLM MUST NOT:
+ *   - Make pass/fail compliance decisions
+ *   - Calculate compliance scores
+ *   - Determine if a drawing meets code requirements
+ *   - Generate recommendations or issues
+ *
+ * All compliance evaluation is handled exclusively by drawingComplianceEngine.ts
+ * ============================================================================
+ */
+
+import { z } from "zod";
+import { invokeLLM } from "../_core/llm";
+
+/** Current prompt version — increment when prompt logic changes (PD2.0 §3.2) */
+export const EXTRACTION_PROMPT_VERSION = "2.0.0";
+
+/**
+ * Zod schema for LLM-extracted structural data.
+ * These are OBSERVATIONS only — no pass/fail judgments.
+ */
+export const ExtractedStructuralDataSchema = z.object({
+  memberSizes: z.array(z.object({
+    label: z.string().describe("Member label or identifier from drawing"),
+    dimension: z.string().describe("Observed dimension (e.g., '38x89mm', '2x4')"),
+    material: z.string().optional().describe("Material if labeled"),
+    location: z.string().optional().describe("Location in drawing"),
+  })).describe("Structural member sizes observed in the drawing"),
+  connectionTypes: z.array(z.object({
+    type: z.string().describe("Connection type observed (e.g., 'nail plate', 'bolt', 'weld')"),
+    location: z.string().optional(),
+    specification: z.string().optional().describe("Specification if labeled"),
+  })).describe("Connection types observed"),
+  loadPaths: z.array(z.string()).describe("Described load paths if visible"),
+  materials: z.array(z.object({
+    material: z.string(),
+    grade: z.string().optional(),
+    location: z.string().optional(),
+  })).describe("Materials identified in the drawing"),
+  relevantNbcClauses: z.array(z.object({
+    clause: z.string().describe("NBC clause number (e.g., '9.23.3.2')"),
+    reason: z.string().describe("Why this clause is relevant to what was observed"),
+  })).describe("NBC clauses relevant to the observed structural elements"),
+  observationNotes: z.string().optional().describe("Additional observations from the drawing"),
+  drawingScale: z.string().optional().describe("Drawing scale if indicated"),
+  drawingTitle: z.string().optional().describe("Drawing title if present"),
+  confidence: z.number().min(0).max(1).describe("Extraction confidence 0-1"),
+});
+
+export const ExtractedFireSafetyDataSchema = z.object({
+  exitWidths: z.array(z.object({
+    location: z.string(),
+    width: z.string().describe("Observed width measurement"),
+    doorType: z.string().optional(),
+  })).describe("Exit widths observed"),
+  corridorWidths: z.array(z.object({
+    location: z.string(),
+    width: z.string(),
+  })).describe("Corridor widths observed"),
+  fireSeparations: z.array(z.object({
+    location: z.string(),
+    rating: z.string().optional().describe("Fire rating if labeled (e.g., '45 min')"),
+    construction: z.string().optional(),
+  })).describe("Fire separations observed"),
+  sprinklerSystem: z.object({
+    present: z.boolean().nullable().describe("Whether sprinkler system is indicated (null if unclear)"),
+    type: z.string().optional(),
+    coverage: z.string().optional(),
+  }).optional(),
+  smokeDetectors: z.object({
+    indicated: z.boolean().nullable(),
+    locations: z.array(z.string()).optional(),
+  }).optional(),
+  relevantNbcClauses: z.array(z.object({
+    clause: z.string(),
+    reason: z.string(),
+  })).describe("NBC clauses relevant to observed fire safety elements"),
+  observationNotes: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+});
+
+export const ExtractedConnectionDataSchema = z.object({
+  fastenerTypes: z.array(z.object({
+    type: z.string().describe("Fastener type (e.g., 'common nail', 'lag bolt', 'joist hanger')"),
+    size: z.string().optional(),
+    spacing: z.string().optional(),
+    location: z.string().optional(),
+    quantity: z.string().optional(),
+  })).describe("Fasteners and connectors observed"),
+  connectionDetails: z.array(z.object({
+    description: z.string(),
+    location: z.string().optional(),
+    hardwareSpec: z.string().optional(),
+  })).describe("Connection details observed"),
+  csaStandards: z.array(z.object({
+    standard: z.string().describe("CSA standard referenced (e.g., 'CSA O86')"),
+    location: z.string().optional(),
+  })).describe("CSA standards referenced in the drawing"),
+  relevantNbcClauses: z.array(z.object({
+    clause: z.string(),
+    reason: z.string(),
+  })),
+  observationNotes: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+});
+
+/** Union schema for all extraction types */
+export const DrawingExtractionResultSchema = z.object({
+  analysisType: z.enum(["structural", "fire-safety", "connections", "comprehensive"]),
+  structural: ExtractedStructuralDataSchema.optional(),
+  fireSafety: ExtractedFireSafetyDataSchema.optional(),
+  connections: ExtractedConnectionDataSchema.optional(),
+  drawingType: z.string().describe("Type of drawing identified (e.g., 'floor plan', 'section', 'detail')"),
+  jurisdiction: z.string().optional().describe("Jurisdiction if indicated on drawing"),
+  extractionModel: z.string().describe("LLM model that performed extraction — from response.model"),
+  extractionPromptVersion: z.string(),
+});
+
+export type DrawingExtractionResult = z.infer<typeof DrawingExtractionResultSchema>;
+
+/** System prompt for the LLM extractor — extraction ONLY, no compliance judgments */
+const buildExtractionSystemPrompt = (analysisType: string): string => `
+You are a technical drawing data extractor for a building code compliance system.
+
+YOUR ROLE IS STRICTLY LIMITED TO:
+1. Reading the provided architectural/structural drawing image
+2. Extracting observable measurements, dimensions, materials, and features
+3. Identifying which NBC (National Building Code of Canada) clauses are RELEVANT to what you observe
+4. Returning structured JSON data
+
+YOU MUST NOT:
+- Make pass/fail compliance decisions
+- State whether anything "meets code" or "violates code"
+- Calculate compliance scores
+- Generate recommendations
+- Determine if requirements are satisfied
+
+For analysis type: ${analysisType}
+
+Extract only what is VISIBLE in the drawing. If something is not clearly visible, omit it or mark as uncertain.
+Set confidence between 0 and 1 based on drawing clarity and completeness.
+
+Return valid JSON matching the requested schema. Do not add commentary outside the JSON.
+`.trim();
+
+/**
+ * Stage 1: Extract structured data from a drawing image using the LLM.
+ *
+ * @param imageBase64 - Base64-encoded drawing image (PD2.0 §3.2: always base64, never URLs)
+ * @param mimeType - Image MIME type
+ * @param analysisType - Type of analysis to perform
+ * @returns Validated extraction result with model version from response.model
+ */
+export async function extractDrawingData(
+  imageBase64: string,
+  mimeType: string,
+  analysisType: "structural" | "fire-safety" | "connections" | "comprehensive"
+): Promise<{ data: DrawingExtractionResult; modelVersion: string }> {
+  const systemPrompt = buildExtractionSystemPrompt(analysisType);
+
+  // Build the JSON schema for the response based on analysis type
+  const schemaProperties: Record<string, unknown> = {
+    analysisType: { type: "string", enum: ["structural", "fire-safety", "connections", "comprehensive"] },
+    drawingType: { type: "string" },
+    jurisdiction: { type: "string" },
+    extractionModel: { type: "string" },
+    extractionPromptVersion: { type: "string" },
+  };
+
+  if (analysisType === "structural" || analysisType === "comprehensive") {
+    schemaProperties.structural = {
+      type: "object",
+      properties: {
+        memberSizes: { type: "array", items: { type: "object", properties: { label: { type: "string" }, dimension: { type: "string" }, material: { type: "string" }, location: { type: "string" } }, required: ["label", "dimension"] } },
+        connectionTypes: { type: "array", items: { type: "object", properties: { type: { type: "string" }, location: { type: "string" }, specification: { type: "string" } }, required: ["type"] } },
+        loadPaths: { type: "array", items: { type: "string" } },
+        materials: { type: "array", items: { type: "object", properties: { material: { type: "string" }, grade: { type: "string" }, location: { type: "string" } }, required: ["material"] } },
+        relevantNbcClauses: { type: "array", items: { type: "object", properties: { clause: { type: "string" }, reason: { type: "string" } }, required: ["clause", "reason"] } },
+        observationNotes: { type: "string" },
+        drawingScale: { type: "string" },
+        drawingTitle: { type: "string" },
+        confidence: { type: "number" },
+      },
+      required: ["memberSizes", "relevantNbcClauses", "confidence"],
+    };
+  }
+
+  if (analysisType === "fire-safety" || analysisType === "comprehensive") {
+    schemaProperties.fireSafety = {
+      type: "object",
+      properties: {
+        exitWidths: { type: "array", items: { type: "object", properties: { location: { type: "string" }, width: { type: "string" }, doorType: { type: "string" } }, required: ["location", "width"] } },
+        corridorWidths: { type: "array", items: { type: "object", properties: { location: { type: "string" }, width: { type: "string" } }, required: ["location", "width"] } },
+        fireSeparations: { type: "array", items: { type: "object", properties: { location: { type: "string" }, rating: { type: "string" }, construction: { type: "string" } }, required: ["location"] } },
+        relevantNbcClauses: { type: "array", items: { type: "object", properties: { clause: { type: "string" }, reason: { type: "string" } }, required: ["clause", "reason"] } },
+        observationNotes: { type: "string" },
+        confidence: { type: "number" },
+      },
+      required: ["exitWidths", "relevantNbcClauses", "confidence"],
+    };
+  }
+
+  if (analysisType === "connections" || analysisType === "comprehensive") {
+    schemaProperties.connections = {
+      type: "object",
+      properties: {
+        fastenerTypes: { type: "array", items: { type: "object", properties: { type: { type: "string" }, size: { type: "string" }, spacing: { type: "string" }, location: { type: "string" }, quantity: { type: "string" } }, required: ["type"] } },
+        connectionDetails: { type: "array", items: { type: "object", properties: { description: { type: "string" }, location: { type: "string" }, hardwareSpec: { type: "string" } }, required: ["description"] } },
+        csaStandards: { type: "array", items: { type: "object", properties: { standard: { type: "string" }, location: { type: "string" } }, required: ["standard"] } },
+        relevantNbcClauses: { type: "array", items: { type: "object", properties: { clause: { type: "string" }, reason: { type: "string" } }, required: ["clause", "reason"] } },
+        observationNotes: { type: "string" },
+        confidence: { type: "number" },
+      },
+      required: ["fastenerTypes", "relevantNbcClauses", "confidence"],
+    };
+  }
+
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`,
+              detail: "high",
+            },
+          },
+          {
+            type: "text",
+            text: `Extract all observable data from this ${analysisType} drawing. Return structured JSON only.`,
+          },
+        ],
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "drawing_extraction",
+        strict: false,
+        schema: {
+          type: "object",
+          properties: schemaProperties,
+          required: ["analysisType", "drawingType", "extractionModel", "extractionPromptVersion"],
+        },
+      },
+    },
+    max_tokens: 4096,
+  });
+
+  // Extract model version from response (PD2.0 §3.2: from response.model, not hardcoded)
+  const modelVersion = response.model;
+
+  const rawContent = response.choices[0]?.message?.content;
+  if (!rawContent || typeof rawContent !== "string") {
+    throw new Error("LLM returned empty or non-string content");
+  }
+
+  const parsed = JSON.parse(rawContent);
+
+  // Inject metadata that LLM cannot self-report accurately
+  parsed.analysisType = analysisType;
+  parsed.extractionModel = modelVersion;
+  parsed.extractionPromptVersion = EXTRACTION_PROMPT_VERSION;
+
+  // Validate with Zod (PD2.0 §4.1: LLM output must be Zod-validated before passing to engine)
+  const validated = DrawingExtractionResultSchema.parse(parsed);
+
+  return { data: validated, modelVersion };
+}

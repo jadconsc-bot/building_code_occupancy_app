@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, analysisId, userId, action, userEmail, timestamp FROM complianceAuditTrail ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, analysisId, userId, action, userEmail, timestamp FROM complianceAuditTrail ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "150006",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "RULE_ENGINE_EVALUATION",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "150005",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "EXTRACTION_COMPLETED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "150004",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "EXTRACTION_STARTED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "150003",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "DRAWING_HASH_VERIFIED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "150002",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "DRAWING_UPLOADED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "150001",
+      "analysisId": "120001",
+      "userId": "1",
+      "action": "DISCLAIMER_ACKNOWLEDGED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-24 06:38:08"
+    },
+    {
+      "id": "30383",
+      "analysisId": "35",
+      "userId": "1",
+      "action": "PROFESSIONAL_ACCEPTED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-15 16:23:04"
+    },
+    {
+      "id": "30382",
+      "analysisId": "35",
+      "userId": "1",
+      "action": "PROFESSIONAL_REVIEW_INITIATED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-15 16:23:04"
+    },
+    {
+      "id": "30381",
+      "analysisId": "35",
+      "userId": "1",
+      "action": "ANALYSIS_CREATED",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-15 16:23:04"
+    },
+    {
+      "id": "30380",
+      "analysisId": "35",
+      "userId": "1",
+      "action": "RULE_ENGINE_EVALUATION",
+      "userEmail": "test@example.com",
+      "timestamp": "2026-03-15 16:23:04"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tanalysisId\tuserId\taction\tuserEmail\ttimestamp\n150006\t120001\t1\tRULE_ENGINE_EVALUATION\ttest@example.com\t2026-03-24 06:38:08\n150005\t120001\t1\tEXTRACTION_COMPLETED\ttest@example.com\t2026-03-24 06:38:08\n150004\t120001\t1\tEXTRACTION_STARTED\ttest@example.com\t2026-03-24 06:38:08\n150003\t120001\t1\tDRAWING_HASH_VERIFIED\ttest@example.com\t2026-03-24 06:38:08\n150002\t120001\t1\tDRAWING_UPLOADED\ttest@example.com\t2026-03-24 06:38:08\n150001\t120001\t1\tDISCLAIMER_ACKNOWLEDGED\ttest@example.com\t2026-03-24 06:38:08\n30383\t35\t1\tPROFESSIONAL_ACCEPTED\ttest@example.com\t2026-03-15 16:23:04\n30382\t35\t1\tPROFESSIONAL_REVIEW_INITIATED\ttest@example.com\t2026-03-15 16:23:04\n30381\t35\t1\tANALYSIS_CREATED\ttest@example.com\t2026-03-15 16:23:04\n30380\t35\t1\tRULE_ENGINE_EVALUATION\ttest@example.com\t2026-03-15 16:23:04\n",
+  "stderr": "",
+  "execution_time_ms": 121
+}

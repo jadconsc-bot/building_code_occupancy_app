@@ -22,6 +22,7 @@ import {
   Lock,
   CheckCircle2,
   ArrowRight,
+  FileImage,
 } from 'lucide-react';
 
 interface Feature {
@@ -78,6 +79,16 @@ const features: Feature[] = [
     icon: <History className="w-6 h-6" />,
     href: '/calculation-history',
     category: 'tools',
+    isNew: true,
+  },
+  {
+    id: 'drawing-analyzer',
+    title: 'Drawing Analyzer',
+    description: 'AI-assisted review of architectural drawings. Extracts dimensions and measurements; deterministic engine checks compliance against NBC 2023 Alberta Edition.',
+    icon: <FileImage className="w-6 h-6" />,
+    href: '/drawing-analyzer',
+    category: 'tools',
+    badge: 'AI + PD2.0',
     isNew: true,
   },
   {

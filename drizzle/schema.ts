@@ -734,3 +734,154 @@ export const calculationLogs = mysqlTable("calculationLogs", {
 
 export type CalculationLog = typeof calculationLogs.$inferSelect;
 export type InsertCalculationLog = typeof calculationLogs.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * DRAWING ANALYSIS TABLES (Drizzle ORM definitions)
+ * Maps to existing DB tables created by 0002_drawing_analysis_tables.sql
+ * Per Prime Directive 2.0 §4.1: LLM = data extractor, ComplianceEngine = judge
+ * ============================================================================
+ */
+
+/**
+ * Drawing Analyses - Core analysis records
+ * Status workflow: DRAFT → UNDER_REVIEW → VALID | REJECTED
+ * Per PD2.0 §4.3: Only VALID records may be exported as compliance reports
+ */
+export const drawingAnalyses = mysqlTable("drawingAnalyses", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  drawingUrl: text("drawingUrl").notNull(),
+  drawingHash: varchar("drawingHash", { length: 64 }).notNull(), // SHA-256, computed at upload time (PD2.0 §4.2)
+  drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }),
+  drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }),
+  drawingSnapshotSize: int("drawingSnapshotSize"),
+  analysisType: mysqlEnum("analysisType", ["structural", "fire-safety", "connections", "comprehensive"]),
+  analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"]).notNull().default("DRAFT"),
+  complianceScore: int("complianceScore"),
+  complianceLevel: mysqlEnum("complianceLevel", ["approved", "conditional", "revision", "rejected"]),
+  structuralStatus: text("structuralStatus"), // JSON
+  fireSafetyStatus: text("fireSafetyStatus"), // JSON
+  connectionStatus: text("connectionStatus"), // JSON
+  issues: text("issues"), // JSON array
+  recommendations: text("recommendations"), // JSON array
+  disclaimerAcknowledged: boolean("disclaimerAcknowledged").notNull().default(false),
+  disclaimerAcknowledgedAt: timestamp("disclaimerAcknowledgedAt"),
+  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
+  llmModelVersion: varchar("llmModelVersion", { length: 50 }), // From response.model (PD2.0 §3.2)
+  ruleEngineVersion: varchar("ruleEngineVersion", { length: 20 }),
+  validatedAt: timestamp("validatedAt"),
+  validatedByUserId: int("validatedByUserId"),
+  validatedByLicenseNumber: varchar("validatedByLicenseNumber", { length: 100 }),
+  validatedByAssociation: varchar("validatedByAssociation", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DrawingAnalysis = typeof drawingAnalyses.$inferSelect;
+export type InsertDrawingAnalysis = typeof drawingAnalyses.$inferInsert;
+
+/**
+ * Drawing Data Extractions - Stage 1 output (LLM extraction only)
+ * Per PD2.0 §4.1: This is the ONLY place LLM output is stored
+ * LLM output is Zod-validated structured data, NOT compliance decisions
+ */
+export const drawingDataExtractions = mysqlTable("drawingDataExtractions", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  extractedData: text("extractedData").notNull(), // JSON - Zod-validated DrawingData
+  extractionModel: varchar("extractionModel", { length: 50 }).notNull(), // From response.model
+  extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }).notNull(),
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }),
+  extractedAt: timestamp("extractedAt").defaultNow().notNull(),
+});
+
+export type DrawingDataExtraction = typeof drawingDataExtractions.$inferSelect;
+export type InsertDrawingDataExtraction = typeof drawingDataExtractions.$inferInsert;
+
+/**
+ * NBC Rules - Deterministic rule definitions for compliance engine
+ * Per PD2.0 §4.1: Rules are evaluated by the ComplianceEngine, NOT the LLM
+ */
+export const nbcRules = mysqlTable("nbcRules", {
+  id: int("id").autoincrement().primaryKey(),
+  ruleId: varchar("ruleId", { length: 50 }).notNull().unique(),
+  section: varchar("section", { length: 20 }).notNull(),
+  clause: varchar("clause", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  category: mysqlEnum("category", ["structural", "fire-safety", "connections", "materials", "csa"]).notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 50 }),
+  ruleVersion: int("ruleVersion").notNull().default(1),
+  isActive: boolean("isActive").notNull().default(true),
+  requiredFields: text("requiredFields"), // JSON array
+  evaluationLogic: varchar("evaluationLogic", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdByUserId: int("createdByUserId"),
+});
+
+export type NbcRule = typeof nbcRules.$inferSelect;
+export type InsertNbcRule = typeof nbcRules.$inferInsert;
+
+/**
+ * Compliance Evaluation Results - Stage 2 output (deterministic rule engine)
+ * Per PD2.0 §4.1: These are the compliance decisions made by the rule engine
+ * The rule engine NEVER receives raw LLM output — only validated structured data
+ */
+export const complianceEvaluationResults = mysqlTable("complianceEvaluationResults", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  ruleId: int("ruleId").notNull(),
+  ruleVersion: int("ruleVersion").notNull(),
+  evaluationResult: mysqlEnum("evaluationResult", ["PASS", "FAIL", "CONDITIONAL", "UNABLE_TO_EVALUATE"]).notNull(),
+  evaluationDetails: text("evaluationDetails"), // JSON
+  evaluatedAt: timestamp("evaluatedAt").defaultNow().notNull(),
+});
+
+export type ComplianceEvaluationResult = typeof complianceEvaluationResults.$inferSelect;
+export type InsertComplianceEvaluationResult = typeof complianceEvaluationResults.$inferInsert;
+
+/**
+ * Compliance Audit Trail - IMMUTABLE, APPEND-ONLY
+ * Per PD2.0 §4.2: NO UPDATE or DELETE. Insert-only.
+ * Per PD2.0 §7.1: All required fields must be populated
+ */
+export const complianceAuditTrail = mysqlTable("complianceAuditTrail", {
+  id: int("id").autoincrement().primaryKey(),
+  analysisId: int("analysisId").notNull(),
+  userId: int("userId").notNull(),
+  action: varchar("action", { length: 100 }).notNull(), // PD2.0 §7.2 action codes
+  details: text("details").notNull(), // JSON
+  userEmail: varchar("userEmail", { length: 255 }).notNull(),
+  userFullName: varchar("userFullName", { length: 255 }),
+  professionalLicenseNumber: varchar("professionalLicenseNumber", { length: 100 }),
+  professionalAssociation: varchar("professionalAssociation", { length: 100 }),
+  jurisdiction: varchar("jurisdiction", { length: 100 }),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  sessionId: varchar("sessionId", { length: 255 }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export type ComplianceAuditTrailEntry = typeof complianceAuditTrail.$inferSelect;
+export type InsertComplianceAuditTrailEntry = typeof complianceAuditTrail.$inferInsert;
+
+/**
+ * Disclaimer Acknowledgments - Records of user disclaimer acceptance
+ * Per PD2.0 §6.3: Disclaimer enforced at API layer
+ * Per PD2.0 §8.1: DISCLAIMER_ACKNOWLEDGED audit event fired immediately
+ */
+export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
+  disclaimerText: text("disclaimerText").notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+});
+
+export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;
+export type InsertDisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferInsert;

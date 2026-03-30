@@ -36,6 +36,7 @@ import {
   History,
   BookOpen,
   Zap,
+  FileImage,
 } from 'lucide-react';
 import { getLoginUrl } from '@/const';
 
@@ -67,6 +68,12 @@ export function NavigationHeader() {
       icon: History,
       href: '/calculation-history',
       description: 'View past calculations',
+    },
+    {
+      label: 'Drawing Analyzer',
+      icon: FileImage,
+      href: '/drawing-analyzer',
+      description: 'AI-powered drawing compliance check',
     },
     {
       label: 'Clients',

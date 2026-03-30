@@ -127,6 +127,13 @@
       "when": 1774835405849,
       "tag": "0017_flat_colonel_america",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1774881734022,
+      "tag": "0018_petite_rachel_grey",
+      "breakpoints": true
     }
   ]
 }

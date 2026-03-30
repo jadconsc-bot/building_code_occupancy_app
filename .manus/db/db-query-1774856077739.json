@@ -1,0 +1,70 @@
+{
+  "query": "SELECT id, projectId, userId, analysisType, analysisStatus, complianceScore, disclaimerAcknowledged, llmModelVersion, ruleEngineVersion, createdAt FROM drawingAnalyses ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, projectId, userId, analysisType, analysisStatus, complianceScore, disclaimerAcknowledged, llmModelVersion, ruleEngineVersion, createdAt FROM drawingAnalyses ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "210023",
+      "projectId": "1",
+      "userId": "1",
+      "analysisType": "NULL",
+      "analysisStatus": "DRAFT",
+      "complianceScore": "0",
+      "disclaimerAcknowledged": "1",
+      "llmModelVersion": "NULL",
+      "ruleEngineVersion": "NULL",
+      "createdAt": "2026-03-24 21:23:50"
+    },
+    {
+      "id": "210019",
+      "projectId": "1",
+      "userId": "1",
+      "analysisType": "NULL",
+      "analysisStatus": "DRAFT",
+      "complianceScore": "0",
+      "disclaimerAcknowledged": "1",
+      "llmModelVersion": "NULL",
+      "ruleEngineVersion": "NULL",
+      "createdAt": "2026-03-24 21:22:23"
+    },
+    {
+      "id": "210012",
+      "projectId": "1",
+      "userId": "1",
+      "analysisType": "NULL",
+      "analysisStatus": "DRAFT",
+      "complianceScore": "0",
+      "disclaimerAcknowledged": "1",
+      "llmModelVersion": "NULL",
+      "ruleEngineVersion": "NULL",
+      "createdAt": "2026-03-24 21:18:30"
+    },
+    {
+      "id": "150039",
+      "projectId": "1",
+      "userId": "1",
+      "analysisType": "NULL",
+      "analysisStatus": "DRAFT",
+      "complianceScore": "0",
+      "disclaimerAcknowledged": "1",
+      "llmModelVersion": "NULL",
+      "ruleEngineVersion": "NULL",
+      "createdAt": "2026-03-24 07:24:23"
+    },
+    {
+      "id": "120063",
+      "projectId": "1",
+      "userId": "1",
+      "analysisType": "NULL",
+      "analysisStatus": "DRAFT",
+      "complianceScore": "0",
+      "disclaimerAcknowledged": "1",
+      "llmModelVersion": "NULL",
+      "ruleEngineVersion": "NULL",
+      "createdAt": "2026-03-24 06:52:01"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tprojectId\tuserId\tanalysisType\tanalysisStatus\tcomplianceScore\tdisclaimerAcknowledged\tllmModelVersion\truleEngineVersion\tcreatedAt\n210023\t1\t1\tNULL\tDRAFT\t0\t1\tNULL\tNULL\t2026-03-24 21:23:50\n210019\t1\t1\tNULL\tDRAFT\t0\t1\tNULL\tNULL\t2026-03-24 21:22:23\n210012\t1\t1\tNULL\tDRAFT\t0\t1\tNULL\tNULL\t2026-03-24 21:18:30\n150039\t1\t1\tNULL\tDRAFT\t0\t1\tNULL\tNULL\t2026-03-24 07:24:23\n120063\t1\t1\tNULL\tDRAFT\t0\t1\tNULL\tNULL\t2026-03-24 06:52:01\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

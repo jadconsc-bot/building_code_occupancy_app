@@ -25,6 +25,7 @@ import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
 import Documentation from "./pages/Documentation";
+import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
@@ -48,6 +49,7 @@ function Router() {
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/documentation"} component={Documentation} />
+        <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

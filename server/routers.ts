@@ -18,6 +18,7 @@ import { consultantRouter } from "./consultantRouter";
 import { monetizationRouter } from "./monetizationRouter";
 import { clientsRouter, projectMembersRouter, subscriptionsRouter, usageMetricsRouter, sharingRouter, verificationRouter, calculationVersioningRouter } from "./routers/phase2to5";
 import { compliancePathwayRouter } from "./compliancePathwayRouter";
+import { drawingAnalysisRouter } from "./routers/drawingAnalysisRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -37,6 +38,7 @@ export const appRouter = router({
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
   compliancePathway: compliancePathwayRouter,
+  drawingAnalysis: drawingAnalysisRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

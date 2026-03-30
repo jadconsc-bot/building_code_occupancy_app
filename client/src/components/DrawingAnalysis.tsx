@@ -47,6 +47,9 @@ import {
   Circle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { DisclaimerGate } from "@/components/DisclaimerGate";
+import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
 import { 
   ScaleSystem, 
@@ -263,7 +266,60 @@ export function DrawingAnalysis() {
   const currentStrokeRef = useRef<DrawingStroke | null>(null); // Ref for current stroke to avoid re-renders during drawing
   const isDrawingRef = useRef(false); // Track drawing state without re-renders
   
-  // tRPC mutation for AI analysis
+  // Auth state (PD2.0 §6.1 — authentication required)
+  const { isAuthenticated } = useAuth();
+
+  // PD2.0 §6.3 — disclaimer state
+  const [disclaimerAcknowledged, setDisclaimerAcknowledged] = useState(false);
+  const [disclaimerVersion, setDisclaimerVersion] = useState("");
+
+  // PD2.0 §4.3 — analysis status tracking
+  const [analysisId, setAnalysisId] = useState<number | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<"DRAFT" | "UNDER_REVIEW" | "VALID" | "REJECTED" | null>(null);
+  const [ruleEvaluations, setRuleEvaluations] = useState<Array<{
+    ruleId: string;
+    clause: string;
+    description: string;
+    category: string;
+    severity: string;
+    result: string;
+    details: string;
+  }>>([]);
+  const [pdIssues, setPdIssues] = useState<Array<{ severity: string; category: string; description: string; clause: string; recommendation: string }>>([]);
+  const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
+  const [complianceScore, setComplianceScore] = useState<number | null>(null);
+  const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
+  const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
+
+  // New PD2.0-compliant mutation
+  const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
+    onSuccess: (data) => {
+      setAnalysisId(data.analysisId);
+      setAnalysisStatus(data.analysisStatus);
+      setRuleEvaluations(data.ruleEvaluations as any);
+      setPdIssues(data.issues as any);
+      setPdRecommendations(data.recommendations);
+      setComplianceScore(data.complianceScore);
+      setComplianceLevel(data.complianceLevel);
+      setAiResults({
+        drawingType: data.extractedData.drawingType,
+        scale: null,
+        measurements: [],
+        rooms: [],
+        notes: data.recommendations,
+      });
+      setShowAiResults(true);
+      setIsAnalyzing(false);
+    },
+    onError: (error) => {
+      console.error("PD2.0 analysis error:", error);
+      alert("Analysis failed: " + error.message);
+      setIsAnalyzing(false);
+    },
+  });
+
+  // Legacy mutation (kept for backward compat, now unused)
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -341,9 +397,13 @@ export function DrawingAnalysis() {
     reader.readAsDataURL(file);
   };
 
-  // Run AI analysis on the drawing
+  // Run AI analysis on the drawing (PD2.0 §4.1 — two-stage pipeline)
   const runAiAnalysis = () => {
     if (!drawingImage) return;
+    if (!disclaimerAcknowledged) {
+      alert("You must acknowledge the disclaimer before running analysis.");
+      return;
+    }
     
     setIsAnalyzing(true);
     
@@ -402,13 +462,19 @@ export function DrawingAnalysis() {
       }
     }
     
-    analyzeDrawingMutation.mutate({
-      imageData: imageToAnalyze,
-      fileName: fileName,
-      municipality: selectedMunicipalityId,
-      zoneType: selectedZone,
-      measurementUnit: measurementUnit,
-      isHandDrawn: drawingStrokes.length > 0,
+    // PD2.0 §4.1: Use the new two-stage pipeline
+    const base64Data = imageToAnalyze.replace(/^data:[^;]+;base64,/, "");
+    const mimeMatch = imageToAnalyze.match(/^data:([^;]+);/);
+    const mimeType = (mimeMatch?.[1] ?? "image/png") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+    pdAnalyzeMutation.mutate({
+      projectId: selectedProjectId > 0 ? selectedProjectId : 1,
+      imageBase64: base64Data,
+      mimeType,
+      fileName: fileName || "drawing.png",
+      analysisType,
+      disclaimerAcknowledged: true,
+      disclaimerVersion,
     });
   };
 
