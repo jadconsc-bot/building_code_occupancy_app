@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { ComplianceAnalyzer } from "@/components/ComplianceAnalyzer";
 import { ComplianceSnapshotViewer } from "@/components/ComplianceSnapshotViewer";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
@@ -47,6 +47,8 @@ export default function CompliancePage() {
     });
   };
 
+  const [, navigate] = useLocation();
+
   if (!projectId) {
     return (
       <div className="p-6">
@@ -58,9 +60,12 @@ export default function CompliancePage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-700 mb-4">
               Please select or create a project to use the compliance analysis engine.
             </p>
+            <Button onClick={() => navigate("/project-checklists")} variant="outline">
+              Go to Projects
+            </Button>
           </CardContent>
         </Card>
       </div>

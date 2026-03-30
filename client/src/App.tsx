@@ -24,6 +24,7 @@ import CalculationVersioning from "./pages/CalculationVersioning";
 import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
+import Documentation from "./pages/Documentation";
 import { NavigationHeader } from "./components/NavigationHeader";
 
 function Router() {
@@ -33,8 +34,10 @@ function Router() {
       <NavigationHeader />
       <Switch>
         <Route path={"/"} component={Dashboard} />
+        <Route path={"/occupancy-classifier"} component={Home} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
+        <Route path={"/compliance"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />
         <Route path={"/calculation-history"} component={CalculationHistory} />
         <Route path={"/clients"} component={ClientsManagement} />
@@ -44,6 +47,7 @@ function Router() {
         <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
+        <Route path={"/documentation"} component={Documentation} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

@@ -3572,3 +3572,11 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
      - `https://<preview-domain>.manus.computer/api/oauth/callback`
   4. In `client/src/const.ts`, replace `OAUTH_CALLBACK_ORIGIN` usage with `window.location.origin`
   5. Delete the `OAUTH_CALLBACK_ORIGIN` constant and the TEMPORARY FIX comment block
+
+## UI Audit Fixes (Current Session)
+- [x] Fix broken /occupancy-classifier route - added Route in App.tsx pointing to Home component
+- [x] Fix broken /documentation route - created Documentation.tsx page and added Route in App.tsx
+- [x] Fix broken /compliance route (without projectId) - added fallback route showing "No Project Selected" with link to Projects
+- [x] Fix NavigationHeader "Occupancy Classifier" link pointing to / instead of /occupancy-classifier
+- [x] Fix FeatureDiscoveryDashboard "Professional Calculators" link pointing to /#design-tools (broken hash route)
+- [x] Fix Compliance page no-project state - added "Go to Projects" button

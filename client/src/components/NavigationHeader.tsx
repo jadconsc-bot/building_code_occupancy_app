@@ -47,7 +47,7 @@ export function NavigationHeader() {
     {
       label: 'Occupancy Classifier',
       icon: Building2,
-      href: '/',
+      href: '/occupancy-classifier',
       description: 'Classify building occupancy types',
     },
     {

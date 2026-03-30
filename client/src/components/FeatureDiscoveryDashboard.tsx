@@ -58,7 +58,7 @@ const features: Feature[] = [
     title: 'Professional Calculators',
     description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
     icon: <Calculator className="w-6 h-6" />,
-    href: '/#design-tools',
+    href: '/occupancy-classifier',
     category: 'tools',
     badge: '34+ Tools',
   },
