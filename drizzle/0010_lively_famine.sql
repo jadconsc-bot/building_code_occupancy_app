@@ -1,0 +1,22 @@
+CREATE TABLE `rulesDatabase` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`ruleCode` varchar(50) NOT NULL,
+	`codeVersion` varchar(20) NOT NULL,
+	`jurisdiction` varchar(50) NOT NULL DEFAULT 'Canada',
+	`title` varchar(255) NOT NULL,
+	`description` text,
+	`category` varchar(100),
+	`nbcReference` varchar(255),
+	`ruleData` json NOT NULL,
+	`isActive` boolean NOT NULL DEFAULT true,
+	`effectiveDate` timestamp NOT NULL,
+	`deprecatedDate` timestamp,
+	`createdBy` int NOT NULL,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedBy` int,
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	`version` int NOT NULL DEFAULT 1,
+	`previousVersionId` int,
+	CONSTRAINT `rulesDatabase_id` PRIMARY KEY(`id`),
+	CONSTRAINT `rulesDatabase_ruleCode_unique` UNIQUE(`ruleCode`)
+);
