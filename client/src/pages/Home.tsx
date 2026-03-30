@@ -96,21 +96,7 @@ export default function Home() {
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
 
-  // Show dev login form if not authenticated
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
-          <p className="text-muted-foreground mb-6">
-            Professional building code compliance tools for architects, engineers, and inspectors
-          </p>
-          <DevLogin />
-        </div>
-      </div>
-    );
-  }
-
+  // IMPORTANT: All hooks must be called unconditionally before any early returns
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -118,20 +104,6 @@ export default function Home() {
     }
     return false;
   });
-
-  useEffect(() => {
-    if (isAuthenticated && !hasSeenOnboarding && !showOnboarding) {
-      const timer = setTimeout(() => setShowOnboarding(true), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, hasSeenOnboarding, showOnboarding]);
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('onboarding-completed', 'true');
-    setHasSeenOnboarding(true);
-    setShowOnboarding(false);
-  };
-
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OccupancyGroup | null>(null);
@@ -165,6 +137,14 @@ export default function Home() {
     return saved || "AB";
   });
 
+  // All useEffect hooks
+  useEffect(() => {
+    if (isAuthenticated && !hasSeenOnboarding && !showOnboarding) {
+      const timer = setTimeout(() => setShowOnboarding(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, hasSeenOnboarding, showOnboarding]);
+
   // Tab order for navigation
   const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
 
@@ -188,6 +168,39 @@ export default function Home() {
     localStorage.setItem("active_tab", activeTab);
   }, [activeTab]);
 
+  // Handle initial load from URL hash
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash) {
+      const group = occupancyData.find(g => g.code === hash);
+      if (group) {
+        setSelectedGroup(group);
+        addToHistory(group.id);
+      }
+    }
+  }, []);
+
+  // Early return for unauthenticated users - AFTER all hooks
+  if (!isAuthenticated && !loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
+        <div className="max-w-md text-center">
+          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
+          <p className="text-muted-foreground mb-6">
+            Professional building code compliance tools for architects, engineers, and inspectors
+          </p>
+          <DevLogin />
+        </div>
+      </div>
+    );
+  }
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding-completed', 'true');
+    setHasSeenOnboarding(true);
+    setShowOnboarding(false);
+  };
+
   const handleNoteChange = (id: string, content: string) => {
     setNotes(prev => ({ ...prev, [id]: content }));
   };
@@ -205,18 +218,6 @@ export default function Home() {
     // Update URL hash for sharing
     window.location.hash = group.code;
   };
-
-  // Handle initial load from URL hash
-  useEffect(() => {
-    const hash = window.location.hash.replace("#", "");
-    if (hash) {
-      const group = occupancyData.find(g => g.code === hash);
-      if (group) {
-        setSelectedGroup(group);
-        addToHistory(group.id);
-      }
-    }
-  }, []);
 
   const copyShareLink = () => {
     if (selectedGroup) {
