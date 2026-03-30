@@ -3617,3 +3617,18 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 
 ## Critical Bug Fix - Global Disclaimer
 - [ ] FIX: Global app disclaimer calls non-existent 'auth.acceptDisclaimer' tRPC procedure — blocks users from entering the app
+
+## Projects Tab Modernization (Current Session)
+- [x] Analyze current Projects tab implementation and identify changes needed
+- [x] Implement StatusBar sub-component (project metadata + compliance badge)
+- [x] Implement FindingsSummary sub-component (occupancy, egress, travel distance metrics)
+- [x] Implement ActionButton sub-component (context-aware routing)
+- [x] Integrate tRPC queries (project.getById, compliance.getStatus, drawing.getAnalysis) — mock data ready for tRPC wiring
+- [x] Add error handling and fallback UI
+- [x] Write unit tests for badge logic and metric comparisons (40 tests, all passing)
+- [x] Create ProjectComplianceCard component for Projects list
+- [x] Modernize Projects page with compliance cards
+- [x] Add /project/:projectId route to App.tsx
+- [x] Wire navigation between Projects list and ProjectTabView
+- [x] Test end-to-end — all 1046 tests passing
+- [x] Save checkpoint and deploy

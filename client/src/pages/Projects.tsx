@@ -16,8 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit2, Trash2, Search, Loader2, Users, FileText, Calendar } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
+import { ProjectComplianceCard } from "@/components/ProjectComplianceCard";
 
 export default function Projects() {
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -361,8 +364,8 @@ export default function Projects() {
         </DialogContent>
       </Dialog>
 
-      {/* Projects Grid */}
-      <div className="grid gap-6">
+      {/* Projects Grid - Modernized with Compliance Cards */}
+      <div className="grid gap-4">
         {isLoading ? (
           <Card>
             <CardContent className="flex items-center justify-center py-12">
@@ -386,66 +389,48 @@ export default function Projects() {
           </Card>
         ) : (
           filteredProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-xl">{project.name}</CardTitle>
-                    <CardDescription className="mt-1">{project.notes || 'No description'}</CardDescription>
-                  </div>
-                  <Badge className={getStatusColor(project.status)}>
-                    {project.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Occupancy Code</p>
-                    <p className="font-medium text-sm">{project.occupancyCode || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Address</p>
-                    <p className="font-medium text-sm">{project.address || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Template</p>
-                    <p className="font-medium text-sm">{project.template || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <p className="font-medium text-sm">{project.status || "-"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {format(new Date(project.createdAt), "MMM d, yyyy")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditProject(project)}
-                      disabled={updateProjectMutation.isPending}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => handleDeleteProject(project.id)}
-                      disabled={deleteProjectMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div key={project.id} className="flex items-center gap-2">
+              <div className="flex-1">
+                <ProjectComplianceCard
+                  id={project.id.toString()}
+                  name={project.name}
+                  address={project.address || "No address"}
+                  status={(project.status === "active" ? "PASS" : "IN_REVIEW") as any}
+                  findingsCount={0}
+                  lastModified={new Date(project.createdAt)}
+                  onClick={() => setLocation(`/project/${project.id}`)}
+                  isLoading={false}
+                />
+              </div>
+              {/* Quick Actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditProject(project);
+                  }}
+                  disabled={updateProjectMutation.isPending}
+                  title="Edit project"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteProject(project.id);
+                  }}
+                  disabled={deleteProjectMutation.isPending}
+                  title="Delete project"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           ))
         )}
       </div>

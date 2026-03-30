@@ -27,9 +27,12 @@ import TermsOfService from "./pages/TermsOfService";
 import Documentation from "./pages/Documentation";
 import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
 import { NavigationHeader } from "./components/NavigationHeader";
+import { ProjectTabView } from "./components/ProjectTabView";
+import { useLocation } from "wouter";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
+  // ProjectTabView route added for individual project detail views
   return (
     <>
       <NavigationHeader />
@@ -50,6 +53,16 @@ function Router() {
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/documentation"} component={Documentation} />
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
+        <Route path={"/project/:projectId"} component={({ projectId }) => {
+          const [, setLocation] = useLocation();
+          return (
+            <ProjectTabView
+              projectId={projectId}
+              onNavigate={(route, params) => setLocation(route)}
+              onBack={() => setLocation('/projects')}
+            />
+          );
+        }} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />
