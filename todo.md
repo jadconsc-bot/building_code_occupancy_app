@@ -3632,3 +3632,43 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [x] Wire navigation between Projects list and ProjectTabView
 - [x] Test end-to-end — all 1046 tests passing
 - [x] Save checkpoint and deploy
+
+
+## Drawing Analysis Completion Spec v1.0 (Current Session)
+
+### Backend Implementation
+- [ ] Add saveDrawingAnalysis procedure to server/routers.ts
+- [ ] Add getDrawingAnalyses procedure to server/routers.ts
+- [ ] Add exportFindingsToCompliance procedure to server/routers.ts
+- [ ] Verify all 3 procedures appear in AppRouter type
+- [ ] Test saveDrawingAnalysis writes to projectCalculatorResults
+- [ ] Test getDrawingAnalyses filters by calculatorType
+- [ ] Test exportFindingsToCompliance writes to complianceSnapshots and auditLog
+
+### Frontend Implementation
+- [ ] Update DrawingAnalysis.tsx to accept projectId prop
+- [ ] Add project query if projectId provided
+- [ ] Implement auto-save after analysis completes
+- [ ] Add history panel showing past analyses
+- [ ] Add "Export to Compliance Report" button
+- [ ] Wire export button to exportFindingsToCompliance mutation
+- [ ] Add toast notification on export success
+- [ ] Invalidate ProjectTabView queries after export
+
+### Testing
+- [ ] Write tests for saveDrawingAnalysis procedure
+- [ ] Write tests for getDrawingAnalyses procedure
+- [ ] Write tests for exportFindingsToCompliance procedure
+- [ ] Write tests for DrawingAnalysis UI auto-save
+- [ ] Write tests for history panel rendering
+- [ ] Write tests for export button functionality
+- [ ] Verify ProjectTabView reflects new compliance snapshot
+- [ ] Run full test suite and verify zero regressions
+
+### Verification
+- [ ] Verify analyzePlan mutation still works
+- [ ] Verify analyzeDrawing mutation still works
+- [ ] Verify ProjectTabView still works
+- [ ] Verify all existing DrawingAnalysis UI elements functional
+- [ ] Verify TypeScript compiles with zero errors
+- [ ] Generate comprehensive verification report

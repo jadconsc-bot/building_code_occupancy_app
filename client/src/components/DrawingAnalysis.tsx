@@ -128,7 +128,11 @@ interface DrawingProject {
   updatedAt: Date;
 }
 
-export function DrawingAnalysis() {
+interface DrawingAnalysisProps {
+  projectId?: number;
+}
+
+export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -290,12 +294,28 @@ export function DrawingAnalysis() {
   const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
+  const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
+  
+  // Drawing Analysis Persistence (Phase 2)
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [drawingAnalysisHistory, setDrawingAnalysisHistory] = useState<any[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  
+  // tRPC mutations for persistence
+  const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
+  const getDrawingAnalysesQuery = trpc.getDrawingAnalyses.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
+  const exportToComplianceMutation = trpc.exportFindingsToCompliance.useMutation();
 
   // New PD2.0-compliant mutation
+  // tRPC utils for query invalidation (Phase 2)
+  const utils = trpc.useUtils();
+
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAnalysisId(data.analysisId);
       setAnalysisStatus(data.analysisStatus);
       setRuleEvaluations(data.ruleEvaluations as any);
@@ -312,6 +332,37 @@ export function DrawingAnalysis() {
       });
       setShowAiResults(true);
       setIsAnalyzing(false);
+      
+      // Auto-save if projectId provided (Phase 2)
+      if (projectId && drawingImage && fileName) {
+        try {
+          const infractions = data.issues.map((issue: any, idx: number) => ({
+            id: issue.id || `infraction-${idx}`,
+            severity: (issue.severity === "critical" ? "critical" : issue.severity === "warning" ? "warning" : "info") as "critical" | "warning" | "info",
+            code: issue.clause || issue.category || "NBC",
+            title: issue.category || issue.description.slice(0, 50),
+            description: issue.description,
+            location: issue.location || "See drawing",
+            recommendation: issue.recommendation || "",
+            x: issue.x || 50,
+            y: issue.y || 50,
+          }));
+          
+          const result = await saveDrawingAnalysisMutation.mutateAsync({
+            projectId,
+            fileName,
+            imageUrl: drawingImage,
+            occupancyType: "Residential",
+            infractions,
+            drawingType: data.extractedData.drawingType,
+            scale: null,
+          });
+          
+          setSavedAnalysisId(result.id);
+        } catch (error) {
+          console.error("Failed to auto-save analysis:", error);
+        }
+      }
     },
     onError: (error) => {
       console.error("PD2.0 analysis error:", error);
@@ -343,6 +394,39 @@ export function DrawingAnalysis() {
       setIsAnalyzing(false);
     },
   });
+
+  // Handle export to compliance (Phase 2)
+  const handleExportToCompliance = async () => {
+    if (!projectId || !savedAnalysisId) {
+      alert("Please complete an analysis first");
+      return;
+    }
+    
+    try {
+      const result = await exportToComplianceMutation.mutateAsync({
+        projectId,
+        drawingAnalysisId: savedAnalysisId,
+        rulesetId: "nbc_2023_v1",
+      });
+      
+      // Show success notification
+      alert(`Findings exported to compliance report. Status: ${result.complianceStatus}`);
+      
+      // Invalidate queries to refresh ProjectTabView
+      await utils.compliance.getProjectSnapshots.invalidate({ projectId });
+      await utils.projects.get.invalidate({ id: projectId });
+    } catch (error) {
+      console.error("Failed to export findings:", error);
+      alert("Failed to export findings. Please try again.");
+    }
+  };
+  
+  // Update history when query data changes (Phase 2)
+  useEffect(() => {
+    if (getDrawingAnalysesQuery.data) {
+      setDrawingAnalysisHistory(getDrawingAnalysesQuery.data);
+    }
+  }, [getDrawingAnalysesQuery.data]);
 
   // Get zones for selected municipality
   const municipalityData = municipalities.find(m => m.id === selectedMunicipalityId);
@@ -2976,6 +3060,50 @@ export function DrawingAnalysis() {
                     </CardContent>
                   </Card>
 
+                  {/* Drawing Analysis History Panel (Phase 2) */}
+                  {projectId && drawingAnalysisHistory.length > 0 && (
+                    <Card className="border-blue-200 dark:border-blue-800">
+                      <CardHeader className="py-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 cursor-pointer" onClick={() => setShowHistoryPanel(!showHistoryPanel)}>
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" />
+                            Analysis History ({drawingAnalysisHistory.length})
+                          </span>
+                          <span className="text-xs text-muted-foreground">{showHistoryPanel ? "▼" : "▶"}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      {showHistoryPanel && (
+                        <CardContent className="pt-3">
+                          <ScrollArea className="h-48">
+                            <div className="space-y-2">
+                              {drawingAnalysisHistory.map((analysis: any) => {
+                                const resultData = analysis.resultData || {};
+                                const criticalCount = resultData.criticalCount || 0;
+                                const warningCount = resultData.warningCount || 0;
+                                const infoCount = resultData.infoCount || 0;
+                                return (
+                                  <div key={analysis.id} className="p-2 border border-border rounded hover:bg-muted cursor-pointer transition-colors">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium truncate">{analysis.inputData?.fileName || "Unknown"}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(analysis.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount} critical</Badge>}
+                                        {warningCount > 0 && <Badge variant="secondary" className="text-xs">{warningCount} warnings</Badge>}
+                                        {infoCount > 0 && <Badge variant="outline" className="text-xs">{infoCount} info</Badge>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </CardContent>
+                      )}
+                    </Card>
+                  )}
+
                   {/* AI Analysis Results */}
                   {showAiResults && aiResults && (
                     <Card className="border-purple-200 dark:border-purple-800">
@@ -3081,6 +3209,37 @@ export function DrawingAnalysis() {
                       recommendations={pdRecommendations}
                       onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
                     />
+                  )}
+                  
+                  {/* Export to Compliance Report Button (Phase 2) */}
+                  {projectId && savedAnalysisId && analysisStatus === "VALID" && (
+                    <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Export to Compliance Report</p>
+                            <p className="text-xs text-muted-foreground mt-1">Save findings to project compliance snapshots</p>
+                          </div>
+                          <Button 
+                            onClick={handleExportToCompliance}
+                            disabled={exportToComplianceMutation.isPending}
+                            className="gap-2"
+                          >
+                            {exportToComplianceMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Exporting...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4" />
+                                Export Report
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                   {/* Compliance results */}
                   {showCompliancePanel && complianceResults.length > 0 && (

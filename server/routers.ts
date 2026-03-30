@@ -5,7 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
-import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } from "../drizzle/schema";
+import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog } from "../drizzle/schema";
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
@@ -788,6 +788,155 @@ Return ONLY a valid JSON object in this exact format:
         }
       }),
   }),
+
+  // Drawing Analysis Procedures
+  saveDrawingAnalysis: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        fileName: z.string(),
+        imageUrl: z.string(),
+        occupancyType: z.string(),
+        infractions: z.array(
+          z.object({
+            id: z.string(),
+            severity: z.enum(["critical", "warning", "info"]),
+            code: z.string(),
+            title: z.string(),
+            description: z.string(),
+            location: z.string(),
+            recommendation: z.string(),
+            x: z.number(),
+            y: z.number(),
+          })
+        ),
+        drawingType: z.string().optional(),
+        scale: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const id = `drawing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      await db.insert(projectCalculatorResults).values({
+        projectId: input.projectId,
+        calculatorType: "drawingAnalysis",
+        inputData: JSON.stringify({
+          fileName: input.fileName,
+          occupancyType: input.occupancyType,
+          drawingType: input.drawingType,
+          scale: input.scale,
+          imageUrl: input.imageUrl,
+        }),
+        resultData: JSON.stringify({
+          infractions: input.infractions,
+          totalInfractions: input.infractions.length,
+          criticalCount: input.infractions.filter((i) => i.severity === "critical").length,
+          warningCount: input.infractions.filter((i) => i.severity === "warning").length,
+          infoCount: input.infractions.filter((i) => i.severity === "info").length,
+        }),
+      });
+
+      return { success: true, id };
+    }),
+
+  getDrawingAnalyses: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const results = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(
+          and(
+            eq(projectCalculatorResults.projectId, input.projectId),
+            eq(projectCalculatorResults.calculatorType, "drawingAnalysis")
+          )
+        )
+        .orderBy(desc(projectCalculatorResults.createdAt));
+
+      return results.map((r) => ({
+        id: r.id,
+        projectId: r.projectId,
+        inputData: JSON.parse(r.inputData || "{}"),
+        resultData: JSON.parse(r.resultData || "{}"),
+        createdAt: r.createdAt,
+      }));
+    }),
+
+  exportFindingsToCompliance: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        drawingAnalysisId: z.string(),
+        rulesetId: z.string().default("nbc_2023_v1"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Get the drawing analysis
+      const [analysis] = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.id, input.drawingAnalysisId))
+        .limit(1);
+
+      if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const resultData = JSON.parse(analysis.resultData || "{}");
+      const infractions = resultData.infractions ?? [];
+
+      const hasNonCompliant = infractions.some((i: any) => i.severity === "critical");
+      const complianceStatus = infractions.length === 0 ? "compliant" : hasNonCompliant ? "non_compliant" : "conditional";
+
+      const snapshotId = `snap_drawing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      await db.insert(complianceSnapshots).values({
+        snapshotId,
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        rulesetId: input.rulesetId,
+        mode: "soft",
+        inputs: analysis.inputData,
+        outputs: JSON.stringify({
+          infractions,
+          source: "drawingAnalysis",
+        }),
+        ruleTrace: JSON.stringify(
+          infractions.map((i: any) => ({
+            rule_id: i.code,
+            clause: i.code,
+            fired: true,
+            conditions_met: true,
+          }))
+        ),
+        complianceStatus,
+      });
+
+      await db.insert(auditLog).values({
+        userId: ctx.user.id,
+        projectId: input.projectId,
+        snapshotId,
+        action: "drawing_analysis_exported",
+        details: JSON.stringify({
+          drawingAnalysisId: input.drawingAnalysisId,
+          infractionCount: infractions.length,
+          complianceStatus,
+        }),
+      });
+
+      return { success: true, snapshotId, complianceStatus };
+    }),
 
 });
 
