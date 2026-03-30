@@ -3580,3 +3580,9 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [x] Fix NavigationHeader "Occupancy Classifier" link pointing to / instead of /occupancy-classifier
 - [x] Fix FeatureDiscoveryDashboard "Professional Calculators" link pointing to /#design-tools (broken hash route)
 - [x] Fix Compliance page no-project state - added "Go to Projects" button
+
+## Post-Audit Fixes (Current Session)
+- [x] Fix 1: Delete duplicate test client records, keep one of each (840 → 1 record: Acme Construction Ltd)
+- [x] Fix 2: Add "Back to Dashboard" button on Occupancy Classifier page
+- [x] Fix 3: Fix TypeScript config errors (downgraded @types/node 24→22, disabled incremental, cleared stale tsbuildinfo cache, fixed Compliance.tsx TS errors)
+- [x] Bonus Fix: Fixed pre-existing test failure in occupantLoadFactors.test.ts (extracted data/helpers to pure .ts module, all 38 test suites now pass)

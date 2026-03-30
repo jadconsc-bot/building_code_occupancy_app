@@ -1,0 +1,14 @@
+{
+  "query": "SELECT COUNT(DISTINCT CONCAT(name, email)) as unique_count, COUNT(*) as total FROM clients;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT COUNT(DISTINCT CONCAT(name, email)) as unique_count, COUNT(*) as total FROM clients;",
+  "rows": [
+    {
+      "unique_count": "3",
+      "total": "840"
+    }
+  ],
+  "messages": [],
+  "stdout": "unique_count\ttotal\n3\t840\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

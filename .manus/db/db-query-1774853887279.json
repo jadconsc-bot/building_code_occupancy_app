@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, name, email, companyName, status FROM clients;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, name, email, companyName, status FROM clients;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Acme Construction Ltd",
+      "email": "contact@acme.com",
+      "companyName": "Acme Construction",
+      "status": "active"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\tcompanyName\tstatus\n1\tAcme Construction Ltd\tcontact@acme.com\tAcme Construction\tactive\n",
+  "stderr": "",
+  "execution_time_ms": 197
+}
