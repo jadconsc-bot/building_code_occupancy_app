@@ -3560,3 +3560,15 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Accessibility audit report
 - [ ] Code quality metrics
 - [ ] Ready for production checklist
+
+## OAuth Redirect URI — Temporary Fix (REVERT WHEN READY)
+
+- [x] Applied temporary fix: hardcoded `https://buildingcode-9f4j2cdo.manus.space` as OAuth callback origin in `client/src/const.ts`
+- [ ] **REVERT THIS FIX** once OAuth redirect URIs are properly registered in Manus platform:
+  1. Log into personal Manus account (App ID: `9F4J2CDosTHNgtZbintBLn`)
+  2. Go to OAuth app settings for CodeComply
+  3. Register both callback URLs:
+     - `https://buildingcode-9f4j2cdo.manus.space/api/oauth/callback`
+     - `https://<preview-domain>.manus.computer/api/oauth/callback`
+  4. In `client/src/const.ts`, replace `OAUTH_CALLBACK_ORIGIN` usage with `window.location.origin`
+  5. Delete the `OAUTH_CALLBACK_ORIGIN` constant and the TEMPORARY FIX comment block
