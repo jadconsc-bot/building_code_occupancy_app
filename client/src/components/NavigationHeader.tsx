@@ -39,9 +39,11 @@ import {
   FileImage,
 } from 'lucide-react';
 import { getLoginUrl } from '@/const';
+import { useLocation } from 'wouter';
 
 export function NavigationHeader() {
   const { user, logout, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const features = [
@@ -169,7 +171,10 @@ export function NavigationHeader() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => navigate("/settings")}
+                >
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </DropdownMenuItem>
