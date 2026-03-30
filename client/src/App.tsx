@@ -71,7 +71,7 @@ function App() {
       <AuthHydrationProvider>
         <ThemeProvider
           defaultTheme="light"
-          // switchable
+          switchable
         >
           <ProjectProvider>
             <ComparisonProvider>
