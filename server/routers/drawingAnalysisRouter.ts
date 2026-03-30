@@ -588,6 +588,98 @@ export const drawingAnalysisRouter = router({
     }),
 
   /**
+   * Export compliance report as structured JSON for PDF generation (PD2.0 §9.1)
+   * Only available for VALID-status analyses.
+   * The client uses this data to generate a PDF report.
+   */
+  exportReport: protectedProcedure
+    .input(z.object({
+      analysisId: z.number().int().positive(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [analysis] = await db
+        .select()
+        .from(drawingAnalyses)
+        .where(and(
+          eq(drawingAnalyses.id, input.analysisId),
+          eq(drawingAnalyses.userId, ctx.user.id)
+        ));
+
+      if (!analysis) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Analysis not found" });
+      }
+
+      // PD2.0 §9.1: Only VALID analyses can be exported
+      if (analysis.analysisStatus !== "VALID") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Only VALID analyses can be exported. Current status: ${analysis.analysisStatus}`,
+        });
+      }
+
+      // Fetch audit trail for the report
+      const auditTrail = await db
+        .select()
+        .from(complianceAuditTrail)
+        .where(eq(complianceAuditTrail.analysisId, input.analysisId))
+        .orderBy(complianceAuditTrail.timestamp);
+
+      // PD2.0 §7.2: REPORT_EXPORTED audit event
+      await insertAuditEvent({
+        analysisId: input.analysisId,
+        userId: ctx.user.id,
+        action: "REPORT_EXPORTED",
+        details: { exportFormat: "pdf", exportedAt: new Date().toISOString() },
+        userEmail: ctx.user.email,
+        userFullName: ctx.user.name ?? null,
+        ipAddress: ctx.req.ip ?? "unknown",
+        userAgent: ctx.req.headers["user-agent"] ?? "unknown",
+      });
+
+      // Find the PROFESSIONAL_ACCEPTED event for reviewer info
+      const professionalEvent = auditTrail.find(e => e.action === "PROFESSIONAL_ACCEPTED");
+
+      return {
+        analysisId: analysis.id,
+        analysisStatus: analysis.analysisStatus,
+        fileName: analysis.fileName,
+        analysisType: analysis.analysisType,
+        complianceScore: analysis.complianceScore,
+        complianceLevel: analysis.complianceLevel,
+        issues: analysis.issues ? JSON.parse(analysis.issues as string) : [],
+        recommendations: analysis.recommendations ? JSON.parse(analysis.recommendations as string) : [],
+        llmModelVersion: analysis.llmModelVersion,
+        ruleEngineVersion: analysis.ruleEngineVersion,
+        disclaimerVersion: analysis.disclaimerVersion,
+        createdAt: analysis.createdAt,
+        validatedAt: analysis.validatedAt,
+        validatedByLicenseNumber: analysis.validatedByLicenseNumber,
+        validatedByAssociation: analysis.validatedByAssociation,
+        reviewerName: ctx.user.name,
+        reviewerEmail: ctx.user.email,
+        // Audit trail summary
+        auditTrailSummary: auditTrail.map(e => ({
+          action: e.action,
+          timestamp: e.timestamp,
+          userEmail: e.userEmail,
+          details: typeof e.details === "string" ? JSON.parse(e.details) : e.details,
+        })),
+        // Professional event details
+        professionalDetails: professionalEvent ? {
+          licenseNumber: professionalEvent.professionalLicenseNumber,
+          association: professionalEvent.professionalAssociation,
+          jurisdiction: professionalEvent.jurisdiction,
+          notes: (typeof professionalEvent.details === "string"
+            ? JSON.parse(professionalEvent.details)
+            : professionalEvent.details)?.notes ?? null,
+        } : null,
+      };
+    }),
+
+  /**
    * Reject analysis — transitions UNDER_REVIEW → REJECTED (PD2.0 §4.3)
    */
   rejectAnalysis: protectedProcedure

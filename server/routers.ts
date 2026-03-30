@@ -48,6 +48,18 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    acceptDisclaimer: protectedProcedure
+      .input(z.object({
+        disclaimerVersion: z.string().optional(),
+      }))
+      .mutation(({ ctx, input }) => {
+        console.log(`[Auth] User ${ctx.user.id} accepted global disclaimer v${input.disclaimerVersion || "unknown"}`);
+        return {
+          success: true,
+          disclaimerAccepted: true,
+          timestamp: new Date().toISOString(),
+        } as const;
+      }),
   }),
 
   // Plan Analysis

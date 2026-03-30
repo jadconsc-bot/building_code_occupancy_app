@@ -3611,3 +3611,9 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] REPORT_EXPORTED audit event + export endpoint (VALID analyses only)
 - [ ] ipAddress and userAgent capture at infrastructure layer
 - [ ] sessionId in auth model
+
+## Disclaimer Gate Bug Fix
+- [ ] Fix broken "I Accept" button — auth.acceptDisclaimer procedure does not exist, wire to correct drawingAnalysis.acknowledgeDisclaimer procedure
+
+## Critical Bug Fix - Global Disclaimer
+- [ ] FIX: Global app disclaimer calls non-existent 'auth.acceptDisclaimer' tRPC procedure — blocks users from entering the app

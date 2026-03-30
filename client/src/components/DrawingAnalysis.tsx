@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { DisclaimerGate } from "@/components/DisclaimerGate";
+import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
@@ -2154,6 +2155,30 @@ export function DrawingAnalysis() {
     return () => window.removeEventListener("resize", handleResize);
   }, [drawCanvas]);
 
+  // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
+  if (!disclaimerAcknowledged) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Drawing Analysis Tool
+            </CardTitle>
+            <CardDescription>
+              Upload architectural drawings, add annotations, and check compliance against municipal bylaws
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DisclaimerGate
+              onAcknowledged={(_version) => setDisclaimerAcknowledged(true)}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show mobile-only message if on mobile device
   if (isMobile) {
     return (
@@ -3044,6 +3069,19 @@ export function DrawingAnalysis() {
                     </Card>
                   )}
 
+                  {/* PD2.0 Professional Review Panel — shown after AI analysis */}
+                  {analysisId !== null && analysisStatus !== null && (
+                    <ProfessionalReviewPanel
+                      analysisId={analysisId}
+                      analysisStatus={analysisStatus}
+                      complianceScore={complianceScore}
+                      complianceLevel={complianceLevel}
+                      ruleEvaluations={ruleEvaluations}
+                      issues={pdIssues}
+                      recommendations={pdRecommendations}
+                      onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
+                    />
+                  )}
                   {/* Compliance results */}
                   {showCompliancePanel && complianceResults.length > 0 && (
                     <Card>
