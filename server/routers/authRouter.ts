@@ -60,22 +60,18 @@ export const disclaimerRouter = router({
     }),
 
   // Record disclaimer acceptance
-  // ✅ Uses publicProcedure to allow unauthenticated users to accept disclaimer before login
-  acceptDisclaimer: publicProcedure
+  acceptDisclaimer: protectedProcedure
     .input(
       z.object({
         version: z.string().default("1.0"),
       })
     )
     .mutation(async ({ ctx, input }: any) => {
-      // ✅ Allow unauthenticated users to accept disclaimer
-      // If user is authenticated, use their ID; otherwise generate a session-based ID
-      const userId = ctx.user?.id || ctx.sessionId || "anonymous";
-      
+      const userId = ctx.user?.id;
       if (!userId) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Unable to identify user session",
+          code: "UNAUTHORIZED",
+          message: "User not authenticated",
         });
       }
 
