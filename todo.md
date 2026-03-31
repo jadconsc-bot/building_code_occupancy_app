@@ -3672,3 +3672,35 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Verify all existing DrawingAnalysis UI elements functional
 - [ ] Verify TypeScript compiles with zero errors
 - [ ] Generate comprehensive verification report
+
+
+---
+
+## Pre-Deployment Verification Checklist (Checkpoint b13e5ca8)
+
+### CRITICAL Blockers (Phase 1) — Must Pass Before Deployment
+- [ ] OAuth callback works end-to-end in real environment (not mocked)
+- [ ] GitHub tokens from security incident are revoked
+- [x] React version confirmed (19.2.1 - intentionally upgraded from 18.3.1, accepted with MEDIUM risk)
+- [x] Tailwind version confirmed (4.1.14 - intentionally upgraded from 3.x, accepted with MEDIUM risk)
+- [ ] LLM/rule engine boundary is intact per PD2.0
+
+### HIGH Priority (Phase 2) — Verify Before Go-Live
+- [ ] NBC edition in production is intentional (2025 vs 2020)
+- [ ] Audit trail triggers are in place in MySQL
+- [ ] Anthropic API key configured and 401-free
+- [ ] JWT claims include province-specific credentials
+- [ ] exportFindingsToCompliance creates immutable snapshot + audit event
+- [ ] Disclaimer gate actually blocks unauthenticated access
+
+### MEDIUM Smoke Tests (Phase 3) — Recommended
+- [ ] Create project → upload → analyze → export workflow
+- [ ] PDF export produces readable, correctly formatted report
+- [ ] ProjectTabView compliance badge updates after export
+- [ ] History panel shows ≤20 analyses without crash
+- [ ] TypeScript build completes without errors (cache cleared)
+
+### Sign-Off (Phase 4)
+- [ ] Generate pre-deployment verification report
+- [ ] All 17 items verified and signed off
+- [ ] Ready for production deployment

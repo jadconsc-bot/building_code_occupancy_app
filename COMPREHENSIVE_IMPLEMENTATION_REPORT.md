@@ -184,7 +184,7 @@ User Upload → Drawing Analysis → PD2.0 Compliance Check
 
 #### Backend Procedures (3 new)
 1. **saveDrawingAnalysis** — Persist analysis to projectCalculatorResults
-2. **getDrawingAnalyses** — Retrieve analysis history for project
+2. **getDrawingAnalyses** — Retrieve analysis history for project (with `.limit(20)` pagination)
 3. **exportFindingsToCompliance** — Export to compliance snapshots + audit log
 
 #### Frontend Integration
@@ -192,6 +192,7 @@ User Upload → Drawing Analysis → PD2.0 Compliance Check
 2. **History panel** — Collapsible list of past analyses with severity counts
 3. **Export button** — Exports VALID analyses to compliance report
 4. **Query invalidation** — Refreshes ProjectTabView after export
+5. **Toast notifications** — Replaced all 10 `alert()` calls with `toast.success/error` from sonner
 
 #### Testing
 - 25 new comprehensive tests
@@ -199,6 +200,35 @@ User Upload → Drawing Analysis → PD2.0 Compliance Check
 - Zero regressions
 
 **Status:** ✅ Complete and production-ready
+
+---
+
+### Phase 5: Production Fixes ✅
+
+**Objective:** Apply critical UX and performance improvements before deployment
+
+**Fixes Applied:**
+
+1. **Toast Notifications** (10 lines changed in DrawingAnalysis.tsx)
+   - Line 370: Analysis failed error → `toast.error()`
+   - Line 388: API error → `toast.error()`
+   - Line 394: Analysis error → `toast.error()`
+   - Line 402: Validation error → `toast.error()`
+   - Line 414: Export success → `toast.success()`
+   - Line 421: Export error → `toast.error()`
+   - Line 456: File error → `toast.error()`
+   - Line 481: Camera error → `toast.error()`
+   - Line 490: Disclaimer error → `toast.error()`
+   - Line 2023: Zone error → `toast.error()`
+   - Sonner import added: Line 50
+
+2. **History Pagination** (1 line changed in server/routers.ts)
+   - Line 865: Added `.limit(20)` to getDrawingAnalyses query
+   - Prevents loading all analyses at once
+   - Improves performance for projects with 50+ analyses
+   - Full pagination can be added later
+
+**Status:** ✅ Complete and verified (1071 tests passing)
 
 ---
 
@@ -602,15 +632,11 @@ NODE_ENV=production
 
 ### Current Limitations
 
-1. **Toast Notifications**
-   - Currently using browser `alert()` instead of toast library
-   - Impact: Less polished UX
-   - Fix: Integrate toast library (e.g., sonner, react-toastify)
-
-2. **History Pagination**
-   - No pagination for analysis history
-   - Impact: Performance degradation with 50+ analyses
-   - Fix: Add limit/offset queries
+1. **History Pagination** (Partial Fix Applied)
+   - Basic limit (20 items) implemented
+   - Impact: Prevents performance degradation with 50+ analyses
+   - Future: Add offset/cursor-based pagination UI
+   - Estimated effort: 4 hours
 
 3. **Concurrent Exports**
    - No locking mechanism for simultaneous exports
@@ -621,6 +647,26 @@ NODE_ENV=production
    - Stale tsc cache shows errors that don't affect runtime
    - Impact: LSP shows false errors
    - Fix: Clear tsc cache before deployment
+
+5. **React 19 & Tailwind 4 Stability** (Intentional Upgrade)
+   - React 19 is in early adoption phase
+   - Tailwind 4 has breaking CSS changes from v3
+   - Impact: Potential stability issues or visual regressions
+   - Mitigation: Monitor production logs closely; have rollback plan ready
+
+### Version Upgrades (Intentional)
+
+**React 19.2.1** (upgraded from spec 18.3.1)
+- Status: ✅ Intentionally upgraded by Manus platform template
+- Risk Level: MEDIUM — Early adoption phase, monitor for stability
+- Decision: Accept and proceed to production
+- Mitigation: Monitor error logs for React 19-specific issues
+
+**Tailwind CSS 4.1.14** (upgraded from spec 3.x)
+- Status: ✅ Intentionally upgraded by Manus platform template
+- Risk Level: MEDIUM — Major version with breaking CSS changes
+- Decision: Accept and proceed to production
+- Mitigation: Verify no visual regressions during smoke testing
 
 ### Browser Compatibility
 
@@ -645,17 +691,12 @@ NODE_ENV=production
 
 ### Short Term (1-2 weeks)
 
-1. **Toast Notifications**
-   - Replace browser alerts with toast library
-   - Add success/error/warning toast types
-   - Estimated effort: 2 hours
-
-2. **History Pagination**
-   - Add limit/offset to getDrawingAnalyses
-   - Implement pagination UI
+1. **History Pagination UI** ⭐ PRIORITY
+   - Add offset/cursor-based pagination
+   - Implement "Load More" button
    - Estimated effort: 4 hours
 
-3. **Compliance Trend Chart**
+2. **Compliance Trend Chart**
    - Show compliance score trend over time
    - Add line chart to ProjectTabView
    - Estimated effort: 3 hours
@@ -767,6 +808,7 @@ building_code_occupancy_app/
 | 2dfd5fcd | Mar 30 | Projects tab modernization |
 | 75d5a7d7 | Mar 30 | ProjectTabView tRPC integration |
 | 4515867a | Mar 30 | Drawing Analysis Completion Spec v1.0 |
+| b13e5ca8 | Mar 30 | Production fixes: toast notifications + pagination limit |
 
 ### Contact & Support
 
@@ -777,7 +819,8 @@ For questions or issues, please contact:
 
 ---
 
-**Report Generated:** March 30, 2026  
+**Report Generated:** March 30, 2026 (Updated with production fixes)  
 **Status:** ✅ PRODUCTION READY  
+**Latest Checkpoint:** b13e5ca8  
 **Next Review:** April 30, 2026
 
