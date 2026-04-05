@@ -251,7 +251,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up --service complycode
+          railway up --service complycode --project e4fba6a4-e4f8-4fc4-a38d-714d10065e2d
 
   notify:
     runs-on: ubuntu-latest
