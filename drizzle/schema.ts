@@ -885,3 +885,266 @@ export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments",
 
 export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;
 export type InsertDisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferInsert;
+
+
+/**
+ * ============================================================================
+ * BC ENERGY STEP CODE & MULTI-JURISDICTION TABLES
+ * For BC Step Code compliance, jurisdiction-specific requirements, and bilingual support
+ * ============================================================================
+ */
+
+/**
+ * Jurisdiction Profiles - Climate, seismic, and code adoption data by province/municipality
+ * Enables jurisdiction-specific compliance rules and requirements
+ */
+export const jurisdictionProfiles = mysqlTable("jurisdictionProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  province: mysqlEnum("province", ["AB", "BC", "ON", "SK", "MB"]).notNull(),
+  municipality: varchar("municipality", { length: 100 }), // null for provincial defaults
+  
+  // Climate data
+  climateZone: varchar("climateZone", { length: 10 }).notNull(), // "4A", "4B", "5A", "5B", "6A", "6B", "7A", "7B"
+  heatingDegreeDays: int("heatingDegreeDays"), // Annual HDD for insulation requirements
+  designTemperatureWinter: int("designTemperatureWinter"), // Celsius, for mechanical sizing
+  designTemperatureSummer: int("designTemperatureSummer"), // Celsius, for cooling
+  
+  // Seismic data (primarily BC)
+  seismicZone: varchar("seismicZone", { length: 20 }), // "Low", "Intermediate", "High", "Very High"
+  spectralAccelerationSa02: decimal("spectralAccelerationSa02", { precision: 4, scale: 3 }), // 0.2s period
+  spectralAccelerationSa05: decimal("spectralAccelerationSa05", { precision: 4, scale: 3 }), // 0.5s period
+  spectralAccelerationSa10: decimal("spectralAccelerationSa10", { precision: 4, scale: 3 }), // 1.0s period
+  
+  // Step Code adoption (BC only)
+  stepCodeAdopted: boolean("stepCodeAdopted").default(false),
+  currentStepCodeTier: mysqlEnum("currentStepCodeTier", ["1", "2", "3", "4", "5"]),
+  stepCodeEffectiveDate: date("stepCodeEffectiveDate"),
+  
+  // NBC adoption
+  nbcEdition: varchar("nbcEdition", { length: 20 }).notNull(), // "2020", "2023", "2024", "2025"
+  localAmendments: text("localAmendments"), // JSON array of amendment references
+  
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type JurisdictionProfile = typeof jurisdictionProfiles.$inferSelect;
+export type InsertJurisdictionProfile = typeof jurisdictionProfiles.$inferInsert;
+
+/**
+ * Step Code Tiers - TEDI/TEUI targets for BC Energy Step Code compliance
+ * Immutable reference data for each tier, building type, and climate zone
+ */
+export const stepCodeTiers = mysqlTable("stepCodeTiers", {
+  id: int("id").autoincrement().primaryKey(),
+  tier: mysqlEnum("tier", ["1", "2", "3", "4", "5"]).notNull(),
+  buildingType: varchar("buildingType", { length: 50 }).notNull(), // "part9_single_family", "part9_multi_family", "part3_commercial"
+  climateZone: varchar("climateZone", { length: 10 }).notNull(), // "4", "5", "6", "7"
+  
+  // Performance targets
+  tediTarget: decimal("tediTarget", { precision: 6, scale: 2 }).notNull(), // kWh/m²/year (Thermal Energy Demand Intensity)
+  teuiTarget: decimal("teuiTarget", { precision: 6, scale: 2 }).notNull(), // kWh/m²/year (Thermal Energy Use Intensity)
+  
+  // Mechanical and envelope requirements
+  mechEfficiencyMin: decimal("mechEfficiencyMin", { precision: 4, scale: 2 }), // 0.85, 0.90, 0.95 (AHRI rating)
+  airtightnessMax: decimal("airtightnessMax", { precision: 4, scale: 2 }), // ACH50 maximum (air changes per hour at 50 Pa)
+  
+  // Regulatory reference
+  codeReference: varchar("codeReference", { length: 255 }), // e.g., "BC Energy Step Code 2024, Tier 3"
+  effectiveDate: date("effectiveDate").notNull(),
+  retiredDate: date("retiredDate"), // null if still active
+  
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StepCodeTier = typeof stepCodeTiers.$inferSelect;
+export type InsertStepCodeTier = typeof stepCodeTiers.$inferInsert;
+
+/**
+ * Energy Features - Extracted envelope and mechanical system data from drawings
+ * Stores LLM-extracted and manually-verified energy model inputs
+ */
+export const energyFeatures = mysqlTable("energyFeatures", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId"), // Reference to drawing analysis if extracted from drawing
+  
+  // Building envelope
+  envelopeArea: decimal("envelopeArea", { precision: 10, scale: 2 }), // m²
+  
+  // Windows
+  windowAreas: text("windowAreas").notNull(), // JSON: [{orientation: "South", area: 50, uValue: 1.8}, ...]
+  
+  // Walls
+  wallAreas: text("wallAreas").notNull(), // JSON: [{type: "above_grade", rValue: 3.5, area: 200}, ...]
+  
+  // Roof
+  roofArea: decimal("roofArea", { precision: 10, scale: 2 }), // m²
+  roofRValue: decimal("roofRValue", { precision: 6, scale: 2 }), // RSI value
+  
+  // Foundation
+  foundationType: varchar("foundationType", { length: 50 }), // "basement", "crawl", "slab"
+  foundationRValue: decimal("foundationRValue", { precision: 6, scale: 2 }), // RSI value
+  
+  // Mechanical systems
+  mechanicalRoomLocation: varchar("mechanicalRoomLocation", { length: 100 }),
+  proposedHeatingSystem: varchar("proposedHeatingSystem", { length: 100 }), // "gas_furnace", "heat_pump", "boiler"
+  proposedCoolingSystem: varchar("proposedCoolingSystem", { length: 100 }), // "ac_unit", "none"
+  proposedVentilationSystem: varchar("proposedVentilationSystem", { length: 100 }), // "erv", "hrv", "none"
+  
+  // Special features
+  solarReadyZone: boolean("solarReadyZone").default(false),
+  evReady: boolean("evReady").default(false),
+  
+  // Data quality
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }), // 0.0 to 1.0 (from LLM)
+  manuallyVerified: boolean("manuallyVerified").default(false),
+  verifiedBy: int("verifiedBy"), // User ID who verified
+  verifiedAt: timestamp("verifiedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EnergyFeature = typeof energyFeatures.$inferSelect;
+export type InsertEnergyFeature = typeof energyFeatures.$inferInsert;
+
+/**
+ * Step Code Analyses - Compliance gap analysis results with cryptographic signature
+ * Immutable record of Step Code compliance determination
+ */
+export const stepCodeAnalyses = mysqlTable("stepCodeAnalyses", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  energyFeaturesId: int("energyFeaturesId").notNull(),
+  jurisdictionProfileId: int("jurisdictionProfileId").notNull(),
+  stepCodeTierId: int("stepCodeTierId").notNull(),
+  
+  // Performance results
+  tierTarget: varchar("tierTarget", { length: 10 }).notNull(), // "3", "4", "5"
+  tierAchieved: varchar("tierAchieved", { length: 10 }), // "3", "4", "5", or null if non-compliant
+  
+  // TEDI/TEUI analysis
+  tediTarget: decimal("tediTarget", { precision: 6, scale: 2 }).notNull(),
+  tediModelled: decimal("tediModelled", { precision: 6, scale: 2 }).notNull(),
+  tediCompliant: boolean("tediCompliant").notNull(),
+  tediGap: decimal("tediGap", { precision: 6, scale: 2 }), // Difference (modelled - target)
+  
+  teuiTarget: decimal("teuiTarget", { precision: 6, scale: 2 }).notNull(),
+  teuiModelled: decimal("teuiModelled", { precision: 6, scale: 2 }).notNull(),
+  teuiCompliant: boolean("teuiCompliant").notNull(),
+  teuiGap: decimal("teuiGap", { precision: 6, scale: 2 }), // Difference (modelled - target)
+  
+  // Mechanical and envelope compliance
+  airtightnessTarget: decimal("airtightnessTarget", { precision: 4, scale: 2 }),
+  airtightnessModelled: decimal("airtightnessModelled", { precision: 4, scale: 2 }),
+  airtightnessCompliant: boolean("airtightnessCompliant"),
+  
+  mechEfficiencyTarget: decimal("mechEfficiencyTarget", { precision: 4, scale: 2 }),
+  mechEfficiencyModelled: decimal("mechEfficiencyModelled", { precision: 4, scale: 2 }),
+  mechEfficiencyCompliant: boolean("mechEfficiencyCompliant"),
+  
+  // Overall compliance
+  overallCompliant: boolean("overallCompliant").notNull(),
+  complianceStatus: mysqlEnum("complianceStatus", ["pass", "fail", "conditional"]).notNull(),
+  
+  // Prescriptive alternative (if performance fails)
+  prescriptiveApplicable: boolean("prescriptiveApplicable").default(false),
+  prescriptiveDescription: text("prescriptiveDescription"),
+  prescriptiveRequirements: text("prescriptiveRequirements"), // JSON array
+  
+  // Recommendations
+  recommendations: text("recommendations"), // JSON array of improvement suggestions
+  
+  // Cryptographic integrity
+  cryptographicSignature: text("cryptographicSignature").notNull(), // SHA-256 HMAC
+  signatureVerified: boolean("signatureVerified").default(false).notNull(),
+  
+  // Audit trail
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  immutable: boolean("immutable").default(true).notNull(),
+});
+
+export type StepCodeAnalysis = typeof stepCodeAnalyses.$inferSelect;
+export type InsertStepCodeAnalysis = typeof stepCodeAnalyses.$inferInsert;
+
+/**
+ * UI Translations - Bilingual support for BC (EN/FR)
+ * Enables language toggle for all UI labels, descriptions, and error messages
+ */
+export const uiTranslations = mysqlTable("uiTranslations", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 255 }).notNull().unique(), // e.g., "occupancy.assembly", "calculator.tedi.label"
+  en: text("en").notNull(), // English translation
+  fr: text("fr"), // French translation
+  context: varchar("context", { length: 100 }), // e.g., "occupancy", "calculator", "report"
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UITranslation = typeof uiTranslations.$inferSelect;
+export type InsertUITranslation = typeof uiTranslations.$inferInsert;
+
+/**
+ * Energy Data Extractions - LLM-extracted energy model data from architectural drawings
+ * Stage 1 of PD2.0: LLM extraction only (no compliance decisions)
+ * Separate from drawingDataExtractions to avoid duplication
+ */
+export const energyDataExtractions = mysqlTable("energyDataExtractions", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  
+  // Extracted data
+  energyFeatures: text("energyFeatures").notNull(), // JSON: window areas, wall R-values, roof specs, etc.
+  structuralFeatures: text("structuralFeatures"), // JSON: beam sizes, column spacing, etc.
+  
+  // Extraction metadata
+  modelUsed: varchar("modelUsed", { length: 100 }).notNull(), // e.g., "claude-3-vision-20240314"
+  modelVersion: varchar("modelVersion", { length: 50 }),
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }).notNull(), // 0.0 to 1.0
+  
+  // Audit trail
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type EnergyDataExtraction = typeof energyDataExtractions.$inferSelect;
+export type InsertEnergyDataExtraction = typeof energyDataExtractions.$inferInsert;
+
+/**
+ * Professional Seals - Engineer/Architect credentials for report signing
+ * Stores professional information for report seal blocks
+ */
+export const professionalSeals = mysqlTable("professionalSeals", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Professional info
+  engineerName: varchar("engineerName", { length: 255 }).notNull(),
+  licenseNumber: varchar("licenseNumber", { length: 100 }).notNull(),
+  association: varchar("association", { length: 100 }).notNull(), // "EGBC", "AIBC", "APEGA", "AAA"
+  associationProvince: varchar("associationProvince", { length: 50 }), // "BC", "AB", "ON"
+  
+  // Seal image (for PDF reports)
+  sealImageUrl: varchar("sealImageUrl", { length: 500 }), // S3 URL
+  
+  // Validity
+  licenseExpiry: date("licenseExpiry"),
+  isActive: boolean("isActive").default(true).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProfessionalSeal = typeof professionalSeals.$inferSelect;
+export type InsertProfessionalSeal = typeof professionalSeals.$inferInsert;
