@@ -176,7 +176,7 @@ INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('calculator.tedi.label', 'Thermal Energy Demand Intensity (TEDI)', 'Intensité de la Demande Énergétique Thermique (TEDI)', 'calculator'),
 ('calculator.teui.label', 'Total Energy Use Intensity (TEUI)', 'Intensité Totale de la Consommation Énergétique (TEUI)', 'calculator'),
 ('calculator.meui.label', 'Mechanical Energy Use Intensity (MEUI)', 'Intensité de la Consommation Énergétique Mécanique (MEUI)', 'calculator'),
-('calculator.airtightness.label', 'Airtightness (ACH₅₀)', 'Étanchéité à l''Air (ACH₅₀)', 'calculator'),
+('calculator.airtightness.label', 'Airtightness (ACH₅₀)', 'Étanchéité à l\'Air (ACH₅₀)', 'calculator'),
 ('calculator.tier.label', 'Step Code Tier', 'Niveau du Code Échelon', 'calculator'),
 ('calculator.building_type.label', 'Building Type', 'Type de Bâtiment', 'calculator'),
 ('calculator.climate_zone.label', 'Climate Zone', 'Zone Climatique', 'calculator');
@@ -192,7 +192,7 @@ INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('report.tedi_modelled', 'TEDI Modelled', 'TEDI Modélisé', 'report'),
 ('report.teui_target', 'TEUI Target', 'Cible TEUI', 'report'),
 ('report.teui_modelled', 'TEUI Modelled', 'TEUI Modélisé', 'report'),
-('report.professional_seal', 'Professional Engineer Seal', 'Sceau de l''Ingénieur Professionnel', 'report'),
+('report.professional_seal', 'Professional Engineer Seal', 'Sceau de l\'Ingénieur Professionnel', 'report'),
 ('report.signature_date', 'Signature Date', 'Date de Signature', 'report');
 
 -- Error and validation messages
