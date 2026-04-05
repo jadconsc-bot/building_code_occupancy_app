@@ -259,9 +259,11 @@ export const stepCodeRouter = router({
       );
 
       // Store immutable analysis result
+      // Generate UUID for analysis
       const analysisId = nanoid();
       
-      await db.insert(stepCodeAnalyses).values({
+      // Prepare insert data - use proper type casting for Drizzle
+      const insertData: any = {
         id: analysisId,
         projectId: input.projectId,
         userId: ctx.user.id,
@@ -270,18 +272,18 @@ export const stepCodeRouter = router({
         stepCodeTierId: input.stepCodeTierId,
         tierTarget: tierData.tier,
         tierAchieved: overallCompliant ? tierData.tier : null,
-        tediTarget: tierData.tediTarget,
+        tediTarget: Number(tierData.tediTarget),
         tediModelled: input.tediModelled,
         tediCompliant: tediResult.status === "pass",
-        tediGap: tediResult.gap || null,
-        teuiTarget: tierData.teuiTarget,
+        tediGap: tediResult.gap ? Number(tediResult.gap) : null,
+        teuiTarget: Number(tierData.teuiTarget),
         teuiModelled: input.teuiModelled,
         teuiCompliant: teuiResult.status === "pass",
-        teuiGap: teuiResult.gap || null,
-        airtightnessTarget: tierData.airtightnessMax || null,
+        teuiGap: teuiResult.gap ? Number(teuiResult.gap) : null,
+        airtightnessTarget: tierData.airtightnessMax ? Number(tierData.airtightnessMax) : null,
         airtightnessModelled: input.airtightnessModelled || null,
         airtightnessCompliant: airtightnessResult?.status === "pass" ? true : null,
-        mechEfficiencyTarget: tierData.mechEfficiencyMin || null,
+        mechEfficiencyTarget: tierData.mechEfficiencyMin ? Number(tierData.mechEfficiencyMin) : null,
         mechEfficiencyModelled: input.mechEfficiencyModelled || null,
         mechEfficiencyCompliant: mechResult?.status === "pass" ? true : null,
         overallCompliant,
@@ -291,7 +293,9 @@ export const stepCodeRouter = router({
         signatureVerified: true,
         ipAddress: ctx.req.ip || null,
         userAgent: ctx.req.headers["user-agent"] || null,
-      })
+      };
+      
+      await db.insert(stepCodeAnalyses).values([insertData]);
 
       return {
         success: true,
