@@ -162,7 +162,7 @@ VALUES ('4', 'part3_retail', '4', 20.00, 220.00, 0.90, 1.50, 'BC Energy Step Cod
 -- ============================================================================
 
 -- Occupancy labels
-INSERT INTO uiTranslations (key, en, fr, context) VALUES
+INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('occupancy.assembly', 'Assembly', 'Assemblée', 'occupancy'),
 ('occupancy.residential', 'Residential', 'Résidentiel', 'occupancy'),
 ('occupancy.business', 'Business/Office', 'Bureau/Affaires', 'occupancy'),
@@ -170,19 +170,19 @@ INSERT INTO uiTranslations (key, en, fr, context) VALUES
 ('occupancy.storage', 'Storage', 'Entreposage', 'occupancy');
 
 -- Step Code calculator labels
-INSERT INTO uiTranslations (key, en, fr, context) VALUES
+INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('calculator.step_code.title', 'Step Code Calculator', 'Calculateur du Code Échelon', 'calculator'),
 ('calculator.step_code.subtitle', 'BC Energy Step Code Compliance Analysis', 'Analyse de Conformité du Code Échelon Énergétique de la C.-B.', 'calculator'),
 ('calculator.tedi.label', 'Thermal Energy Demand Intensity (TEDI)', 'Intensité de la Demande Énergétique Thermique (TEDI)', 'calculator'),
 ('calculator.teui.label', 'Total Energy Use Intensity (TEUI)', 'Intensité Totale de la Consommation Énergétique (TEUI)', 'calculator'),
 ('calculator.meui.label', 'Mechanical Energy Use Intensity (MEUI)', 'Intensité de la Consommation Énergétique Mécanique (MEUI)', 'calculator'),
-('calculator.airtightness.label', 'Airtightness (ACH₅₀)', 'Étanchéité à l''Air (ACH₅₀)', 'calculator'),
+('calculator.airtightness.label', 'Airtightness (ACH₅₀)', 'Étanchéité à l\'Air (ACH₅₀)', 'calculator'),
 ('calculator.tier.label', 'Step Code Tier', 'Niveau du Code Échelon', 'calculator'),
 ('calculator.building_type.label', 'Building Type', 'Type de Bâtiment', 'calculator'),
 ('calculator.climate_zone.label', 'Climate Zone', 'Zone Climatique', 'calculator');
 
 -- Report labels
-INSERT INTO uiTranslations (key, en, fr, context) VALUES
+INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('report.compliant', 'Compliant', 'Conforme', 'report'),
 ('report.non_compliant', 'Non-Compliant', 'Non conforme', 'report'),
 ('report.conditional', 'Conditional', 'Conditionnel', 'report'),
@@ -192,11 +192,11 @@ INSERT INTO uiTranslations (key, en, fr, context) VALUES
 ('report.tedi_modelled', 'TEDI Modelled', 'TEDI Modélisé', 'report'),
 ('report.teui_target', 'TEUI Target', 'Cible TEUI', 'report'),
 ('report.teui_modelled', 'TEUI Modelled', 'TEUI Modélisé', 'report'),
-('report.professional_seal', 'Professional Engineer Seal', 'Sceau de l''Ingénieur Professionnel', 'report'),
+('report.professional_seal', 'Professional Engineer Seal', 'Sceau de l\'Ingénieur Professionnel', 'report'),
 ('report.signature_date', 'Signature Date', 'Date de Signature', 'report');
 
 -- Error and validation messages
-INSERT INTO uiTranslations (key, en, fr, context) VALUES
+INSERT INTO uiTranslations (`key`, en, fr, context) VALUES
 ('error.invalid_tier', 'Invalid Step Code tier selected', 'Niveau du Code Échelon invalide sélectionné', 'error'),
 ('error.missing_data', 'Required energy data is missing', 'Les données énergétiques requises sont manquantes', 'error'),
 ('error.calculation_failed', 'Compliance calculation failed', 'Le calcul de conformité a échoué', 'error'),
