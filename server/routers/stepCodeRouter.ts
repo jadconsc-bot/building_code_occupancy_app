@@ -6,6 +6,13 @@ import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { createHash } from "crypto";
 import { nanoid } from "nanoid";
+import { 
+  signAnalysisData, 
+  generateProfessionalSeal,
+  validateEngineerCredentials,
+  hashAnalysisData,
+  type AnalysisData 
+} from "../_core/kmsSigningService";
 
 /**
  * Step Code Router - BC Energy Step Code Compliance Checking
@@ -240,27 +247,29 @@ export const stepCodeRouter = router({
         );
       }
 
-      // Prepare analysis data for signature
-      const analysisData = {
+      // Prepare analysis data for signature (PD2.0 compliant)
+      const analysisDataForSigning: AnalysisData = {
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        analysisType: 'stepCode',
         tierTarget: tierData.tier,
         tediTarget: Number(tierData.tediTarget),
-        tediModelled: input.tediModelled,
         teuiTarget: Number(tierData.teuiTarget),
-        teuiModelled: input.teuiModelled,
+        airtightnessTarget: tierData.airtightnessMax ? Number(tierData.airtightnessMax) : undefined,
+        mechEfficiencyTarget: tierData.mechEfficiencyMin ? Number(tierData.mechEfficiencyMin) : undefined,
         overallCompliant,
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
       };
 
-      // Generate cryptographic signature
-      const signature = generateComplianceSignature(
-        input.projectId,
-        analysisData,
-        jwtSecret
-      );
+      // Generate cryptographic signature using KMS service
+      const signature = signAnalysisData(analysisDataForSigning, jwtSecret);
 
       // Store immutable analysis result
       // Generate UUID for analysis
       const analysisId = nanoid();
+      
+      // Hash analysis data for integrity verification
+      const dataHash = hashAnalysisData(analysisDataForSigning);
       
       // Prepare insert data - use proper type casting for Drizzle
       const insertData: any = {
@@ -291,6 +300,7 @@ export const stepCodeRouter = router({
         recommendations: JSON.stringify(recommendations),
         cryptographicSignature: signature,
         signatureVerified: true,
+        dataHash: dataHash,
         ipAddress: ctx.req.ip || null,
         userAgent: ctx.req.headers["user-agent"] || null,
       };
@@ -303,6 +313,8 @@ export const stepCodeRouter = router({
         compliant: overallCompliant,
         tierTarget: tierData.tier,
         tierAchieved: overallCompliant ? tierData.tier : undefined,
+        cryptographicSignature: signature,
+        signatureVerified: true,
         tedi: {
           target: Number(tierData.tediTarget),
           modelled: input.tediModelled,
