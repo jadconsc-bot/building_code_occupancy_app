@@ -1,0 +1,260 @@
+name: BC/AB Compliance Test Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: mysql://root:root@localhost:3306/test_db
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Wait for MySQL
+        run: |
+          until mysqladmin ping -h"127.0.0.1" -u"root" -p"root" --silent; do
+            echo 'waiting for mysql...'
+            sleep 1
+          done
+
+      - name: Run database migrations
+        run: pnpm db:push
+
+      - name: Seed database
+        run: |
+          mysql -h127.0.0.1 -uroot -proot test_db < drizzle/seed-bc-step-code.sql
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Run seed verification tests
+        run: pnpm test tests/db/seedVerification.test.ts
+
+      - name: Run critical boundary tests
+        run: pnpm test server/stepCode.critical-tests.test.ts
+
+      - name: Generate test coverage
+        run: pnpm test -- --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Run API tests (Newman)
+        run: |
+          npm install -g newman
+          newman run tests/BC_AB_Compliance_API.postman_collection.json \
+            --environment <(echo '{"values":[{"key":"base_url","value":"http://localhost:3000"}]}') \
+            --reporters cli,json \
+            --reporter-json-export test-results.json
+        continue-on-error: true
+
+      - name: Upload API test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-test-results
+          path: test-results.json
+
+      - name: Generate synthetic test drawings
+        run: node tests/generateTestDrawings.mjs
+
+      - name: Upload test drawings
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-drawings
+          path: tests/test-drawings/
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Check build output
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "Build failed: dist directory not found"
+            exit 1
+          fi
+
+      - name: Lint code
+        run: pnpm format --check
+        continue-on-error: true
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const testResults = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+            
+            const comment = `## Test Results
+            
+            ✅ Unit Tests: Passed
+            ✅ Database Seed Verification: Passed
+            ✅ Critical Boundary Tests: Passed
+            
+            **API Tests:** ${testResults.run.stats.requests.total} requests
+            - Passed: ${testResults.run.stats.requests.total - testResults.run.failures.length}
+            - Failed: ${testResults.run.failures.length}
+            
+            **Coverage:** See codecov report
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run database migrations
+        run: pnpm db:push
+
+      - name: Seed database
+        run: |
+          mysql -h127.0.0.1 -uroot -proot test_db < drizzle/seed-bc-step-code.sql
+
+      - name: Run integration tests
+        run: pnpm test:integration
+        env:
+          USE_REAL_LLM: false
+
+      - name: Run performance tests
+        run: pnpm test -- --grep "PERF-"
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-results
+          path: coverage/
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    if: always()
+    
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.security-scan.result }}" == "success" ]; then
+            echo "status=✅ All tests passed" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ Some tests failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: ${{ steps.status.outputs.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
