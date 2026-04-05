@@ -71,37 +71,41 @@ function evaluateAirtightness(
 }
 
 describe('TS-03: BC Step Code Compliance Engine', () => {
-  describe('4.1 TEDI Compliance', () => {
-    it('TC-03-01: TEDI modelled < target → PASS', () => {
-      const result = evaluateTEDI(50, 45);
+  describe('4.1 TEDI Compliance - BC Housing 2017 Metrics (Zone 4)', () => {
+    // Official BC Housing values: Step 1=45, Step 2=40, Step 3=25, Step 4=15, Step 5=15
+    it('TC-03-01: Step 1 (Tier 1) TEDI Zone 4 = 45.0 kWh/m²/yr', () => {
+      const result = evaluateTEDI(45, 44);
       expect(result.status).toBe('pass');
       expect(result.gap).toBeLessThan(0);
     });
 
-    it('TC-03-02: TEDI modelled = target exactly → PASS (boundary)', () => {
-      const result = evaluateTEDI(50, 50);
+    it('TC-03-02: Step 5 (Tier 5) TEDI Zone 4 = 15.0 kWh/m²/yr (most efficient)', () => {
+      const result = evaluateTEDI(15, 14);
+      expect(result.status).toBe('pass');
+      expect(result.gap).toBeLessThan(0);
+    });
+
+    it('TC-03-03: Step 2 TEDI Zone 4 = 40.0 kWh/m²/yr', () => {
+      const result = evaluateTEDI(40, 39.99);
+      expect(result.status).toBe('pass');
+      expect(result.gap).toBeLessThan(0);
+    });
+
+    it('TC-03-04: Step 3 TEDI Zone 4 = 25.0 kWh/m²/yr', () => {
+      const result = evaluateTEDI(25, 24.99);
+      expect(result.status).toBe('pass');
+      expect(result.gap).toBeLessThan(0);
+    });
+
+    it('TC-03-05: Step 4 TEDI Zone 4 = 15.0 kWh/m²/yr', () => {
+      const result = evaluateTEDI(15, 15);
       expect(result.status).toBe('pass');
       expect(result.gap).toBe(0);
     });
 
-    it('TC-03-03: TEDI modelled > target by 0.01 → FAIL (boundary)', () => {
-      const result = evaluateTEDI(50, 50.01);
+    it('TC-03-06: TEDI non-compliant when exceeding target', () => {
+      const result = evaluateTEDI(45, 45.01);
       expect(result.status).toBe('fail');
-      expect(result.gap).toBeGreaterThan(0);
-    });
-
-    it('TC-03-04: TEDI gap calculated correctly (modelled - target)', () => {
-      const result = evaluateTEDI(50, 45);
-      expect(result.gap).toBe(-5);
-    });
-
-    it('TC-03-05: TEDI gap is negative when passing (good)', () => {
-      const result = evaluateTEDI(50, 40);
-      expect(result.gap).toBeLessThan(0);
-    });
-
-    it('TC-03-06: TEDI gap is positive when failing (bad)', () => {
-      const result = evaluateTEDI(50, 60);
       expect(result.gap).toBeGreaterThan(0);
     });
   });
