@@ -273,9 +273,9 @@ export const jurisdictionRouter = router({
   listSupported: protectedProcedure
     .output(z.array(z.object({
       province: z.enum(['BC', 'AB', 'ON', 'SK', 'MB']),
-      municipality: z.string(),
+      municipality: z.string().nullable(),
       climateZone: z.string(),
-      stepCodeAdopted: z.boolean()
+      stepCodeAdopted: z.boolean().nullable()
     })))
     .query(async () => {
       try {

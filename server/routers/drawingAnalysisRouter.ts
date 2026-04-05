@@ -645,7 +645,6 @@ export const drawingAnalysisRouter = router({
       return {
         analysisId: analysis.id,
         analysisStatus: analysis.analysisStatus,
-        fileName: analysis.fileName,
         analysisType: analysis.analysisType,
         complianceScore: analysis.complianceScore,
         complianceLevel: analysis.complianceLevel,

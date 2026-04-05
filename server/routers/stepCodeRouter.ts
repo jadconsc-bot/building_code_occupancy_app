@@ -262,36 +262,36 @@ export const stepCodeRouter = router({
       const analysisId = nanoid();
       
       await db.insert(stepCodeAnalyses).values({
-        id: analysisId, // UUID primary key
+        id: analysisId,
         projectId: input.projectId,
         userId: ctx.user.id,
         energyFeaturesId: input.energyFeaturesId,
-        jurisdictionProfileId: input.stepCodeTierId, // Use tier ID as jurisdiction reference
+        jurisdictionProfileId: input.stepCodeTierId,
         stepCodeTierId: input.stepCodeTierId,
         tierTarget: tierData.tier,
-        tierAchieved: overallCompliant ? tierData.tier : undefined,
+        tierAchieved: overallCompliant ? tierData.tier : null,
         tediTarget: tierData.tediTarget,
         tediModelled: input.tediModelled,
         tediCompliant: tediResult.status === "pass",
-        tediGap: tediResult.gap || undefined,
+        tediGap: tediResult.gap || null,
         teuiTarget: tierData.teuiTarget,
         teuiModelled: input.teuiModelled,
         teuiCompliant: teuiResult.status === "pass",
-        teuiGap: teuiResult.gap || undefined,
-        airtightnessTarget: tierData.airtightnessMax || undefined,
-        airtightnessModelled: input.airtightnessModelled || undefined,
-        airtightnessCompliant: airtightnessResult?.status === "pass" ? true : undefined,
-        mechEfficiencyTarget: tierData.mechEfficiencyMin || undefined,
-        mechEfficiencyModelled: input.mechEfficiencyModelled || undefined,
-        mechEfficiencyCompliant: mechResult?.status === "pass" ? true : undefined,
+        teuiGap: teuiResult.gap || null,
+        airtightnessTarget: tierData.airtightnessMax || null,
+        airtightnessModelled: input.airtightnessModelled || null,
+        airtightnessCompliant: airtightnessResult?.status === "pass" ? true : null,
+        mechEfficiencyTarget: tierData.mechEfficiencyMin || null,
+        mechEfficiencyModelled: input.mechEfficiencyModelled || null,
+        mechEfficiencyCompliant: mechResult?.status === "pass" ? true : null,
         overallCompliant,
         complianceStatus: overallCompliant ? "pass" : "fail",
         recommendations: JSON.stringify(recommendations),
         cryptographicSignature: signature,
         signatureVerified: true,
-        ipAddress: ctx.req.ip || undefined,
-        userAgent: ctx.req.headers["user-agent"] || undefined,
-      });
+        ipAddress: ctx.req.ip || null,
+        userAgent: ctx.req.headers["user-agent"] || null,
+      })
 
       return {
         success: true,
