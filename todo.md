@@ -3704,3 +3704,15 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - [ ] Generate pre-deployment verification report
 - [ ] All 17 items verified and signed off
 - [ ] Ready for production deployment
+
+
+## PRELAUNCH-IMPL-001 Components (PD2.0 Compliant - Current Session)
+
+- [ ] Component 1: LanguageToggle.tsx — EN/FR bilingual support (BC only)
+- [ ] Component 2: EnergyFeaturesPanel.tsx — Drawing viewer + extraction editor
+- [ ] Component 3: StepCodeCalculator.tsx — TEDI/TEUI compliance calculator
+- [ ] Component 4: StepCodeReport.tsx — BC bilingual PDF report
+- [ ] Component 5: AlbertaNBCReport.tsx — AB cold climate PDF report
+- [ ] Component 6: AWS KMS signing — Complete implementation
+- [ ] Component 7: Professional seal integration
+- [ ] Final testing & wiring verification

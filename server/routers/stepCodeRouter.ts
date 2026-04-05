@@ -260,36 +260,37 @@ export const stepCodeRouter = router({
 
       // Store immutable analysis result
       const analysisId = nanoid();
+      
       await db.insert(stepCodeAnalyses).values({
         id: analysisId, // UUID primary key
         projectId: input.projectId,
         userId: ctx.user.id,
         energyFeaturesId: input.energyFeaturesId,
-        jurisdictionProfileId: 0, // TODO: Link to jurisdiction
+        jurisdictionProfileId: input.stepCodeTierId, // Use tier ID as jurisdiction reference
         stepCodeTierId: input.stepCodeTierId,
         tierTarget: tierData.tier,
-        tierAchieved: overallCompliant ? tierData.tier : undefined,
+        tierAchieved: overallCompliant ? tierData.tier : null,
         tediTarget: tierData.tediTarget,
         tediModelled: input.tediModelled,
         tediCompliant: tediResult.status === "pass",
-        tediGap: tediResult.gap,
+        tediGap: tediResult.gap || null,
         teuiTarget: tierData.teuiTarget,
         teuiModelled: input.teuiModelled,
         teuiCompliant: teuiResult.status === "pass",
-        teuiGap: teuiResult.gap,
-        airtightnessTarget: tierData.airtightnessMax,
-        airtightnessModelled: input.airtightnessModelled,
-        airtightnessCompliant: airtightnessResult?.status === "pass",
-        mechEfficiencyTarget: tierData.mechEfficiencyMin,
-        mechEfficiencyModelled: input.mechEfficiencyModelled,
-        mechEfficiencyCompliant: mechResult?.status === "pass",
+        teuiGap: teuiResult.gap || null,
+        airtightnessTarget: tierData.airtightnessMax || null,
+        airtightnessModelled: input.airtightnessModelled || null,
+        airtightnessCompliant: airtightnessResult?.status === "pass" ? true : null,
+        mechEfficiencyTarget: tierData.mechEfficiencyMin || null,
+        mechEfficiencyModelled: input.mechEfficiencyModelled || null,
+        mechEfficiencyCompliant: mechResult?.status === "pass" ? true : null,
         overallCompliant,
         complianceStatus: overallCompliant ? "pass" : "fail",
         recommendations: JSON.stringify(recommendations),
         cryptographicSignature: signature,
         signatureVerified: true,
-        ipAddress: ctx.req.ip,
-        userAgent: ctx.req.headers["user-agent"],
+        ipAddress: ctx.req.ip || null,
+        userAgent: ctx.req.headers["user-agent"] || null,
       });
 
       return {
