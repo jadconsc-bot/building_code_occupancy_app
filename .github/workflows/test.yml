@@ -235,9 +235,27 @@ jobs:
           head: HEAD
         continue-on-error: true
 
-  notify:
+  deploy:
     runs-on: ubuntu-latest
     needs: [test, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --service complycode
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, deploy]
     if: always()
     
     steps:
