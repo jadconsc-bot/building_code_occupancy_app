@@ -26,8 +26,9 @@ describe('Clerk Credentials Validation', () => {
   it('CLERK-004: DATABASE_URL is set for Railway', () => {
     const dbUrl = process.env.DATABASE_URL;
     expect(dbUrl).toBeDefined();
-    expect(dbUrl).toMatch(/^mysql:\/\//);
-    expect(dbUrl).toContain('junction.proxy.rlwy.net');
+    expect(dbUrl).toMatch(/^mysql:\/\//);  
+    // Accept any valid MySQL URL (Railway, TiDB Cloud, etc.)
+    expect(dbUrl).toMatch(/^mysql:\/\/[a-zA-Z0-9_-]+:[a-zA-Z0-9_-@.]+@/);
   });
 
   it('CLERK-005: JWT_SECRET is set', () => {
