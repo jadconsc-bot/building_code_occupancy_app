@@ -261,7 +261,7 @@ export const stepCodeRouter = router({
       // Store immutable analysis result
       const analysisId = nanoid();
       await db.insert(stepCodeAnalyses).values({
-        id: analysisId,
+        id: analysisId, // UUID primary key
         projectId: input.projectId,
         userId: ctx.user.id,
         energyFeaturesId: input.energyFeaturesId,
