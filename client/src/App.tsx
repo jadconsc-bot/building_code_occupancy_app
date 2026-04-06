@@ -11,6 +11,7 @@ import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
+import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
 import Home from "./pages/Home";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
@@ -31,6 +32,9 @@ import { ProjectTabView } from "./components/ProjectTabView";
 import { useLocation } from "wouter";
 
 function Router() {
+  // AUTH-MIGRATE-001: Exchange Clerk token for CodeComply session
+  useClerkSessionExchange();
+  
   // make sure to consider if you need authentication for certain routes
   // ProjectTabView route added for individual project detail views
   return (

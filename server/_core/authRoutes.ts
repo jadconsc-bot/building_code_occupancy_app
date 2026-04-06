@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from 'express';
-import { createClerkClient } from '@clerk/backend';
+import { createClerkClient, verifyToken } from '@clerk/backend';
 import * as db from '../db';
 import { sdk } from './sdk';
 import { COOKIE_NAME, SESSION_DURATION_MS } from '@shared/const';
@@ -22,8 +22,10 @@ export function registerAuthRoutes(app: Express) {
     }
 
     try {
-      // Verify Clerk token
-      const payload = await clerkClient.verifyToken(clerkToken);
+      // Verify Clerk token using the verifyToken function from @clerk/backend
+      const payload = await verifyToken(clerkToken, {
+        secretKey: ENV.clerkSecretKey,
+      });
       const userId = payload.sub;
 
       if (!userId) {
