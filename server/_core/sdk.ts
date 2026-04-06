@@ -20,10 +20,6 @@ export type SessionPayload = {
 
 /**
  * AUTH-MIGRATE-001: Removed OAuthService class and Manus OAuth endpoints
- * - EXCHANGE_TOKEN_PATH (no longer needed)
- * - GET_USER_INFO_PATH (no longer needed)
- * - GET_USER_INFO_WITH_JWT_PATH (no longer needed)
- * 
  * Clerk handles token exchange via /api/auth/session endpoint in authRoutes.ts
  */
 

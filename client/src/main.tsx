@@ -5,8 +5,7 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-// AUTH-MIGRATE-001: Removed Manus OAuth getLoginUrl import
-// import { getLoginUrl } from "./const";
+// AUTH-MIGRATE-001: Clerk authentication - no OAuth imports needed
 import "./index.css";
 import { register as registerServiceWorker } from "./lib/serviceWorkerRegistration";
 import { ClerkProvider } from '@clerk/clerk-react';
