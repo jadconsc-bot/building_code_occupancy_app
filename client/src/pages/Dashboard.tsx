@@ -15,13 +15,13 @@ import { CalculationComparison } from '@/components/CalculationComparison';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { Button } from '@/components/ui/button';
-import { SignIn, SignUp } from '@clerk/clerk-react';
+
 
 export default function Dashboard() {
   const { isAuthenticated, user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
   const [showReportBuilder, setShowReportBuilder] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
+
 
   if (!isAuthenticated) {
     return (
@@ -31,27 +31,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground mb-6">
             Professional building code compliance tools for architects, engineers, and inspectors
           </p>
-          {authMode === 'signin' ? (
-            <SignIn />
-          ) : authMode === 'signup' ? (
-            <SignUp />
-          ) : (
-            <div className="flex gap-4 justify-center flex-col">
-              <Button
-                size="lg"
-                onClick={() => setAuthMode('signin')}
-              >
-                Login
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => setAuthMode('signup')}
-              >
-                Register
-              </Button>
-            </div>
-          )}
+          <p className="text-sm text-muted-foreground">Please log in to continue.</p>
         </div>
       </div>
     );

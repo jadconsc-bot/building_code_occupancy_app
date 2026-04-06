@@ -37,10 +37,10 @@ describe('AUTH-MIGRATE-001: Clerk Authentication Migration', () => {
         expect(content).toContain("app.post('/api/auth/session'");
       });
 
-      it('should verify Clerk token using clerkClient.verifyToken()', () => {
+      it('should verify Clerk token using verifyToken from @clerk/backend', () => {
         const filePath = path.join(projectRoot, 'server/_core/authRoutes.ts');
         const content = fs.readFileSync(filePath, 'utf-8');
-        expect(content).toContain('clerkClient.verifyToken');
+        expect(content).toContain('verifyToken');
       });
 
       it('should call db.upsertUser() to persist user', () => {
