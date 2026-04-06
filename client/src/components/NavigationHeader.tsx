@@ -38,10 +38,11 @@ import {
   Zap,
   FileImage,
 } from 'lucide-react';
-import { getLoginUrl } from '@/const';
+import { useClerk } from '@clerk/clerk-react';
 
 export function NavigationHeader() {
   const { user, logout, isAuthenticated } = useAuth();
+  const { openSignIn } = useClerk();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const features = [
@@ -186,7 +187,7 @@ export function NavigationHeader() {
           ) : (
             <Button
               size="sm"
-              onClick={() => (window.location.href = getLoginUrl())}
+              onClick={() => openSignIn()}
             >
               Login
             </Button>

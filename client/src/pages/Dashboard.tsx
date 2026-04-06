@@ -15,12 +15,13 @@ import { CalculationComparison } from '@/components/CalculationComparison';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { Button } from '@/components/ui/button';
-import { getLoginUrl, getRegistrationUrl } from '@/const';
+import { SignIn, SignUp } from '@clerk/clerk-react';
 
 export default function Dashboard() {
   const { isAuthenticated, user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
   const [showReportBuilder, setShowReportBuilder] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
 
   if (!isAuthenticated) {
     return (
@@ -30,21 +31,27 @@ export default function Dashboard() {
           <p className="text-muted-foreground mb-6">
             Professional building code compliance tools for architects, engineers, and inspectors
           </p>
-          <div className="flex gap-4 justify-center">
-            <Button
-              size="lg"
-              onClick={() => (window.location.href = getLoginUrl())}
-            >
-              Login
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => (window.location.href = getRegistrationUrl())}
-            >
-              Register
-            </Button>
-          </div>
+          {authMode === 'signin' ? (
+            <SignIn />
+          ) : authMode === 'signup' ? (
+            <SignUp />
+          ) : (
+            <div className="flex gap-4 justify-center flex-col">
+              <Button
+                size="lg"
+                onClick={() => setAuthMode('signin')}
+              >
+                Login
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setAuthMode('signup')}
+              >
+                Register
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     );
