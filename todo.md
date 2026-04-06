@@ -3779,3 +3779,13 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
   - [x] Added Clerk token verification test
   - [x] Session token creation and validation working
   - [x] Dashboard navigation after authentication fixed
+
+
+## 🚨 CRITICAL BUG - Session Persistence Issue
+- [x] Session not maintained across page navigation
+  - [x] Fixed: Session cookie domain was not being set
+  - [x] Uncommented domain configuration in cookies.ts
+  - [x] Changed sameSite from 'none' to 'lax' for same-site requests
+  - [x] Updated useClerkSessionExchange to refetch auth.me after session creation
+  - [x] Session cookie now persists across page navigation
+  - [x] Credentials: 'include' working in tRPC client

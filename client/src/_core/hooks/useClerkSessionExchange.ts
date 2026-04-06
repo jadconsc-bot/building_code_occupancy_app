@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
+import { trpc } from '@/lib/trpc';
 
 /**
  * AUTH-MIGRATE-001: Exchange Clerk token for CodeComply session
@@ -9,6 +10,7 @@ import { useUser } from '@clerk/clerk-react';
  */
 export function useClerkSessionExchange() {
   const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn || !clerkUser) {
@@ -43,13 +45,13 @@ export function useClerkSessionExchange() {
         }
 
         console.log('[Auth] Session created successfully');
-        // Reload to trigger auth state update
-        window.location.reload();
+        // Refetch auth.me to get user data from session cookie
+        await utils.auth.me.refetch();
       } catch (error) {
         console.error('[Auth] Token exchange failed:', error);
       }
     };
 
     exchangeToken();
-  }, [clerkLoaded, isSignedIn, clerkUser]);
+  }, [clerkLoaded, isSignedIn, clerkUser, utils]);
 }
