@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { trpc } from '@/lib/trpc';
 
 /**
@@ -9,19 +9,22 @@ import { trpc } from '@/lib/trpc';
  * for a CodeComply JWT session token by calling POST /api/auth/session
  */
 export function useClerkSessionExchange() {
-  const { user: clerkUser, isLoaded: clerkLoaded, isSignedIn } = useUser();
+  const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth();
   const utils = trpc.useUtils();
+  const exchanged = useRef(false);
 
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn || !clerkUser) {
+    if (!clerkLoaded || !isSignedIn || exchanged.current) {
       return;
     }
+
+    exchanged.current = true;
 
     // Exchange Clerk token for CodeComply session
     const exchangeToken = async () => {
       try {
         // Get the Clerk session token
-        const token = await clerkUser.getToken();
+        const token = await getToken();
         
         if (!token) {
           console.error('[Auth] Failed to get Clerk token');
@@ -53,5 +56,5 @@ export function useClerkSessionExchange() {
     };
 
     exchangeToken();
-  }, [clerkLoaded, isSignedIn, clerkUser, utils]);
+  }, [clerkLoaded, isSignedIn, getToken, utils]);
 }
