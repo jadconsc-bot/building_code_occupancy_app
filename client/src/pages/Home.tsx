@@ -21,7 +21,9 @@ import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { getLoadFactors } from "@/lib/loadCalculationData";
-import { getLoginUrl } from "@/const";
+// AUTH-MIGRATE-001: Removed Manus OAuth getLoginUrl import
+// import { getLoginUrl } from "@/const";
+import { SignIn } from "@clerk/clerk-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
@@ -936,14 +938,8 @@ export default function Home() {
                   Logout ({user?.name || 'User'})
                 </Button>
               ) : (
-                <Button
-                  onClick={() => window.location.href = getLoginUrl()}
-                  variant="default"
-                  size="sm"
-                  className="text-xs bg-blue-600 hover:bg-blue-700"
-                >
-                  Login
-                </Button>
+                // AUTH-MIGRATE-001: Use Clerk SignIn component instead of Manus OAuth redirect
+                <SignIn />
               )}
               <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                 <SelectTrigger className="w-[80px] h-8 text-xs">

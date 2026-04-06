@@ -5,13 +5,15 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { getLoginUrl } from "./const";
+// AUTH-MIGRATE-001: Removed Manus OAuth getLoginUrl import
+// import { getLoginUrl } from "./const";
 import "./index.css";
 import { register as registerServiceWorker } from "./lib/serviceWorkerRegistration";
 import { ClerkProvider } from '@clerk/clerk-react';
 
 const queryClient = new QueryClient();
 
+// AUTH-MIGRATE-001: Updated redirect logic to use Clerk
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
@@ -20,7 +22,9 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  window.location.href = getLoginUrl();
+  // Clerk will handle redirect to sign-in page
+  // The ClerkProvider will automatically show the sign-in component
+  console.log("[Auth] Unauthorized - Clerk will handle redirect");
 };
 
 queryClient.getQueryCache().subscribe(event => {
