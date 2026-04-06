@@ -3726,3 +3726,46 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 - Created comprehensive test suite covering all 7 components
 - All tests passing (1153 total, including KMS signing, seal verification, signature validation)
 - PD2.0 Protocol compliance verified (deterministic, immutable, cryptographically signed)
+
+
+## AUTH-MIGRATE-001: Playwright E2E Testing Implementation
+- [ ] Configure Playwright for E2E testing
+  - Set up playwright.config.ts with base URL and browser configurations
+  - Configure test timeouts and retries
+  - Set up screenshot and video capture on failure
+  - Create test fixtures for authentication
+  
+- [ ] Authentication Flow Tests
+  - Test Clerk login flow
+  - Test Clerk signup flow
+  - Test logout functionality
+  - Test session persistence
+  - Test protected route access
+  - Test unauthorized access handling
+  
+- [ ] API Integration Tests
+  - Test POST /api/auth/session endpoint
+  - Test session token creation
+  - Test user persistence in database
+  - Test error handling for invalid tokens
+  - Test cookie setting and retrieval
+  
+- [ ] Frontend Component Tests
+  - Test ClerkProvider initialization
+  - Test useAuth hook functionality
+  - Test SignIn component rendering
+  - Test user state updates
+  - Test navigation after login
+  
+- [ ] Production Deployment Tests
+  - Test production URL accessibility
+  - Test Clerk authentication on production
+  - Test session management in production
+  - Test error pages and fallbacks
+  - Test performance metrics
+  
+- [ ] CI/CD Integration
+  - Add Playwright tests to GitHub Actions workflow
+  - Configure test reporting
+  - Set up test result artifacts
+  - Add test coverage reporting
