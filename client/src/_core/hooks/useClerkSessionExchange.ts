@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { trpc } from '@/lib/trpc';
 
@@ -7,18 +7,22 @@ import { trpc } from '@/lib/trpc';
  * 
  * After Clerk authentication, this hook automatically exchanges the Clerk token
  * for a CodeComply JWT session token by calling POST /api/auth/session
+ * 
+ * Uses sessionStorage to ensure exchange only happens once per browser session
  */
 export function useClerkSessionExchange() {
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth();
   const utils = trpc.useUtils();
-  const exchanged = useRef(false);
 
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn || exchanged.current) {
+    if (!clerkLoaded || !isSignedIn) {
       return;
     }
 
-    exchanged.current = true;
+    // Check if already exchanged in this session
+    if (sessionStorage.getItem('session_exchanged')) {
+      return;
+    }
 
     // Exchange Clerk token for CodeComply session
     const exchangeToken = async () => {
@@ -42,12 +46,13 @@ export function useClerkSessionExchange() {
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          console.error('[Auth] Session creation failed:', error);
+          console.error('[Auth] Session creation failed:', response.statusText);
           return;
         }
 
         console.log('[Auth] Session created successfully');
+        // Mark as exchanged so it doesn't happen again in this session
+        sessionStorage.setItem('session_exchanged', 'true');
         // Refetch auth.me to get user data from session cookie
         await utils.auth.me.refetch();
       } catch (error) {
