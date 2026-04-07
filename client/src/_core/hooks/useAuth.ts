@@ -15,11 +15,17 @@ export function useAuth(options?: UseAuthOptions) {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const utils = trpc.useUtils();
 
+  // AUTH-MIGRATE-001: Gate auth.me query until session exchange is confirmed
+  // This prevents race condition where auth.me fires before session cookie is set
+  const sessionExchanged = typeof window !== 'undefined' 
+    ? sessionStorage.getItem('session_exchanged') === 'true'
+    : false;
+
   // AUTH-MIGRATE-001: Query backend user data using Clerk token
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: clerkLoaded && !!clerkUser, // Only query when Clerk user is loaded
+    enabled: clerkLoaded && !!clerkUser && sessionExchanged, // Only query after session exchange
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -48,7 +54,7 @@ export function useAuth(options?: UseAuthOptions) {
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
-      loading: !clerkLoaded || meQuery.isLoading || logoutMutation.isPending,
+      loading: !clerkLoaded || !sessionExchanged || meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data && clerkUser),
     };
@@ -60,12 +66,14 @@ export function useAuth(options?: UseAuthOptions) {
     logoutMutation.isPending,
     clerkLoaded,
     clerkUser,
+    sessionExchanged,
   ]);
 
   // AUTH-MIGRATE-001: Clerk handles redirect to sign-in automatically
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (!clerkLoaded) return; // Wait for Clerk to load
+    if (!sessionExchanged) return; // Wait for session exchange
     if (meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
@@ -80,6 +88,7 @@ export function useAuth(options?: UseAuthOptions) {
     meQuery.isLoading,
     state.user,
     clerkLoaded,
+    sessionExchanged,
   ]);
 
   return {
