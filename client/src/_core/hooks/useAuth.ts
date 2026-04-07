@@ -54,9 +54,7 @@ export function useAuth(options?: UseAuthOptions) {
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
-      // Only wait for sessionExchanged if user is logged in (clerkUser exists)
-      // If no clerkUser, we can render the login prompt immediately
-      loading: !clerkLoaded || (!!clerkUser && !sessionExchanged) || meQuery.isLoading || logoutMutation.isPending,
+      loading: !clerkLoaded || !sessionExchanged || meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data && clerkUser),
     };
