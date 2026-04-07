@@ -13,6 +13,7 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
 import Home from "./pages/Home";
+import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
@@ -42,7 +43,7 @@ function Router() {
       <NavigationHeader />
       <Switch>
         <Route path={"/"} component={Dashboard} />
-        <Route path={"/occupancy-classifier"} component={Home} />
+        <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/compliance"} component={Compliance} />
