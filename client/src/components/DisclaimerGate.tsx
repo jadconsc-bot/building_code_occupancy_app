@@ -49,10 +49,12 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
     
     // Check if scrolled to bottom (within 5% of bottom)
     const atBottom = progress >= 95 || scrollHeight - (scrollTop + clientHeight) < 10;
+    console.log('[Disclaimer] Scroll:', { scrollHeight, scrollTop, clientHeight, maxScroll, progress, atBottom });
     setScrolledToBottom(atBottom);
   };
 
   const handleAcknowledge = async () => {
+    console.log('[Disclaimer] Acknowledge clicked:', { disclaimerData: !!disclaimerData, checked, scrolledToBottom });
     if (!disclaimerData || !checked || !scrolledToBottom) return;
     acknowledgeMutation.mutate({ disclaimerVersion: disclaimerData.version });
   };
@@ -167,6 +169,7 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
         disabled={!checked || !scrolledToBottom || acknowledgeMutation.isPending}
         className="w-full"
         size="lg"
+        title={`Button disabled: checked=${checked}, scrolledToBottom=${scrolledToBottom}, isPending=${acknowledgeMutation.isPending}`}
       >
         {acknowledgeMutation.isPending ? (
           <>
