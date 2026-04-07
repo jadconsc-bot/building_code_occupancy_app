@@ -8,7 +8,7 @@
 
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSessionExchange } from "@/_core/hooks/useSessionExchange";
-import { Home } from "@/pages/Home";
+import Home from "@/pages/Home";
 
 export default function OccupancyClassifierPage() {
   // Ensure session exchange happens
