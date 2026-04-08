@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { SignIn } from '@clerk/clerk-react';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ReportBuilder } from '@/components/ReportBuilder';
@@ -26,13 +27,7 @@ export default function Dashboard() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
-          <p className="text-muted-foreground mb-6">
-            Professional building code compliance tools for architects, engineers, and inspectors
-          </p>
-          <p className="text-sm text-muted-foreground">Please log in to continue.</p>
-        </div>
+        <SignIn routing="hash" />
       </div>
     );
   }
