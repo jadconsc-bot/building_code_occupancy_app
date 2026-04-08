@@ -3805,3 +3805,6 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 ## BUG-FIX-AUTH-005 (Current Session)
 - [x] Clear stale session cookie before issuing new Clerk session in authRoutes.ts
 - [x] Remove DEBUG-AUTH-001 console.log statements from authRoutes.ts
+
+## BUG-FIX-AUTH-006 (Current Session)
+- [x] Rename session cookie from app_session_id to cc_session_v2 in shared/const.ts

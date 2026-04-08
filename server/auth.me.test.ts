@@ -74,8 +74,8 @@ describe('Auth.me Endpoint', () => {
 
   describe('Session Cookie Handling', () => {
     it('should parse session cookie correctly', () => {
-      const cookieHeader = 'app_session_id=token123; Path=/; HttpOnly';
-      const cookieName = 'app_session_id';
+      const cookieHeader = 'cc_session_v2=token123; Path=/; HttpOnly';
+      const cookieName = 'cc_session_v2';
       
       // Simple cookie parsing simulation
       const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
@@ -86,7 +86,7 @@ describe('Auth.me Endpoint', () => {
         return acc;
       }, {} as Record<string, string>);
 
-      expect(cookies['app_session_id']).toBe('token123');
+      expect(cookies['cc_session_v2']).toBe('token123');
     });
 
     it('should handle missing session cookie', () => {

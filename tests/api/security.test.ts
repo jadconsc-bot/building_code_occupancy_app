@@ -23,7 +23,7 @@ interface APIResponse {
 
 function validateAuthCookie(cookie?: string): boolean {
   if (!cookie) return false;
-  return cookie.startsWith('app_session_id=') && cookie.length > 20;
+  return cookie.startsWith('cc_session_v2=') && cookie.length > 20;
 }
 
 function validateJWT(token: string, secret: string): boolean {
@@ -131,17 +131,17 @@ describe('TS-13: API Security & Auth Guards', () => {
   });
 
   describe('14.3 Cookie Security', () => {
-    it('TC-13-11: app_session_id cookie has httpOnly flag', () => {
+    it('TC-13-11: cc_session_v2 cookie has httpOnly flag', () => {
       const cookieFlags = ['httpOnly', 'secure', 'sameSite'];
       expect(cookieFlags).toContain('httpOnly');
     });
 
-    it('TC-13-12: app_session_id cookie has secure flag (on HTTPS)', () => {
+    it('TC-13-12: cc_session_v2 cookie has secure flag (on HTTPS)', () => {
       const cookieFlags = ['httpOnly', 'secure', 'sameSite'];
       expect(cookieFlags).toContain('secure');
     });
 
-    it('TC-13-13: app_session_id cookie has sameSite attribute', () => {
+    it('TC-13-13: cc_session_v2 cookie has sameSite attribute', () => {
       const cookieFlags = ['httpOnly', 'secure', 'sameSite'];
       expect(cookieFlags).toContain('sameSite');
     });

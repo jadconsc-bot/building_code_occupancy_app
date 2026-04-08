@@ -72,7 +72,7 @@ describe('TS-01: Authentication & Session', () => {
       expect(isValid).toBe(false);
     });
 
-    it('TC-01-05: After login, app_session_id cookie is set (httpOnly, secure)', () => {
+    it('TC-01-05: After login, cc_session_v2 cookie is set (httpOnly, secure)', () => {
       const cookieFlags = ['httpOnly', 'secure'];
       expect(cookieFlags).toContain('httpOnly');
       expect(cookieFlags).toContain('secure');
@@ -129,7 +129,7 @@ describe('TS-01: Authentication & Session', () => {
   });
 
   describe('2.4 Logout', () => {
-    it('TC-01-14: Logout clears app_session_id cookie', () => {
+    it('TC-01-14: Logout clears cc_session_v2 cookie', () => {
       const cookieCleared = true;
       expect(cookieCleared).toBe(true);
     });

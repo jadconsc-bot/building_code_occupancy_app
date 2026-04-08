@@ -103,7 +103,7 @@ describe('TS-02: Google OAuth', () => {
       expect(mockGetProfile).toHaveBeenCalled();
     });
 
-    it('TC-02-09: After OAuth callback, app_session_id cookie is set', () => {
+    it('TC-02-09: After OAuth callback, cc_session_v2 cookie is set', () => {
       const cookieSet = true;
       expect(cookieSet).toBe(true);
     });
