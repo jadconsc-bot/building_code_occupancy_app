@@ -3801,3 +3801,7 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
   - [x] Users can now scroll, read, and accept disclaimer
   - [x] PD 2.0 compliance: Users must read and accept disclaimer before using Drawing Analysis Tool
   - [x] Drawing Analysis feature now accessible after disclaimer acknowledgment
+
+## BUG-FIX-AUTH-005 (Current Session)
+- [x] Clear stale session cookie before issuing new Clerk session in authRoutes.ts
+- [x] Remove DEBUG-AUTH-001 console.log statements from authRoutes.ts

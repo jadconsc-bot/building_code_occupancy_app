@@ -12,6 +12,10 @@ const clerkClient = createClerkClient({ secretKey: ENV.clerkSecretKey });
  * AUTH-MIGRATE-001 Section 6.3: Register Clerk auth routes
  * Replaces /api/oauth/callback with /api/auth/session
  * Verifies Clerk token and issues CodeComply JWT cookie
+ *
+ * BUG-FIX-AUTH-005: Clears any stale session cookie before issuing
+ * the new Clerk-based session cookie, ensuring authenticateRequest
+ * always resolves to the correct Clerk user.
  */
 export function registerAuthRoutes(app: Express) {
   app.post('/api/auth/session', async (req: Request, res: Response) => {
@@ -27,7 +31,6 @@ export function registerAuthRoutes(app: Express) {
         secretKey: ENV.clerkSecretKey,
       });
       const userId = payload.sub;
-      console.log('[AUTH-DEBUG] Clerk token sub (userId):', userId);
 
       if (!userId) {
         return res.status(401).json({ error: 'Invalid Clerk token: no user ID' });
@@ -49,7 +52,6 @@ export function registerAuthRoutes(app: Express) {
         loginMethod,
         lastSignedIn: new Date(),
       });
-      console.log('[AUTH-DEBUG] Upserted user with openId:', userId);
 
       // Create CodeComply JWT session token
       const sessionToken = await sdk.createSessionToken(userId, {
@@ -58,7 +60,9 @@ export function registerAuthRoutes(app: Express) {
         loginMethod,
         expiresInMs: SESSION_DURATION_MS,
       });
-      console.log('[AUTH-DEBUG] Created session token with openId:', userId);
+
+      // BUG-FIX-AUTH-005: Clear any stale session cookie before setting the new one
+      res.clearCookie(COOKIE_NAME, { path: '/' });
 
       // Set session cookie
       const cookieOptions = getSessionCookieOptions(req);
