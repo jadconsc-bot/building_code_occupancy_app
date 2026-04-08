@@ -7,15 +7,10 @@
  */
 
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useSessionExchange } from "@/_core/hooks/useSessionExchange";
 import Home from "@/pages/Home";
 
 export default function OccupancyClassifierPage() {
-  // Ensure session exchange happens
-  useSessionExchange();
-  
-  // Require authentication for this page
-  const { isAuthenticated, loading } = useAuth({ redirectOnUnauthenticated: true });
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
@@ -29,10 +24,10 @@ export default function OccupancyClassifierPage() {
   }
 
   if (!isAuthenticated) {
-    return null; // Redirect handled by useAuth hook
+    window.location.href = '/';
+    return null;
   }
 
   // Render the Home component which contains the occupancy classifier
-  // The Home component will show the classifier content since user is authenticated
   return <Home />;
 }

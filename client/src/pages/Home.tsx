@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useSessionExchange } from "@/_core/hooks/useSessionExchange";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +93,6 @@ import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 
 export default function Home() {
-  useSessionExchange();
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
