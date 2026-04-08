@@ -3808,3 +3808,6 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 
 ## BUG-FIX-AUTH-006 (Current Session)
 - [x] Rename session cookie from app_session_id to cc_session_v2 in shared/const.ts
+
+## BUG-FIX-AUTH-007 (Current Session)
+- [x] Remove sessionStorage guard from useClerkSessionExchange.ts
