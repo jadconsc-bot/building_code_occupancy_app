@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -880,7 +880,8 @@ export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments",
   disclaimerText: text("disclaimerText").notNull(),
   ipAddress: varchar("ipAddress", { length: 45 }),
   userAgent: text("userAgent"),
-  acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+  acknowledgedAt:     timestamp("acknowledgedAt").defaultNow().notNull(),
+  isImmutable:        tinyint("is_immutable").notNull().default(1),
 });
 
 export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;
