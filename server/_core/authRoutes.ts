@@ -27,6 +27,7 @@ export function registerAuthRoutes(app: Express) {
         secretKey: ENV.clerkSecretKey,
       });
       const userId = payload.sub;
+      console.log('[AUTH-DEBUG] Clerk token sub (userId):', userId);
 
       if (!userId) {
         return res.status(401).json({ error: 'Invalid Clerk token: no user ID' });
@@ -48,6 +49,7 @@ export function registerAuthRoutes(app: Express) {
         loginMethod,
         lastSignedIn: new Date(),
       });
+      console.log('[AUTH-DEBUG] Upserted user with openId:', userId);
 
       // Create CodeComply JWT session token
       const sessionToken = await sdk.createSessionToken(userId, {
@@ -56,6 +58,7 @@ export function registerAuthRoutes(app: Express) {
         loginMethod,
         expiresInMs: SESSION_DURATION_MS,
       });
+      console.log('[AUTH-DEBUG] Created session token with openId:', userId);
 
       // Set session cookie
       const cookieOptions = getSessionCookieOptions(req);
