@@ -35,21 +35,26 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
     },
   });
 
+  // Auto-detect when content doesn't need scrolling
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (el.scrollHeight <= el.clientHeight) {
+      setScrolledToBottom(true);
+    }
+  }, [disclaimerData]);
+
   // Improved scroll detection with better threshold
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const scrollHeight = el.scrollHeight;
-    const scrollTop = el.scrollTop;
-    const clientHeight = el.clientHeight;
-    
-    // Calculate scroll progress (0-100%)
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const maxScroll = scrollHeight - clientHeight;
-    const progress = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 0;
+    if (maxScroll <= 0) {
+      setScrolledToBottom(true);
+      return;
+    }
+    const progress = (scrollTop / maxScroll) * 100;
     setScrollProgress(progress);
-    
-    // Check if scrolled to bottom (within 5% of bottom)
     const atBottom = progress >= 95 || scrollHeight - (scrollTop + clientHeight) < 10;
-    console.log('[Disclaimer] Scroll:', { scrollHeight, scrollTop, clientHeight, maxScroll, progress, atBottom });
     setScrolledToBottom(atBottom);
   };
 
