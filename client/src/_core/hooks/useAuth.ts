@@ -54,7 +54,7 @@ export function useAuth(options?: UseAuthOptions) {
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
-      loading: !clerkLoaded || !sessionExchanged || meQuery.isLoading || logoutMutation.isPending,
+      loading: !clerkLoaded || (!!clerkUser && !sessionExchanged) || (!!clerkUser && meQuery.isLoading) || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data && clerkUser),
     };
@@ -73,7 +73,7 @@ export function useAuth(options?: UseAuthOptions) {
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (!clerkLoaded) return; // Wait for Clerk to load
-    if (!sessionExchanged) return; // Wait for session exchange
+    if (clerkUser && !sessionExchanged) return; // Only wait for exchange if user exists
     if (meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
