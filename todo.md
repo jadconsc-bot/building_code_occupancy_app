@@ -3811,3 +3811,6 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 
 ## BUG-FIX-AUTH-007 (Current Session)
 - [x] Remove sessionStorage guard from useClerkSessionExchange.ts
+
+## BUG-FIX-COOKIE-001 (Current Session)
+- [x] Add app.set('trust proxy', 1) to server/_core/index.ts for Railway deployment
