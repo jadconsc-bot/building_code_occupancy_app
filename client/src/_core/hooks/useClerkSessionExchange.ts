@@ -1,13 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { trpc } from '@/lib/trpc';
 
 export function useClerkSessionExchange() {
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth();
   const utils = trpc.useUtils();
+  const hasExchanged = useRef(false);
 
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn) return;
+    if (!clerkLoaded || !isSignedIn) {
+      hasExchanged.current = false;
+      return;
+    }
+
+    if (hasExchanged.current) return;
 
     const exchangeToken = async () => {
       try {
@@ -30,6 +36,7 @@ export function useClerkSessionExchange() {
         }
 
         console.log('[Auth] Session created successfully');
+        hasExchanged.current = true;
         await utils.auth.me.refetch();
       } catch (error) {
         console.error('[Auth] Token exchange failed:', error);

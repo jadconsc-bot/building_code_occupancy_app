@@ -144,7 +144,6 @@ class SDKServer {
     
     // Get user from database
     const user = await db.getUserByOpenId(sessionUserId);
-    console.log('[Auth] getUserByOpenId result:', user?.id, user?.openId);
 
     if (!user) {
       throw ForbiddenError("User not found");
