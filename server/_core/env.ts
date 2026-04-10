@@ -61,6 +61,8 @@ export const ENV = {
   awsS3Bucket: validatedEnv.AWS_S3_BUCKET ?? '',
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? '',
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? '',
+  appId: process.env.APP_ID ?? '',
+  ownerOpenId: process.env.OWNER_OPEN_ID ?? '',
 };
 
 /**

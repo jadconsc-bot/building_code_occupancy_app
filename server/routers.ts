@@ -889,7 +889,7 @@ Return ONLY a valid JSON object in this exact format:
       const [analysis] = await db
         .select()
         .from(projectCalculatorResults)
-        .where(eq(projectCalculatorResults.id, input.drawingAnalysisId))
+        .where(eq(projectCalculatorResults.id, parseInt(input.drawingAnalysisId, 10)))
         .limit(1);
 
       if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });

@@ -58,7 +58,7 @@ function Router() {
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/documentation"} component={Documentation} />
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
-        <Route path={"/project/:projectId"} component={({ projectId }) => {
+        <Route path={"/project/:projectId"} component={({ projectId }: any) => {
           const [, setLocation] = useLocation();
           return (
             <ProjectTabView

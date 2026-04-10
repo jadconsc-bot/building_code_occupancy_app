@@ -65,6 +65,7 @@ describe('TS-11: Language Toggle (EN/FR)', () => {
 
     it('TC-11-02: Toggle hidden when province = AB', () => {
       const province = 'AB';
+      // @ts-ignore
       const shouldRender = province === 'BC';
       expect(shouldRender).toBe(false);
     });

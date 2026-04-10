@@ -71,8 +71,6 @@ export function registerAuthRoutes(app: Express) {
       // Create CodeComply JWT session token
       const sessionToken = await sdk.createSessionToken(userId, {
         name,
-        email: email ?? undefined,
-        loginMethod,
         expiresInMs: SESSION_DURATION_MS,
       });
 

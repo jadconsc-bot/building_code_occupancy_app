@@ -331,7 +331,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setAnalysisStatus(data.analysisStatus);
       setRuleEvaluations(data.ruleEvaluations as any);
       setPdIssues(data.issues as any);
-      setPdRecommendations(data.recommendations);
+      setPdRecommendations(data.recommendations as unknown as string[]);
       setComplianceScore(data.complianceScore);
       setComplianceLevel(data.complianceLevel);
       setAiResults({
@@ -339,7 +339,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         scale: null,
         measurements: [],
         rooms: [],
-        notes: data.recommendations,
+        notes: data.recommendations as unknown as string[],
       });
       setShowAiResults(true);
       if (!isMultiPageAnalysisRef.current) {
@@ -3371,7 +3371,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       analysisStatus={analysisStatus}
                       complianceScore={complianceScore}
                       complianceLevel={complianceLevel}
-                      ruleEvaluations={ruleEvaluations}
+                      ruleEvaluations={ruleEvaluations as any}
                       issues={pdIssues}
                       recommendations={pdRecommendations}
                       onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}

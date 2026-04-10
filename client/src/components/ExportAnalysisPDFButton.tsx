@@ -63,7 +63,7 @@ export function ExportAnalysisPDFButton({
       lines.push("");
       lines.push(`Analysis ID:      #${data.analysisId}`);
       lines.push(`Status:           ${data.analysisStatus} ✓`);
-      lines.push(`File:             ${data.fileName || "N/A"}`);
+      lines.push(`File:             ${fileName || "N/A"}`);
       lines.push(`Analysis Type:    ${data.analysisType || "comprehensive"}`);
       lines.push(`Created:          ${data.createdAt ? new Date(data.createdAt).toLocaleString() : "N/A"}`);
       lines.push(`Validated:        ${data.validatedAt ? new Date(data.validatedAt).toLocaleString() : "N/A"}`);
@@ -150,7 +150,7 @@ export function ExportAnalysisPDFButton({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const safeName = (data.fileName || `analysis-${analysisId}`)
+      const safeName = (fileName || `analysis-${analysisId}`)
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-zA-Z0-9-_]/g, "_");
       a.download = `compliance-report-${safeName}-${analysisId}.txt`;
