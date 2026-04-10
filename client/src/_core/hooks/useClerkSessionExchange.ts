@@ -2,6 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { trpc } from '@/lib/trpc';
 
+// Module-level signal — shared across hook instances
+let sessionReady = false;
+export const isSessionReady = () => sessionReady;
+export const resetSessionReady = () => { sessionReady = false; };
+
 export function useClerkSessionExchange() {
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth();
   const utils = trpc.useUtils();
@@ -10,6 +15,7 @@ export function useClerkSessionExchange() {
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn) {
       hasExchanged.current = false;
+      sessionReady = false;
       return;
     }
 
@@ -36,6 +42,7 @@ export function useClerkSessionExchange() {
         }
 
         console.log('[Auth] Session created successfully');
+        sessionReady = true;
         hasExchanged.current = true;
         await utils.auth.me.refetch();
       } catch (error) {
