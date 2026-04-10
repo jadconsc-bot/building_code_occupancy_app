@@ -45,13 +45,28 @@ export function registerAuthRoutes(app: Express) {
       const loginMethod = clerkUser.externalAccounts[0]?.provider ?? 'email';
 
       // Upsert user in database
-      await db.upsertUser({
-        openId: userId,
-        name: name || null,
-        email,
-        loginMethod,
-        lastSignedIn: new Date(),
-      });
+      try {
+        await db.upsertUser({
+          openId: userId,
+          name: name || null,
+          email,
+          loginMethod,
+          lastSignedIn: new Date(),
+        });
+        console.log('[Auth] User upserted successfully:', userId);
+      } catch (error) {
+        console.error('[Auth] upsertUser failed:', error);
+        return res.status(500).json({ error: 'Failed to create user session' });
+      }
+
+      // Verify user was actually created
+      const user = await db.getUserByOpenId(userId);
+      if (!user) {
+        console.error('[Auth] User not found after upsert:', userId);
+        return res.status(500).json({ error: 'User creation failed' });
+      }
+
+      console.log('[Auth] User verified in DB:', user.id, user.openId);
 
       // Create CodeComply JWT session token
       const sessionToken = await sdk.createSessionToken(userId, {
