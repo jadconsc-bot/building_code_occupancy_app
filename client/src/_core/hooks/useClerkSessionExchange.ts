@@ -13,7 +13,9 @@ export function useClerkSessionExchange() {
   const hasExchanged = useRef(false);
 
   useEffect(() => {
-    if (!clerkLoaded || !isSignedIn) {
+    if (!clerkLoaded) return; // still loading Clerk
+
+    if (!isSignedIn) {
       hasExchanged.current = false;
       sessionReady = false;
       return;

@@ -49,9 +49,9 @@ export function useAuth(options?: UseAuthOptions) {
     const user = meQuery.data ?? null;
     const loading =
       !clerkLoaded ||
+      logoutMutation.isPending ||
       !!(clerkUser && !isSessionReady()) ||
-      !!(clerkUser && isSessionReady() && meQuery.isLoading) ||
-      logoutMutation.isPending;
+      !!(clerkUser && isSessionReady() && meQuery.isLoading);
     const error = meQuery.error ?? logoutMutation.error ?? null;
     const isAuthenticated = Boolean(clerkUser && user);
     return { user, loading, error, isAuthenticated };
