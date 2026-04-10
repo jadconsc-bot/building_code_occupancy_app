@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -434,28 +436,49 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const availableZones: ZoneRegulation[] = municipalityData?.zones || [];
 
   // Handle file upload
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setDrawingImage(result);
-      setIsLoading(false);
+    try {
+      if (file.type === 'application/pdf') {
+        // Convert first PDF page to image using pdfjs-dist
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d')!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const imageDataUrl = canvas.toDataURL('image/png');
+        setDrawingImage(imageDataUrl);
+      } else {
+        // Existing image handling
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setDrawingImage(e.target?.result as string);
+        };
+        reader.onerror = () => {
+          toast.error("Error loading file. Please try again.");
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset shared state
       setAnnotations([]);
       setAiResults(null);
       setZoom(1);
       setPan({ x: 0, y: 0 });
-    };
-    reader.onerror = () => {
+    } catch (error) {
+      console.error('[Drawing] File upload error:', error);
+      toast.error('Failed to load file. Please try again.');
+    } finally {
       setIsLoading(false);
-      toast.error("Error loading file. Please try again.");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Handle camera capture
