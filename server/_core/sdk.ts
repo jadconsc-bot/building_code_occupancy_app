@@ -149,11 +149,15 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    // Update last signed in time
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // Update last signed in time - non-critical, don't fail auth if this errors
+    try {
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      });
+    } catch (error) {
+      console.warn('[Auth] Failed to update lastSignedIn, continuing:', error);
+    }
 
     return user;
   }

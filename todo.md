@@ -3818,3 +3818,6 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 ## BUG-FIX-AUTH-008 (Current Session - Welcome Back)
 - [x] Add ref guard to useClerkSessionExchange to prevent polling loop
 - [x] Remove debug log from sdk.ts authenticateRequest
+
+## BUG-FIX-AUTH-009 (Current Session)
+- [x] Wrap upsertUser in try/catch in authenticateRequest to prevent auth failures
