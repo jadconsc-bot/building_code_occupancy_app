@@ -2,7 +2,6 @@ import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 import { useUser } from "@clerk/clerk-react";
-import { isSessionReady } from './useClerkSessionExchange';
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -19,7 +18,7 @@ export function useAuth(options?: UseAuthOptions) {
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: clerkLoaded && !!clerkUser && isSessionReady(),
+    enabled: clerkLoaded && !!clerkUser,
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -49,8 +48,7 @@ export function useAuth(options?: UseAuthOptions) {
     const user = meQuery.data ?? null;
     const loading =
       !clerkLoaded ||
-      !!(clerkUser && !isSessionReady()) ||
-      !!(clerkUser && isSessionReady() && meQuery.isLoading) ||
+      !!(clerkUser && meQuery.isLoading) ||
       logoutMutation.isPending;
     const error = meQuery.error ?? logoutMutation.error ?? null;
     const isAuthenticated = Boolean(clerkUser && user);
