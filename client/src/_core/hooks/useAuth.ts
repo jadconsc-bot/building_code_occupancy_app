@@ -56,7 +56,7 @@ export function useAuth(options?: UseAuthOptions) {
     const user = meQuery.data ?? null;
     const loading =
       !clerkLoaded ||
-      !!(clerkUser && meQuery.isLoading) ||
+      !!(clerkUser && meQuery.isFetching) ||
       logoutMutation.isPending;
     const error = isUnauthorized
       ? null
@@ -67,7 +67,7 @@ export function useAuth(options?: UseAuthOptions) {
     clerkLoaded,
     clerkUser,
     meQuery.data,
-    meQuery.isLoading,
+    meQuery.isFetching,
     meQuery.error,
     logoutMutation.isPending,
     logoutMutation.error,
@@ -76,7 +76,7 @@ export function useAuth(options?: UseAuthOptions) {
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (!clerkLoaded) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if (meQuery.isFetching || logoutMutation.isPending) return;
     if (state.isAuthenticated) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
@@ -84,7 +84,7 @@ export function useAuth(options?: UseAuthOptions) {
     redirectOnUnauthenticated,
     redirectPath,
     clerkLoaded,
-    meQuery.isLoading,
+    meQuery.isFetching,
     logoutMutation.isPending,
     state.isAuthenticated,
   ]);
