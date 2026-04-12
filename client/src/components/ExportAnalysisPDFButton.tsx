@@ -131,7 +131,7 @@ export function ExportAnalysisPDFButton({
       // ── Analysis Summary ──────────────────────────────────────────────────
       addSectionHeader("Analysis Summary");
       addKeyValue("Analysis ID", `#${data.analysisId}`);
-      addKeyValue("File", data.fileName || "N/A");
+      addKeyValue("File", fileName || "N/A");
       addKeyValue("Analysis Type", data.analysisType || "comprehensive");
       addKeyValue("Created", data.createdAt ? new Date(data.createdAt).toLocaleString() : "N/A");
       addKeyValue("Validated", data.validatedAt ? new Date(data.validatedAt).toLocaleString() : "N/A");
@@ -255,7 +255,7 @@ export function ExportAnalysisPDFButton({
       }
 
       // Save
-      const safeName = (data.fileName || `analysis-${analysisId}`)
+      const safeName = (fileName || `analysis-${analysisId}`)
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-zA-Z0-9-_]/g, "_");
       doc.save(`compliance-report-${safeName}-${analysisId}.pdf`);

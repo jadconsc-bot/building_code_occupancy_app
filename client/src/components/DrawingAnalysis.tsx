@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,7 @@ import {
   Circle
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { DisclaimerGate } from "@/components/DisclaimerGate";
 import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
@@ -128,11 +131,22 @@ interface DrawingProject {
   updatedAt: Date;
 }
 
-export function DrawingAnalysis() {
+interface DrawingAnalysisProps {
+  projectId?: number;
+}
+
+export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Multi-page PDF state
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+  const [currentPreviewPage, setCurrentPreviewPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [analyzeProgress, setAnalyzeProgress] = useState<string>("");
   
   // State for canvas interaction
   const [zoom, setZoom] = useState(1);
@@ -266,6 +280,7 @@ export function DrawingAnalysis() {
   const lastTouchPointRef = useRef<Point | null>(null); // For immediate drawing on mobile
   const currentStrokeRef = useRef<DrawingStroke | null>(null); // Ref for current stroke to avoid re-renders during drawing
   const isDrawingRef = useRef(false); // Track drawing state without re-renders
+  const isMultiPageAnalysisRef = useRef(false); // Prevent premature setIsAnalyzing(false) during multi-page analysis
   
   // Auth state (PD2.0 §6.1 — authentication required)
   const { isAuthenticated } = useAuth();
@@ -301,17 +316,33 @@ export function DrawingAnalysis() {
   const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
+  const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
+  
+  // Drawing Analysis Persistence (Phase 2)
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [drawingAnalysisHistory, setDrawingAnalysisHistory] = useState<any[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  
+  // tRPC mutations for persistence
+  const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
+  const getDrawingAnalysesQuery = trpc.getDrawingAnalyses.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
+  const exportToComplianceMutation = trpc.exportFindingsToCompliance.useMutation();
 
   // New PD2.0-compliant mutation
+  // tRPC utils for query invalidation (Phase 2)
+  const utils = trpc.useUtils();
+
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAnalysisId(data.analysisId);
       setAnalysisStatus(data.analysisStatus);
       setRuleEvaluations(data.ruleEvaluations as any);
       setPdIssues(data.issues as any);
-      setPdRecommendations(data.recommendations);
+      setPdRecommendations(data.recommendations as unknown as string[]);
       setComplianceScore(data.complianceScore);
       setComplianceLevel(data.complianceLevel);
       setAiResults({
@@ -319,15 +350,50 @@ export function DrawingAnalysis() {
         scale: null,
         measurements: [],
         rooms: [],
-        notes: data.recommendations,
+        notes: data.recommendations as unknown as string[],
       });
       setShowAiResults(true);
-      setIsAnalyzing(false);
+      if (!isMultiPageAnalysisRef.current) {
+        setIsAnalyzing(false);
+      }
+
+      // Auto-save if projectId provided (Phase 2)
+      if (!isMultiPageAnalysisRef.current && projectId && drawingImage && fileName) {
+        try {
+          const infractions = data.issues.map((issue: any, idx: number) => ({
+            id: issue.id || `infraction-${idx}`,
+            severity: (issue.severity === "critical" ? "critical" : issue.severity === "warning" ? "warning" : "info") as "critical" | "warning" | "info",
+            code: issue.clause || issue.category || "NBC",
+            title: issue.category || issue.description.slice(0, 50),
+            description: issue.description,
+            location: issue.location || "See drawing",
+            recommendation: issue.recommendation || "",
+            x: issue.x || 50,
+            y: issue.y || 50,
+          }));
+          
+          const result = await saveDrawingAnalysisMutation.mutateAsync({
+            projectId,
+            fileName,
+            imageUrl: drawingImage,
+            occupancyType: "Residential",
+            infractions,
+            drawingType: data.extractedData.drawingType,
+            scale: null,
+          });
+          
+          setSavedAnalysisId(result.id);
+        } catch (error) {
+          console.error("Failed to auto-save analysis:", error);
+        }
+      }
     },
     onError: (error) => {
       console.error("PD2.0 analysis error:", error);
-      alert("Analysis failed: " + error.message);
-      setIsAnalyzing(false);
+      toast.error("Analysis failed: " + error.message);
+      if (!isMultiPageAnalysisRef.current) {
+        setIsAnalyzing(false);
+      }
     },
   });
 
@@ -344,44 +410,113 @@ export function DrawingAnalysis() {
         });
         setShowAiResults(true);
       } else {
-        alert(data.error || "Failed to analyze drawing");
+        toast.error(data.error || "Failed to analyze drawing");
       }
       setIsAnalyzing(false);
     },
     onError: (error) => {
       console.error("AI analysis error:", error);
-      alert("Failed to analyze drawing. Please try again.");
+      toast.error("Failed to analyze drawing. Please try again.");
       setIsAnalyzing(false);
     },
   });
+
+  // Handle export to compliance (Phase 2)
+  const handleExportToCompliance = async () => {
+    if (!projectId || !savedAnalysisId) {
+      toast.error("Please complete an analysis first");
+      return;
+    }
+    
+    try {
+      const result = await exportToComplianceMutation.mutateAsync({
+        projectId,
+        drawingAnalysisId: savedAnalysisId,
+        rulesetId: "nbc_2023_v1",
+      });
+      
+      // Show success notification
+      toast.success(`Findings exported to compliance report. Status: ${result.complianceStatus}`);
+      
+      // Invalidate queries to refresh ProjectTabView
+      await utils.compliance.getProjectSnapshots.invalidate({ projectId });
+      await utils.projects.get.invalidate({ id: projectId });
+    } catch (error) {
+      console.error("Failed to export findings:", error);
+      toast.error("Failed to export findings. Please try again.");
+    }
+  };
+  
+  // Update history when query data changes (Phase 2)
+  useEffect(() => {
+    if (getDrawingAnalysesQuery.data) {
+      setDrawingAnalysisHistory(getDrawingAnalysesQuery.data);
+    }
+  }, [getDrawingAnalysesQuery.data]);
 
   // Get zones for selected municipality
   const municipalityData = municipalities.find(m => m.id === selectedMunicipalityId);
   const availableZones: ZoneRegulation[] = municipalityData?.zones || [];
 
   // Handle file upload
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setDrawingImage(result);
-      setIsLoading(false);
+    // Reset PDF state on new upload
+    setPdfPages([]);
+    setSelectedPages([]);
+    setTotalPages(0);
+    setCurrentPreviewPage(1);
+
+    try {
+      if (file.type === 'application/pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pageCount = Math.min(pdf.numPages, 20);
+        setTotalPages(pdf.numPages);
+
+        const pages: string[] = [];
+        for (let i = 1; i <= pageCount; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d')!;
+          await page.render({ canvasContext: ctx, viewport } as any).promise;
+          pages.push(canvas.toDataURL('image/png'));
+        }
+
+        setPdfPages(pages);
+        setSelectedPages([1]);
+        setDrawingImage(pages[0]);
+        setCurrentPreviewPage(1);
+      } else {
+        // Existing image handling
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setDrawingImage(e.target?.result as string);
+        };
+        reader.onerror = () => {
+          toast.error("Error loading file. Please try again.");
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset shared state
       setAnnotations([]);
       setAiResults(null);
       setZoom(1);
       setPan({ x: 0, y: 0 });
-    };
-    reader.onerror = () => {
+    } catch (error) {
+      console.error('[Drawing] File upload error:', error);
+      toast.error('Failed to load file. Please try again.');
+    } finally {
       setIsLoading(false);
-      alert("Error loading file. Please try again.");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Handle camera capture
@@ -404,77 +539,124 @@ export function DrawingAnalysis() {
     };
     reader.onerror = () => {
       setIsLoading(false);
-      alert("Error capturing photo. Please try again.");
+      toast.error("Error capturing photo. Please try again.");
     };
     reader.readAsDataURL(file);
   };
 
+  // Compose the image to analyze (merges drawing strokes onto the base image)
+  const buildImageToAnalyze = (baseImage: string): string => {
+    if (drawingStrokes.length === 0) return baseImage;
+    const canvas = canvasRef.current;
+    if (!canvas) return baseImage;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx || !imageRef.current) return baseImage;
+    tempCtx.drawImage(imageRef.current, 0, 0, imageRef.current.width, imageRef.current.height);
+    drawingStrokes.forEach((stroke) => {
+      tempCtx.strokeStyle = stroke.color;
+      tempCtx.lineWidth = stroke.width;
+      tempCtx.lineCap = "round";
+      tempCtx.lineJoin = "round";
+      if (stroke.type === "freehand" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        tempCtx.stroke();
+      } else if (stroke.type === "line" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
+        tempCtx.stroke();
+      } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+        const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
+        const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
+        const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
+        const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
+        tempCtx.strokeRect(rectX, rectY, rectW, rectH);
+      } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        if (stroke.points.length > 2) tempCtx.closePath();
+        tempCtx.stroke();
+      }
+    });
+    return tempCanvas.toDataURL('image/png');
+  };
+
   // Run AI analysis on the drawing (PD2.0 §4.1 — two-stage pipeline)
-  const runAiAnalysis = () => {
+  const runAiAnalysis = async () => {
     if (!drawingImage) return;
     if (!disclaimerAcknowledged) {
-      alert("You must acknowledge the disclaimer before running analysis.");
+      toast.error("You must acknowledge the disclaimer before running analysis.");
       return;
     }
-    
+
     setIsAnalyzing(true);
-    
-    // If there are drawing strokes, render them onto the image for analysis
-    let imageToAnalyze = drawingImage;
-    if (drawingStrokes.length > 0) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        // Create a temporary canvas to combine image and drawings
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        if (tempCtx && imageRef.current) {
-          // Draw the base image
-          tempCtx.drawImage(imageRef.current, 0, 0, imageRef.current.width, imageRef.current.height);
-          
-          // Draw all strokes onto the temp canvas
-          drawingStrokes.forEach((stroke) => {
-            tempCtx.strokeStyle = stroke.color;
-            tempCtx.lineWidth = stroke.width;
-            tempCtx.lineCap = "round";
-            tempCtx.lineJoin = "round";
-            
-            if (stroke.type === "freehand" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              for (let i = 1; i < stroke.points.length; i++) {
-                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-              }
-              tempCtx.stroke();
-            } else if (stroke.type === "line" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
-              tempCtx.stroke();
-            } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
-              const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
-              const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
-              const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
-              const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
-              tempCtx.strokeRect(rectX, rectY, rectW, rectH);
-            } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              for (let i = 1; i < stroke.points.length; i++) {
-                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-              }
-              if (stroke.points.length > 2) tempCtx.closePath();
-              tempCtx.stroke();
-            }
+
+    // Multi-page PDF path
+    if (pdfPages.length > 0 && selectedPages.length > 0) {
+      isMultiPageAnalysisRef.current = true;
+      const allNotes: string[] = [];
+      let lastData: any = null;
+
+      for (let i = 0; i < selectedPages.length; i++) {
+        const pageNum = selectedPages[i];
+        setAnalyzeProgress(`Analyzing page ${pageNum} of ${selectedPages.length}...`);
+        const pageImg = pdfPages[pageNum - 1];
+        const base64Data = pageImg.replace(/^data:[^;]+;base64,/, "");
+        try {
+          const data = await pdAnalyzeMutation.mutateAsync({
+            projectId: selectedProjectId > 0 ? selectedProjectId : 1,
+            imageBase64: base64Data,
+            mimeType: "image/png",
+            fileName: `${fileName || "drawing"}_page${pageNum}.png`,
+            analysisType,
+            disclaimerAcknowledged: true,
+            disclaimerVersion,
           });
-          
-          imageToAnalyze = tempCanvas.toDataURL('image/png');
+          allNotes.push(`--- Page ${pageNum} ---`);
+          allNotes.push(...((data.recommendations as unknown as string[]) || []));
+          lastData = data;
+        } catch (error) {
+          toast.error(`Failed to analyze page ${pageNum}`);
         }
       }
+
+      isMultiPageAnalysisRef.current = false;
+
+      if (lastData) {
+        setAnalysisId(lastData.analysisId);
+        setAnalysisStatus(lastData.analysisStatus);
+        setRuleEvaluations(lastData.ruleEvaluations as any);
+        setPdIssues(lastData.issues as any);
+        setPdRecommendations(allNotes);
+        setComplianceScore(lastData.complianceScore);
+        setComplianceLevel(lastData.complianceLevel);
+        setAiResults({
+          drawingType: lastData.extractedData.drawingType,
+          scale: null,
+          measurements: [],
+          rooms: [],
+          notes: allNotes,
+        });
+        setShowAiResults(true);
+      }
+
+      setAnalyzeProgress("");
+      setIsAnalyzing(false);
+      return;
     }
-    
-    // PD2.0 §4.1: Use the new two-stage pipeline
+
+    // Single image path (PD2.0 §4.1 — two-stage pipeline)
+    const imageToAnalyze = buildImageToAnalyze(drawingImage);
     const base64Data = imageToAnalyze.replace(/^data:[^;]+;base64,/, "");
     const mimeMatch = imageToAnalyze.match(/^data:([^;]+);/);
     const mimeType = (mimeMatch?.[1] ?? "image/png") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
@@ -1946,7 +2128,7 @@ export function DrawingAnalysis() {
   // Run compliance check
   const runComplianceCheck = () => {
     if (!selectedZone) {
-      alert("Please select a zone to check compliance against.");
+      toast.error("Please select a zone to check compliance against.");
       return;
     }
 
@@ -2680,16 +2862,16 @@ export function DrawingAnalysis() {
                     variant="default"
                     size="sm"
                     onClick={runAiAnalysis}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || (pdfPages.length > 0 && selectedPages.length === 0)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    title="AI Analyze Drawing"
+                    title={pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
                   >
                     {isAnalyzing ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                     ) : (
                       <Sparkles className="w-4 h-4 mr-1" />
                     )}
-                    {isAnalyzing ? "Analyzing..." : "AI Analyze"}
+                    {isAnalyzing ? (analyzeProgress || "Analyzing...") : "AI Analyze"}
                   </Button>
                 </div>
 
@@ -2715,6 +2897,10 @@ export function DrawingAnalysis() {
                       setDrawingHistory([[]]);
                       setHistoryIndex(0);
                       setIsDrawMode(false);
+                      setPdfPages([]);
+                      setSelectedPages([]);
+                      setTotalPages(0);
+                      setCurrentPreviewPage(1);
                     }}
                   >
                     <RotateCcw className="w-4 h-4 mr-1" />
@@ -2847,6 +3033,71 @@ export function DrawingAnalysis() {
                   <span>{selectedScale.label}</span>
                   <span className="text-muted-foreground">•</span>
                   <span className="text-muted-foreground">{selectedScale.drawingType}</span>
+                </div>
+              )}
+
+              {/* PDF page thumbnail selector */}
+              {pdfPages.length > 0 && (
+                <div className="mt-2 p-3 border border-border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">
+                      Pages ({pdfPages.length}{totalPages > 20 ? ` of ${totalPages} — first 20 shown` : ''})
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedPages(pdfPages.map((_, i) => i + 1))}
+                        className="text-xs text-primary underline"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        onClick={() => setSelectedPages([])}
+                        className="text-xs text-muted-foreground underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {pdfPages.map((pageImg, idx) => {
+                      const pageNum = idx + 1;
+                      const isSelected = selectedPages.includes(pageNum);
+                      const isCurrent = currentPreviewPage === pageNum;
+                      return (
+                        <div
+                          key={idx}
+                          className={`relative flex-shrink-0 cursor-pointer border-2 rounded ${isCurrent ? 'border-primary' : 'border-transparent'}`}
+                          style={{ width: 80 }}
+                          onClick={() => {
+                            setDrawingImage(pageImg);
+                            setCurrentPreviewPage(pageNum);
+                          }}
+                        >
+                          <img src={pageImg} className="w-full rounded" alt={`Page ${pageNum}`} />
+                          <div className="absolute top-1 left-1">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedPages(prev =>
+                                  isSelected
+                                    ? prev.filter(p => p !== pageNum)
+                                    : [...prev, pageNum].sort((a, b) => a - b)
+                                );
+                              }}
+                            />
+                          </div>
+                          <div className="text-center text-xs mt-1 text-muted-foreground">p.{pageNum}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedPages.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedPages.length} page{selectedPages.length > 1 ? 's' : ''} selected for analysis: {selectedPages.join(', ')}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -2987,6 +3238,50 @@ export function DrawingAnalysis() {
                     </CardContent>
                   </Card>
 
+                  {/* Drawing Analysis History Panel (Phase 2) */}
+                  {projectId && drawingAnalysisHistory.length > 0 && (
+                    <Card className="border-blue-200 dark:border-blue-800">
+                      <CardHeader className="py-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 cursor-pointer" onClick={() => setShowHistoryPanel(!showHistoryPanel)}>
+                        <CardTitle className="text-sm flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-600" />
+                            Analysis History ({drawingAnalysisHistory.length})
+                          </span>
+                          <span className="text-xs text-muted-foreground">{showHistoryPanel ? "▼" : "▶"}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      {showHistoryPanel && (
+                        <CardContent className="pt-3">
+                          <ScrollArea className="h-48">
+                            <div className="space-y-2">
+                              {drawingAnalysisHistory.map((analysis: any) => {
+                                const resultData = analysis.resultData || {};
+                                const criticalCount = resultData.criticalCount || 0;
+                                const warningCount = resultData.warningCount || 0;
+                                const infoCount = resultData.infoCount || 0;
+                                return (
+                                  <div key={analysis.id} className="p-2 border border-border rounded hover:bg-muted cursor-pointer transition-colors">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium truncate">{analysis.inputData?.fileName || "Unknown"}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(analysis.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount} critical</Badge>}
+                                        {warningCount > 0 && <Badge variant="secondary" className="text-xs">{warningCount} warnings</Badge>}
+                                        {infoCount > 0 && <Badge variant="outline" className="text-xs">{infoCount} info</Badge>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </CardContent>
+                      )}
+                    </Card>
+                  )}
+
                   {/* AI Analysis Results */}
                   {showAiResults && aiResults && (
                     <Card className="border-purple-200 dark:border-purple-800">
@@ -3087,11 +3382,42 @@ export function DrawingAnalysis() {
                       analysisStatus={analysisStatus}
                       complianceScore={complianceScore}
                       complianceLevel={complianceLevel}
-                      ruleEvaluations={ruleEvaluations}
+                      ruleEvaluations={ruleEvaluations as any}
                       issues={pdIssues}
                       recommendations={pdRecommendations}
                       onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
                     />
+                  )}
+                  
+                  {/* Export to Compliance Report Button (Phase 2) */}
+                  {projectId && savedAnalysisId && analysisStatus === "VALID" && (
+                    <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Export to Compliance Report</p>
+                            <p className="text-xs text-muted-foreground mt-1">Save findings to project compliance snapshots</p>
+                          </div>
+                          <Button 
+                            onClick={handleExportToCompliance}
+                            disabled={exportToComplianceMutation.isPending}
+                            className="gap-2"
+                          >
+                            {exportToComplianceMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Exporting...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4" />
+                                Export Report
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                   {/* Compliance results */}
                   {showCompliancePanel && complianceResults.length > 0 && (

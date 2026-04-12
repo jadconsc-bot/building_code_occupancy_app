@@ -11,7 +11,9 @@ import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
+import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
 import Home from "./pages/Home";
+import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
@@ -28,15 +30,18 @@ import Documentation from "./pages/Documentation";
 import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
 import Settings from "./pages/Settings";
 import { NavigationHeader } from "./components/NavigationHeader";
+import { ProjectTabView } from "./components/ProjectTabView";
+import { useLocation } from "wouter";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
+  // ProjectTabView route added for individual project detail views
   return (
     <>
       <NavigationHeader />
       <Switch>
         <Route path={"/"} component={Dashboard} />
-        <Route path={"/occupancy-classifier"} component={Home} />
+        <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
         <Route path={"/compliance"} component={Compliance} />
@@ -52,6 +57,16 @@ function Router() {
         <Route path={"/documentation"} component={Documentation} />
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
         <Route path={"/settings"} component={Settings} />
+        <Route path={"/project/:projectId"} component={({ projectId }: any) => {
+          const [, setLocation] = useLocation();
+          return (
+            <ProjectTabView
+              projectId={projectId}
+              onNavigate={(route, params) => setLocation(route)}
+              onBack={() => setLocation('/projects')}
+            />
+          );
+        }} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />
@@ -66,6 +81,11 @@ function Router() {
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
+  // AUTH-MIGRATE-001 / BUG-FIX-AUTH-011: Run session exchange before AuthHydrationProvider
+  // gates the tree. This breaks the circular dependency: exchange no longer needs to wait
+  // for isHydrated=true, so auth.me can fire with a valid cookie on the first attempt.
+  useClerkSessionExchange();
+
   return (
     <ErrorBoundary>
       <AuthHydrationProvider>

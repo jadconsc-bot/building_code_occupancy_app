@@ -10,10 +10,9 @@
  * text changes (CURRENT_DISCLAIMER_VERSION bump on server).
  */
 
-import { useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Shield } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { AlertTriangle, CheckCircle2, FileText, Shield, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
@@ -25,6 +24,8 @@ interface DisclaimerGateProps {
 export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
   const [checked, setChecked] = useState(false);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: disclaimerData, isLoading } = trpc.drawingAnalysis.getDisclaimer.useQuery();
 
@@ -34,14 +35,32 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
     },
   });
 
+  // Auto-detect when content doesn't need scrolling
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (el.scrollHeight <= el.clientHeight) {
+      setScrolledToBottom(true);
+    }
+  }, [disclaimerData]);
+
+  // Improved scroll detection with better threshold
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
-    if (atBottom) setScrolledToBottom(true);
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 0) {
+      setScrolledToBottom(true);
+      return;
+    }
+    const progress = (scrollTop / maxScroll) * 100;
+    setScrollProgress(progress);
+    const atBottom = progress >= 95 || scrollHeight - (scrollTop + clientHeight) < 10;
+    setScrolledToBottom(atBottom);
   };
 
-  const handleAcknowledge = () => {
-    if (!disclaimerData || !checked) return;
+  const handleAcknowledge = async () => {
+    console.log('[Disclaimer] Acknowledge clicked:', { disclaimerData: !!disclaimerData, checked, scrolledToBottom });
+    if (!disclaimerData || !checked || !scrolledToBottom) return;
     acknowledgeMutation.mutate({ disclaimerVersion: disclaimerData.version });
   };
 
@@ -70,37 +89,54 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
         </div>
       </div>
 
-      {/* Disclaimer Text */}
-      <div className="border border-border rounded-lg overflow-hidden">
+      {/* Disclaimer Text Container */}
+      <div className="border border-border rounded-lg overflow-hidden bg-background">
+        {/* Header with scroll indicator */}
         <div className="flex items-center gap-2 px-4 py-3 bg-muted border-b border-border">
           <FileText className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium">
             Disclaimer v{disclaimerData?.version}
           </span>
-          {!scrolledToBottom && (
-            <span className="ml-auto text-xs text-muted-foreground animate-pulse">
-              ↓ Scroll to read all
-            </span>
-          )}
-          {scrolledToBottom && (
-            <span className="ml-auto text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Read
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {!scrolledToBottom && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(scrollProgress)}%
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
+              </div>
+            )}
+            {scrolledToBottom && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Read
+              </span>
+            )}
+          </div>
         </div>
-        <ScrollArea
-          className="h-64 p-4"
-          onScrollCapture={handleScroll}
+
+        {/* Scrollable disclaimer text */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="h-64 overflow-y-auto p-4 bg-background"
         >
           <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
             {disclaimerData?.text}
           </pre>
-        </ScrollArea>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1 bg-muted">
+          <div
+            className="h-full bg-blue-500 transition-all duration-200"
+            style={{ width: `${scrollProgress}%` }}
+          />
+        </div>
       </div>
 
       {/* Acknowledgment Checkbox */}
       <div className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
-        checked
+        checked && scrolledToBottom
           ? "border-green-500 bg-green-50 dark:bg-green-950/30"
           : "border-border bg-background"
       }`}>
@@ -114,7 +150,7 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
         <Label
           htmlFor="disclaimer-ack"
           className={`text-sm leading-relaxed cursor-pointer ${
-            !scrolledToBottom ? "text-muted-foreground" : "text-foreground"
+            !scrolledToBottom ? "text-muted-foreground cursor-not-allowed" : "text-foreground"
           }`}
         >
           I have read and understood the full disclaimer. I acknowledge that this tool is for
@@ -124,9 +160,12 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
       </div>
 
       {!scrolledToBottom && (
-        <p className="text-xs text-muted-foreground text-center">
-          Please scroll through the entire disclaimer before acknowledging.
-        </p>
+        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-bounce" />
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            Please scroll through the entire disclaimer ({Math.round(scrollProgress)}% complete) before acknowledging.
+          </p>
+        </div>
       )}
 
       {/* Acknowledge Button */}
@@ -135,9 +174,13 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
         disabled={!checked || !scrolledToBottom || acknowledgeMutation.isPending}
         className="w-full"
         size="lg"
+        title={`Button disabled: checked=${checked}, scrolledToBottom=${scrolledToBottom}, isPending=${acknowledgeMutation.isPending}`}
       >
         {acknowledgeMutation.isPending ? (
-          "Recording acknowledgment..."
+          <>
+            <Shield className="w-4 h-4 mr-2 animate-spin" />
+            Recording acknowledgment...
+          </>
         ) : (
           <>
             <Shield className="w-4 h-4 mr-2" />
@@ -147,9 +190,20 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
       </Button>
 
       {acknowledgeMutation.isError && (
-        <p className="text-sm text-destructive text-center">
-          Failed to record acknowledgment. Please try again.
-        </p>
+        <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Failed to record acknowledgment. Please try again.
+          </p>
+        </div>
+      )}
+
+      {acknowledgeMutation.isSuccess && (
+        <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+          <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            Acknowledgment recorded successfully!
+          </p>
+        </div>
       )}
     </div>
   );

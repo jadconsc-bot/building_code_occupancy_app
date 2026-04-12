@@ -1,0 +1,438 @@
+{
+  "info": {
+    "_postman_id": "bc-ab-compliance-api",
+    "name": "BC/AB Building Code Compliance API",
+    "description": "Comprehensive API test collection for BC Energy Step Code and Alberta NBC compliance system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Jurisdiction Detection",
+      "item": [
+        {
+          "name": "API-JD-001: Detect Vancouver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"123 W Georgia St, Vancouver, BC\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-JD-002: Detect Calgary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"456 8 Ave SW, Calgary, AB\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-JD-003: Detect Edmonton",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"789 101 St NW, Edmonton, AB\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-JD-004: Detect Victoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"100 Douglas St, Victoria, BC\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-JD-005: Detect Kelowna",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"555 Water St, Kelowna, BC\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-JD-006: Invalid address error handling",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"XYZ 999, Nowhere, BC\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/jurisdiction.detect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "jurisdiction.detect"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Step Code Compliance",
+      "item": [
+        {
+          "name": "SC-P9-001: Vancouver Tier 3 PASS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_001\",\n  \"jurisdictionId\": \"vancouver\",\n  \"buildingType\": \"part9_single_family\",\n  \"tier\": \"3\",\n  \"modelledTedi\": 28,\n  \"modelledMeui\": 45,\n  \"airtightness\": 2.3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SC-P9-002: Vancouver Tier 3 FAIL TEDI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_002\",\n  \"jurisdictionId\": \"vancouver\",\n  \"buildingType\": \"part9_single_family\",\n  \"tier\": \"3\",\n  \"modelledTedi\": 32,\n  \"modelledMeui\": 45,\n  \"airtightness\": 2.3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SC-P9-004: Vancouver Tier 5 PASS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_003\",\n  \"jurisdictionId\": \"vancouver\",\n  \"buildingType\": \"part9_single_family\",\n  \"tier\": \"5\",\n  \"modelledTedi\": 14,\n  \"modelledMeui\": 20,\n  \"airtightness\": 0.9\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SC-P3-001: MURB Tier 3 PASS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_004\",\n  \"jurisdictionId\": \"vancouver\",\n  \"buildingType\": \"part3_murb\",\n  \"tier\": \"3\",\n  \"modelledTedi\": 33,\n  \"modelledTeui\": 125\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.check"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Step Code Tiers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.getTiers?climateZone=4&buildingType=part9_single_family",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.getTiers"],
+              "query": [
+                {
+                  "key": "climateZone",
+                  "value": "4"
+                },
+                {
+                  "key": "buildingType",
+                  "value": "part9_single_family"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Analyses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trpc/stepCode.getAnalyses?projectId=proj_001",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "stepCode.getAnalyses"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "proj_001"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Climate-Dependent Rules",
+      "item": [
+        {
+          "name": "CD-001: Calgary Zone 7 Insulation FAIL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_005\",\n  \"jurisdictionId\": \"calgary\",\n  \"rule\": \"NBC_9_36_2\",\n  \"wallRValue\": 20\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/compliance.evaluateRule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "compliance.evaluateRule"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CD-002: Calgary Zone 7 Insulation PASS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_006\",\n  \"jurisdictionId\": \"calgary\",\n  \"rule\": \"NBC_9_36_2\",\n  \"wallRValue\": 24\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/compliance.evaluateRule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "compliance.evaluateRule"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Seismic Rules",
+      "item": [
+        {
+          "name": "SE-001: Vancouver High Seismic PASS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_007\",\n  \"jurisdictionId\": \"vancouver\",\n  \"rule\": \"NBC_9_23_13\",\n  \"buildingShape\": \"regular\",\n  \"hasIrregularities\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/compliance.evaluateRule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "compliance.evaluateRule"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SE-002: Vancouver High Seismic CONDITIONAL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"proj_008\",\n  \"jurisdictionId\": \"vancouver\",\n  \"rule\": \"NBC_9_23_13\",\n  \"buildingShape\": \"irregular\",\n  \"hasIrregularities\": true,\n  \"irregularityType\": \"soft_story\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/trpc/compliance.evaluateRule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "compliance.evaluateRule"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bilingual Support",
+      "item": [
+        {
+          "name": "Get UI Translations - Calculator",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trpc/ui.getTranslations?context=calculator&language=fr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "ui.getTranslations"],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "calculator"
+                },
+                {
+                  "key": "language",
+                  "value": "fr"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get UI Translations - Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trpc/ui.getTranslations?context=report&language=fr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "trpc", "ui.getTranslations"],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "report"
+                },
+                {
+                  "key": "language",
+                  "value": "fr"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

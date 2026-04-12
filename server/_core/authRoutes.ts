@@ -1,0 +1,93 @@
+import type { Express, Request, Response } from 'express';
+import { createClerkClient, verifyToken } from '@clerk/backend';
+import * as db from '../db';
+import { sdk } from './sdk';
+import { COOKIE_NAME, SESSION_DURATION_MS } from '@shared/const';
+import { getSessionCookieOptions } from './cookies';
+import { ENV } from './env';
+
+const clerkClient = createClerkClient({ secretKey: ENV.clerkSecretKey });
+
+/**
+ * AUTH-MIGRATE-001 Section 6.3: Register Clerk auth routes
+ * Replaces /api/oauth/callback with /api/auth/session
+ * Verifies Clerk token and issues CodeComply JWT cookie
+ *
+ * BUG-FIX-AUTH-005: Clears any stale session cookie before issuing
+ * the new Clerk-based session cookie, ensuring authenticateRequest
+ * always resolves to the correct Clerk user.
+ */
+export function registerAuthRoutes(app: Express) {
+  app.post('/api/auth/session', async (req: Request, res: Response) => {
+    const { clerkToken } = req.body;
+    
+    if (!clerkToken) {
+      return res.status(400).json({ error: 'clerkToken required' });
+    }
+
+    try {
+      // Verify Clerk token using the verifyToken function from @clerk/backend
+      const payload = await verifyToken(clerkToken, {
+        secretKey: ENV.clerkSecretKey,
+      });
+      const userId = payload.sub;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Invalid Clerk token: no user ID' });
+      }
+
+      // Get user details from Clerk
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? null;
+      const name = [clerkUser.firstName, clerkUser.lastName]
+        .filter(Boolean)
+        .join(' ');
+      const loginMethod = clerkUser.externalAccounts[0]?.provider ?? 'email';
+
+      // Upsert user in database
+      try {
+        await db.upsertUser({
+          openId: userId,
+          name: name || null,
+          email,
+          loginMethod,
+          lastSignedIn: new Date(),
+        });
+        console.log('[Auth] User upserted successfully:', userId);
+      } catch (error) {
+        console.error('[Auth] upsertUser failed:', error);
+        return res.status(500).json({ error: 'Failed to create user session' });
+      }
+
+      // Verify user was actually created
+      const user = await db.getUserByOpenId(userId);
+      if (!user) {
+        console.error('[Auth] User not found after upsert:', userId);
+        return res.status(500).json({ error: 'User creation failed' });
+      }
+
+      console.log('[Auth] User verified in DB:', user.id, user.openId);
+
+      // Create CodeComply JWT session token
+      const sessionToken = await sdk.createSessionToken(userId, {
+        name,
+        expiresInMs: SESSION_DURATION_MS,
+      });
+
+      // BUG-FIX-AUTH-005: Clear any stale session cookie before setting the new one
+      res.clearCookie(COOKIE_NAME, { path: '/' });
+
+      // Set session cookie
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: SESSION_DURATION_MS,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Auth] Session creation failed:', error);
+      res.status(401).json({ error: 'Invalid Clerk token' });
+    }
+  });
+}

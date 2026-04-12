@@ -38,11 +38,12 @@ import {
   Zap,
   FileImage,
 } from 'lucide-react';
-import { getLoginUrl } from '@/const';
+import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
 
 export function NavigationHeader() {
   const { user, logout, isAuthenticated } = useAuth();
+  const { openSignIn } = useClerk();
   const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -191,7 +192,7 @@ export function NavigationHeader() {
           ) : (
             <Button
               size="sm"
-              onClick={() => (window.location.href = getLoginUrl())}
+              onClick={() => openSignIn()}
             >
               Login
             </Button>
