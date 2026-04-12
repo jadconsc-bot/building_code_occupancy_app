@@ -18,6 +18,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, FileText } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { jsPDF } from "jspdf";
 
 interface ExportAnalysisPDFButtonProps {
   analysisId: number;
@@ -37,7 +38,7 @@ export function ExportAnalysisPDFButton({
 
   const exportQuery = trpc.drawingAnalysis.exportReport.useQuery(
     { analysisId },
-    { enabled: false } // Only fetch when user clicks
+    { enabled: false }
   );
 
   const handleExport = async () => {
@@ -51,113 +52,213 @@ export function ExportAnalysisPDFButton({
       }
 
       const data = result.data;
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+      let y = margin;
 
-      // Generate PDF content as text (plain text PDF-like report)
-      // For a production app, use jsPDF or a server-side PDF generator
-      const lines: string[] = [];
-
-      lines.push("=".repeat(80));
-      lines.push("BUILDING CODE COMPLIANCE ANALYSIS REPORT");
-      lines.push("CodeComply — PD2.0 Compliant Output");
-      lines.push("=".repeat(80));
-      lines.push("");
-      lines.push(`Analysis ID:      #${data.analysisId}`);
-      lines.push(`Status:           ${data.analysisStatus} ✓`);
-      lines.push(`File:             ${fileName || "N/A"}`);
-      lines.push(`Analysis Type:    ${data.analysisType || "comprehensive"}`);
-      lines.push(`Created:          ${data.createdAt ? new Date(data.createdAt).toLocaleString() : "N/A"}`);
-      lines.push(`Validated:        ${data.validatedAt ? new Date(data.validatedAt).toLocaleString() : "N/A"}`);
-      lines.push("");
-
-      lines.push("-".repeat(80));
-      lines.push("COMPLIANCE SUMMARY");
-      lines.push("-".repeat(80));
-      lines.push(`Compliance Score:  ${data.complianceScore ?? "N/A"}%`);
-      lines.push(`Compliance Level:  ${data.complianceLevel ?? "N/A"}`);
-      lines.push(`Issues Found:      ${data.issues?.length ?? 0}`);
-      lines.push(`Recommendations:   ${data.recommendations?.length ?? 0}`);
-      lines.push(`Rule Engine:       v${data.ruleEngineVersion ?? "N/A"}`);
-      lines.push(`LLM Model:         ${data.llmModelVersion ?? "N/A"}`);
-      lines.push(`Disclaimer Ver:    v${data.disclaimerVersion ?? "N/A"}`);
-      lines.push("");
-
-      if (data.professionalDetails) {
-        lines.push("-".repeat(80));
-        lines.push("PROFESSIONAL REVIEWER");
-        lines.push("-".repeat(80));
-        lines.push(`Reviewer:          ${data.reviewerName ?? "N/A"}`);
-        lines.push(`Email:             ${data.reviewerEmail ?? "N/A"}`);
-        lines.push(`License Number:    ${data.professionalDetails.licenseNumber ?? "N/A"}`);
-        lines.push(`Association:       ${data.professionalDetails.association ?? "N/A"}`);
-        lines.push(`Jurisdiction:      ${data.professionalDetails.jurisdiction ?? "N/A"}`);
-        if (data.professionalDetails.notes) {
-          lines.push(`Notes:             ${data.professionalDetails.notes}`);
+      const checkPageBreak = (needed: number) => {
+        if (y + needed > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
         }
-        lines.push("");
+      };
+
+      const addLine = (text: string, fontSize: number, bold = false, color: [number, number, number] = [0, 0, 0]) => {
+        checkPageBreak(fontSize * 0.6 + 2);
+        doc.setFontSize(fontSize);
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.setTextColor(...color);
+        const lines = doc.splitTextToSize(text, contentWidth);
+        doc.text(lines, margin, y);
+        y += lines.length * (fontSize * 0.5) + 2;
+      };
+
+      const addSectionHeader = (title: string) => {
+        checkPageBreak(20);
+        y += 4;
+        doc.setFillColor(30, 58, 138); // deep blue
+        doc.rect(margin, y - 5, contentWidth, 10, "F");
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text(title.toUpperCase(), margin + 3, y + 2);
+        doc.setTextColor(0, 0, 0);
+        y += 10;
+      };
+
+      const addKeyValue = (key: string, value: string) => {
+        checkPageBreak(8);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(80, 80, 80);
+        doc.text(key + ":", margin, y);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+        const valLines = doc.splitTextToSize(value, contentWidth - 50);
+        doc.text(valLines, margin + 50, y);
+        y += Math.max(valLines.length * 4.5, 6);
+      };
+
+      // ── Header ────────────────────────────────────────────────────────────
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, pageWidth, 30, "F");
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("BUILDING CODE COMPLIANCE REPORT", pageWidth / 2, 13, { align: "center" });
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("CodeComply — PD2.0 Compliant Output", pageWidth / 2, 22, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      y = 38;
+
+      // ── Status badge ──────────────────────────────────────────────────────
+      doc.setFillColor(22, 163, 74); // green
+      doc.roundedRect(margin, y - 4, 40, 9, 2, 2, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("✓ VALID", margin + 20, y + 1.5, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin + 45, y + 1.5);
+      y += 12;
+
+      // ── Analysis Summary ──────────────────────────────────────────────────
+      addSectionHeader("Analysis Summary");
+      addKeyValue("Analysis ID", `#${data.analysisId}`);
+      addKeyValue("File", fileName || "N/A");
+      addKeyValue("Analysis Type", data.analysisType || "comprehensive");
+      addKeyValue("Created", data.createdAt ? new Date(data.createdAt).toLocaleString() : "N/A");
+      addKeyValue("Validated", data.validatedAt ? new Date(data.validatedAt).toLocaleString() : "N/A");
+      addKeyValue("Rule Engine", `v${data.ruleEngineVersion ?? "N/A"}`);
+      addKeyValue("LLM Model", data.llmModelVersion ?? "N/A");
+      addKeyValue("Disclaimer Version", `v${data.disclaimerVersion ?? "N/A"}`);
+
+      // ── Compliance Score ──────────────────────────────────────────────────
+      addSectionHeader("Compliance Score");
+      if (data.complianceScore !== null && data.complianceScore !== undefined) {
+        const score = data.complianceScore;
+        const scoreColor: [number, number, number] = score >= 80 ? [22, 163, 74] : score >= 60 ? [202, 138, 4] : [220, 38, 38];
+        checkPageBreak(20);
+        doc.setFontSize(28);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...scoreColor);
+        doc.text(`${score}%`, margin, y + 10);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(data.complianceLevel ?? "", margin + 30, y + 10);
+        doc.setTextColor(0, 0, 0);
+        y += 18;
+      }
+      addKeyValue("Issues Found", String(data.issues?.length ?? 0));
+      addKeyValue("Recommendations", String(data.recommendations?.length ?? 0));
+
+      // ── Professional Reviewer ─────────────────────────────────────────────
+      if (data.professionalDetails) {
+        addSectionHeader("Professional Reviewer");
+        addKeyValue("Reviewer", data.reviewerName ?? "N/A");
+        addKeyValue("Email", data.reviewerEmail ?? "N/A");
+        addKeyValue("License Number", data.professionalDetails.licenseNumber ?? "N/A");
+        addKeyValue("Association", data.professionalDetails.association ?? "N/A");
+        addKeyValue("Jurisdiction", data.professionalDetails.jurisdiction ?? "N/A");
+        if (data.professionalDetails.notes) {
+          addKeyValue("Notes", data.professionalDetails.notes);
+        }
       }
 
+      // ── Compliance Issues ─────────────────────────────────────────────────
       if (data.issues && data.issues.length > 0) {
-        lines.push("-".repeat(80));
-        lines.push("COMPLIANCE ISSUES");
-        lines.push("-".repeat(80));
-        data.issues.forEach((issue: any, idx: number) => {
-          lines.push(`${idx + 1}. [${(issue.severity || "").toUpperCase()}] ${issue.clause || ""}`);
-          lines.push(`   ${issue.description || ""}`);
+        addSectionHeader("Compliance Issues");
+        (data.issues as any[]).forEach((issue, idx) => {
+          const severityColor: [number, number, number] =
+            issue.severity === "critical" ? [220, 38, 38] :
+            issue.severity === "major" ? [202, 138, 4] : [80, 80, 80];
+          checkPageBreak(18);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...severityColor);
+          doc.text(`${idx + 1}. [${(issue.severity || "").toUpperCase()}] ${issue.clause || ""}`, margin, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(0, 0, 0);
+          const descLines = doc.splitTextToSize(issue.description || "", contentWidth - 5);
+          checkPageBreak(descLines.length * 4.5);
+          doc.text(descLines, margin + 3, y);
+          y += descLines.length * 4.5;
           if (issue.recommendation) {
-            lines.push(`   Recommendation: ${issue.recommendation}`);
+            doc.setTextColor(30, 58, 138);
+            const recLines = doc.splitTextToSize(`Recommendation: ${issue.recommendation}`, contentWidth - 5);
+            checkPageBreak(recLines.length * 4.5);
+            doc.text(recLines, margin + 3, y);
+            y += recLines.length * 4.5;
           }
-          lines.push("");
+          doc.setTextColor(0, 0, 0);
+          y += 3;
         });
       }
 
+      // ── Recommendations ───────────────────────────────────────────────────
       if (data.recommendations && data.recommendations.length > 0) {
-        lines.push("-".repeat(80));
-        lines.push("RECOMMENDATIONS");
-        lines.push("-".repeat(80));
-        data.recommendations.forEach((rec: string, idx: number) => {
-          lines.push(`${idx + 1}. ${rec}`);
+        addSectionHeader("Recommendations");
+        (data.recommendations as string[]).forEach((rec, idx) => {
+          const recLines = doc.splitTextToSize(`${idx + 1}. ${rec}`, contentWidth);
+          checkPageBreak(recLines.length * 4.5 + 2);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(recLines, margin, y);
+          y += recLines.length * 4.5 + 2;
         });
-        lines.push("");
       }
 
+      // ── Audit Trail ───────────────────────────────────────────────────────
       if (data.auditTrailSummary && data.auditTrailSummary.length > 0) {
-        lines.push("-".repeat(80));
-        lines.push("AUDIT TRAIL SUMMARY");
-        lines.push("-".repeat(80));
-        data.auditTrailSummary.forEach((event: any) => {
+        addSectionHeader("Audit Trail Summary");
+        (data.auditTrailSummary as any[]).forEach((event) => {
           const ts = event.timestamp ? new Date(event.timestamp).toISOString() : "N/A";
-          lines.push(`[${ts}] ${event.action} — ${event.userEmail || "N/A"}`);
+          addLine(`[${ts}]  ${event.action}  —  ${event.userEmail || "N/A"}`, 8);
         });
-        lines.push("");
       }
 
-      lines.push("=".repeat(80));
-      lines.push("LEGAL DISCLAIMER");
-      lines.push("=".repeat(80));
-      lines.push("This report was generated by CodeComply using the PD2.0 two-stage pipeline:");
-      lines.push("Stage 1: LLM-based data extraction (informational only)");
-      lines.push("Stage 2: Deterministic rule engine evaluation");
-      lines.push("");
-      lines.push("This report has been reviewed and validated by a licensed professional.");
-      lines.push("The VALID status indicates professional review has been completed.");
-      lines.push("This report may be used for informational purposes only.");
-      lines.push("Always verify compliance with local authorities having jurisdiction (AHJ).");
-      lines.push("=".repeat(80));
+      // ── Legal Disclaimer ──────────────────────────────────────────────────
+      addSectionHeader("Legal Disclaimer");
+      const disclaimerLines = [
+        "This report was generated by CodeComply using the PD2.0 two-stage pipeline:",
+        "  Stage 1: LLM-based data extraction (informational only)",
+        "  Stage 2: Deterministic rule engine evaluation",
+        "",
+        "This report has been reviewed and validated by a licensed professional.",
+        "The VALID status indicates professional review has been completed.",
+        "This report may be used for informational purposes only.",
+        "Always verify compliance with local authorities having jurisdiction (AHJ).",
+      ];
+      disclaimerLines.forEach((line) => addLine(line, 8, false, [80, 80, 80]));
 
-      // Download as text file (in production, use jsPDF for actual PDF)
-      const content = lines.join("\n");
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
+      // ── Footer on every page ──────────────────────────────────────────────
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(160, 160, 160);
+        doc.text(
+          `CodeComply PD2.0 — Analysis #${data.analysisId} — Page ${i} of ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 8,
+          { align: "center" }
+        );
+      }
+
+      // Save
       const safeName = (fileName || `analysis-${analysisId}`)
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-zA-Z0-9-_]/g, "_");
-      a.download = `compliance-report-${safeName}-${analysisId}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      doc.save(`compliance-report-${safeName}-${analysisId}.pdf`);
     } catch (err: any) {
       setError(err.message || "Failed to generate report");
     } finally {
@@ -177,7 +278,7 @@ export function ExportAnalysisPDFButton({
         {isGenerating ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Generating Report...
+            Generating PDF...
           </>
         ) : (
           <>

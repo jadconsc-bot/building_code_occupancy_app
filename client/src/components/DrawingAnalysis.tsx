@@ -289,6 +289,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [disclaimerAcknowledged, setDisclaimerAcknowledged] = useState(false);
   const [disclaimerVersion, setDisclaimerVersion] = useState("");
 
+  // Check if user has already acknowledged the current disclaimer version (persists across sessions)
+  const { data: disclaimerStatus } = trpc.drawingAnalysis.checkDisclaimerStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  useEffect(() => {
+    if (disclaimerStatus?.hasAcknowledged) {
+      setDisclaimerAcknowledged(true);
+      setDisclaimerVersion(disclaimerStatus.version);
+    }
+  }, [disclaimerStatus]);
+
   // PD2.0 §4.3 — analysis status tracking
   const [analysisId, setAnalysisId] = useState<number | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState<"DRAFT" | "UNDER_REVIEW" | "VALID" | "REJECTED" | null>(null);

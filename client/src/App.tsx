@@ -28,14 +28,12 @@ import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
 import Documentation from "./pages/Documentation";
 import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
+import Settings from "./pages/Settings";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { useLocation } from "wouter";
 
 function Router() {
-  // AUTH-MIGRATE-001: Exchange Clerk token for CodeComply session
-  useClerkSessionExchange();
-  
   // make sure to consider if you need authentication for certain routes
   // ProjectTabView route added for individual project detail views
   return (
@@ -58,6 +56,7 @@ function Router() {
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/documentation"} component={Documentation} />
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
+        <Route path={"/settings"} component={Settings} />
         <Route path={"/project/:projectId"} component={({ projectId }: any) => {
           const [, setLocation] = useLocation();
           return (
@@ -82,12 +81,17 @@ function Router() {
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
+  // AUTH-MIGRATE-001 / BUG-FIX-AUTH-011: Run session exchange before AuthHydrationProvider
+  // gates the tree. This breaks the circular dependency: exchange no longer needs to wait
+  // for isHydrated=true, so auth.me can fire with a valid cookie on the first attempt.
+  useClerkSessionExchange();
+
   return (
     <ErrorBoundary>
       <AuthHydrationProvider>
         <ThemeProvider
           defaultTheme="light"
-          // switchable
+          switchable
         >
           <ProjectProvider>
             <ComparisonProvider>

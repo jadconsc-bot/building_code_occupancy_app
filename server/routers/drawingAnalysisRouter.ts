@@ -31,6 +31,7 @@ import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawi
 import { evaluateCompliance, RULE_ENGINE_VERSION } from "../services/drawingComplianceEngine";
 import { storagePut } from "../storage";
 import crypto from "crypto";
+import { extractIpAddress } from "../utils/extractIpAddress";
 
 /** Current disclaimer version — increment when disclaimer text changes (PD2.0 §8.1) */
 export const CURRENT_DISCLAIMER_VERSION = "2.0";
@@ -118,7 +119,7 @@ export const drawingAnalysisRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      const ipAddress = ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown";
+      const ipAddress = extractIpAddress(ctx.req);
       const userAgent = ctx.req.headers["user-agent"] ?? "unknown";
 
       // Store acknowledgment record
@@ -146,6 +147,30 @@ export const drawingAnalysisRouter = router({
       version: CURRENT_DISCLAIMER_VERSION,
       text: DISCLAIMER_TEXT,
     })),
+
+  /**
+   * Check if the current user has already acknowledged the current disclaimer version.
+   * Used to skip the disclaimer gate on subsequent visits.
+   */
+  checkDisclaimerStatus: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return { hasAcknowledged: false, version: CURRENT_DISCLAIMER_VERSION };
+
+      const [existing] = await db
+        .select()
+        .from(disclaimerAcknowledgments)
+        .where(and(
+          eq(disclaimerAcknowledgments.userId, ctx.user.id),
+          eq(disclaimerAcknowledgments.disclaimerVersion, CURRENT_DISCLAIMER_VERSION),
+        ))
+        .limit(1);
+
+      return {
+        hasAcknowledged: !!existing,
+        version: CURRENT_DISCLAIMER_VERSION,
+      };
+    }),
 
   /**
    * Analyze a drawing — the main two-stage pipeline (PD2.0 §4.1)
@@ -180,7 +205,7 @@ export const drawingAnalysisRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      const ipAddress = ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown";
+      const ipAddress = extractIpAddress(ctx.req);
       const userAgent = ctx.req.headers["user-agent"] ?? "unknown";
       const sessionId = ctx.req.headers["x-session-id"] as string | undefined;
 
@@ -450,7 +475,7 @@ export const drawingAnalysisRouter = router({
         details: { analysisStatus: analysis.analysisStatus },
         userEmail: ctx.user.email,
         userFullName: ctx.user.name ?? null,
-        ipAddress: ctx.req.ip ?? "unknown",
+        ipAddress: extractIpAddress(ctx.req),
         userAgent: ctx.req.headers["user-agent"] ?? "unknown",
       });
 
@@ -580,7 +605,7 @@ export const drawingAnalysisRouter = router({
         professionalLicenseNumber: input.licenseNumber,
         professionalAssociation: input.professionalAssociation,
         jurisdiction: input.jurisdiction,
-        ipAddress: ctx.req.ip ?? "unknown",
+        ipAddress: extractIpAddress(ctx.req),
         userAgent: ctx.req.headers["user-agent"] ?? "unknown",
       });
 
@@ -635,7 +660,7 @@ export const drawingAnalysisRouter = router({
         details: { exportFormat: "pdf", exportedAt: new Date().toISOString() },
         userEmail: ctx.user.email,
         userFullName: ctx.user.name ?? null,
-        ipAddress: ctx.req.ip ?? "unknown",
+        ipAddress: extractIpAddress(ctx.req),
         userAgent: ctx.req.headers["user-agent"] ?? "unknown",
       });
 
@@ -722,7 +747,7 @@ export const drawingAnalysisRouter = router({
         details: { rejectionReason: input.rejectionReason },
         userEmail: ctx.user.email,
         userFullName: ctx.user.name ?? null,
-        ipAddress: ctx.req.ip ?? "unknown",
+        ipAddress: extractIpAddress(ctx.req),
         userAgent: ctx.req.headers["user-agent"] ?? "unknown",
       });
 
