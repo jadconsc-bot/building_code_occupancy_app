@@ -17,7 +17,6 @@ export function useAuth(options?: UseAuthOptions) {
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
-    retryOnMount: false,
     refetchOnWindowFocus: false,
     enabled: clerkLoaded && !!clerkUser,
   });
@@ -46,21 +45,12 @@ export function useAuth(options?: UseAuthOptions) {
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    // Treat UNAUTHORIZED as "not logged in" — not a real error state.
-    // This happens on the initial auth.me fire before the session cookie
-    // is set; retry: false + retryOnMount: false ensure it stops there.
-    const isUnauthorized =
-      meQuery.error instanceof TRPCClientError &&
-      meQuery.error.data?.code === 'UNAUTHORIZED';
-
     const user = meQuery.data ?? null;
     const loading =
       !clerkLoaded ||
       !!(clerkUser && meQuery.isLoading) ||
       logoutMutation.isPending;
-    const error = isUnauthorized
-      ? null
-      : (meQuery.error ?? logoutMutation.error ?? null);
+    const error = meQuery.error ?? logoutMutation.error ?? null;
     const isAuthenticated = Boolean(clerkUser && user);
     return { user, loading, error, isAuthenticated };
   }, [
