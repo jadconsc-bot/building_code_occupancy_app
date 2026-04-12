@@ -3821,3 +3821,10 @@ The broken buttons were in the FeatureDiscoveryDashboard component. Several feat
 
 ## BUG-FIX-AUTH-009 (Current Session)
 - [x] Wrap upsertUser in try/catch in authenticateRequest to prevent auth failures
+
+## DRAWING-ANALYZER-FEEDBACK (Current Session - User Reported Issue)
+- [x] Add success toast notification when analysis completes
+- [x] Add detailed error toast when analysis fails
+- [x] Auto-scroll results panel into view when analysis completes
+- [x] Add console logging to track mutation state changes
+- [ ] Test end-to-end to verify user sees completion feedback

@@ -338,6 +338,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
     onSuccess: async (data) => {
+      console.log('[DrawingAnalysis] Analysis completed successfully:', { analysisId: data.analysisId, status: data.analysisStatus });
       setAnalysisId(data.analysisId);
       setAnalysisStatus(data.analysisStatus);
       setRuleEvaluations(data.ruleEvaluations as any);
@@ -353,10 +354,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         notes: data.recommendations as unknown as string[],
       });
       setShowAiResults(true);
+<<<<<<< Updated upstream
       if (!isMultiPageAnalysisRef.current) {
         setIsAnalyzing(false);
       }
 
+=======
+      setIsAnalyzing(false);
+      
+      // Show success notification to user
+      toast.success(`✓ Analysis complete! Compliance score: ${data.complianceScore}%`, {
+        duration: 5000,
+        description: `Status: ${data.analysisStatus}. Scroll down to see detailed results.`
+      });
+      
+      // Auto-scroll results panel into view
+      setTimeout(() => {
+        const resultsPanel = document.querySelector('[data-results-panel]');
+        if (resultsPanel) {
+          resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+      
+>>>>>>> Stashed changes
       // Auto-save if projectId provided (Phase 2)
       if (!isMultiPageAnalysisRef.current && projectId && drawingImage && fileName) {
         try {
@@ -390,10 +410,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     },
     onError: (error) => {
       console.error("PD2.0 analysis error:", error);
+<<<<<<< Updated upstream
       toast.error("Analysis failed: " + error.message);
       if (!isMultiPageAnalysisRef.current) {
         setIsAnalyzing(false);
       }
+=======
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      toast.error("Analysis failed", {
+        duration: 6000,
+        description: `Error: ${errorMsg}. Please check your drawing and try again.`
+      });
+      setIsAnalyzing(false);
+>>>>>>> Stashed changes
     },
   });
 
@@ -3284,7 +3313,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                   {/* AI Analysis Results */}
                   {showAiResults && aiResults && (
-                    <Card className="border-purple-200 dark:border-purple-800">
+                    <Card className="border-purple-200 dark:border-purple-800" data-results-panel>
                       <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
                         <CardTitle className="text-sm flex items-center justify-between">
                           <span className="flex items-center gap-2">
