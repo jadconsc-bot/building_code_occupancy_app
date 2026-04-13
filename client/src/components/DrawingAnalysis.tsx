@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +64,9 @@ import {
   calculateRealDistance,
   formatDistance 
 } from "@/lib/architecturalScales";
+
+// Worker must be assigned after all imports (ES module parse order requirement)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
 
 // Types for annotations
 interface Point {
