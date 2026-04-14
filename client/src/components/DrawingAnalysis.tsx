@@ -346,7 +346,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setAnalysisStatus(data.analysisStatus);
       setRuleEvaluations(data.ruleEvaluations as any);
       setPdIssues(data.issues as any);
-      setPdRecommendations(data.recommendations as unknown as string[]);
+      setPdRecommendations(
+        (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+          .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`)
+      );
       setComplianceScore(data.complianceScore);
       setComplianceLevel(data.complianceLevel);
       setAiResults({
@@ -354,7 +357,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         scale: null,
         measurements: [],
         rooms: [],
-        notes: data.recommendations as unknown as string[],
+        notes: (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+          .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`),
       });
       setShowAiResults(true);
       if (!isMultiPageAnalysisRef.current) {
@@ -628,7 +632,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             disclaimerVersion,
           });
           allNotes.push(`--- Page ${pageNum} ---`);
-          allNotes.push(...((data.recommendations as unknown as string[]) || []));
+          const mappedRecs = (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+            .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`);
+          allNotes.push(...mappedRecs);
           lastData = data;
         } catch (error) {
           toast.error(`Failed to analyze page ${pageNum}`);
