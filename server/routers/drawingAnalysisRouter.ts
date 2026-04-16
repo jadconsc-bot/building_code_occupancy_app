@@ -17,7 +17,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   drawingAnalyses,
@@ -142,7 +142,7 @@ export const drawingAnalysisRouter = router({
   /**
    * Get disclaimer text and current version
    */
-  getDisclaimer: protectedProcedure
+  getDisclaimer: publicProcedure
     .query(() => ({
       version: CURRENT_DISCLAIMER_VERSION,
       text: DISCLAIMER_TEXT,
@@ -157,19 +157,24 @@ export const drawingAnalysisRouter = router({
       const db = await getDb();
       if (!db) return { hasAcknowledged: false, version: CURRENT_DISCLAIMER_VERSION };
 
-      const [existing] = await db
-        .select()
-        .from(disclaimerAcknowledgments)
-        .where(and(
-          eq(disclaimerAcknowledgments.userId, ctx.user.id),
-          eq(disclaimerAcknowledgments.disclaimerVersion, CURRENT_DISCLAIMER_VERSION),
-        ))
-        .limit(1);
+      try {
+        const [existing] = await db
+          .select()
+          .from(disclaimerAcknowledgments)
+          .where(and(
+            eq(disclaimerAcknowledgments.userId, ctx.user.id),
+            eq(disclaimerAcknowledgments.disclaimerVersion, CURRENT_DISCLAIMER_VERSION),
+          ))
+          .limit(1);
 
-      return {
-        hasAcknowledged: !!existing,
-        version: CURRENT_DISCLAIMER_VERSION,
-      };
+        return {
+          hasAcknowledged: !!existing,
+          version: CURRENT_DISCLAIMER_VERSION,
+        };
+      } catch (error) {
+        console.warn('[Disclaimer] checkDisclaimerStatus failed, defaulting to unacknowledged:', error);
+        return { hasAcknowledged: false, version: CURRENT_DISCLAIMER_VERSION };
+      }
     }),
 
   /**

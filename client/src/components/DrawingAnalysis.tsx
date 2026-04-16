@@ -2375,7 +2375,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           </CardHeader>
           <CardContent>
             <DisclaimerGate
-              onAcknowledged={(_version) => setDisclaimerAcknowledged(true)}
+              onAcknowledged={(version) => {
+                setDisclaimerAcknowledged(true);
+                setDisclaimerVersion(version);
+              }}
             />
           </CardContent>
         </Card>

@@ -11,7 +11,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Shield, ChevronDown } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Shield, ChevronDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -25,9 +25,10 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
   const [checked, setChecked] = useState(false);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [formMounted, setFormMounted] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const { data: disclaimerData, isLoading } = trpc.drawingAnalysis.getDisclaimer.useQuery();
+  const { data: disclaimerData, isLoading, isError, refetch } = trpc.drawingAnalysis.getDisclaimer.useQuery();
 
   const acknowledgeMutation = trpc.drawingAnalysis.acknowledgeDisclaimer.useMutation({
     onSuccess: (data) => {
@@ -35,14 +36,22 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
     },
   });
 
+  // Set formMounted once data is loaded so the scroll container ref is available
+  useEffect(() => {
+    if (disclaimerData && !isLoading) {
+      setFormMounted(true);
+    }
+  }, [disclaimerData, isLoading]);
+
   // Auto-detect when content doesn't need scrolling
+  // Depends on formMounted so it re-fires after the scroll container renders
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     if (el.scrollHeight <= el.clientHeight) {
       setScrolledToBottom(true);
     }
-  }, [disclaimerData]);
+  }, [disclaimerData, formMounted]);
 
   // Improved scroll detection with better threshold
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -69,6 +78,18 @@ export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Shield className="w-5 h-5 mr-2 animate-pulse" />
         Loading disclaimer...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <p className="text-sm text-destructive">Failed to load disclaimer. Please try again.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Retry
+        </Button>
       </div>
     );
   }
