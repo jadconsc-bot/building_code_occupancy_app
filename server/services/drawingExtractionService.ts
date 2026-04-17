@@ -37,22 +37,22 @@ export const ExtractedStructuralDataSchema = z.object({
     dimension: z.string().describe("Observed dimension (e.g., '38x89mm', '2x4')"),
     material: z.string().optional().describe("Material if labeled"),
     location: z.string().optional().describe("Location in drawing"),
-  })).describe("Structural member sizes observed in the drawing"),
+  })).default([]).describe("Structural member sizes observed in the drawing"),
   connectionTypes: z.array(z.object({
     type: z.string().describe("Connection type observed (e.g., 'nail plate', 'bolt', 'weld')"),
     location: z.string().optional(),
     specification: z.string().optional().describe("Specification if labeled"),
-  })).describe("Connection types observed"),
-  loadPaths: z.array(z.string()).describe("Described load paths if visible"),
+  })).default([]).describe("Connection types observed"),
+  loadPaths: z.array(z.string()).default([]).describe("Described load paths if visible"),
   materials: z.array(z.object({
     material: z.string(),
     grade: z.string().optional(),
     location: z.string().optional(),
-  })).describe("Materials identified in the drawing"),
+  })).default([]).describe("Materials identified in the drawing"),
   relevantNbcClauses: z.array(z.object({
     clause: z.string().describe("NBC clause number (e.g., '9.23.3.2')"),
     reason: z.string().describe("Why this clause is relevant to what was observed"),
-  })).describe("NBC clauses relevant to the observed structural elements"),
+  })).default([]).describe("NBC clauses relevant to the observed structural elements"),
   observationNotes: z.string().optional().describe("Additional observations from the drawing"),
   drawingScale: z.string().optional().describe("Drawing scale if indicated"),
   drawingTitle: z.string().optional().describe("Drawing title if present"),
@@ -64,16 +64,16 @@ export const ExtractedFireSafetyDataSchema = z.object({
     location: z.string(),
     width: z.string().describe("Observed width measurement"),
     doorType: z.string().optional(),
-  })).describe("Exit widths observed"),
+  })).default([]).describe("Exit widths observed"),
   corridorWidths: z.array(z.object({
     location: z.string(),
     width: z.string(),
-  })).describe("Corridor widths observed"),
+  })).default([]).describe("Corridor widths observed"),
   fireSeparations: z.array(z.object({
     location: z.string(),
     rating: z.string().optional().describe("Fire rating if labeled (e.g., '45 min')"),
     construction: z.string().optional(),
-  })).describe("Fire separations observed"),
+  })).default([]).describe("Fire separations observed"),
   sprinklerSystem: z.object({
     present: z.boolean().nullable().describe("Whether sprinkler system is indicated (null if unclear)"),
     type: z.string().optional(),
@@ -86,7 +86,7 @@ export const ExtractedFireSafetyDataSchema = z.object({
   relevantNbcClauses: z.array(z.object({
     clause: z.string(),
     reason: z.string(),
-  })).describe("NBC clauses relevant to observed fire safety elements"),
+  })).default([]).describe("NBC clauses relevant to observed fire safety elements"),
   observationNotes: z.string().optional(),
   confidence: z.number().min(0).max(1),
 });
@@ -98,20 +98,20 @@ export const ExtractedConnectionDataSchema = z.object({
     spacing: z.string().optional(),
     location: z.string().optional(),
     quantity: z.string().optional(),
-  })).describe("Fasteners and connectors observed"),
+  })).default([]).describe("Fasteners and connectors observed"),
   connectionDetails: z.array(z.object({
     description: z.string(),
     location: z.string().optional(),
     hardwareSpec: z.string().optional(),
-  })).describe("Connection details observed"),
+  })).default([]).describe("Connection details observed"),
   csaStandards: z.array(z.object({
     standard: z.string().describe("CSA standard referenced (e.g., 'CSA O86')"),
     location: z.string().optional(),
-  })).describe("CSA standards referenced in the drawing"),
+  })).default([]).describe("CSA standards referenced in the drawing"),
   relevantNbcClauses: z.array(z.object({
     clause: z.string(),
     reason: z.string(),
-  })),
+  })).default([]),
   observationNotes: z.string().optional(),
   confidence: z.number().min(0).max(1),
 });
