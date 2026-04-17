@@ -410,19 +410,26 @@ export const drawingAnalysisRouter = router({
       });
 
       // Update the analysis record with results — status moves to UNDER_REVIEW (PD2.0 §4.3)
-      await db.update(drawingAnalyses).set({
-        analysisStatus: "UNDER_REVIEW",
-        complianceScore: engineOutput.complianceScore,
-        complianceLevel: engineOutput.complianceLevel,
-        structuralStatus: JSON.stringify(extractionResult.structural ?? {}),
-        fireSafetyStatus: JSON.stringify(extractionResult.fireSafety ?? {}),
-        connectionStatus: JSON.stringify(extractionResult.connections ?? {}),
-        issues: JSON.stringify(engineOutput.issues),
-        recommendations: JSON.stringify(engineOutput.recommendations),
-        llmModelVersion: modelVersion,
-        ruleEngineVersion: RULE_ENGINE_VERSION,
-        updatedAt: new Date(),
-      }).where(eq(drawingAnalyses.id, analysisId));
+      console.log('[DEBUG] About to UPDATE analysisId:', analysisId);
+      try {
+        await db.update(drawingAnalyses).set({
+          analysisStatus: "UNDER_REVIEW",
+          complianceScore: engineOutput.complianceScore,
+          complianceLevel: engineOutput.complianceLevel,
+          structuralStatus: JSON.stringify(extractionResult.structural ?? {}),
+          fireSafetyStatus: JSON.stringify(extractionResult.fireSafety ?? {}),
+          connectionStatus: JSON.stringify(extractionResult.connections ?? {}),
+          issues: JSON.stringify(engineOutput.issues),
+          recommendations: JSON.stringify(engineOutput.recommendations),
+          llmModelVersion: modelVersion,
+          ruleEngineVersion: RULE_ENGINE_VERSION,
+          updatedAt: new Date(),
+        }).where(eq(drawingAnalyses.id, analysisId));
+        console.log('[DEBUG] UPDATE success for analysisId:', analysisId);
+      } catch (updateError) {
+        console.error('[DEBUG] UPDATE failed:', updateError);
+        throw updateError;
+      }
 
       // PD2.0 §6.4: Response payload must include all required fields
       return {
