@@ -251,6 +251,8 @@ export const drawingAnalysisRouter = router({
       });
 
       const analysisId = insertResult[0].insertId;
+      console.log('[DEBUG] insertResult:', JSON.stringify(insertResult));
+      console.log('[DEBUG] analysisId:', analysisId);
 
       // PD2.0 §7.2: DRAWING_UPLOADED audit event
       await insertAuditEvent({
