@@ -412,15 +412,9 @@ export const drawingAnalysisRouter = router({
         analysisStatus: "UNDER_REVIEW",
         complianceScore: engineOutput.complianceScore,
         complianceLevel: engineOutput.complianceLevel,
-        structuralStatus: extractionResult.structural
-          ? JSON.stringify(extractionResult.structural)
-          : null,
-        fireSafetyStatus: extractionResult.fireSafety
-          ? JSON.stringify(extractionResult.fireSafety)
-          : null,
-        connectionStatus: extractionResult.connections
-          ? JSON.stringify(extractionResult.connections)
-          : null,
+        structuralStatus: JSON.stringify(extractionResult.structural ?? {}),
+        fireSafetyStatus: JSON.stringify(extractionResult.fireSafety ?? {}),
+        connectionStatus: JSON.stringify(extractionResult.connections ?? {}),
         issues: JSON.stringify(engineOutput.issues),
         recommendations: JSON.stringify(engineOutput.recommendations),
         llmModelVersion: modelVersion,
