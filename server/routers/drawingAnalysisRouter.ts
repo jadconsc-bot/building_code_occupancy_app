@@ -234,7 +234,7 @@ export const drawingAnalysisRouter = router({
       }
 
       // Create the analysis record in DRAFT status
-      const [insertResult] = await db.insert(drawingAnalyses).values({
+      const insertResult = await db.insert(drawingAnalyses).values({
         projectId: input.projectId,
         userId: ctx.user.id,
         drawingUrl,
@@ -250,7 +250,7 @@ export const drawingAnalysisRouter = router({
         ruleEngineVersion: RULE_ENGINE_VERSION,
       });
 
-      const analysisId = (insertResult as any).insertId as number;
+      const analysisId = insertResult[0].insertId;
 
       // PD2.0 §7.2: DRAWING_UPLOADED audit event
       await insertAuditEvent({
