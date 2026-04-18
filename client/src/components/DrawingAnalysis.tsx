@@ -2446,9 +2446,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           {!drawingImage ? (
             // Upload area
             <div className="space-y-6">
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+              <div
+                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-primary hover:bg-accent/50'}`}
+                onClick={disclaimerAcknowledged ? () => fileInputRef.current?.click() : undefined}
               >
                 <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
@@ -2464,6 +2464,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   accept=".pdf,.png,.jpg,.jpeg"
                   className="hidden"
                   onChange={handleFileUpload}
+                  disabled={!disclaimerAcknowledged}
                 />
               </div>
               
@@ -2473,9 +2474,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <div className="h-px bg-border flex-1" />
               </div>
               
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                onClick={() => cameraInputRef.current?.click()}
+              <div
+                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-primary hover:bg-accent/50'}`}
+                onClick={disclaimerAcknowledged ? () => cameraInputRef.current?.click() : undefined}
               >
                 <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Take Photo</h3>
@@ -2492,6 +2493,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   capture="environment"
                   className="hidden"
                   onChange={handleCameraCapture}
+                  disabled={!disclaimerAcknowledged}
                 />
               </div>
               
@@ -2501,9 +2503,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <div className="h-px bg-border flex-1" />
               </div>
 
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
-                onClick={() => {
+              <div
+                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-blue-500 hover:bg-blue-50/50'}`}
+                onClick={disclaimerAcknowledged ? () => {
                   // Create a blank canvas for drawing
                   const canvas = document.createElement('canvas');
                   canvas.width = 1200;
@@ -2538,7 +2540,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   setDrawingStrokes([]);
                   setDrawingHistory([[]]);
                   setHistoryIndex(0);
-                }}
+                } : undefined}
               >
                 <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
                 <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
@@ -2876,9 +2878,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     variant="default"
                     size="sm"
                     onClick={runAiAnalysis}
-                    disabled={isAnalyzing || (pdfPages.length > 0 && selectedPages.length === 0)}
+                    disabled={isAnalyzing || !disclaimerAcknowledged || (pdfPages.length > 0 && selectedPages.length === 0)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    title={pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
+                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
                   >
                     {isAnalyzing ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
