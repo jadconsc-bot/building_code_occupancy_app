@@ -423,7 +423,8 @@ export const drawingAnalysisRouter = router({
           updatedAt: new Date(),
         }).where(eq(drawingAnalyses.id, analysisId));
       } catch (updateError) {
-        throw updateError;
+        console.error('[DrawingAnalysis] UPDATE failed (non-fatal):', updateError);
+        // Continue — don't throw, results still returned to client
       }
 
       // PD2.0 §6.4: Response payload must include all required fields
