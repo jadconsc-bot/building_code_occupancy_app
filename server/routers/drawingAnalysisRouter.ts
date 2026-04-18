@@ -251,8 +251,6 @@ export const drawingAnalysisRouter = router({
       });
 
       const analysisId = insertResult[0].insertId;
-      console.log('[DEBUG] insertResult:', JSON.stringify(insertResult));
-      console.log('[DEBUG] analysisId:', analysisId);
 
       // PD2.0 §7.2: DRAWING_UPLOADED audit event
       await insertAuditEvent({
@@ -410,7 +408,6 @@ export const drawingAnalysisRouter = router({
       });
 
       // Update the analysis record with results — status moves to UNDER_REVIEW (PD2.0 §4.3)
-      console.log('[DEBUG] About to UPDATE analysisId:', analysisId);
       try {
         await db.update(drawingAnalyses).set({
           analysisStatus: "UNDER_REVIEW",
@@ -425,9 +422,7 @@ export const drawingAnalysisRouter = router({
           ruleEngineVersion: RULE_ENGINE_VERSION,
           updatedAt: new Date(),
         }).where(eq(drawingAnalyses.id, analysisId));
-        console.log('[DEBUG] UPDATE success for analysisId:', analysisId);
       } catch (updateError) {
-        console.error('[DEBUG] UPDATE failed:', updateError);
         throw updateError;
       }
 
