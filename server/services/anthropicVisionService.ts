@@ -21,7 +21,6 @@ export async function callAnthropicVision(params: {
   const { imageBase64, mimeType, systemPrompt, userPrompt, jsonSchema } = params;
 
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
-  console.log('[Anthropic] API key prefix:', ENV.anthropicApiKey?.substring(0, 15) ?? 'NOT SET');
 
   const response = await client.messages.create({
     model: ANTHROPIC_VISION_MODEL,
