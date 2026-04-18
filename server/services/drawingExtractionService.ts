@@ -22,7 +22,7 @@
  */
 
 import { z } from "zod";
-import { invokeLLM } from "../_core/llm";
+import { callAnthropicVision } from "./anthropicVisionService";
 
 /** Current prompt version — increment when prompt logic changes (PD2.0 §3.2) */
 export const EXTRACTION_PROMPT_VERSION = "2.0.0";
@@ -227,61 +227,26 @@ export async function extractDrawingData(
     };
   }
 
-  const response = await invokeLLM({
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-              detail: "high",
-            },
-          },
-          {
-            type: "text",
-            text: `Extract all observable data from this ${analysisType} drawing. Return structured JSON only.`,
-          },
-        ],
-      },
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "drawing_extraction",
-        strict: false,
-        schema: {
-          type: "object",
-          properties: schemaProperties,
-          required: ["analysisType", "drawingType", "extractionModel", "extractionPromptVersion"],
-        },
-      },
+  const { parsed, modelVersion } = await callAnthropicVision({
+    imageBase64,
+    mimeType,
+    systemPrompt,
+    userPrompt: `Extract all observable data from this ${analysisType} drawing. Return structured JSON only.`,
+    jsonSchema: {
+      type: "object",
+      properties: schemaProperties,
+      required: ["analysisType", "drawingType", "extractionModel", "extractionPromptVersion"],
     },
-    max_tokens: 4096,
   });
 
-  // Extract model version from response (PD2.0 §3.2: from response.model, not hardcoded)
-  const modelVersion = response.model;
-
-  const rawContent = response.choices[0]?.message?.content;
-  if (!rawContent || typeof rawContent !== "string") {
-    throw new Error("LLM returned empty or non-string content");
-  }
-
-  const parsed = JSON.parse(rawContent);
-
   // Inject metadata that LLM cannot self-report accurately
-  parsed.analysisType = analysisType;
-  parsed.extractionModel = modelVersion;
-  parsed.extractionPromptVersion = EXTRACTION_PROMPT_VERSION;
+  const parsedObj = parsed as Record<string, unknown>;
+  parsedObj.analysisType = analysisType;
+  parsedObj.extractionModel = modelVersion;
+  parsedObj.extractionPromptVersion = EXTRACTION_PROMPT_VERSION;
 
   // Validate with Zod (PD2.0 §4.1: LLM output must be Zod-validated before passing to engine)
-  const validated = DrawingExtractionResultSchema.parse(parsed);
+  const validated = DrawingExtractionResultSchema.parse(parsedObj);
 
   return { data: validated, modelVersion };
 }
