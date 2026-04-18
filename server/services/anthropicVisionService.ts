@@ -25,7 +25,7 @@ export async function callAnthropicVision(params: {
 
   const response = await client.messages.create({
     model: ANTHROPIC_VISION_MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: `${systemPrompt}\n\nReturn ONLY valid JSON with no additional text or markdown fencing. The JSON must conform to this schema:\n${JSON.stringify(jsonSchema, null, 2)}`,
     messages: [
       {
