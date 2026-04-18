@@ -3296,112 +3296,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     </Card>
                   )}
 
-                  {/* AI Analysis Results */}
-                  {showAiResults && aiResults && (
-                    <Card className="border-purple-200 dark:border-purple-800" data-results-panel>
-                      <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
-                        <CardTitle className="text-sm flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-600" />
-                            AI Analysis Results
-                          </span>
-                          <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
-                            <XCircle className="w-4 h-4" />
-                          </Button>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3">
-                        <ScrollArea className="h-64">
-                          <div className="space-y-4">
-                            {/* Drawing Type */}
-                            <div className="p-2 rounded bg-muted">
-                              <div className="text-xs font-medium text-muted-foreground mb-1">Drawing Type</div>
-                              <Badge variant="outline">{aiResults.drawingType}</Badge>
-                              {aiResults.scale && (
-                                <Badge variant="outline" className="ml-2">Scale: {aiResults.scale}</Badge>
-                              )}
-                            </div>
-                            
-                            {/* Extracted Measurements */}
-                            {aiResults.measurements.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Extracted Measurements</div>
-                                <div className="space-y-1">
-                                  {aiResults.measurements.map((m, i) => (
-                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
-                                      <div>
-                                        <span className="font-medium">{m.label}</span>
-                                        <span className="text-muted-foreground ml-2">({m.category})</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">{m.value.toFixed(2)}m</Badge>
-                                        <Badge variant={m.confidence === "high" ? "default" : m.confidence === "medium" ? "secondary" : "outline"} className="text-[10px]">
-                                          {m.confidence}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Detected Rooms */}
-                            {aiResults.rooms.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Detected Rooms</div>
-                                <div className="space-y-1">
-                                  {aiResults.rooms.map((r, i) => (
-                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
-                                      <span className="font-medium">{r.name}</span>
-                                      <Badge variant="secondary">{r.area.toFixed(1)}m²</Badge>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Notes */}
-                            {aiResults.notes.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Notes</div>
-                                <ul className="text-xs text-muted-foreground space-y-1">
-                                  {aiResults.notes.map((note, i) => (
-                                    <li key={i} className="flex items-start gap-2">
-                                      <span className="text-primary">•</span>
-                                      {note}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            
-                            {/* Apply Button */}
-                            <Button 
-                              onClick={applyAiResults} 
-                              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Apply to Annotations
-                            </Button>
-                          </div>
-                        </ScrollArea>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* PD2.0 Professional Review Panel — shown after AI analysis */}
-                  {analysisId !== null && analysisStatus !== null && (
-                    <ProfessionalReviewPanel
-                      analysisId={analysisId}
-                      analysisStatus={analysisStatus}
-                      complianceScore={complianceScore}
-                      complianceLevel={complianceLevel}
-                      ruleEvaluations={ruleEvaluations as any}
-                      issues={pdIssues}
-                      recommendations={pdRecommendations}
-                      onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
-                    />
-                  )}
                   
                   {/* Export to Compliance Report Button (Phase 2) */}
                   {projectId && savedAnalysisId && analysisStatus === "VALID" && (
@@ -3490,6 +3384,112 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   )}
                 </div>
               </div>
+
+              {/* AI Analysis Results — full width below canvas */}
+              {showAiResults && aiResults && (
+                <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
+                  <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        AI Analysis Results
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Drawing Type */}
+                      <div className="p-2 rounded bg-muted">
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Drawing Type</div>
+                        <Badge variant="outline">{aiResults.drawingType}</Badge>
+                        {aiResults.scale && (
+                          <Badge variant="outline" className="ml-2">Scale: {aiResults.scale}</Badge>
+                        )}
+                      </div>
+
+                      {/* Extracted Measurements */}
+                      {aiResults.measurements.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground mb-2">Extracted Measurements</div>
+                          <div className="space-y-1">
+                            {aiResults.measurements.map((m, i) => (
+                              <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">{m.label}</span>
+                                  <span className="text-muted-foreground ml-2">({m.category})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary">{m.value.toFixed(2)}m</Badge>
+                                  <Badge variant={m.confidence === "high" ? "default" : m.confidence === "medium" ? "secondary" : "outline"} className="text-[10px]">
+                                    {m.confidence}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Detected Rooms */}
+                      {aiResults.rooms.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground mb-2">Detected Rooms</div>
+                          <div className="space-y-1">
+                            {aiResults.rooms.map((r, i) => (
+                              <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                <span className="font-medium">{r.name}</span>
+                                <Badge variant="secondary">{r.area.toFixed(1)}m²</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes — full width */}
+                    {aiResults.notes.length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">Notes</div>
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-muted-foreground">
+                          {aiResults.notes.map((note, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="text-primary">•</span>
+                              {note}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={applyAiResults}
+                      className="mt-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Apply to Annotations
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* PD2.0 Professional Review Panel — full width below canvas */}
+              {analysisId !== null && analysisStatus !== null && (
+                <div className="mt-4">
+                  <ProfessionalReviewPanel
+                    analysisId={analysisId}
+                    analysisStatus={analysisStatus}
+                    complianceScore={complianceScore}
+                    complianceLevel={complianceLevel}
+                    ruleEvaluations={ruleEvaluations as any}
+                    issues={pdIssues}
+                    recommendations={pdRecommendations}
+                    onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
