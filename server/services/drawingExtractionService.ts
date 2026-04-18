@@ -22,7 +22,39 @@
  */
 
 import { z } from "zod";
+import sharp from "sharp";
 import { callAnthropicVision } from "./anthropicVisionService";
+
+const ANTHROPIC_IMAGE_LIMIT_BYTES = 4 * 1024 * 1024; // 4MB — safe margin under API's 5MB limit
+
+async function compressImageIfNeeded(
+  imageBase64: string,
+  mimeType: string
+): Promise<{ imageBase64: string; mimeType: string }> {
+  const byteSize = Math.ceil(imageBase64.length * 0.75);
+  if (byteSize <= ANTHROPIC_IMAGE_LIMIT_BYTES) {
+    return { imageBase64, mimeType };
+  }
+
+  console.log(`[DrawingExtraction] Image too large (${byteSize} bytes), compressing to JPEG...`);
+  const inputBuffer = Buffer.from(imageBase64, "base64");
+
+  // Scale down proportionally until under limit; start at 85% quality JPEG
+  let quality = 85;
+  let outputBuffer: Buffer;
+  do {
+    outputBuffer = await sharp(inputBuffer)
+      .jpeg({ quality })
+      .toBuffer();
+    quality -= 10;
+  } while (outputBuffer.length > ANTHROPIC_IMAGE_LIMIT_BYTES && quality >= 30);
+
+  console.log(`[DrawingExtraction] Compressed to ${outputBuffer.length} bytes at quality ${quality + 10}`);
+  return {
+    imageBase64: outputBuffer.toString("base64"),
+    mimeType: "image/jpeg",
+  };
+}
 
 /** Current prompt version — increment when prompt logic changes (PD2.0 §3.2) */
 export const EXTRACTION_PROMPT_VERSION = "2.0.0";
@@ -227,9 +259,12 @@ export async function extractDrawingData(
     };
   }
 
+  const { imageBase64: compressedImage, mimeType: compressedMime } =
+    await compressImageIfNeeded(imageBase64, mimeType);
+
   const { parsed, modelVersion } = await callAnthropicVision({
-    imageBase64,
-    mimeType,
+    imageBase64: compressedImage,
+    mimeType: compressedMime,
     systemPrompt,
     userPrompt: `Extract all observable data from this ${analysisType} drawing. Return structured JSON only.`,
     jsonSchema: {
