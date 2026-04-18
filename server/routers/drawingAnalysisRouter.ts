@@ -423,7 +423,12 @@ export const drawingAnalysisRouter = router({
           updatedAt: new Date(),
         }).where(eq(drawingAnalyses.id, analysisId));
       } catch (updateError) {
-        console.error('[DrawingAnalysis] UPDATE failed (non-fatal):', updateError);
+        console.error('[DrawingAnalysis] UPDATE failed (non-fatal):', JSON.stringify({
+          message: (updateError as any)?.message,
+          code: (updateError as any)?.code,
+          sqlMessage: (updateError as any)?.cause?.sqlMessage,
+          sql: (updateError as any)?.cause?.sql?.substring(0, 200),
+        }));
         // Continue — don't throw, results still returned to client
       }
 
