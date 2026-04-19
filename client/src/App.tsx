@@ -9,6 +9,7 @@ import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
+import { CookieConsent } from "./components/CookieConsent";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
@@ -88,6 +89,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <CookieConsent />
       <AuthHydrationProvider>
         <ThemeProvider
           defaultTheme="light"

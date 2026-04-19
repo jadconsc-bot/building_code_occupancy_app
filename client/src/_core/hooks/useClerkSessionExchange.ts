@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { trpc } from '@/lib/trpc';
+import { notifyExchangeFailed } from '@/_core/authExchangeSignal';
 
 export function useClerkSessionExchange() {
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth();
@@ -20,6 +21,7 @@ export function useClerkSessionExchange() {
         const token = await getToken();
         if (!token) {
           console.error('[Auth] Failed to get Clerk token');
+          notifyExchangeFailed();
           return;
         }
 
@@ -32,6 +34,7 @@ export function useClerkSessionExchange() {
 
         if (!response.ok) {
           console.error('[Auth] Session creation failed:', response.statusText);
+          notifyExchangeFailed();
           return;
         }
 
@@ -40,9 +43,11 @@ export function useClerkSessionExchange() {
         await utils.auth.me.refetch();
       } catch (error) {
         console.error('[Auth] Token exchange failed:', error);
+        notifyExchangeFailed();
       }
     };
 
     exchangeToken();
   }, [clerkLoaded, isSignedIn]);
 }
+
