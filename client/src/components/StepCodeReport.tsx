@@ -46,20 +46,15 @@ export function StepCodeReport({
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportUrl, setReportUrl] = useState<string | null>(null);
 
-  // Fetch analysis data
-  // @ts-ignore
   const { data: analysis, isLoading } = trpc.stepCode.getAnalyses.useQuery({
     projectId,
-    limit: 1,
   });
 
   // Fetch project data
   const { data: project } = trpc.projects.get.useQuery({ id: projectId });
 
-  // Generate PDF report mutation
-  // @ts-ignore
   const generateReport = trpc.stepCode.generateReport.useMutation({
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       setReportUrl(data.url);
       onReportGenerated?.(data.url);
       setIsGenerating(false);
@@ -76,12 +71,12 @@ export function StepCodeReport({
     await generateReport.mutateAsync({
       projectId,
       analysisId,
-      language,
       format: "pdf",
+      reportType: "stepCode",
     });
   };
 
-  const currentAnalysis = analysis?.[0];
+  const currentAnalysis = analysis?.[analysis.length - 1] ?? null;
 
   // Translation strings
   const t = {

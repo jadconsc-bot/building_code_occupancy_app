@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,30 +13,16 @@ interface AlbertaNBCReportProps {
   onReportGenerated?: (url: string) => void;
 }
 
-/**
- * AlbertaNBCReport Component
- * 
- * Generates Alberta NBC 2024 compliance report in PDF format
- * Cold climate specific requirements and analysis
- * 
- * Report Contents:
- * - Project information and location
- * - Climate zone classification (HDD, design temperatures)
- * - Building envelope compliance (insulation R-values, air sealing)
- * - Mechanical system requirements (heating capacity, efficiency)
- * - Seismic zone requirements (if applicable)
- * - Cold climate specific provisions (NBC 2024 AB Edition)
- * - Compliance checklist
- * - Professional engineer seal block (for certification)
- * - Immutable audit trail with cryptographic signature
- * - Regulatory references (NBC 2024 Alberta Edition)
- * 
- * PD2.0 Compliance:
- * - All data sourced from deterministic rule engine
- * - Cryptographic signature verification
- * - Immutable PDF generation
- * - Infrastructure logging (user, IP, timestamp)
- */
+function extractMunicipality(address: string): string {
+  const lower = address.toLowerCase();
+  if (lower.includes("calgary")) return "Calgary";
+  if (lower.includes("edmonton")) return "Edmonton";
+  if (lower.includes("red deer")) return "Edmonton";
+  if (lower.includes("lethbridge")) return "Calgary";
+  if (lower.includes("fort mcmurray")) return "Edmonton";
+  return "Calgary";
+}
+
 export function AlbertaNBCReport({
   projectId,
   analysisId,
@@ -44,42 +30,30 @@ export function AlbertaNBCReport({
   onReportGenerated,
 }: AlbertaNBCReportProps) {
   const { user } = useAuth();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
 
-  // Fetch analysis data
-  // @ts-ignore
-  const { data: analysis, isLoading } = trpc.stepCode.getAnalyses.useQuery({
+  const { data: analysesData, isLoading } = trpc.stepCode.getAnalyses.useQuery({
     projectId,
-    limit: 1,
   });
 
-  // Fetch project data
   const { data: project } = trpc.projects.get.useQuery({ id: projectId });
 
-  // Fetch jurisdiction data for climate zone
-  // @ts-ignore
-  const { data: jurisdiction } = trpc.jurisdiction.detect.useQuery({
-    address: project?.address || "",
+  const municipality = useMemo(
+    () => (project?.address ? extractMunicipality(project.address) : "Calgary"),
+    [project?.address]
+  );
+
+  const { data: seismicZoneData } = trpc.jurisdiction.getSeismicZone.useQuery({
+    municipality,
   });
 
-  // Generate PDF report mutation
-  // @ts-ignore
   const generateReport = trpc.stepCode.generateReport.useMutation({
-    onSuccess: (data: any) => {
-      setReportUrl(data.url);
+    onSuccess: (data) => {
       onReportGenerated?.(data.url);
-      setIsGenerating(false);
-    },
-    onError: () => {
-      setIsGenerating(false);
+      window.open(data.url, "_blank");
     },
   });
 
   const handleGenerateReport = async () => {
-    if (!analysis || !analysis.length) return;
-
-    setIsGenerating(true);
     await generateReport.mutateAsync({
       projectId,
       analysisId,
@@ -88,35 +62,31 @@ export function AlbertaNBCReport({
     });
   };
 
-  const currentAnalysis = analysis?.[0];
+  // Use most recent analysis
+  const currentAnalysis = analysesData?.[analysesData.length - 1] ?? null;
 
-  // Alberta-specific climate zones
-  const climateZoneInfo: Record<string, { hdd: number; designTemp: number; description: string }> = {
-    "4": { hdd: 3000, designTemp: -25, description: "Southern Alberta (Calgary, Lethbridge)" },
-    "5": { hdd: 3500, designTemp: -30, description: "Central Alberta (Red Deer, Drumheller)" },
-    "6": { hdd: 4000, designTemp: -35, description: "Northern Alberta (Edmonton, Fort McMurray)" },
-    "7": { hdd: 4500, designTemp: -40, description: "Far Northern Alberta (Grande Prairie, Yellowknife)" },
-  };
+  const climateZoneInfo: Record<string, { hdd: number; designTemp: number; description: string }> =
+    {
+      "4": { hdd: 3000, designTemp: -25, description: "Southern Alberta (Calgary, Lethbridge)" },
+      "5": { hdd: 3500, designTemp: -30, description: "Central Alberta (Red Deer, Drumheller)" },
+      "6": {
+        hdd: 4000,
+        designTemp: -35,
+        description: "Northern Alberta (Edmonton, Fort McMurray)",
+      },
+      "7": {
+        hdd: 4500,
+        designTemp: -40,
+        description: "Far Northern Alberta (Grande Prairie, Yellowknife)",
+      },
+    };
 
-  const zoneInfo = climateZoneInfo[climateZone] || climateZoneInfo["6"];
+  const zoneInfo = climateZoneInfo[climateZone] ?? climateZoneInfo["6"];
 
-  // Cold climate compliance checklist
   const complianceItems = [
-    {
-      item: "Insulation R-Value (Walls)",
-      requirement: "R-20 minimum",
-      status: "pass",
-    },
-    {
-      item: "Insulation R-Value (Roof)",
-      requirement: "R-40 minimum",
-      status: "pass",
-    },
-    {
-      item: "Insulation R-Value (Foundation)",
-      requirement: "R-15 minimum",
-      status: "pass",
-    },
+    { item: "Insulation R-Value (Walls)", requirement: "R-20 minimum", status: "pass" },
+    { item: "Insulation R-Value (Roof)", requirement: "R-40 minimum", status: "pass" },
+    { item: "Insulation R-Value (Foundation)", requirement: "R-15 minimum", status: "pass" },
     {
       item: "Air Sealing (ACH50)",
       requirement: "≤ 2.5 ACH50",
@@ -127,21 +97,13 @@ export function AlbertaNBCReport({
       requirement: "Sized for design temperature",
       status: "pass",
     },
-    {
-      item: "Mechanical Ventilation",
-      requirement: "HRV/ERV required",
-      status: "pass",
-    },
+    { item: "Mechanical Ventilation", requirement: "HRV/ERV required", status: "pass" },
     {
       item: "Thermal Bridging",
       requirement: "Minimized per NBC 2024",
       status: "pass",
     },
-    {
-      item: "Condensation Risk",
-      requirement: "Analyzed and mitigated",
-      status: "pass",
-    },
+    { item: "Condensation Risk", requirement: "Analyzed and mitigated", status: "pass" },
   ];
 
   if (isLoading) {
@@ -150,7 +112,6 @@ export function AlbertaNBCReport({
 
   return (
     <div className="space-y-6">
-      {/* Report Header */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -162,15 +123,11 @@ export function AlbertaNBCReport({
           {/* Project Information */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-semibold text-muted-foreground">
-                Project Name
-              </p>
+              <p className="text-sm font-semibold text-muted-foreground">Project Name</p>
               <p className="text-base">{project?.name || "N/A"}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-muted-foreground">
-                Address
-              </p>
+              <p className="text-sm font-semibold text-muted-foreground">Address</p>
               <p className="text-base">{project?.address || "N/A"}</p>
             </div>
           </div>
@@ -180,9 +137,7 @@ export function AlbertaNBCReport({
             <div className="flex items-start gap-3 bg-blue-50 p-4 rounded">
               <Thermometer className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-blue-900">
-                  Climate Zone {climateZone}
-                </h3>
+                <h3 className="font-semibold text-blue-900">Climate Zone {climateZone}</h3>
                 <p className="text-sm text-blue-800 mb-2">{zoneInfo.description}</p>
                 <div className="grid grid-cols-2 gap-4 text-xs text-blue-700">
                   <div>
@@ -209,9 +164,7 @@ export function AlbertaNBCReport({
                 >
                   <div className="flex-1">
                     <p className="font-medium text-sm">{item.item}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.requirement}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{item.requirement}</p>
                   </div>
                   <Badge
                     className={
@@ -238,15 +191,11 @@ export function AlbertaNBCReport({
               <h3 className="font-semibold mb-3">Building Envelope Analysis</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Airtightness (ACH50)
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">Airtightness (ACH50)</p>
                   <p className="text-lg font-bold">
-                    {currentAnalysis.airtightnessModelled || "N/A"}
+                    {currentAnalysis.airtightnessModelled ?? "N/A"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Target: ≤ 2.5 ACH50
-                  </p>
+                  <p className="text-xs text-muted-foreground">Target: ≤ 2.5 ACH50</p>
                   <div className="mt-2 flex items-center gap-1">
                     {currentAnalysis.airtightnessCompliant ? (
                       <>
@@ -256,24 +205,18 @@ export function AlbertaNBCReport({
                     ) : (
                       <>
                         <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-xs text-red-600">
-                          Non-Compliant
-                        </span>
+                        <span className="text-xs text-red-600">Non-Compliant</span>
                       </>
                     )}
                   </div>
                 </div>
 
                 <div className="border rounded p-3">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Mechanical Efficiency
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">Mechanical Efficiency</p>
                   <p className="text-lg font-bold">
-                    {currentAnalysis.mechEfficiencyModelled || "N/A"}
+                    {currentAnalysis.mechEfficiencyModelled ?? "N/A"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Target: ≥ 0.90 AFUE
-                  </p>
+                  <p className="text-xs text-muted-foreground">Target: ≥ 0.90 AFUE</p>
                   <div className="mt-2 flex items-center gap-1">
                     {currentAnalysis.mechEfficiencyCompliant ? (
                       <>
@@ -283,9 +226,7 @@ export function AlbertaNBCReport({
                     ) : (
                       <>
                         <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-xs text-red-600">
-                          Non-Compliant
-                        </span>
+                        <span className="text-xs text-red-600">Non-Compliant</span>
                       </>
                     )}
                   </div>
@@ -298,7 +239,10 @@ export function AlbertaNBCReport({
           <div className="bg-gray-50 p-3 rounded text-xs space-y-1 mt-4">
             <p className="font-semibold">Regulatory Reference</p>
             <p>National Building Code 2024 - Alberta Edition</p>
-            <p>Part 5: Structural Design (Seismic Zone {jurisdiction?.seismicZone || "N/A"})</p>
+            <p>
+              Part 5: Structural Design (Seismic Zone{" "}
+              {seismicZoneData?.seismicData?.seismicZone ?? "N/A"})
+            </p>
             <p>Part 9: Housing and Small Buildings - Cold Climate Provisions</p>
           </div>
 
@@ -306,49 +250,33 @@ export function AlbertaNBCReport({
           {currentAnalysis && (
             <div className="bg-gray-50 p-3 rounded text-xs space-y-1 mt-4">
               <p className="font-semibold">Immutable Audit Trail</p>
-              <p>
-                Generated:{" "}
-                {new Date(currentAnalysis.createdAt).toLocaleString()}
-              </p>
+              <p>Generated: {new Date(currentAnalysis.createdAt).toLocaleString()}</p>
               <p>Generated By: {user?.name || "System"}</p>
-              <p>
-                Signature Verified:{" "}
-                {currentAnalysis.signatureVerified ? "✓" : "✗"}
-              </p>
+              <p>Signature Verified: {currentAnalysis.signatureVerified ? "✓" : "✗"}</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Generate Report Button */}
       <Button
         onClick={handleGenerateReport}
-        disabled={isGenerating || !currentAnalysis}
+        disabled={generateReport.isPending || !currentAnalysis}
         className="w-full"
         size="lg"
       >
         <Download className="w-4 h-4 mr-2" />
-        {isGenerating ? "Generating..." : "Generate PDF Report"}
+        {generateReport.isPending ? "Generating..." : "Generate PDF Report"}
       </Button>
 
-      {/* Download Link */}
-      {reportUrl && (
+      {generateReport.isSuccess && (
         <Card className="bg-green-50 border-green-200">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-green-900">Download Report</p>
-                <p className="text-sm text-green-700">
-                  PDF report generated successfully
-                </p>
+                <p className="font-semibold text-green-900">Report Generated</p>
+                <p className="text-sm text-green-700">PDF report opened in a new tab</p>
               </div>
-              <a
-                href={reportUrl}
-                download
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                <Download className="w-4 h-4" />
-              </a>
+              <Check className="w-6 h-6 text-green-600" />
             </div>
           </CardContent>
         </Card>

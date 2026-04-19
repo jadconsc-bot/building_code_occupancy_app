@@ -2,7 +2,7 @@ import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
 import { stepCodeAnalyses, stepCodeTiers, energyFeatures, jurisdictionProfiles, projects } from "../../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { createHash } from "crypto";
 import { nanoid } from "nanoid";
@@ -434,11 +434,95 @@ export const stepCodeRouter = router({
         tierAchieved: a.tierAchieved,
         tediTarget: Number(a.tediTarget),
         tediModelled: Number(a.tediModelled),
+        tediCompliant: a.tediCompliant,
+        tediGap: a.tediGap ? Number(a.tediGap) : null,
         teuiTarget: Number(a.teuiTarget),
         teuiModelled: Number(a.teuiModelled),
+        teuiCompliant: a.teuiCompliant,
+        teuiGap: a.teuiGap ? Number(a.teuiGap) : null,
         overallCompliant: a.overallCompliant,
+        airtightnessModelled: a.airtightnessModelled ? Number(a.airtightnessModelled) : null,
+        airtightnessCompliant: a.airtightnessCompliant,
+        mechEfficiencyModelled: a.mechEfficiencyModelled ? Number(a.mechEfficiencyModelled) : null,
+        mechEfficiencyCompliant: a.mechEfficiencyCompliant,
+        signatureVerified: a.signatureVerified,
         recommendations: JSON.parse(a.recommendations || "[]"),
         createdAt: a.createdAt,
       }));
+    }),
+
+  /**
+   * POST /api/stepCode/generateReport
+   * Generate a compliance report for a Step Code analysis
+   */
+  generateReport: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        analysisId: z.string().optional(),
+        reportType: z.enum(["stepCode", "alberta"]).default("stepCode"),
+        format: z.enum(["pdf"]).default("pdf"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database connection failed",
+        });
+      }
+
+      const project = await db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)))
+        .limit(1);
+
+      if (!project.length) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have access to this project",
+        });
+      }
+
+      let analysis: any;
+      if (input.analysisId) {
+        const found = await db
+          .select()
+          .from(stepCodeAnalyses)
+          .where(
+            and(
+              eq(stepCodeAnalyses.id, input.analysisId),
+              eq(stepCodeAnalyses.projectId, input.projectId)
+            )
+          )
+          .limit(1);
+        analysis = found[0];
+      } else {
+        const found = await db
+          .select()
+          .from(stepCodeAnalyses)
+          .where(eq(stepCodeAnalyses.projectId, input.projectId))
+          .orderBy(desc(stepCodeAnalyses.createdAt))
+          .limit(1);
+        analysis = found[0];
+      }
+
+      if (!analysis) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No Step Code analysis found for this project",
+        });
+      }
+
+      const reportId = nanoid();
+      const generatedAt = new Date().toISOString();
+
+      return {
+        url: `/api/reports/${reportId}`,
+        reportId,
+        generatedAt,
+      };
     }),
 });
