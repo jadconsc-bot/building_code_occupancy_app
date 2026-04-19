@@ -241,7 +241,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
       const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      const isSmallScreen = window.innerWidth < 1024; // Consider tablets as mobile for drawing
+      const isSmallScreen = window.innerWidth < 640;
       setIsMobile(mobileRegex.test(userAgent.toLowerCase()) || (isTouchDevice && isSmallScreen));
     };
     
@@ -2386,50 +2386,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     );
   }
 
-  // Show mobile-only message if on mobile device
-  if (isMobile) {
-    return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Drawing Analysis Tool
-            </CardTitle>
-            <CardDescription>
-              Upload architectural drawings, add annotations, and check compliance against municipal bylaws
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-3">Desktop Only Feature</h3>
-              <p className="text-muted-foreground max-w-md mb-6">
-                The Drawing Analysis tool requires a larger screen and precise mouse control for accurate annotations. 
-                Please access this feature from a desktop or laptop computer for the best experience.
-              </p>
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 max-w-md">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What you can do on desktop:</h4>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 text-left space-y-1">
-                  <li>• Upload and analyze architectural drawings</li>
-                  <li>• Add dimension annotations with calibration</li>
-                  <li>• Draw freehand sketches and shapes</li>
-                  <li>• Use AI to extract measurements automatically</li>
-                  <li>• Check compliance against municipal bylaws</li>
-                  <li>• Export annotated drawings and reports</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <Card>
@@ -3123,12 +3079,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               )}
 
               {/* Canvas and side panel */}
-              <div className="flex gap-4">
+              <div className="flex flex-col lg:flex-row gap-4">
                 {/* Canvas */}
                 <div 
                   ref={containerRef}
-                  className="flex-1 border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
-                  style={{ height: "500px" }}
+                  className="w-full flex-1 border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
+                  style={{ height: "clamp(300px, 50vw, 500px)" }}
                 >
                   <canvas
                     ref={canvasRef}
@@ -3146,7 +3102,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
 
                 {/* Side panel */}
-                <div className="w-80 space-y-4">
+                <div className="w-full lg:w-80 space-y-4">
                   {/* Municipality/Zone selection */}
                   <Card>
                     <CardHeader className="py-3">
