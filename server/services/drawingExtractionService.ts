@@ -27,20 +27,37 @@ import { callAnthropicVision } from "./anthropicVisionService";
 
 const ANTHROPIC_IMAGE_LIMIT_BYTES = 4 * 1024 * 1024; // 4MB — safe margin under API's 5MB limit
 
+/**
+ * Quality settings per analysis tier.
+ * maxTokens controls LLM response budget; jpegQuality controls initial
+ * compression when the image exceeds the API size limit.
+ */
+const QUALITY_SETTINGS = {
+  fast:     { jpegQuality: 60, maxTokens: 4096  },
+  standard: { jpegQuality: 85, maxTokens: 8192  },
+  detailed: { jpegQuality: 95, maxTokens: 16000 },
+} as const;
+
+/**
+ * Compresses imageBase64 to JPEG when it exceeds the Anthropic 4 MB limit.
+ *
+ * @param startQuality - Initial JPEG quality (60–95). Decremented by 10 each
+ *   iteration until the image fits. Floor is 30 to avoid unreadable output.
+ */
 async function compressImageIfNeeded(
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  startQuality: number = 85,
 ): Promise<{ imageBase64: string; mimeType: string }> {
   const byteSize = Math.ceil(imageBase64.length * 0.75);
   if (byteSize <= ANTHROPIC_IMAGE_LIMIT_BYTES) {
     return { imageBase64, mimeType };
   }
 
-  console.log(`[DrawingExtraction] Image too large (${byteSize} bytes), compressing to JPEG...`);
+  console.log(`[DrawingExtraction] Image too large (${byteSize} bytes), compressing to JPEG (startQuality=${startQuality})...`);
   const inputBuffer = Buffer.from(imageBase64, "base64");
 
-  // Scale down proportionally until under limit; start at 85% quality JPEG
-  let quality = 85;
+  let quality = startQuality;
   let outputBuffer: Buffer;
   do {
     outputBuffer = await sharp(inputBuffer)
@@ -198,8 +215,10 @@ Return valid JSON matching the requested schema. Do not add commentary outside t
 export async function extractDrawingData(
   imageBase64: string,
   mimeType: string,
-  analysisType: "structural" | "fire-safety" | "connections" | "comprehensive"
+  analysisType: "structural" | "fire-safety" | "connections" | "comprehensive",
+  analysisQuality: "fast" | "standard" | "detailed" = "standard",
 ): Promise<{ data: DrawingExtractionResult; modelVersion: string }> {
+  const { jpegQuality, maxTokens } = QUALITY_SETTINGS[analysisQuality];
   const systemPrompt = buildExtractionSystemPrompt(analysisType);
 
   // Build the JSON schema for the response based on analysis type
@@ -260,7 +279,7 @@ export async function extractDrawingData(
   }
 
   const { imageBase64: compressedImage, mimeType: compressedMime } =
-    await compressImageIfNeeded(imageBase64, mimeType);
+    await compressImageIfNeeded(imageBase64, mimeType, jpegQuality);
 
   const { parsed, modelVersion } = await callAnthropicVision({
     imageBase64: compressedImage,
@@ -272,6 +291,7 @@ export async function extractDrawingData(
       properties: schemaProperties,
       required: ["analysisType", "drawingType", "extractionModel", "extractionPromptVersion"],
     },
+    maxTokens,
   });
 
   // Inject metadata that LLM cannot self-report accurately

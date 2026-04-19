@@ -192,6 +192,7 @@ export const drawingAnalysisRouter = router({
       mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
       fileName: z.string().min(1).max(255),
       analysisType: z.enum(["structural", "fire-safety", "connections", "comprehensive"]),
+      analysisQuality: z.enum(["fast", "standard", "detailed"]).default("standard"),
       // PD2.0 §6.3: Disclaimer must be acknowledged before analysis
       disclaimerAcknowledged: z.literal(true, {
         error: "You must acknowledge the disclaimer before proceeding.",
@@ -300,7 +301,8 @@ export const drawingAnalysisRouter = router({
         const extracted = await extractDrawingData(
           input.imageBase64,
           input.mimeType,
-          input.analysisType
+          input.analysisType,
+          input.analysisQuality,
         );
         extractionResult = extracted.data;
         modelVersion = extracted.modelVersion;

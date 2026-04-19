@@ -13,18 +13,20 @@ export async function callAnthropicVision(params: {
   systemPrompt: string;
   userPrompt: string;
   jsonSchema: Record<string, unknown>;
+  /** Maximum tokens for the response. Defaults to 8192. */
+  maxTokens?: number;
 }): Promise<{ parsed: unknown; modelVersion: string }> {
   if (!ENV.anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
-  const { imageBase64, mimeType, systemPrompt, userPrompt, jsonSchema } = params;
+  const { imageBase64, mimeType, systemPrompt, userPrompt, jsonSchema, maxTokens = 8192 } = params;
 
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
   const response = await client.messages.create({
     model: ANTHROPIC_VISION_MODEL,
-    max_tokens: 8192,
+    max_tokens: maxTokens,
     system: `${systemPrompt}\n\nReturn ONLY valid JSON with no additional text or markdown fencing. The JSON must conform to this schema:\n${JSON.stringify(jsonSchema, null, 2)}`,
     messages: [
       {

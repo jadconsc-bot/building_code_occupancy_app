@@ -321,6 +321,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
+  const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
   
   // Drawing Analysis Persistence (Phase 2)
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
@@ -628,6 +629,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             mimeType: "image/png",
             fileName: `${fileName || "drawing"}_page${pageNum}.png`,
             analysisType,
+            analysisQuality,
             disclaimerAcknowledged: true,
             disclaimerVersion,
           });
@@ -678,6 +680,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       mimeType,
       fileName: fileName || "drawing.png",
       analysisType,
+      analysisQuality,
       disclaimerAcknowledged: true,
       disclaimerVersion,
     });
@@ -3142,14 +3145,44 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         onClick={runComplianceCheck}
                         disabled={!selectedZone || annotations.length === 0}
                       >
                         <CheckCircle2 className="w-4 h-4 mr-2" />
                         Check Compliance
                       </Button>
+
+                      {/* Analysis Quality selector */}
+                      <div>
+                        <Label className="text-xs">Analysis Quality</Label>
+                        <div className="mt-1 space-y-1">
+                          {(
+                            [
+                              { value: "fast",     label: "Fast",     desc: "Quick overview — compressed images, faster results", time: "~10–15 sec" },
+                              { value: "standard", label: "Standard", desc: "Balanced — good for most floor plans",                time: "~20–30 sec" },
+                              { value: "detailed", label: "Detailed", desc: "Maximum detail — best for complex structural drawings", time: "~45–60 sec" },
+                            ] as const
+                          ).map(({ value, label, desc, time }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setAnalysisQuality(value)}
+                              className={`w-full text-left px-2 py-1.5 rounded border text-xs transition-colors ${
+                                analysisQuality === value
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "border-border hover:bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <span className="font-medium text-foreground">{label}</span>
+                              <span className="ml-1 text-[10px] text-muted-foreground">{time}</span>
+                              <br />
+                              <span className="text-[10px] leading-tight">{desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
 
