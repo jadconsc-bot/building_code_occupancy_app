@@ -2446,111 +2446,116 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           {!drawingImage ? (
             // Upload area
             <div className="space-y-6">
-              <div
-                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-primary hover:bg-accent/50'}`}
-                onClick={disclaimerAcknowledged ? () => fileInputRef.current?.click() : undefined}
-              >
-                <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Drag and drop or click to upload PDF or image files
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Supported formats: PDF, PNG, JPG, JPEG
-                </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={!disclaimerAcknowledged}
-                />
-              </div>
-              
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-sm text-muted-foreground">or</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-              
-              <div
-                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-primary hover:bg-accent/50'}`}
-                onClick={disclaimerAcknowledged ? () => cameraInputRef.current?.click() : undefined}
-              >
-                <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Take Photo</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Use your device camera to capture a drawing
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  AI will automatically extract dimensions and measurements
-                </p>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture}
-                  disabled={!disclaimerAcknowledged}
-                />
-              </div>
-              
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-sm text-muted-foreground">or</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
+              {disclaimerAcknowledged ? (
+                <>
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Drag and drop or click to upload PDF or image files
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supported formats: PDF, PNG, JPG, JPEG
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </div>
 
-              <div
-                className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors ${!disclaimerAcknowledged ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'cursor-pointer hover:border-blue-500 hover:bg-blue-50/50'}`}
-                onClick={disclaimerAcknowledged ? () => {
-                  // Create a blank canvas for drawing
-                  const canvas = document.createElement('canvas');
-                  canvas.width = 1200;
-                  canvas.height = 900;
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    // White background with grid
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Draw light grid
-                    ctx.strokeStyle = '#E5E7EB';
-                    ctx.lineWidth = 1;
-                    const gridSize = 50;
-                    for (let x = 0; x <= canvas.width; x += gridSize) {
-                      ctx.beginPath();
-                      ctx.moveTo(x, 0);
-                      ctx.lineTo(x, canvas.height);
-                      ctx.stroke();
-                    }
-                    for (let y = 0; y <= canvas.height; y += gridSize) {
-                      ctx.beginPath();
-                      ctx.moveTo(0, y);
-                      ctx.lineTo(canvas.width, y);
-                      ctx.stroke();
-                    }
-                  }
-                  setDrawingImage(canvas.toDataURL('image/png'));
-                  setFileName('New Drawing');
-                  setIsDrawMode(true);
-                  setIsCanvasLocked(true); // Lock canvas for mobile drawing
-                  setDrawingStrokes([]);
-                  setDrawingHistory([[]]);
-                  setHistoryIndex(0);
-                } : undefined}
-              >
-                <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Create a new floor plan or sketch from scratch
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Use drawing tools to sketch walls, rooms, and features
-                </p>
-              </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Take Photo</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Use your device camera to capture a drawing
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      AI will automatically extract dimensions and measurements
+                    </p>
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleCameraCapture}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
+                    onClick={() => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = 1200;
+                      canvas.height = 900;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.strokeStyle = '#E5E7EB';
+                        ctx.lineWidth = 1;
+                        const gridSize = 50;
+                        for (let x = 0; x <= canvas.width; x += gridSize) {
+                          ctx.beginPath();
+                          ctx.moveTo(x, 0);
+                          ctx.lineTo(x, canvas.height);
+                          ctx.stroke();
+                        }
+                        for (let y = 0; y <= canvas.height; y += gridSize) {
+                          ctx.beginPath();
+                          ctx.moveTo(0, y);
+                          ctx.lineTo(canvas.width, y);
+                          ctx.stroke();
+                        }
+                      }
+                      setDrawingImage(canvas.toDataURL('image/png'));
+                      setFileName('New Drawing');
+                      setIsDrawMode(true);
+                      setIsCanvasLocked(true);
+                      setDrawingStrokes([]);
+                      setDrawingHistory([[]]);
+                      setHistoryIndex(0);
+                    }}
+                  >
+                    <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create a new floor plan or sketch from scratch
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Use drawing tools to sketch walls, rooms, and features
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg opacity-60">
+                  <Lock className="w-8 h-8 text-gray-400 mb-3" />
+                  <p className="text-sm text-gray-500 text-center">
+                    Please accept the disclaimer below to access drawing analysis
+                  </p>
+                </div>
+              )}
               
               <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary mt-0.5" />

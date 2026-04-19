@@ -200,6 +200,12 @@ export const drawingAnalysisRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       // PD2.0 §6.3: Enforce disclaimer at API layer
+      if (!input.disclaimerVersion) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Disclaimer not acknowledged",
+        });
+      }
       if (input.disclaimerVersion !== CURRENT_DISCLAIMER_VERSION) {
         throw new TRPCError({
           code: "FORBIDDEN",
