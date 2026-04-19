@@ -58,6 +58,9 @@ import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";
 import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
 import { LateralLoadCalculator } from "@/components/LateralLoadCalculator";
+import { StepCodeCalculator } from "@/components/StepCodeCalculator";
+import { StepCodeReport } from "@/components/StepCodeReport";
+import { AlbertaNBCReport } from "@/components/AlbertaNBCReport";
 import { EnergyCodeCalculator } from "@/components/EnergyCodeCalculator";
 import { PlumbingFixtureCalculator } from "@/components/PlumbingFixtureCalculator";
 import { GuardHandrailCalculator } from "@/components/GuardHandrailCalculator";
@@ -883,7 +886,7 @@ export default function Home() {
       // Tab switching with numbers
       if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws", "drawing-analysis"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws", "drawing-analysis", "step-code"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -1558,6 +1561,11 @@ export default function Home() {
                         <FileImage className="w-4 h-4" /> Drawing Analysis
                       </div>
                     </SelectItem>
+                    <SelectItem value="step-code">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4" /> Step Code
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1601,10 +1609,16 @@ export default function Home() {
                   <MapPin className="w-4 h-4 mr-2" /> Municipal Bylaws
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="drawing-analysis" 
+                  value="drawing-analysis"
                   className="rounded-md border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-indigo-600"
                 >
                   <FileImage className="w-4 h-4 mr-2" /> Drawing Analysis
+                </TabsTrigger>
+                <TabsTrigger
+                  value="step-code"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-yellow-500 data-[state=active]:bg-yellow-50 data-[state=active]:text-yellow-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-yellow-600"
+                >
+                  <Zap className="w-4 h-4 mr-2" /> Step Code
                 </TabsTrigger>
               </TabsList>
 
@@ -2731,6 +2745,33 @@ export default function Home() {
                       Upload architectural drawings, add dimension annotations, and check compliance against municipal bylaws. Measure setbacks, building footprints, and lot dimensions directly on your drawings.
                     </p>
                     <DrawingAnalysis />
+                  </section>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="step-code" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <div className="space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Zap className="w-5 h-5" /> BC Energy Step Code
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a certified PDF report.
+                    </p>
+                    <StepCodeCalculator projectId={1} />
+                    <div className="mt-6">
+                      <StepCodeReport projectId={1} analysisId="" />
+                    </div>
+                  </section>
+
+                  <section className="mt-8 pt-8 border-t border-border">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                      <Zap className="w-5 h-5" /> Alberta NBC Compliance
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
+                    </p>
+                    <AlbertaNBCReport projectId={1} analysisId="" />
                   </section>
                 </div>
               </TabsContent>
