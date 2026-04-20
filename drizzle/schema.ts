@@ -90,6 +90,12 @@ export const projects = mysqlTable("projects", {
   notes: text("notes"),
   status: mysqlEnum("status", ["active", "completed", "archived"]).default("active").notNull(),
   overallProgress: int("overallProgress").default(0).notNull(), // 0-100 percentage
+  province: varchar("province", { length: 5 }), // "AB" | "BC" | "ON" | etc.
+  climateZone: varchar("climateZone", { length: 10 }), // "4", "5", "6", "7A", "7B", "8"
+  seismicZone: varchar("seismicZone", { length: 20 }), // "Low" | "Intermediate" | "High" | "Very High"
+  buildingType: varchar("buildingType", { length: 50 }), // "part9_single_family" | "part9_multiplex" | etc.
+  stepCodeTier: varchar("stepCodeTier", { length: 5 }), // "1"-"5", BC only
+  jurisdictionDetected: boolean("jurisdictionDetected").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -1,6 +1,6 @@
 /**
  * Project Repository
- * 
+ *
  * Encapsulates all database queries related to projects.
  * Provides a clean interface for project operations.
  */
@@ -15,7 +15,14 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   occupancyCode?: string;
+  address?: string;
+  template?: string;
   buildingType?: string;
+  province?: string;
+  climateZone?: string;
+  seismicZone?: string;
+  stepCodeTier?: string;
+  jurisdictionDetected?: boolean;
 }
 
 export interface UpdateProjectInput {
@@ -24,7 +31,14 @@ export interface UpdateProjectInput {
   name?: string;
   description?: string;
   occupancyCode?: string;
+  address?: string;
+  template?: string;
   buildingType?: string;
+  province?: string;
+  climateZone?: string;
+  seismicZone?: string;
+  stepCodeTier?: string;
+  jurisdictionDetected?: boolean;
 }
 
 export class ProjectRepository {
@@ -97,19 +111,23 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      const result = await db
-        .insert(projects)
-        .values({
-          userId: input.userId,
-          name: input.name,
-          occupancyCode: input.occupancyCode || 'A-1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      
-      // userId field now properly included in insert
+      await db.insert(projects).values({
+        userId: input.userId,
+        name: input.name,
+        occupancyCode: input.occupancyCode || 'A-1',
+        notes: input.description || null,
+        address: input.address || null,
+        template: input.template || null,
+        buildingType: input.buildingType || null,
+        province: input.province || null,
+        climateZone: input.climateZone || null,
+        seismicZone: input.seismicZone || null,
+        stepCodeTier: input.stepCodeTier || null,
+        jurisdictionDetected: input.jurisdictionDetected ?? false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      // Fetch the created project
       const [created] = await db
         .select()
         .from(projects)
@@ -137,30 +155,27 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
-      const existing = await this.getProject(input.id, input.userId);
-      if (!existing) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized to update this project',
-        });
-      }
+      await this.getProject(input.id, input.userId);
 
-      const updateData: Record<string, any> = {
-        updatedAt: new Date(),
-      };
+      const updateData: Record<string, any> = { updatedAt: new Date() };
 
       if (input.name !== undefined) updateData.name = input.name;
-      if (input.description !== undefined) updateData.description = input.description;
+      if (input.description !== undefined) updateData.notes = input.description;
       if (input.occupancyCode !== undefined) updateData.occupancyCode = input.occupancyCode;
+      if (input.address !== undefined) updateData.address = input.address;
+      if (input.template !== undefined) updateData.template = input.template;
       if (input.buildingType !== undefined) updateData.buildingType = input.buildingType;
+      if (input.province !== undefined) updateData.province = input.province;
+      if (input.climateZone !== undefined) updateData.climateZone = input.climateZone;
+      if (input.seismicZone !== undefined) updateData.seismicZone = input.seismicZone;
+      if (input.stepCodeTier !== undefined) updateData.stepCodeTier = input.stepCodeTier;
+      if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
 
       await db
         .update(projects)
         .set(updateData)
         .where(and(eq(projects.id, input.id), eq(projects.userId, input.userId)));
 
-      // Fetch updated project
       const [result] = await db
         .select()
         .from(projects)
@@ -189,20 +204,10 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
-      const existing = await this.getProject(id, userId);
-      if (!existing) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized to delete this project',
-        });
-      }
+      await this.getProject(id, userId);
 
-      // Delete related records first
       await db.delete(projectCalculatorResults).where(eq(projectCalculatorResults.projectId, id));
       await db.delete(projectChecklistItems).where(eq(projectChecklistItems.projectId, id));
-
-      // Delete the project
       await db.delete(projects).where(and(eq(projects.id, id), eq(projects.userId, userId)));
 
       return { success: true };
@@ -218,10 +223,6 @@ export class ProjectRepository {
   }
 
   /**
-   * Get project statistics
-   */
-  
-  /**
    * Get calculation results for a project
    */
   async getProjectCalculations(projectId: number, userId: number) {
@@ -231,7 +232,6 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
       await this.getProject(projectId, userId);
 
       return await db
@@ -249,6 +249,7 @@ export class ProjectRepository {
       });
     }
   }
+
   async getProjectStats(id: number, userId: number) {
     try {
       const db = await getDb();
@@ -256,7 +257,6 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
       await this.getProject(id, userId);
 
       const results = await db
@@ -275,7 +275,7 @@ export class ProjectRepository {
         totalResults: results.length,
         totalChecklistItems: checklistItems.length,
         completedChecklistItems: completedItems,
-        completionPercentage: checklistItems.length > 0 
+        completionPercentage: checklistItems.length > 0
           ? Math.round((completedItems / checklistItems.length) * 100)
           : 0,
       };

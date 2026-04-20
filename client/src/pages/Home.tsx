@@ -82,6 +82,7 @@ import { ExportPDFDialog } from "@/components/ExportPDFDialog";
 import { MunicipalBylawsCalculator } from "@/components/MunicipalBylawsCalculator";
 import { DrawingAnalysis } from "@/components/DrawingAnalysis";
 import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
+import Projects from "@/pages/Projects";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -1566,6 +1567,11 @@ export default function Home() {
                         <Zap className="w-4 h-4" /> Step Code
                       </div>
                     </SelectItem>
+                    <SelectItem value="projects">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="w-4 h-4" /> Projects
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1619,6 +1625,12 @@ export default function Home() {
                   className="rounded-md border-b-2 border-transparent data-[state=active]:border-yellow-500 data-[state=active]:bg-yellow-50 data-[state=active]:text-yellow-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-yellow-600"
                 >
                   <Zap className="w-4 h-4 mr-2" /> Step Code
+                </TabsTrigger>
+                <TabsTrigger
+                  value="projects"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-orange-600"
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" /> Projects
                 </TabsTrigger>
               </TabsList>
 
@@ -2774,6 +2786,10 @@ export default function Home() {
                     <AlbertaNBCReport projectId={1} />
                   </section>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="projects" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <Projects />
               </TabsContent>
             </Tabs>
           </div>
