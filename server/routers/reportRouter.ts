@@ -221,7 +221,7 @@ export const reportRouter = router({
  * @param seal - Professional seal (optional)
  * @returns HTML/PDF content as string
  */
-function generateReportContent(
+export function generateReportContent(
   analysis: any,
   language: 'en' | 'fr',
   reportType: 'stepCode' | 'alberta',

@@ -2760,7 +2760,7 @@ export default function Home() {
                     </p>
                     <StepCodeCalculator projectId={1} />
                     <div className="mt-6">
-                      <StepCodeReport projectId={1} analysisId="" />
+                      <StepCodeReport projectId={1} />
                     </div>
                   </section>
 
@@ -2771,7 +2771,7 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground mb-6">
                       Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
                     </p>
-                    <AlbertaNBCReport projectId={1} analysisId="" />
+                    <AlbertaNBCReport projectId={1} />
                   </section>
                 </div>
               </TabsContent>

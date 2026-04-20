@@ -8,7 +8,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 interface StepCodeReportProps {
   projectId: number;
-  analysisId: string;
+  analysisId?: string;
   language?: "en" | "fr";
   onReportGenerated?: (url: string) => void;
 }
@@ -38,7 +38,7 @@ interface StepCodeReportProps {
  */
 export function StepCodeReport({
   projectId,
-  analysisId,
+  analysisId = undefined,
   language = "en",
   onReportGenerated,
 }: StepCodeReportProps) {

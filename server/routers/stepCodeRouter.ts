@@ -6,7 +6,9 @@ import { eq, and, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { createHash } from "crypto";
 import { nanoid } from "nanoid";
-import { 
+import { storagePut } from "../storage";
+import { generateReportContent } from "./reportRouter";
+import {
   signAnalysisData, 
   generateProfessionalSeal,
   validateEngineerCredentials,
@@ -516,11 +518,26 @@ export const stepCodeRouter = router({
         });
       }
 
-      const reportId = nanoid();
+      const reportId = `report-${analysis.id}-${Date.now()}`;
       const generatedAt = new Date().toISOString();
 
+      // Generate HTML/PDF content and upload to storage
+      const reportContent = generateReportContent(
+        analysis,
+        "en",
+        input.reportType,
+        null
+      );
+
+      const fileKey = `reports/${ctx.user.id}/${reportId}.pdf`;
+      const { url } = await storagePut(
+        fileKey,
+        Buffer.from(reportContent),
+        "application/pdf"
+      );
+
       return {
-        url: `/api/reports/${reportId}`,
+        url,
         reportId,
         generatedAt,
       };

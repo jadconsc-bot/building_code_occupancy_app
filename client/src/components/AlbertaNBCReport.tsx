@@ -8,7 +8,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 interface AlbertaNBCReportProps {
   projectId: number;
-  analysisId: string;
+  analysisId?: string;
   climateZone?: string;
   onReportGenerated?: (url: string) => void;
 }
@@ -25,7 +25,7 @@ function extractMunicipality(address: string): string {
 
 export function AlbertaNBCReport({
   projectId,
-  analysisId,
+  analysisId = undefined,
   climateZone = "6",
   onReportGenerated,
 }: AlbertaNBCReportProps) {

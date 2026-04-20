@@ -21,6 +21,7 @@ import { compliancePathwayRouter } from "./compliancePathwayRouter";
 import { drawingAnalysisRouter } from "./routers/drawingAnalysisRouter";
 import { stepCodeRouter } from "./routers/stepCodeRouter";
 import { jurisdictionRouter } from "./routers/jurisdictionRouter";
+import { reportRouter } from "./routers/reportRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -43,6 +44,7 @@ export const appRouter = router({
   drawingAnalysis: drawingAnalysisRouter,
   stepCode: stepCodeRouter,
   jurisdiction: jurisdictionRouter,
+  report: reportRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
