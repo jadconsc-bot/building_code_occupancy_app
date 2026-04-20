@@ -64,7 +64,7 @@ export function AlbertaNBCReport({
     { item: "Insulation R-Value (Foundation)", requirement: "R-15 minimum", status: "pass" },
     {
       item: "Air Sealing (ACH50)",
-      requirement: "≤ 2.5 ACH50",
+      requirement: "<= 2.5 ACH50",
       status: currentAnalysis?.airtightnessCompliant ? "pass" : "fail",
     },
     { item: "Heating System Capacity", requirement: "Sized for design temperature", status: "pass" },
@@ -111,7 +111,7 @@ export function AlbertaNBCReport({
       doc.setFont("helvetica", "normal");
       doc.text(`Heating Degree Days: ${zoneInfo.hdd} HDD`, 14, y);
       y += 5;
-      doc.text(`Design Temperature: ${zoneInfo.designTemp}°C`, 14, y);
+      doc.text(`Design Temperature: ${zoneInfo.designTemp} deg C`, 14, y);
       y += 5;
       doc.text(
         `Seismic Zone: ${seismicZoneData?.seismicData?.seismicZone ?? "N/A"} (NBC 4.1.8)`,
@@ -155,13 +155,13 @@ export function AlbertaNBCReport({
             [
               "Airtightness (ACH50)",
               String(currentAnalysis.airtightnessModelled ?? "N/A"),
-              "≤ 2.5 ACH50",
+              "<= 2.5 ACH50",
               currentAnalysis.airtightnessCompliant ? "Pass" : "Fail",
             ],
             [
               "Mechanical Efficiency",
               String(currentAnalysis.mechEfficiencyModelled ?? "N/A"),
-              "≥ 0.90 AFUE",
+              ">= 0.90 AFUE",
               currentAnalysis.mechEfficiencyCompliant ? "Pass" : "Fail",
             ],
           ],
@@ -185,8 +185,13 @@ export function AlbertaNBCReport({
         doc.setFont("helvetica", "normal");
         doc.text(`Analysis Created: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y);
         y += 5;
-        doc.text(`Signature Verified: ${currentAnalysis.signatureVerified ? "✓" : "✗"}`, 14, y);
-        y += 8;
+        doc.text(`Signature Verified: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y);
+        y += 5;
+        if (currentAnalysis.cryptographicSignature) {
+          doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 16)}...`, 14, y);
+          y += 5;
+        }
+        y += 3;
       }
 
       // Regulatory reference footer

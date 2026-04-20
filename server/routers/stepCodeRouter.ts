@@ -448,6 +448,7 @@ export const stepCodeRouter = router({
         mechEfficiencyModelled: a.mechEfficiencyModelled ? Number(a.mechEfficiencyModelled) : null,
         mechEfficiencyCompliant: a.mechEfficiencyCompliant,
         signatureVerified: a.signatureVerified,
+        cryptographicSignature: a.cryptographicSignature as string | null,
         recommendations: JSON.parse(a.recommendations || "[]"),
         createdAt: a.createdAt,
       }));

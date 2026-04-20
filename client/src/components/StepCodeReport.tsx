@@ -150,7 +150,7 @@ export function StepCodeReport({
 
       autoTable(doc, {
         startY: y,
-        head: [["Metric", labels.target + " (kWh/m²/yr)", labels.modelled + " (kWh/m²/yr)", labels.gap, "Status"]],
+        head: [["Metric", labels.target + " (kWh/m2/yr)", labels.modelled + " (kWh/m2/yr)", labels.gap, "Status"]],
         body: [
           [
             "TEDI",
@@ -205,8 +205,13 @@ export function StepCodeReport({
       doc.setFont("helvetica", "normal");
       doc.text(`${labels.generatedAt}: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y);
       y += 5;
-      doc.text(`${labels.signatureVerified}: ${currentAnalysis.signatureVerified ? "✓" : "✗"}`, 14, y);
-      y += 8;
+      doc.text(`${labels.signatureVerified}: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y);
+      y += 5;
+      if (currentAnalysis.cryptographicSignature) {
+        doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 16)}...`, 14, y);
+        y += 5;
+      }
+      y += 3;
 
       // Footer reference
       doc.setFontSize(8);
