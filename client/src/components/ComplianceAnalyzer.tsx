@@ -34,10 +34,8 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // @ts-ignore
-  const analyzeCompliance = trpc.compliance.analyzePlan.useMutation();
-  // @ts-ignore
-  const analysisHistory = trpc.compliance.getHistory.useQuery({});
+  const analyzeMutation = trpc.compliance.analyzeCompliance.useMutation();
+  const { data: rulesets } = trpc.compliance.getRulesets.useQuery();
 
   const handleInputChange = (key: string, value: string | number | boolean | undefined) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -48,11 +46,11 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
 
     setLoading(true);
     try {
-      const analysisResult = await analyzeCompliance.mutateAsync({
-        planDescription: 'Building Plan',
-        occupancyType: inputs.occupancy_major || 'residential',
-        buildingType: inputs.buildingType,
-        province: 'Alberta',
+      const analysisResult = await analyzeMutation.mutateAsync({
+        projectId,
+        rulesetId: selectedRulesetId,
+        mode,
+        inputs,
       });
       setResult(analysisResult);
     } catch (error) {
@@ -106,7 +104,7 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
                 <SelectValue placeholder="Select code edition..." />
               </SelectTrigger>
               <SelectContent>
-                {[{ rulesetId: '1', code: 'NBC', edition: '2025', amendment: null }]?.map((rs: any) => (
+                {(rulesets ?? []).map((rs: any) => (
                   <SelectItem key={rs.rulesetId} value={rs.rulesetId}>
                     {rs.code} {rs.edition}
                     {rs.amendment ? ` (${rs.amendment})` : ""}
@@ -114,6 +112,9 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
                 ))}
               </SelectContent>
             </Select>
+            {rulesets && rulesets.length === 0 && (
+              <p className="text-sm text-red-600 mt-1">No ruleset available. Contact your administrator.</p>
+            )}
           </div>
 
           {/* Mode Selection */}
@@ -253,7 +254,7 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
           {/* Analyze Button */}
           <Button
             onClick={handleAnalyze}
-            disabled={!selectedRulesetId || !inputs.occupancy_major || loading}
+            disabled={!selectedRulesetId || !inputs.occupancy_major || loading || !rulesets?.length}
             className="w-full"
             size="lg"
           >
@@ -279,7 +280,7 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     <Clock className="w-4 h-4" />
-                    {new Date(result.timestamp).toLocaleString()}
+                    {new Date().toLocaleString()}
                   </CardDescription>
                 </div>
               </div>
