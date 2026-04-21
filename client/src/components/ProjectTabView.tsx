@@ -9,6 +9,9 @@ interface ProjectTabViewProps {
 
 export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
   const [, setLocation] = useLocation();
+
+  if (!projectId) return <div>Loading...</div>;
+
   const numericProjectId = Number(projectId);
 
   // ── Data fetching ──────────────────────────────────────────
@@ -159,7 +162,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
   }
 
   // ── Error state ────────────────────────────────────────────
-  if (isError || !project) {
+  if (isError) {
     return (
       <div className="p-4 text-center text-muted-foreground">
         <p>Failed to load project. Please try again.</p>
@@ -172,6 +175,8 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
       </div>
     );
   }
+
+  if (!project) return null;
 
   // ── Render ─────────────────────────────────────────────────
   return (
