@@ -8,7 +8,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { rulesets, complianceSnapshots, ruleChangelog, auditLog, ruleTests } from "../drizzle/schema";
 import { ComplianceEvaluator, createEvaluator, validateInputsForStrictMode, ComplianceInput } from "./complianceEngine";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 
 export const complianceRouter = router({
   /**
@@ -17,7 +17,7 @@ export const complianceRouter = router({
   getRulesets: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
-    const allRulesets = await db.select().from(rulesets).where(eq(rulesets.retiredDate, null as any));
+    const allRulesets = await db.select().from(rulesets).where(isNull(rulesets.retiredDate));
     return allRulesets.map((rs) => ({
       id: rs.id,
       rulesetId: rs.rulesetId,
