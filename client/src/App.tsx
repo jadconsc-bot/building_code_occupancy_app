@@ -34,6 +34,17 @@ import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { useLocation } from "wouter";
 
+function ProjectDetailPage({ params }: { params: { projectId: string } }) {
+  const [, setLocation] = useLocation();
+  return (
+    <ProjectTabView
+      projectId={params.projectId ?? ''}
+      onNavigate={(route) => setLocation(route)}
+      onBack={() => setLocation('/')}
+    />
+  );
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   // ProjectTabView route added for individual project detail views
@@ -58,16 +69,7 @@ function Router() {
         <Route path={"/documentation"} component={Documentation} />
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
         <Route path={"/settings"} component={Settings} />
-        <Route path={"/project/:projectId"} component={({ projectId }: any) => {
-          const [, setLocation] = useLocation();
-          return (
-            <ProjectTabView
-              projectId={projectId}
-              onNavigate={(route, params) => setLocation(route)}
-              onBack={() => setLocation('/')}
-            />
-          );
-        }} />
+        <Route path={"/project/:projectId"} component={ProjectDetailPage} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />
