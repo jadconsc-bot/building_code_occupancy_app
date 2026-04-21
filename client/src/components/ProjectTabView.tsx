@@ -22,25 +22,18 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
     { enabled: !!projectId }
   );
 
-  const calculationsQuery = trpc.calculations.getProjectCalculations.useQuery(
-    { projectId },
-    { enabled: !!projectId }
-  );
-
   // ── Derived state ──────────────────────────────────────────
   const project = projectQuery.data;
   const snapshots = snapshotsQuery.data ?? [];
-  const calculations = calculationsQuery.data ?? [];
+  const calculations: any[] = [];
 
   const isLoading =
     projectQuery.isLoading ||
-    snapshotsQuery.isLoading ||
-    calculationsQuery.isLoading;
+    snapshotsQuery.isLoading;
 
   const isError =
     projectQuery.isError ||
-    snapshotsQuery.isError ||
-    calculationsQuery.isError;
+    snapshotsQuery.isError;
 
   // Most recent snapshot drives the status badge
   const latestSnapshot = snapshots.length > 0

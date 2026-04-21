@@ -64,7 +64,7 @@ function Router() {
             <ProjectTabView
               projectId={projectId}
               onNavigate={(route, params) => setLocation(route)}
-              onBack={() => setLocation('/projects')}
+              onBack={() => setLocation('/')}
             />
           );
         }} />
