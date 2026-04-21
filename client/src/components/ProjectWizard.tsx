@@ -142,10 +142,13 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
     setJurisdictionDetected(false); setDetectError(""); setManualOverride(false);
 
+    if (province === "OTHER") {
+      setManualOverride(true);
+      return;
+    }
+
     const municipality = extractMunicipality(address);
-    const detectionProvince = province === "AB" ? "AB" as const
-      : province === "BC" ? "BC" as const
-      : undefined;
+    const detectionProvince = province === "AB" ? "AB" as const : "BC" as const;
 
     if (municipality) {
       detectMutation.mutate({ municipality, province: detectionProvince });

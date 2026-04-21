@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
 import { ProjectChecklistDashboard } from '@/components/ProjectChecklistDashboard';
 import { ProjectManager } from '@/components/ProjectManager';
+import { ProjectWizard } from '@/components/ProjectWizard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Plus } from 'lucide-react';
@@ -11,6 +13,7 @@ export default function ProjectChecklistsPage() {
   const { user, loading } = useAuth();
   const { activeProjectId, setActiveProjectId, getAllProjects, isLoading: projectsLoading } = useProject();
   const [, setLocation] = useLocation();
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const projects = getAllProjects();
 
   if (loading) {
@@ -88,6 +91,7 @@ export default function ProjectChecklistsPage() {
                         className="w-full justify-start text-left h-auto py-2 px-3"
                         onClick={() => {
                           setActiveProjectId(parseInt(project.id));
+                          setLocation(`/project/${project.id}`);
                         }}
                       >
                         <div className="truncate">
@@ -103,7 +107,7 @@ export default function ProjectChecklistsPage() {
                   <p className="text-sm text-muted-foreground">No projects yet</p>
                 )}
 
-                <Button variant="outline" className="w-full gap-2 mt-4">
+                <Button variant="outline" className="w-full gap-2 mt-4" onClick={() => setIsWizardOpen(true)}>
                   <Plus size={16} />
                   New Project
                 </Button>
@@ -131,6 +135,7 @@ export default function ProjectChecklistsPage() {
           </div>
         </div>
       </div>
+      <ProjectWizard open={isWizardOpen} onOpenChange={setIsWizardOpen} />
     </div>
   );
 }

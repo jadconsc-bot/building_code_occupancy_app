@@ -57,7 +57,7 @@ export function NavigationHeader() {
     {
       label: 'Projects',
       icon: FolderOpen,
-      href: '/project-checklists',
+      href: '/',
       description: 'Create and manage projects',
     },
     {
