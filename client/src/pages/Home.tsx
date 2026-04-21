@@ -12,7 +12,7 @@ import { useProject } from "@/contexts/ProjectContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProjectDashboard } from "@/components/ProjectDashboard";
+import { ProjectWizard } from "@/components/ProjectWizard";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
@@ -149,6 +149,7 @@ export default function Home() {
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [showUserManual, setShowUserManual] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -1290,17 +1291,13 @@ export default function Home() {
             
             {/* Desktop Action Buttons */}
             <div className="hidden md:flex items-center gap-2 mb-6 ml-auto print:hidden">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
-                      <FolderOpen className="w-4 h-4" />
-                      Projects
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
-                    <ProjectDashboard />
-                  </DialogContent>
-                </Dialog>
+                <button
+                  onClick={() => setShowProjectWizard(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Projects
+                </button>
                 <Dialog>
                   <DialogTrigger asChild>
                     <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
@@ -1370,18 +1367,14 @@ export default function Home() {
                   Share
                 </button>
                 
-                {/* Projects Dialog */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors">
-                      <FolderOpen className="w-4 h-4" />
-                      Projects
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
-                    <ProjectDashboard />
-                  </DialogContent>
-                </Dialog>
+                {/* Projects Button */}
+                <button
+                  onClick={() => setShowProjectWizard(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Projects
+                </button>
                 
                 {/* Compare Dialog */}
                 <Dialog>
@@ -2858,6 +2851,8 @@ export default function Home() {
         isOpen={showUserManual} 
         onClose={() => setShowUserManual(false)} 
       />
+
+      <ProjectWizard open={showProjectWizard} onOpenChange={setShowProjectWizard} />
 
       {/* Export PDF Dialog */}
       <ExportPDFDialog
