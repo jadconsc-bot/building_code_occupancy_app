@@ -101,6 +101,11 @@ export function AlbertaNBCReport({
       doc.setFont("helvetica", "normal");
       doc.text(`Name: ${project?.name ?? "N/A"}`, 14, y);
       y += 5;
+      const albertaDisplayCode = (project as any)?.projectCode || (project as any)?.projectNumber;
+      if (albertaDisplayCode) {
+        doc.text(`Project Code: ${albertaDisplayCode}`, 14, y);
+        y += 5;
+      }
       doc.text(`Address: ${project?.address ?? "N/A"}`, 14, y);
       y += 10;
 

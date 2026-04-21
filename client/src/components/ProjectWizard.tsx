@@ -74,6 +74,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
 
   // Step 1 fields
   const [name, setName] = useState("");
+  const [projectCode, setProjectCode] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -126,7 +127,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
 
   function resetForm() {
     setStep(1);
-    setName(""); setAddress(""); setNotes("");
+    setName(""); setProjectCode(""); setAddress(""); setNotes("");
     setProvince(""); setOccupancyCode("A-1"); setBuildingType("");
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
     setJurisdictionDetected(false); setDetectError(""); setManualOverride(false);
@@ -166,6 +167,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       seismicZone: seismicZone || undefined,
       stepCodeTier: stepCodeTier || undefined,
       jurisdictionDetected,
+      projectCode: projectCode.trim() || undefined,
     });
   }
 
@@ -194,6 +196,16 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 value={name}
                 onChange={e => setName(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wiz-code">Project Code (optional)</Label>
+              <Input
+                id="wiz-code"
+                placeholder="e.g. CCC21, ABC-2024 — leave blank to auto-generate"
+                value={projectCode}
+                onChange={e => setProjectCode(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Auto-generated as CC-{new Date().getFullYear()}-001 if left blank</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="wiz-address">Building Address *</Label>
@@ -378,6 +390,12 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
               <div className="px-4 py-3 flex justify-between">
                 <span className="text-muted-foreground">Project Name</span>
                 <span className="font-semibold">{name}</span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Project Code</span>
+                <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                  {projectCode.trim() || `CC-${new Date().getFullYear()}-### (auto)`}
+                </span>
               </div>
               <div className="px-4 py-3 flex justify-between">
                 <span className="text-muted-foreground">Address</span>

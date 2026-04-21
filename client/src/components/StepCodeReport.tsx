@@ -121,6 +121,11 @@ export function StepCodeReport({
       doc.setFont("helvetica", "normal");
       doc.text(`${labels.projectName}: ${project?.name ?? "N/A"}`, 14, y);
       y += 5;
+      const stepDisplayCode = (project as any)?.projectCode || (project as any)?.projectNumber;
+      if (stepDisplayCode) {
+        doc.text(`Project Code: ${stepDisplayCode}`, 14, y);
+        y += 5;
+      }
       doc.text(`${labels.address}: ${project?.address ?? "N/A"}`, 14, y);
       y += 5;
       doc.text(

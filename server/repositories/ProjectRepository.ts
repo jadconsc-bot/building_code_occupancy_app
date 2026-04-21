@@ -23,6 +23,7 @@ export interface CreateProjectInput {
   seismicZone?: string;
   stepCodeTier?: string;
   jurisdictionDetected?: boolean;
+  projectCode?: string;
 }
 
 export interface UpdateProjectInput {
@@ -39,6 +40,7 @@ export interface UpdateProjectInput {
   seismicZone?: string;
   stepCodeTier?: string;
   jurisdictionDetected?: boolean;
+  projectCode?: string;
 }
 
 export class ProjectRepository {
@@ -111,6 +113,15 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
+      // Count existing user projects to generate a sequential number
+      const existingProjects = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.userId, input.userId));
+      const seq = existingProjects.length + 1;
+      const year = new Date().getFullYear();
+      const projectNumber = `CC-${year}-${String(seq).padStart(3, '0')}`;
+
       await db.insert(projects).values({
         userId: input.userId,
         name: input.name,
@@ -124,6 +135,8 @@ export class ProjectRepository {
         seismicZone: input.seismicZone || null,
         stepCodeTier: input.stepCodeTier || null,
         jurisdictionDetected: input.jurisdictionDetected ?? false,
+        projectCode: input.projectCode || null,
+        projectNumber,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -170,6 +183,7 @@ export class ProjectRepository {
       if (input.seismicZone !== undefined) updateData.seismicZone = input.seismicZone;
       if (input.stepCodeTier !== undefined) updateData.stepCodeTier = input.stepCodeTier;
       if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
+      if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
 
       await db
         .update(projects)

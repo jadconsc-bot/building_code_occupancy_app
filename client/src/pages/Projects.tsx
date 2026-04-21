@@ -79,7 +79,9 @@ export default function Projects() {
         (project) =>
           project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           project.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          project.address?.toLowerCase().includes(searchQuery.toLowerCase())
+          project.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          project.projectCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          project.projectNumber?.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [projects, searchQuery]
   );
@@ -242,6 +244,8 @@ export default function Projects() {
                   lastModified={new Date(project.createdAt)}
                   onClick={() => setLocation(`/project/${project.id}`)}
                   isLoading={false}
+                  projectCode={project.projectCode ?? undefined}
+                  projectNumber={project.projectNumber ?? undefined}
                 />
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">

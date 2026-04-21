@@ -41,6 +41,7 @@ export const projectRouter = router({
       seismicZone: z.string().max(20).optional(),
       stepCodeTier: z.string().max(5).optional(),
       jurisdictionDetected: z.boolean().optional(),
+      projectCode: z.string().max(50).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return projectRepository.createProject({
@@ -67,6 +68,7 @@ export const projectRouter = router({
         seismicZone: z.string().max(20).optional(),
         stepCodeTier: z.string().max(5).optional(),
         jurisdictionDetected: z.boolean().optional(),
+        projectCode: z.string().max(50).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

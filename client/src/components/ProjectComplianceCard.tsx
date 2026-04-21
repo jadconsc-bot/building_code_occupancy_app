@@ -28,6 +28,8 @@ interface ProjectComplianceCardProps {
   readonly lastModified: Date;
   readonly onClick?: () => void;
   readonly isLoading?: boolean;
+  readonly projectCode?: string;
+  readonly projectNumber?: string;
 }
 
 /**
@@ -75,7 +77,10 @@ export const ProjectComplianceCard: React.FC<ProjectComplianceCardProps> = ({
   lastModified,
   onClick,
   isLoading,
+  projectCode,
+  projectNumber,
 }) => {
+  const displayCode = projectCode || projectNumber;
   const badgeConfig = getBadgeConfig(status);
 
   return (
@@ -97,6 +102,11 @@ export const ProjectComplianceCard: React.FC<ProjectComplianceCardProps> = ({
             <h3 className="text-sm font-semibold text-gray-900 truncate">
               {isLoading ? '—' : name}
             </h3>
+            {!isLoading && displayCode && (
+              <span className="inline-block mt-1 px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs font-mono rounded">
+                {displayCode}
+              </span>
+            )}
             <p className="text-xs text-gray-500 mt-1 truncate">
               {isLoading ? '—' : address}
             </p>
