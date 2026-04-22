@@ -26,7 +26,7 @@ interface ComplianceInput {
   [key: string]: any;
 }
 
-export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
+export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number; onResult?: (result: any) => void }) {
   const { user } = useAuth();
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
@@ -53,6 +53,7 @@ export function ComplianceAnalyzer({ projectId }: { projectId: number }) {
         inputs,
       });
       setResult(analysisResult);
+      onResult?.(analysisResult);
     } catch (error) {
       console.error("Analysis failed:", error);
     } finally {

@@ -10,21 +10,21 @@ import { ComplianceSnapshotViewer } from "@/components/ComplianceSnapshotViewer"
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, Shield, FileText, Settings } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, Shield, Settings } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport, type CompliancePathwayReportProps } from "@/components/CompliancePathwayReport";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function CompliancePage() {
   const params = useParams();
   const projectId = params.projectId ? parseInt(params.projectId) : 0;
-  const [complianceResult, setComplianceResult] = useState(null);
+  const { user } = useAuth();
+  const [complianceResult, setComplianceResult] = useState<any>(null);
   const [pathway, setPathway] = useState<Partial<CompliancePathwayReportProps> | null>(null);
-  const [projectInfo, setProjectInfo] = useState({
-    name: 'My Project',
-    engineer: 'John Smith',
-  });
+  const [scenarioResults, setScenarioResults] = useState<Record<string, any>>({});
 
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
     onSuccess: (data) => {
@@ -32,12 +32,15 @@ export default function CompliancePage() {
     },
   });
 
-  const handleGeneratePathway = async () => {
-    if (!complianceResult) {
-      console.error('Run compliance analysis first');
-      return;
-    }
+  const analyzeComplianceMutation = trpc.compliance.analyzeCompliance.useMutation();
+  const { data: rulesets } = trpc.compliance.getRulesets.useQuery();
+  const govSnapshots = trpc.compliance.getProjectSnapshots.useQuery(
+    { projectId },
+    { enabled: !!projectId }
+  );
 
+  const handleGeneratePathway = async () => {
+    if (!complianceResult) return;
     await pathwayMutation.mutateAsync({
       complianceResult,
       inputs: {
@@ -45,6 +48,24 @@ export default function CompliancePage() {
         area_m2: 5000,
       },
     });
+  };
+
+  const handleScenarioCalculate = async (scenario: any) => {
+    const rulesetId = rulesets?.[0]?.rulesetId ?? '';
+    if (!rulesetId) return;
+    const result = await analyzeComplianceMutation.mutateAsync({
+      projectId,
+      rulesetId,
+      mode: scenario.mode ?? 'soft',
+      inputs: scenario.inputs ?? {
+        occupancy_major: scenario.occupancy,
+        area_m2: scenario.area_m2,
+        storeys: scenario.storeys,
+        construction_type: scenario.construction_type,
+        sprinklers: scenario.sprinklers,
+      },
+    });
+    setScenarioResults(prev => ({ ...prev, [scenario.id]: result }));
   };
 
   const [, navigate] = useLocation();
@@ -72,6 +93,13 @@ export default function CompliancePage() {
     );
   }
 
+  const mostRecentSnap = [...(govSnapshots.data ?? [])].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  )[0];
+
+  const analystName =
+    (user as any)?.name ?? (user as any)?.email ?? (user as any)?.username ?? 'Authenticated User';
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -91,107 +119,188 @@ export default function CompliancePage() {
       {/* Main Content */}
       <div className="mt-6">
         <Tabs defaultValue="analyzer" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="analyzer">Analysis</TabsTrigger>
-          <TabsTrigger value="scenarios">What-If Scenarios</TabsTrigger>
-          <TabsTrigger value="pathway">Code Pathway</TabsTrigger>
-          <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
-          <TabsTrigger value="governance">Governance</TabsTrigger>
-        </TabsList>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="analyzer">Analysis</TabsTrigger>
+            <TabsTrigger value="scenarios">What-If Scenarios</TabsTrigger>
+            <TabsTrigger value="pathway">Code Pathway</TabsTrigger>
+            <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
+            <TabsTrigger value="governance">Governance</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="analyzer" className="space-y-6 mt-6">
-          <ComplianceAnalyzer projectId={projectId} />
-          <Button onClick={handleGeneratePathway} disabled={pathwayMutation.isPending}>
-            {pathwayMutation.isPending ? 'Generating...' : 'Generate Code Pathway'}
-          </Button>
-        </TabsContent>
-
-        <TabsContent value="scenarios" className="space-y-6 mt-6">
-          <ScenarioComparison />
-        </TabsContent>
-
-        <TabsContent value="pathway" className="space-y-6 mt-6">
-          {pathway && (
-            <CompliancePathwayReport
-              {...pathway}
+          {/* Analysis tab */}
+          <TabsContent value="analyzer" className="space-y-6 mt-6">
+            <ComplianceAnalyzer
+              projectId={projectId}
+              onResult={(result) => setComplianceResult(result)}
             />
-          )}
-          {!pathway && (
-            <Card className="bg-gray-50">
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600">Generate a code pathway to see compliance requirements</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="snapshots" className="space-y-6 mt-6">
-          <ComplianceSnapshotViewer projectId={projectId} />
-        </TabsContent>
+          {/* What-If Scenarios tab */}
+          <TabsContent value="scenarios" className="space-y-6 mt-6">
+            <ScenarioComparison
+              projectId={projectId}
+              onCalculate={handleScenarioCalculate}
+              results={scenarioResults}
+            />
+          </TabsContent>
 
-        <TabsContent value="governance" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Governance & Audit</CardTitle>
-              <CardDescription>Rule management, changelog, and audit logs</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Active Rulesets</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">—</p>
-                    <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Rule Changes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">—</p>
-                    <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Audit Entries</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">—</p>
-                    <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-gray-50">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    Rule Management
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">
-                    Rule DSL editor and governance dashboard coming in next phase. This will allow admins to:
+          {/* Code Pathway tab */}
+          <TabsContent value="pathway" className="space-y-6 mt-6">
+            {!complianceResult && (
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-sm text-yellow-700">
+                    Run a compliance analysis on the Analysis tab first, then generate a pathway here.
                   </p>
-                  <ul className="list-disc list-inside text-sm text-gray-600 mt-3 space-y-1">
-                    <li>Create and edit rules using a domain-specific language</li>
-                    <li>Version rulesets tied to code editions</li>
-                    <li>Track all rule changes with approval workflows</li>
-                    <li>Run comprehensive test suites for validation</li>
-                    <li>View complete audit logs of all analyses</li>
-                  </ul>
                 </CardContent>
               </Card>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            )}
+            <Button
+              onClick={handleGeneratePathway}
+              disabled={!complianceResult || pathwayMutation.isPending}
+            >
+              {pathwayMutation.isPending ? 'Generating...' : 'Generate Code Pathway'}
+            </Button>
+            {pathway && <CompliancePathwayReport {...pathway} />}
+            {!pathway && complianceResult && (
+              <Card className="bg-gray-50">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-gray-600">
+                    Click "Generate Code Pathway" to see compliance requirements
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Snapshots tab */}
+          <TabsContent value="snapshots" className="space-y-6 mt-6">
+            <ComplianceSnapshotViewer projectId={projectId} />
+          </TabsContent>
+
+          {/* Governance tab */}
+          <TabsContent value="governance" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Governance & Audit</CardTitle>
+                <CardDescription>Rule management, changelog, and audit logs</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Active Rulesets</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">{rulesets?.length ?? '—'}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {rulesets?.[0] ? `${rulesets[0].code} ${rulesets[0].edition}` : 'No rulesets'}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Rule Changes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">—</p>
+                      <p className="text-xs text-gray-500 mt-1">Changelog coming soon</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Audit Entries</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold">{govSnapshots.data?.length ?? '—'}</p>
+                      <p className="text-xs text-gray-500 mt-1">Compliance snapshots</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Most recent snapshot */}
+                {mostRecentSnap && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Most Recent Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Analyst:</span>
+                        <span className="font-medium">{analystName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Analysis Date:</span>
+                        <span className="font-medium">
+                          {mostRecentSnap.createdAt
+                            ? new Date(mostRecentSnap.createdAt).toLocaleString()
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Signature:</span>
+                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {mostRecentSnap.snapshotId?.slice(0, 16) ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Rule Engine:</span>
+                        <span className="font-medium">
+                          {rulesets?.find(r => r.rulesetId === mostRecentSnap.rulesetId)?.version ??
+                            mostRecentSnap.rulesetId ??
+                            '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Code Edition:</span>
+                        <span className="font-medium">{mostRecentSnap.rulesetId ?? '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Immutability:</span>
+                        <Badge className="bg-green-100 text-green-800">Immutable</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!mostRecentSnap && !govSnapshots.isLoading && (
+                  <Card className="bg-gray-50">
+                    <CardContent className="pt-6 pb-6">
+                      <p className="text-sm text-gray-500 text-center">
+                        No analyses yet. Run a compliance analysis to see governance data.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Rule management stub */}
+                <Card className="bg-gray-50">
+                  <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Rule Management
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">
+                      Rule DSL editor and governance dashboard coming in next phase. This will allow admins to:
+                    </p>
+                    <ul className="list-disc list-inside text-sm text-gray-600 mt-3 space-y-1">
+                      <li>Create and edit rules using a domain-specific language</li>
+                      <li>Version rulesets tied to code editions</li>
+                      <li>Track all rule changes with approval workflows</li>
+                      <li>Run comprehensive test suites for validation</li>
+                      <li>View complete audit logs of all analyses</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

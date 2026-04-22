@@ -28,13 +28,16 @@ export interface Scenario {
 }
 
 interface ScenarioComparisonProps {
+  projectId?: number;
   onCalculate?: (scenario: Scenario) => Promise<void>;
   onExport?: (scenarios: Scenario[]) => void;
+  results?: Record<string, any>;
 }
 
 export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
   onCalculate,
   onExport,
+  results = {},
 }) => {
   const [scenarios, setScenarios] = useState<Scenario[]>([
     {
@@ -401,6 +404,31 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
                       </TableCell>
                     ))}
                   </TableRow>
+
+                  {comparisonData.selected.some(s => results[s.id]) && (
+                    <TableRow>
+                      <TableCell className="font-semibold">Status</TableCell>
+                      {comparisonData.selected.map((scenario) => (
+                        <TableCell key={scenario.id} className="text-center">
+                          {results[scenario.id] ? (
+                            <Badge
+                              className={
+                                results[scenario.id].complianceStatus === 'compliant'
+                                  ? 'bg-green-100 text-green-800'
+                                  : results[scenario.id].complianceStatus === 'non_compliant'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }
+                            >
+                              {results[scenario.id].complianceStatus ?? 'pending'}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
