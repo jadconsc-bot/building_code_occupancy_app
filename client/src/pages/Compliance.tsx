@@ -25,10 +25,12 @@ export default function CompliancePage() {
   const [complianceResult, setComplianceResult] = useState<any>(null);
   const [pathway, setPathway] = useState<Partial<CompliancePathwayReportProps> | null>(null);
   const [scenarioResults, setScenarioResults] = useState<Record<string, any>>({});
+  const [savedInputs, setSavedInputs] = useState<any>(null);
 
   useEffect(() => {
     setComplianceResult(null);
     setPathway(null);
+    setSavedInputs(null);
   }, [projectId]);
 
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
@@ -146,6 +148,8 @@ export default function CompliancePage() {
               initialOccupancy={project?.occupancyCode ?? undefined}
               initialProvince={project?.province ?? undefined}
               initialBuildingType={project?.buildingType ?? undefined}
+              persistedInputs={savedInputs}
+              onInputsChange={(inputs) => setSavedInputs(inputs)}
               onResult={(result) => { setComplianceResult(result); setPathway(null); }}
             />
           </TabsContent>
@@ -156,20 +160,22 @@ export default function CompliancePage() {
               projectId={projectId}
               onCalculate={handleScenarioCalculate}
               results={scenarioResults}
-              initialScenario={mostRecentSnap ? (() => {
+              initialScenario={(() => {
+                const src = complianceResult?.inputs ?? mostRecentSnap?.inputs;
+                if (!src) return undefined;
                 const legacyMap: Record<string, string> = {
                   residential: 'C', commercial: 'D', assembly: 'A',
                   institutional: 'B', industrial: 'F',
                 };
-                const rawOcc = mostRecentSnap.inputs?.occupancy_major ?? 'D';
+                const rawOcc = src.occupancy_major ?? 'D';
                 return {
                   occupancy: legacyMap[rawOcc] ?? rawOcc,
-                  area_m2: mostRecentSnap.inputs?.area_m2 ?? 0,
-                  storeys: mostRecentSnap.inputs?.storeys ?? 1,
-                  construction_type: mostRecentSnap.inputs?.construction_type ?? 'combustible',
-                  sprinklers: mostRecentSnap.inputs?.sprinklers ?? false,
+                  area_m2: src.area_m2 ?? 0,
+                  storeys: src.storeys ?? 1,
+                  construction_type: src.construction_type ?? 'combustible',
+                  sprinklers: src.sprinklers ?? false,
                 };
-              })() : undefined}
+              })()}
             />
           </TabsContent>
 

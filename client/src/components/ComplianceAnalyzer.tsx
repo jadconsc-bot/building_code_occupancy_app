@@ -40,26 +40,36 @@ export function ComplianceAnalyzer({
   initialOccupancy,
   initialProvince,
   initialBuildingType,
+  persistedInputs,
+  onInputsChange,
 }: {
   projectId: number;
   onResult?: (result: any) => void;
   initialOccupancy?: string;
   initialProvince?: string;
   initialBuildingType?: string;
+  persistedInputs?: ComplianceInput | null;
+  onInputsChange?: (inputs: ComplianceInput) => void;
 }) {
   const { user } = useAuth();
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
-  const [inputs, setInputs] = useState<ComplianceInput>({
-    occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : "",
-    province: initialProvince ?? undefined,
-    construction_type: initialBuildingType
-      ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
-      : undefined,
-  });
+  const [inputs, setInputs] = useState<ComplianceInput>(
+    persistedInputs ?? {
+      occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : "",
+      province: initialProvince ?? undefined,
+      construction_type: initialBuildingType
+        ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
+        : undefined,
+    }
+  );
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [areaTouched, setAreaTouched] = useState(false);
+
+  useEffect(() => {
+    onInputsChange?.(inputs);
+  }, [inputs]);
 
   useEffect(() => {
     if (initialOccupancy || initialProvince || initialBuildingType) {
