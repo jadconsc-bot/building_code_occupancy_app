@@ -145,23 +145,51 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
               </TabsContent>
 
               <TabsContent value="trace" className="space-y-4">
-                <div className="space-y-2">
-                  {(selected.ruleTrace || []).map((step: any, idx: number) => (
-                    <div key={idx} className="p-3 border border-gray-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{step.rule_id || step.clause || `Step ${idx + 1}`}</p>
-                          {step.clause && step.rule_id && (
-                            <p className="text-xs text-gray-600">{step.clause}</p>
-                          )}
-                        </div>
-                        <Badge variant="outline" className={step.fired ? "text-green-700 border-green-300" : "text-red-700 border-red-300"}>
-                          {step.fired ? "Pass" : "Fail"}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {(selected.ruleTrace || []).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No rule trace available.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 w-32">Rule ID</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
+                          <th className="text-center px-3 py-2 font-medium text-gray-600 w-24">Result</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 w-32">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selected.ruleTrace || []).map((step: any, idx: number) => (
+                          <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">
+                              {step.rule_id || `rule-${idx + 1}`}
+                            </td>
+                            <td className="px-3 py-2 text-gray-800 align-top">
+                              {step.clause || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-center align-top">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  step.fired
+                                    ? "text-green-700 border-green-300 bg-green-50"
+                                    : "text-red-700 border-red-300 bg-red-50"
+                                }
+                              >
+                                {step.fired ? "PASS" : "FAIL"}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-500 align-top">
+                              {step.conditions_met !== undefined
+                                ? `Conditions ${step.conditions_met ? "met" : "not met"}`
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 

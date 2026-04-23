@@ -156,13 +156,20 @@ export default function CompliancePage() {
               projectId={projectId}
               onCalculate={handleScenarioCalculate}
               results={scenarioResults}
-              initialScenario={mostRecentSnap ? {
-                occupancy: mostRecentSnap.inputs?.occupancy_major ?? 'D',
-                area_m2: mostRecentSnap.inputs?.area_m2 ?? 0,
-                storeys: mostRecentSnap.inputs?.storeys ?? 1,
-                construction_type: mostRecentSnap.inputs?.construction_type ?? 'combustible',
-                sprinklers: mostRecentSnap.inputs?.sprinklers ?? false,
-              } : undefined}
+              initialScenario={mostRecentSnap ? (() => {
+                const legacyMap: Record<string, string> = {
+                  residential: 'C', commercial: 'D', assembly: 'A',
+                  institutional: 'B', industrial: 'F',
+                };
+                const rawOcc = mostRecentSnap.inputs?.occupancy_major ?? 'D';
+                return {
+                  occupancy: legacyMap[rawOcc] ?? rawOcc,
+                  area_m2: mostRecentSnap.inputs?.area_m2 ?? 0,
+                  storeys: mostRecentSnap.inputs?.storeys ?? 1,
+                  construction_type: mostRecentSnap.inputs?.construction_type ?? 'combustible',
+                  sprinklers: mostRecentSnap.inputs?.sprinklers ?? false,
+                };
+              })() : undefined}
             />
           </TabsContent>
 

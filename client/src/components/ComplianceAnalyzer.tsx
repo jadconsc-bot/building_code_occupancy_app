@@ -26,6 +26,14 @@ interface ComplianceInput {
   [key: string]: any;
 }
 
+const BUILDING_TYPE_TO_CONSTRUCTION: Record<string, string> = {
+  part9_single_family: "combustible",
+  part9_multiplex: "combustible",
+  part3_residential: "non_combustible",
+  part3_commercial: "non_combustible",
+  part3_industrial: "non_combustible",
+};
+
 export function ComplianceAnalyzer({
   projectId,
   onResult,
@@ -45,18 +53,24 @@ export function ComplianceAnalyzer({
   const [inputs, setInputs] = useState<ComplianceInput>({
     occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : "",
     province: initialProvince ?? undefined,
-    construction_type: initialBuildingType ?? undefined,
+    construction_type: initialBuildingType
+      ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
+      : undefined,
   });
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [areaTouched, setAreaTouched] = useState(false);
 
   useEffect(() => {
     if (initialOccupancy || initialProvince || initialBuildingType) {
+      setAreaTouched(false);
       setInputs(prev => ({
         ...prev,
         occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : prev.occupancy_major,
         province: initialProvince ?? prev.province,
-        construction_type: initialBuildingType ?? prev.construction_type,
+        construction_type: initialBuildingType
+          ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? prev.construction_type)
+          : prev.construction_type,
       }));
     }
   }, [initialOccupancy, initialProvince, initialBuildingType]);
@@ -204,11 +218,21 @@ export function ComplianceAnalyzer({
                 type="number"
                 value={inputs.area_m2 || ""}
                 onChange={(e) => handleInputChange("area_m2", e.target.value ? parseFloat(e.target.value) : undefined)}
+                onBlur={() => setAreaTouched(true)}
                 placeholder="Enter area..."
-                className={`w-full px-3 py-2 border rounded-md ${inputs.occupancy_major && !inputs.area_m2 ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full px-3 py-2 border rounded-md ${
+                  mode === "strict" && areaTouched && !inputs.area_m2
+                    ? "border-red-400"
+                    : "border-gray-300"
+                }`}
               />
-              {inputs.occupancy_major && !inputs.area_m2 && (
+              {mode === "strict" && areaTouched && !inputs.area_m2 && (
                 <p className="text-xs text-red-600">Area is required for compliance analysis</p>
+              )}
+              {mode === "soft" && inputs.occupancy_major && !inputs.area_m2 && (
+                <p className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
+                  Area not provided — occupant load estimate will not be available
+                </p>
               )}
             </div>
 
@@ -287,7 +311,7 @@ export function ComplianceAnalyzer({
           {/* Analyze Button */}
           <Button
             onClick={handleAnalyze}
-            disabled={!selectedRulesetId || !inputs.occupancy_major || !inputs.area_m2 || loading || !rulesets?.length}
+            disabled={!selectedRulesetId || !inputs.occupancy_major || (mode === "strict" && !inputs.area_m2) || loading || !rulesets?.length}
             className="w-full"
             size="lg"
           >

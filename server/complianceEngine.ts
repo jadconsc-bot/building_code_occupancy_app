@@ -99,12 +99,36 @@ export class ComplianceEvaluator {
       }
     }
 
+    // Populate standard derived outputs
+    const loadFactors: Record<string, number> = {
+      A: 1.0, B: 4.6, C: 25.0, D: 9.3, E: 3.7, F: 30, "F-1": 30, "F-2": 30, "F-3": 30,
+    };
+    if (inputs.area_m2 && inputs.occupancy_major) {
+      const factor = loadFactors[inputs.occupancy_major] ?? 9.3;
+      const occupantLoad = Math.ceil(Number(inputs.area_m2) / factor);
+      outputs.occupant_load = occupantLoad;
+      outputs.exits_required = occupantLoad <= 60 ? 1 : occupantLoad <= 600 ? 2 : 3;
+    }
+    outputs.travel_distance_max = 40;
+    if (inputs.occupancy_major && inputs.construction_type) {
+      const nonCombustibleValues = ["non_combustible", "Non-Combustible", "fire_resistant", "Fire-Resistant"];
+      const isNonCombustible = nonCombustibleValues.includes(inputs.construction_type);
+      const isHighRisk = ["A", "B"].includes(inputs.occupancy_major);
+      outputs.fire_resistance_rating = isHighRisk
+        ? (isNonCombustible ? "2hr" : "1hr")
+        : (isNonCombustible ? "1hr" : "45min");
+    }
+
     // Generate compliance flags based on outputs
     complianceFlags["area_ok"] = !(outputs.area_exceeds_limit === true);
     complianceFlags["sprinklers_ok"] = !(outputs.sprinklers_required === true) || inputs.sprinklers === true;
     complianceFlags["fire_alarm_ok"] = !(outputs.fire_alarm_required === true) || inputs.fire_alarm === true;
     complianceFlags["exits_ok"] = !(outputs.exits_required === true) || (inputs.exits && inputs.exits >= (typeof outputs.exits_required === 'number' ? outputs.exits_required : 0)) || false;
     complianceFlags["travel_distance_ok"] = !(outputs.travel_distance_exceeded === true);
+
+    const allPass = Object.values(complianceFlags).every((f) => f === true);
+    const anyFail = Object.values(complianceFlags).some((f) => f === false);
+    outputs.compliance_status = allPass ? "pass" : anyFail ? "fail" : "conditional";
 
     return {
       outputs,
