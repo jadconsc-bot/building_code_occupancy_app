@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { useProject } from "@/contexts/ProjectContext";
 
 interface ProjectTabViewProps {
   readonly projectId: string;
@@ -9,6 +10,7 @@ interface ProjectTabViewProps {
 
 export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
   const [, setLocation] = useLocation();
+  const { setActiveProjectId } = useProject();
 
   if (!projectId) return <div>Loading...</div>;
 
@@ -227,6 +229,16 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
         className="w-full rounded-lg bg-primary text-primary-foreground py-3 text-sm font-semibold hover:bg-primary/90 transition-colors"
       >
         {actionLabel}
+      </button>
+
+      <button
+        onClick={() => {
+          setActiveProjectId(numericProjectId);
+          setLocation('/project-checklists');
+        }}
+        className="w-full rounded-lg border border-border py-3 text-sm font-semibold hover:bg-muted/50 transition-colors"
+      >
+        View Checklist
       </button>
 
     </div>

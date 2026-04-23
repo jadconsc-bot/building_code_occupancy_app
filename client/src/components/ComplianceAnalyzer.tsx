@@ -52,8 +52,9 @@ export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number;
         mode,
         inputs,
       });
+      const resultWithInputs = { ...analysisResult, inputs };
       setResult(analysisResult);
-      onResult?.(analysisResult);
+      onResult?.(resultWithInputs);
     } catch (error) {
       console.error("Analysis failed:", error);
     } finally {

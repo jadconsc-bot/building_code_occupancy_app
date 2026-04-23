@@ -16,6 +16,7 @@ import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft } from "l
 import { trpc } from "@/lib/trpc";
 import { occupancyData } from "@/lib/occupancyData";
 import { getChecklistForOccupancy } from "@/lib/inspectorChecklistData";
+import { useProject } from "@/contexts/ProjectContext";
 
 interface ProjectWizardProps {
   open: boolean;
@@ -33,7 +34,7 @@ const BUILDING_TYPES = [
   { value: "part3_industrial", label: "Part 3 — Industrial" },
 ];
 
-const STEP_LABELS = ["Project Details", "Building Type", "Jurisdiction", "Confirm & Create"];
+const STEP_LABELS = ["Project Details", "Building Type", "Jurisdiction", "Confirm & Create", "Done"];
 
 function extractMunicipality(address: string): string {
   const known = ["Vancouver", "Victoria", "Kelowna", "Prince George", "Calgary", "Edmonton"];
@@ -71,7 +72,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardProps) {
   const [, setLocation] = useLocation();
+  const { setActiveProjectId } = useProject();
   const [step, setStep] = useState(1);
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
 
   // Step 1 fields
   const [name, setName] = useState("");
@@ -129,10 +132,9 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           ),
         });
         onSuccess?.(data.id);
-        setLocation(`/project/${data.id}`);
+        setCreatedProjectId(data.id);
+        setStep(5);
       }
-      resetForm();
-      onOpenChange(false);
     },
     onError: (err) => {
       toast.error("Failed to create project: " + err.message);
@@ -141,6 +143,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
 
   function resetForm() {
     setStep(1);
+    setCreatedProjectId(null);
     setName(""); setProjectCode(""); setAddress(""); setNotes("");
     setProvince(""); setOccupancyCode("A-1"); setBuildingType("");
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
@@ -200,7 +203,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
 
-        <StepIndicator current={step} total={4} />
+        <StepIndicator current={step} total={5} />
 
         {/* ── Step 1: Project Details ── */}
         {step === 1 && (
@@ -462,7 +465,52 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           </div>
         )}
 
+        {/* ── Step 5: Success ── */}
+        {step === 5 && (
+          <div className="space-y-6 py-4 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <CheckCircle2 className="w-12 h-12 text-green-600" />
+              <h3 className="text-lg font-semibold">Project Created!</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                <strong>{name}</strong> has been created with a full inspection checklist based on occupancy {occupancyCode}.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={() => {
+                  resetForm();
+                  onOpenChange(false);
+                  if (createdProjectId) setLocation(`/project/${createdProjectId}`);
+                }}
+                className="w-full"
+              >
+                Go to Project
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  if (createdProjectId) setActiveProjectId(createdProjectId);
+                  resetForm();
+                  onOpenChange(false);
+                  setLocation('/project-checklists');
+                }}
+              >
+                View Checklist
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => { resetForm(); onOpenChange(false); }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* ── Navigation ── */}
+        {step < 5 && (
         <div className="flex items-center justify-between pt-4 border-t mt-4">
           <Button
             variant="ghost"
@@ -493,6 +541,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
             </Button>
           )}
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -91,7 +91,6 @@ export default function ProjectChecklistsPage() {
                         className="w-full justify-start text-left h-auto py-2 px-3"
                         onClick={() => {
                           setActiveProjectId(parseInt(project.id));
-                          setLocation(`/project/${project.id}`);
                         }}
                       >
                         <div className="truncate">

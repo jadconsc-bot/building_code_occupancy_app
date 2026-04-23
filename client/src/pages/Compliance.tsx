@@ -3,7 +3,7 @@
  * Main interface for compliance analysis and governance
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ComplianceAnalyzer } from "@/components/ComplianceAnalyzer";
 import { ComplianceSnapshotViewer } from "@/components/ComplianceSnapshotViewer";
@@ -26,6 +26,11 @@ export default function CompliancePage() {
   const [pathway, setPathway] = useState<Partial<CompliancePathwayReportProps> | null>(null);
   const [scenarioResults, setScenarioResults] = useState<Record<string, any>>({});
 
+  useEffect(() => {
+    setComplianceResult(null);
+    setPathway(null);
+  }, [projectId]);
+
   const pathwayMutation = trpc.compliancePathway.generatePathway.useMutation({
     onSuccess: (data) => {
       setPathway(data);
@@ -44,8 +49,8 @@ export default function CompliancePage() {
     await pathwayMutation.mutateAsync({
       complianceResult,
       inputs: {
-        occupancy_major: 'D',
-        area_m2: 5000,
+        occupancy_major: complianceResult.inputs?.occupancy_major ?? 'D',
+        area_m2: complianceResult.inputs?.area_m2 ?? 0,
       },
     });
   };
@@ -97,6 +102,9 @@ export default function CompliancePage() {
     (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
   )[0];
 
+  const activeRuleset =
+    rulesets?.find(r => r.rulesetId === mostRecentSnap?.rulesetId) ?? rulesets?.[0];
+
   const analystName =
     (user as any)?.name ?? (user as any)?.email ?? (user as any)?.username ?? 'Authenticated User';
 
@@ -131,7 +139,7 @@ export default function CompliancePage() {
           <TabsContent value="analyzer" className="space-y-6 mt-6">
             <ComplianceAnalyzer
               projectId={projectId}
-              onResult={(result) => setComplianceResult(result)}
+              onResult={(result) => { setComplianceResult(result); setPathway(null); }}
             />
           </TabsContent>
 
@@ -195,7 +203,7 @@ export default function CompliancePage() {
                     <CardContent>
                       <p className="text-2xl font-bold">{rulesets?.length ?? '—'}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {rulesets?.[0] ? `${rulesets[0].code} ${rulesets[0].edition}` : 'No rulesets'}
+                        {activeRuleset ? `${activeRuleset.code} ${activeRuleset.edition}` : 'No rulesets'}
                       </p>
                     </CardContent>
                   </Card>
