@@ -28,7 +28,6 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
   // ── Derived state ──────────────────────────────────────────
   const project = projectQuery.data;
   const snapshots = snapshotsQuery.data ?? [];
-  const calculations: any[] = [];
 
   const isLoading =
     projectQuery.isLoading ||
@@ -55,60 +54,34 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
       ? "FAIL"
       : "IN_REVIEW";
 
-  // Extract metrics from latest snapshot outputs
-  const snapshotOutputs = latestSnapshot
-    ? (() => {
-        try {
-          return typeof latestSnapshot.outputs === "string"
-            ? JSON.parse(latestSnapshot.outputs)
-            : latestSnapshot.outputs;
-        } catch {
-          return {};
-        }
-      })()
-    : {};
+  // Extract metrics from snapshot inputs (where user-supplied values live)
+  const snapshotInputs: Record<string, any> = latestSnapshot?.inputs ?? {};
 
-  // Occupancy load — from occupantLoad calculator result
-  const occupantCalc = calculations
-    .filter((c) => c.calculatorType === "occupantLoad")
-    .sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+  // Occupant Load — estimated from area + occupancy type (NBC Table 4.1.5.3)
+  const nbcLoadFactors: Record<string, number> = {
+    A: 1.0, B: 4.6, C: 25.0, D: 9.3, E: 3.7, "F-1": 30, "F-2": 30, "F-3": 30,
+  };
+  const occupancyMajor: string = String(snapshotInputs.occupancy_major ?? "");
+  const areaM2: number = Number(snapshotInputs.area_m2) || 0;
+  const loadFactor = nbcLoadFactors[occupancyMajor] ?? 9.3;
+  const occupancyCurrent: number = areaM2 > 0 ? Math.ceil(areaM2 / loadFactor) : 0;
+  const occupancyIsEstimate = occupancyCurrent > 0;
 
-  const occupantResults = occupantCalc
-    ? (() => {
-        try {
-          return typeof occupantCalc.outputs === "string"
-            ? JSON.parse(occupantCalc.outputs)
-            : occupantCalc.outputs;
-        } catch {
-          return {};
-        }
-      })()
-    : {};
-
-  const occupancyCurrent: number = occupantResults.adjustedOccupantLoad ?? 0;
-  const occupancyMax: number = occupantResults.baseOccupantLoad ?? 0;
-
-  // Travel distance — from snapshot outputs
-  const travelDistanceActual: number =
-    snapshotOutputs.travel_distance_m ?? 0;
+  // Travel distance — from snapshot inputs (user-entered value)
+  const travelDistanceActual: number = Number(snapshotInputs.travel_distance_m) || 0;
   const travelDistanceMax = 40; // NBC maximum
 
-  // Egress — from snapshot outputs
-  const egressProvided: number = snapshotOutputs.exits ?? 0;
+  // Egress — provided from inputs; required derived from NBC Table 3.4.2.3
+  const egressProvided: number = Number(snapshotInputs.exits) || 0;
   const egressRequired: number =
-    typeof snapshotOutputs.exits_required === "number"
-      ? snapshotOutputs.exits_required
-      : 0;
+    occupancyCurrent <= 0 ? 0
+    : occupancyCurrent > 600 ? 3
+    : occupancyCurrent > 60 ? 2
+    : 1;
 
   // Indicator colors
   const occupancyColor =
-    occupancyCurrent === 0
-      ? "text-muted-foreground"
-      : occupancyCurrent <= occupancyMax
-      ? "text-green-600"
-      : "text-red-600";
+    occupancyCurrent === 0 ? "text-muted-foreground" : "text-foreground";
 
   const travelColor =
     travelDistanceActual === 0
@@ -125,7 +98,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
       : "text-red-600";
 
   // Action button logic
-  const hasCalculations = calculations.length > 0;
+  const hasCalculations = snapshots.length > 0;
   const hasFindings = complianceStatus === "FAIL" || complianceStatus === "IN_REVIEW";
 
   const actionLabel = !hasCalculations
@@ -220,7 +193,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
             <span className="text-muted-foreground">Occupant Load</span>
             <span className={`font-medium ${occupancyColor}`}>
               {occupancyCurrent > 0
-                ? `${occupancyCurrent} persons (max ${occupancyMax})`
+                ? `${occupancyCurrent} persons${occupancyIsEstimate ? " (est.)" : ""}`
                 : "—"}
             </span>
           </div>
