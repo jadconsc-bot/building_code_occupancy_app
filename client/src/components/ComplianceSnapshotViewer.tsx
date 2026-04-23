@@ -4,15 +4,40 @@
  */
 
 import { useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, AlertCircle, Download, Trash2, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Download, Trash2 } from "lucide-react";
+
+const KNOWN_OUTPUT_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [
+  { key: "occupant_load", label: "Occupant Load", suffix: " persons" },
+  { key: "exits_required", label: "Exits Required" },
+  { key: "travel_distance_max", label: "Max Travel Distance", suffix: " m" },
+  { key: "fire_resistance_rating", label: "Fire Resistance Rating" },
+];
+
+const KNOWN_OUTPUT_KEYS = new Set([
+  "compliance_status",
+  ...KNOWN_OUTPUT_FIELDS.map((f) => f.key),
+]);
+
+const OUTPUT_PDF_LABELS: Record<string, string> = {
+  occupant_load: "Occupant Load",
+  exits_required: "Exits Required",
+  travel_distance_max: "Max Travel Distance (m)",
+  fire_resistance_rating: "Fire Resistance Rating",
+  compliance_status: "Overall Status",
+};
 
 export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
+  const { user } = useAuth();
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const snapshots = trpc.compliance.getProjectSnapshots.useQuery(
     { projectId },
@@ -47,6 +72,135 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
 
   const snapshotList = snapshots.data ?? [];
   const selected = selectedSnapshot !== null ? snapshotList[parseInt(selectedSnapshot)] : null;
+
+  const handleExport = () => {
+    if (!selected) return;
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 20;
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Compliance Analysis Snapshot", pageWidth / 2, y, { align: "center" });
+      y += 8;
+
+      // Status banner
+      const rawStatus = selected.complianceStatus || "unknown";
+      const isCompliant = rawStatus === "compliant";
+      const isNonCompliant = rawStatus === "non_compliant";
+      doc.setFontSize(12);
+      doc.setTextColor(
+        isCompliant ? 22 : 185,
+        isCompliant ? 163 : 28,
+        isCompliant ? 74 : 28
+      );
+      doc.text(
+        isCompliant ? "COMPLIANT" : isNonCompliant ? "NON-COMPLIANT" : rawStatus.toUpperCase(),
+        pageWidth / 2,
+        y,
+        { align: "center" }
+      );
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+
+      // Snapshot metadata
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Snapshot Information", 14, y);
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      const analystName =
+        (user as any)?.name ?? (user as any)?.email ?? (user as any)?.username ?? "Authenticated User";
+      doc.text(`Snapshot ID: ${selected.snapshotId ?? "N/A"}`, 14, y); y += 5;
+      doc.text(`Analysis Date: ${new Date(selected.createdAt || Date.now()).toLocaleString()}`, 14, y); y += 5;
+      doc.text(`Analyst: ${analystName}`, 14, y); y += 5;
+      doc.text(`Ruleset: ${selected.rulesetId ?? "N/A"}`, 14, y); y += 5;
+      doc.text(`Mode: ${selected.mode ?? "soft"}`, 14, y); y += 10;
+
+      // Inputs table
+      const inputRows = Object.entries(selected.inputs || {}).map(([k, v]) => [
+        k.replace(/_/g, " "),
+        String(v),
+      ]);
+      if (inputRows.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Analysis Inputs", 14, y); y += 4;
+        autoTable(doc, {
+          startY: y,
+          head: [["Field", "Value"]],
+          body: inputRows,
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [30, 58, 138] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      // Outputs table
+      const outputRows = Object.entries(selected.outputs || {}).map(([k, v]) => [
+        OUTPUT_PDF_LABELS[k] ?? k.replace(/_/g, " "),
+        k === "occupant_load" ? `${v} persons`
+          : k === "travel_distance_max" ? `${v} m`
+          : String(v),
+      ]);
+      if (outputRows.length > 0) {
+        if (y > 240) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.text("Analysis Outputs", 14, y); y += 4;
+        autoTable(doc, {
+          startY: y,
+          head: [["Output", "Value"]],
+          body: outputRows,
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [30, 58, 138] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      // Rule trace table
+      const traceRows = (selected.ruleTrace || []).map((step: any) => [
+        step.rule_id ?? "",
+        step.clause ?? "",
+        step.fired ? "PASS" : "FAIL",
+      ]);
+      if (traceRows.length > 0) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        doc.setFont("helvetica", "bold");
+        doc.text("Rule Trace", 14, y); y += 4;
+        autoTable(doc, {
+          startY: y,
+          head: [["Rule ID", "Description", "Result"]],
+          body: traceRows,
+          didParseCell: (data) => {
+            if (data.column.index === 2 && data.section === "body") {
+              data.cell.styles.textColor =
+                data.cell.raw === "PASS" ? [22, 163, 74] : [185, 28, 28];
+            }
+          },
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [30, 58, 138] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      // Footer
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        "Immutable compliance snapshot — National Building Code of Canada",
+        14, y
+      ); y += 4;
+      doc.text(`Snapshot ID: ${selected.snapshotId ?? "N/A"}`, 14, y);
+
+      const snapId = selected.snapshotId?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20) ?? "snapshot";
+      doc.save(`compliance-snapshot-${snapId}.pdf`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (snapshots.isLoading) {
     return <div className="h-96 bg-gray-100 rounded animate-pulse" />;
@@ -109,9 +263,9 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
             <div className="flex items-center justify-between">
               <CardTitle>Snapshot Details</CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export
+                  {isExporting ? "Exporting..." : "Export PDF"}
                 </Button>
                 <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -136,12 +290,64 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
                 </div>
               </TabsContent>
 
-              <TabsContent value="outputs" className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <pre className="text-xs overflow-auto">
-                    {JSON.stringify(selected.outputs || {}, null, 2)}
-                  </pre>
-                </div>
+              <TabsContent value="outputs" className="space-y-2 mt-4">
+                {!selected.outputs || Object.keys(selected.outputs).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No output data available.</p>
+                ) : (
+                  <>
+                    {/* Compliance status badge row */}
+                    {selected.outputs.compliance_status !== undefined && (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="text-sm font-medium text-gray-600">Overall Status</span>
+                        <Badge
+                          className={
+                            selected.outputs.compliance_status === "pass"
+                              ? "bg-green-100 text-green-800"
+                              : selected.outputs.compliance_status === "fail"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }
+                        >
+                          {selected.outputs.compliance_status === "pass"
+                            ? "PASS"
+                            : selected.outputs.compliance_status === "fail"
+                            ? "FAIL"
+                            : String(selected.outputs.compliance_status).toUpperCase()}
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* Known formatted fields */}
+                    {KNOWN_OUTPUT_FIELDS.filter(
+                      (f) => selected.outputs[f.key] !== undefined
+                    ).map((f) => (
+                      <div
+                        key={f.key}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <span className="text-sm text-gray-600">{f.label}</span>
+                        <span className="text-sm font-medium">
+                          {String(selected.outputs[f.key])}{f.suffix ?? ""}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Any additional rule-set outputs */}
+                    {Object.entries(selected.outputs)
+                      .filter(([k]) => !KNOWN_OUTPUT_KEYS.has(k))
+                      .map(([k, v]) => (
+                        <div
+                          key={k}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <span className="text-sm text-gray-600 capitalize">
+                            {k.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-sm font-medium">{String(v)}</span>
+                        </div>
+                      ))}
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="trace" className="space-y-4">
@@ -211,6 +417,12 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
               <div className="flex justify-between">
                 <span className="text-gray-600">Ruleset:</span>
                 <span className="font-medium">{selected.rulesetId || "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Signature:</span>
+                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                  {selected.snapshotId?.slice(0, 16) ?? "—"}
+                </span>
               </div>
             </div>
           </CardContent>
