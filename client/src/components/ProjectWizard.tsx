@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { occupancyData } from "@/lib/occupancyData";
+import { getChecklistForOccupancy } from "@/lib/inspectorChecklistData";
 
 interface ProjectWizardProps {
   open: boolean;
@@ -110,15 +111,28 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     },
   });
 
+  const bulkSaveChecklist = trpc.projectsLegacy.checklistItems.bulkSave.useMutation();
+
   const createMutation = trpc.projects.create.useMutation({
     onSuccess: (data) => {
       toast.success("Project created successfully!");
-      resetForm();
-      onOpenChange(false);
       if (data?.id) {
+        const phases = getChecklistForOccupancy(occupancyCode);
+        bulkSaveChecklist.mutate({
+          projectId: data.id,
+          items: phases.flatMap(phase =>
+            phase.items.map(item => ({
+              phase: phase.phase,
+              itemId: item.id,
+              itemText: item.description,
+            }))
+          ),
+        });
         onSuccess?.(data.id);
         setLocation(`/project/${data.id}`);
       }
+      resetForm();
+      onOpenChange(false);
     },
     onError: (err) => {
       toast.error("Failed to create project: " + err.message);

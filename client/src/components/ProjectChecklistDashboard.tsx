@@ -48,9 +48,22 @@ export function ProjectChecklistDashboard() {
     { enabled: !!activeProjectId }
   );
 
+  // Fetch checklist items from DB
+  const { data: checklistItems = [], isLoading: itemsLoading } =
+    trpc.projectsLegacy.checklistItems.list.useQuery(
+      { projectId: activeProjectId! },
+      { enabled: !!activeProjectId }
+    );
+
+  const utils = trpc.useUtils();
+  const toggleMutation = trpc.projectsLegacy.checklistItems.toggle.useMutation({
+    onSuccess: () => {
+      utils.projectsLegacy.checklistItems.list.invalidate({ projectId: activeProjectId! });
+    },
+  });
+
   // Get active project data
   const activeProject = projects.find(p => p.id === activeProjectId);
-  const checklistItems: any[] = [];
   const calculatorResults: any[] = [];
 
   // Filter and group checklist items
@@ -129,6 +142,14 @@ export function ProjectChecklistDashboard() {
           </p>
         </CardContent>
       </Card>
+    );
+  }
+
+  if (itemsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
     );
   }
 
@@ -268,10 +289,20 @@ export function ProjectChecklistDashboard() {
                       key={item.id}
                       className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg"
                     >
-                      <ChecklistStatusIcon
-                        status={item.isCompleted === 1 ? 'pass' : 'pending'}
-                        size="md"
-                      />
+                      <button
+                        onClick={() => toggleMutation.mutate({
+                          id: item.id,
+                          projectId: activeProjectId,
+                          isCompleted: item.isCompleted !== 1,
+                        })}
+                        disabled={toggleMutation.isPending}
+                        className="cursor-pointer hover:opacity-70 transition-opacity mt-0.5"
+                      >
+                        <ChecklistStatusIcon
+                          status={item.isCompleted === 1 ? 'pass' : 'pending'}
+                          size="md"
+                        />
+                      </button>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{item.itemText}</p>
                         {item.notes && (

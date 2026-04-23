@@ -29,6 +29,9 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'found-04', description: 'Verify dampproofing or waterproofing application', codeReference: '9.13.2.2', critical: false },
     { id: 'found-05', description: 'Check foundation drainage tile installation', codeReference: '9.14.1.1', critical: false },
     { id: 'found-06', description: 'Verify anchor bolt placement and spacing', codeReference: '9.23.3.4', critical: true },
+    { id: 'found-07', description: 'Verify setback distances comply with zoning bylaw', codeReference: 'Zoning Bylaw', critical: true },
+    { id: 'found-08', description: 'Confirm site drainage meets NBC 9.13 requirements', codeReference: '9.13', critical: false },
+    { id: 'found-09', description: 'Verify foundation frost depth per NBC 9.12 for climate zone', codeReference: '9.12.2.1', critical: false },
   ],
   'Framing': [
     { id: 'frame-01', description: 'Verify lumber grade stamps and species', codeReference: '9.3.2.1', critical: true },
@@ -38,6 +41,12 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'frame-05', description: 'Verify headers and lintels over openings', codeReference: '9.23.10.4', critical: true },
     { id: 'frame-06', description: 'Check shear wall and hold-down installation', codeReference: '9.23.13.8', critical: true },
     { id: 'frame-07', description: 'Verify fire blocking and draft stops', codeReference: '9.10.14.5', critical: false },
+    { id: 'frame-08', description: 'Confirm stud size meets NBC 9.5.5.2 minimum requirements', codeReference: '9.5.5.2', critical: true },
+    { id: 'frame-09', description: 'Verify stud spacing maximum 600mm o.c. per NBC 9.5.5.3', codeReference: '9.5.5.3', critical: true },
+    { id: 'frame-10', description: 'Check header sizes over openings per NBC 9.5.5', codeReference: '9.5.5', critical: false },
+    { id: 'frame-11', description: 'Verify fire blocking at floor/wall intersections NBC 9.10.13', codeReference: '9.10.13', critical: false },
+    { id: 'frame-12', description: 'Confirm exit door widths minimum 860mm per NBC 3.4.3.4', codeReference: '3.4.3.4', critical: true },
+    { id: 'frame-13', description: 'Verify corridor widths minimum 1100mm per NBC 3.4.1.9', codeReference: '3.4.1.9', critical: true },
   ],
   'Mechanical': [
     { id: 'mech-01', description: 'Verify HVAC equipment sizing and location', codeReference: '9.32.3.2', critical: false },
@@ -48,6 +57,9 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'mech-06', description: 'Check electrical service size and panel location', codeReference: 'CEC 6-200', critical: true },
     { id: 'mech-07', description: 'Verify branch circuit wiring and device boxes', codeReference: 'CEC 12-3000', critical: true },
     { id: 'mech-08', description: 'Check GFCI and AFCI protection', codeReference: 'CEC 26-700', critical: true },
+    { id: 'mech-09', description: 'Confirm HRV/ERV installation per NBC 9.32 ventilation requirements', codeReference: '9.32.3.1', critical: false },
+    { id: 'mech-10', description: 'Verify combustion air supply per NBC 9.33', codeReference: '9.33.3.1', critical: false },
+    { id: 'mech-11', description: 'Check gas line sizing and pressure per applicable standard', codeReference: 'B149.1', critical: false },
   ],
   'Insulation & Vapour Barrier': [
     { id: 'insul-01', description: 'Verify insulation R-values meet requirements', codeReference: '9.36.2.2', critical: true },
@@ -55,6 +67,10 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'insul-03', description: 'Verify air barrier continuity', codeReference: '9.36.2.9', critical: true },
     { id: 'insul-04', description: 'Check vapour barrier installation and sealing', codeReference: '9.25.4.1', critical: true },
     { id: 'insul-05', description: 'Verify attic ventilation (1:300 ratio)', codeReference: '9.19.1.1', critical: false },
+    { id: 'insul-06', description: 'Verify wall R-value meets climate zone minimum (NBC 9.36)', codeReference: '9.36.2.2', critical: true },
+    { id: 'insul-07', description: 'Confirm roof R-value meets climate zone minimum (NBC 9.36)', codeReference: '9.36.2.3', critical: true },
+    { id: 'insul-08', description: 'Check air barrier continuity per NBC 9.25.3', codeReference: '9.25.3', critical: true },
+    { id: 'insul-09', description: 'Verify vapour barrier installation per NBC 9.25.4', codeReference: '9.25.4', critical: false },
   ],
   'Drywall': [
     { id: 'dry-01', description: 'Verify drywall thickness and type', codeReference: '9.29.5.2', critical: false },
@@ -70,6 +86,13 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'final-06', description: 'Check window and door hardware operation', codeReference: '9.7.4.1', critical: false },
     { id: 'final-07', description: 'Verify house numbers visible from street', codeReference: '9.9.12.1', critical: false },
     { id: 'final-08', description: 'Check final grading and drainage', codeReference: '9.14.1.1', critical: false },
+    { id: 'final-09', description: 'Confirm occupancy classification posted per NBC requirements', codeReference: '3.3.1.2', critical: false },
+    { id: 'final-10', description: 'Verify exit signage installed per NBC 3.4.5', codeReference: '3.4.5.1', critical: true },
+    { id: 'final-11', description: 'Check emergency lighting operational per NBC 3.2.7', codeReference: '3.2.7.1', critical: true },
+    { id: 'final-12', description: 'Confirm fire separation ratings match approved drawings', codeReference: '3.1.7.1', critical: true },
+    { id: 'final-13', description: 'Verify smoke alarms installed per NBC 9.10.19', codeReference: '9.10.19.1', critical: true },
+    { id: 'final-14', description: 'Check accessibility compliance per NBC 3.8', codeReference: '3.8.1.1', critical: false },
+    { id: 'final-15', description: 'Confirm energy compliance documentation complete (Step Code/NECB)', codeReference: 'NECB', critical: false },
   ],
 };
 
