@@ -39,6 +39,10 @@ export default function CompliancePage() {
 
   const analyzeComplianceMutation = trpc.compliance.analyzeCompliance.useMutation();
   const { data: rulesets } = trpc.compliance.getRulesets.useQuery();
+  const { data: project } = trpc.projects.get.useQuery(
+    { id: projectId },
+    { enabled: projectId > 0 }
+  );
   const govSnapshots = trpc.compliance.getProjectSnapshots.useQuery(
     { projectId },
     { enabled: !!projectId }
@@ -139,6 +143,9 @@ export default function CompliancePage() {
           <TabsContent value="analyzer" className="space-y-6 mt-6">
             <ComplianceAnalyzer
               projectId={projectId}
+              initialOccupancy={project?.occupancyCode ?? undefined}
+              initialProvince={project?.province ?? undefined}
+              initialBuildingType={project?.buildingType ?? undefined}
               onResult={(result) => { setComplianceResult(result); setPathway(null); }}
             />
           </TabsContent>
@@ -149,6 +156,13 @@ export default function CompliancePage() {
               projectId={projectId}
               onCalculate={handleScenarioCalculate}
               results={scenarioResults}
+              initialScenario={mostRecentSnap ? {
+                occupancy: mostRecentSnap.inputs?.occupancy_major ?? 'D',
+                area_m2: mostRecentSnap.inputs?.area_m2 ?? 0,
+                storeys: mostRecentSnap.inputs?.storeys ?? 1,
+                construction_type: mostRecentSnap.inputs?.construction_type ?? 'combustible',
+                sprinklers: mostRecentSnap.inputs?.sprinklers ?? false,
+              } : undefined}
             />
           </TabsContent>
 

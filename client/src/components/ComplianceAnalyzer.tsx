@@ -3,7 +3,7 @@
  * Provides interface for running deterministic compliance analysis
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,13 +26,40 @@ interface ComplianceInput {
   [key: string]: any;
 }
 
-export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number; onResult?: (result: any) => void }) {
+export function ComplianceAnalyzer({
+  projectId,
+  onResult,
+  initialOccupancy,
+  initialProvince,
+  initialBuildingType,
+}: {
+  projectId: number;
+  onResult?: (result: any) => void;
+  initialOccupancy?: string;
+  initialProvince?: string;
+  initialBuildingType?: string;
+}) {
   const { user } = useAuth();
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
-  const [inputs, setInputs] = useState<ComplianceInput>({ occupancy_major: "" });
+  const [inputs, setInputs] = useState<ComplianceInput>({
+    occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : "",
+    province: initialProvince ?? undefined,
+    construction_type: initialBuildingType ?? undefined,
+  });
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialOccupancy || initialProvince || initialBuildingType) {
+      setInputs(prev => ({
+        ...prev,
+        occupancy_major: initialOccupancy ? initialOccupancy.charAt(0) : prev.occupancy_major,
+        province: initialProvince ?? prev.province,
+        construction_type: initialBuildingType ?? prev.construction_type,
+      }));
+    }
+  }, [initialOccupancy, initialProvince, initialBuildingType]);
 
   const analyzeMutation = trpc.compliance.analyzeCompliance.useMutation();
   const { data: rulesets } = trpc.compliance.getRulesets.useQuery();
@@ -161,11 +188,12 @@ export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number;
                   <SelectValue placeholder="Select occupancy..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="industrial">Industrial</SelectItem>
-                  <SelectItem value="institutional">Institutional</SelectItem>
-                  <SelectItem value="assembly">Assembly</SelectItem>
+                  <SelectItem value="A">Assembly (A)</SelectItem>
+                  <SelectItem value="B">Institutional (B)</SelectItem>
+                  <SelectItem value="C">Residential (C)</SelectItem>
+                  <SelectItem value="D">Office / Business (D)</SelectItem>
+                  <SelectItem value="E">Mercantile (E)</SelectItem>
+                  <SelectItem value="F">Industrial (F)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -177,8 +205,11 @@ export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number;
                 value={inputs.area_m2 || ""}
                 onChange={(e) => handleInputChange("area_m2", e.target.value ? parseFloat(e.target.value) : undefined)}
                 placeholder="Enter area..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className={`w-full px-3 py-2 border rounded-md ${inputs.occupancy_major && !inputs.area_m2 ? "border-red-400" : "border-gray-300"}`}
               />
+              {inputs.occupancy_major && !inputs.area_m2 && (
+                <p className="text-xs text-red-600">Area is required for compliance analysis</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -256,7 +287,7 @@ export function ComplianceAnalyzer({ projectId, onResult }: { projectId: number;
           {/* Analyze Button */}
           <Button
             onClick={handleAnalyze}
-            disabled={!selectedRulesetId || !inputs.occupancy_major || loading || !rulesets?.length}
+            disabled={!selectedRulesetId || !inputs.occupancy_major || !inputs.area_m2 || loading || !rulesets?.length}
             className="w-full"
             size="lg"
           >

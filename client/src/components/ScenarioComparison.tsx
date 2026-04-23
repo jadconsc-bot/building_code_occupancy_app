@@ -5,7 +5,7 @@
  * Shows side-by-side results with differences highlighted
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,29 +27,58 @@ export interface Scenario {
   results?: Record<string, any>;
 }
 
+interface InitialScenarioData {
+  occupancy: string;
+  area_m2: number;
+  storeys: number;
+  construction_type: string;
+  sprinklers: boolean;
+}
+
 interface ScenarioComparisonProps {
   projectId?: number;
   onCalculate?: (scenario: Scenario) => Promise<void>;
   onExport?: (scenarios: Scenario[]) => void;
   results?: Record<string, any>;
+  initialScenario?: InitialScenarioData;
 }
+
+const DEFAULT_BASE_CASE: Omit<Scenario, 'id' | 'name'> = {
+  occupancy: 'D',
+  area_m2: 5000,
+  storeys: 2,
+  construction_type: 'Non-Combustible',
+  sprinklers: false,
+};
 
 export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
   onCalculate,
   onExport,
   results = {},
+  initialScenario,
 }) => {
+  const baseCase = initialScenario ?? DEFAULT_BASE_CASE;
+
   const [scenarios, setScenarios] = useState<Scenario[]>([
     {
       id: '1',
       name: 'Base Case',
-      occupancy: 'D',
-      area_m2: 5000,
-      storeys: 2,
-      construction_type: 'Non-Combustible',
-      sprinklers: false,
+      occupancy: baseCase.occupancy,
+      area_m2: baseCase.area_m2,
+      storeys: baseCase.storeys,
+      construction_type: baseCase.construction_type,
+      sprinklers: baseCase.sprinklers,
     },
   ]);
+
+  useEffect(() => {
+    if (!initialScenario) return;
+    setScenarios(prev => prev.map(s =>
+      s.id === '1'
+        ? { ...s, occupancy: initialScenario.occupancy, area_m2: initialScenario.area_m2, storeys: initialScenario.storeys, construction_type: initialScenario.construction_type, sprinklers: initialScenario.sprinklers }
+        : s
+    ));
+  }, [initialScenario?.occupancy, initialScenario?.area_m2, initialScenario?.storeys]);
 
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set(['1']));
   const [editingId, setEditingId] = useState<string | null>(null);

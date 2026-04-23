@@ -77,8 +77,12 @@ export const complianceRouter = router({
       if (input.mode === "strict") {
         const requiredFields = ["occupancy_major"];
         const validation = validateInputsForStrictMode(input.inputs as ComplianceInput, requiredFields);
-        if (!validation.valid) {
-          throw new Error(`Missing required fields for strict mode: ${validation.missingFields.join(", ")}`);
+        const errors = [...validation.missingFields.map(f => `${f}: required`)];
+        if (!input.inputs.area_m2 || Number(input.inputs.area_m2) <= 0) {
+          errors.push("area_m2: Building area is required");
+        }
+        if (errors.length > 0) {
+          throw new Error(`Missing required fields for strict mode: ${errors.join(", ")}`);
         }
       }
 
