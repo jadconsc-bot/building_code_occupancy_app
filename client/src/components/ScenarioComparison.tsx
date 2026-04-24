@@ -41,6 +41,7 @@ interface ScenarioComparisonProps {
   onExport?: (scenarios: Scenario[]) => void;
   results?: Record<string, any>;
   initialScenario?: InitialScenarioData;
+  complianceResult?: any;
 }
 
 const DEFAULT_BASE_CASE: Omit<Scenario, 'id' | 'name'> = {
@@ -56,6 +57,7 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
   onExport,
   results = {},
   initialScenario,
+  complianceResult,
 }) => {
   const baseCase = initialScenario ?? DEFAULT_BASE_CASE;
 
@@ -83,19 +85,20 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set(['1']));
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Add new scenario
+  // Add new scenario — when cloning from Base Case, pull live complianceResult inputs if available
   const addScenario = () => {
     const newId = String(Math.max(...scenarios.map(s => parseInt(s.id)), 0) + 1);
     const lastScenario = scenarios[scenarios.length - 1];
-    
+    const src = lastScenario.id === '1' ? complianceResult?.inputs : null;
+
     setScenarios([
       ...scenarios,
       {
         id: newId,
         name: `Scenario ${newId}`,
-        occupancy: lastScenario.occupancy,
-        area_m2: lastScenario.area_m2,
-        storeys: lastScenario.storeys,
+        occupancy: src?.occupancy_major ?? lastScenario.occupancy,
+        area_m2: src?.area_m2 ?? lastScenario.area_m2,
+        storeys: src?.storeys ?? lastScenario.storeys,
         construction_type: lastScenario.construction_type,
         sprinklers: lastScenario.sprinklers,
       },

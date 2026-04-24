@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -2246,56 +2248,156 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setShowCompliancePanel(true);
   };
 
-  // Export compliance report
+  // Export compliance report as PDF
   const exportComplianceReport = () => {
-    const zone = availableZones.find(z => z.zoneCode === selectedZone);
-    
-    let report = `DRAWING COMPLIANCE REPORT\n`;
-    report += `========================\n\n`;
-    report += `File: ${fileName}\n`;
-    report += `Municipality: ${municipalityData?.name || "N/A"}\n`;
-    report += `Zone: ${zone?.zoneName || "N/A"} (${selectedZone})\n`;
-    report += `Date: ${new Date().toLocaleDateString()}\n\n`;
-    report += `COMPLIANCE RESULTS\n`;
-    report += `------------------\n\n`;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
 
-    complianceResults.forEach(result => {
-      const statusIcon = result.status === "pass" ? "✓" : result.status === "fail" ? "✗" : "?";
-      report += `${statusIcon} ${result.rule}\n`;
-      report += `  Required: ${result.required}\n`;
-      report += `  Actual: ${result.actual}\n`;
-      report += `  Status: ${result.status.toUpperCase()}\n`;
-      if (result.nbcReference) {
-        report += `  Reference: ${result.nbcReference}\n`;
-      }
-      report += `\n`;
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("CodeComply — Drawing Analysis Report", pageWidth / 2, y, { align: "center" });
+    y += 7;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      `Generated: ${new Date().toLocaleString()}${analysisId ? `  |  Analysis ID: ${analysisId}` : ""}`,
+      pageWidth / 2, y, { align: "center" }
+    );
+    doc.text(`File: ${fileName || "—"}`, pageWidth / 2, y + 4, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    y += 14;
+
+    // Status banner
+    if (complianceLevel) {
+      const bannerColor: [number, number, number] =
+        complianceLevel === "approved" ? [22, 163, 74] :
+        complianceLevel === "conditional" ? [202, 138, 4] :
+        [185, 28, 28];
+      doc.setFillColor(...bannerColor);
+      doc.roundedRect(14, y, pageWidth - 28, 10, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(
+        `${complianceLevel.toUpperCase()}${complianceScore !== null ? `   Score: ${complianceScore} / 100` : ""}`,
+        pageWidth / 2, y + 6.5, { align: "center" }
+      );
+      doc.setTextColor(0, 0, 0);
+      y += 16;
+    }
+
+    // Summary table
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", 14, y);
+    y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [["Field", "Value"]],
+      body: [
+        ["Drawing Type", aiResults?.drawingType ?? "—"],
+        ["Analysis Status", analysisStatus ?? "—"],
+        ["Compliance Level", complianceLevel ?? "—"],
+        ["Compliance Score", complianceScore !== null ? `${complianceScore} / 100` : "—"],
+        ["File", fileName || "—"],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 58, 138] },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
 
-    report += `\nANNOTATIONS SUMMARY\n`;
-    report += `-------------------\n\n`;
-    
-    annotations.forEach(annotation => {
-      if (annotation.type === "dimension") {
-        report += `Dimension (${annotation.category}): ${annotation.value.toFixed(2)}m\n`;
-      } else if (annotation.type === "area") {
-        report += `Area (${annotation.category}): ${annotation.value.toFixed(2)} m²\n`;
-      } else if (annotation.type === "label") {
-        report += `Label: ${annotation.text}\n`;
+    // Rule Evaluations
+    if (ruleEvaluations.length > 0) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Rule Evaluations", 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [["Rule ID", "Clause", "Result", "Description"]],
+        body: ruleEvaluations.map(r => [r.ruleId, r.clause, r.result, r.description]),
+        didParseCell: (data) => {
+          if (data.column.index === 2 && data.section === "body") {
+            const val = String(data.cell.raw);
+            data.cell.styles.textColor =
+              val === "PASS" ? [22, 163, 74] :
+              val === "FAIL" ? [185, 28, 28] :
+              [202, 138, 4];
+          }
+        },
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 58, 138] },
+        columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 22 }, 2: { cellWidth: 22 } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Issues
+    if (pdIssues.length > 0) {
+      if (y > 210) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Issues", 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [["Severity", "Clause", "Category", "Description", "Recommendation"]],
+        body: pdIssues.map(i => [i.severity, i.clause, i.category, i.description, i.recommendation]),
+        didParseCell: (data) => {
+          if (data.column.index === 0 && data.section === "body") {
+            const val = String(data.cell.raw).toLowerCase();
+            data.cell.styles.textColor =
+              val === "critical" ? [185, 28, 28] :
+              val === "warning" ? [202, 138, 4] :
+              [100, 100, 100];
+          }
+        },
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 58, 138] },
+        columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 18 }, 2: { cellWidth: 25 } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Recommendations
+    if (pdRecommendations.length > 0) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Recommendations", 14, y);
+      y += 5;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      for (const rec of pdRecommendations) {
+        const lines = doc.splitTextToSize(`• ${rec}`, pageWidth - 28);
+        if (y + lines.length * 4 > 270) { doc.addPage(); y = 20; }
+        doc.text(lines, 14, y);
+        y += lines.length * 4 + 2;
       }
-    });
+      y += 4;
+    }
 
-    report += `\n\nDISCLAIMER\n`;
-    report += `----------\n`;
-    report += `This report is generated based on manual annotations and should be verified by a qualified professional.\n`;
-    report += `Always consult the official municipal bylaws and building codes for authoritative requirements.\n`;
+    // Footer disclaimer
+    if (y > 255) { doc.addPage(); y = 20; }
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      "This report is generated by CodeComply and must be reviewed by a licensed professional before use in construction or permit applications.",
+      14, y, { maxWidth: pageWidth - 28 }
+    );
+    doc.text(
+      "AI analysis is provided for informational purposes only and does not constitute professional engineering advice.",
+      14, y + 5, { maxWidth: pageWidth - 28 }
+    );
 
-    const blob = new Blob([report], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `compliance-report-${fileName.replace(/\.[^/.]+$/, "")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const safeName = (fileName || "drawing").replace(/\.[^/.]+$/, "");
+    const idStr = analysisId ? `-${analysisId}` : "";
+    doc.save(`drawing-analysis${idStr}-${safeName}.pdf`);
   };
 
   // Load image when drawing changes

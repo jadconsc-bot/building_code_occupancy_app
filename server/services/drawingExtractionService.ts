@@ -180,7 +180,26 @@ export const DrawingExtractionResultSchema = z.object({
 export type DrawingExtractionResult = z.infer<typeof DrawingExtractionResultSchema>;
 
 /** System prompt for the LLM extractor — extraction ONLY, no compliance judgments */
-const buildExtractionSystemPrompt = (analysisType: string): string => `
+const buildExtractionSystemPrompt = (
+  analysisType: string,
+  projectContext?: { occupancyCode?: string; province?: string },
+): string => {
+  const contextLines = projectContext
+    ? [
+        projectContext.occupancyCode
+          ? `- Occupancy classification: ${projectContext.occupancyCode} (NBC Group ${projectContext.occupancyCode.charAt(0)})`
+          : null,
+        projectContext.province
+          ? `- Jurisdiction / province: ${projectContext.province}`
+          : null,
+      ].filter(Boolean)
+    : [];
+
+  const contextBlock = contextLines.length > 0
+    ? `\nProject context (use to focus clause identification):\n${contextLines.join('\n')}\n`
+    : '';
+
+  return `
 You are a technical drawing data extractor for a building code compliance system.
 
 YOUR ROLE IS STRICTLY LIMITED TO:
@@ -197,12 +216,13 @@ YOU MUST NOT:
 - Determine if requirements are satisfied
 
 For analysis type: ${analysisType}
-
+${contextBlock}
 Extract only what is VISIBLE in the drawing. If something is not clearly visible, omit it or mark as uncertain.
 Set confidence between 0 and 1 based on drawing clarity and completeness.
 
 Return valid JSON matching the requested schema. Do not add commentary outside the JSON.
 `.trim();
+};
 
 /**
  * Stage 1: Extract structured data from a drawing image using the LLM.
@@ -217,9 +237,10 @@ export async function extractDrawingData(
   mimeType: string,
   analysisType: "structural" | "fire-safety" | "connections" | "comprehensive",
   analysisQuality: "fast" | "standard" | "detailed" = "standard",
+  projectContext?: { occupancyCode?: string; province?: string },
 ): Promise<{ data: DrawingExtractionResult; modelVersion: string }> {
   const { jpegQuality, maxTokens } = QUALITY_SETTINGS[analysisQuality];
-  const systemPrompt = buildExtractionSystemPrompt(analysisType);
+  const systemPrompt = buildExtractionSystemPrompt(analysisType, projectContext);
 
   // Build the JSON schema for the response based on analysis type
   const schemaProperties: Record<string, unknown> = {

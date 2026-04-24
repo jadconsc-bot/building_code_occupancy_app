@@ -61,6 +61,9 @@ export default function CompliancePage() {
     });
   };
 
+  const normalizeConstruction = (val: string) =>
+    val.toLowerCase().replace(/[^a-z]/g, '_').replace(/__+/g, '_');
+
   const handleScenarioCalculate = async (scenario: any) => {
     const rulesetId = rulesets?.[0]?.rulesetId ?? '';
     if (!rulesetId) return;
@@ -72,7 +75,7 @@ export default function CompliancePage() {
         occupancy_major: scenario.occupancy,
         area_m2: scenario.area_m2,
         storeys: scenario.storeys,
-        construction_type: scenario.construction_type,
+        construction_type: normalizeConstruction(scenario.construction_type),
         sprinklers: scenario.sprinklers,
       },
     });
@@ -160,6 +163,7 @@ export default function CompliancePage() {
               projectId={projectId}
               onCalculate={handleScenarioCalculate}
               results={scenarioResults}
+              complianceResult={complianceResult}
               initialScenario={(() => {
                 const src = complianceResult?.inputs ?? mostRecentSnap?.inputs;
                 if (!src) return undefined;

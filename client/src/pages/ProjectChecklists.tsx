@@ -46,9 +46,11 @@ export default function ProjectChecklistsPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const projects = getAllProjects();
 
-  const activeProject: any = projects.find(
-    (p: any) => parseInt(p.id) === activeProjectId
-  ) ?? null;
+  // Fetch full project row (includes buildingType, province, climateZone, projectCode, projectNumber)
+  const { data: activeProjectData } = trpc.projects.get.useQuery(
+    { id: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
 
   // Health check queries — only run when a project is selected
   const snapshotsQuery = trpc.compliance.getProjectSnapshots.useQuery(
@@ -177,7 +179,7 @@ export default function ProjectChecklistsPage() {
             </Card>
 
             {/* Project details + health panel */}
-            {activeProject && (
+            {activeProjectData && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Project Details</CardTitle>
@@ -185,45 +187,45 @@ export default function ProjectChecklistsPage() {
                 <CardContent className="space-y-1.5">
                   <InfoRow
                     label="Project #"
-                    value={activeProject.projectNumber ?? activeProject.projectCode ?? '—'}
+                    value={(activeProjectData as any).projectNumber ?? (activeProjectData as any).projectCode ?? '—'}
                   />
                   <InfoRow
                     label="Occupancy"
-                    value={activeProject.occupancyCode ?? '—'}
+                    value={activeProjectData.occupancyCode ?? '—'}
                   />
                   <InfoRow
                     label="Building Type"
                     value={
-                      activeProject.buildingType
-                        ? (BUILDING_TYPE_LABELS[activeProject.buildingType] ?? activeProject.buildingType)
+                      (activeProjectData as any).buildingType
+                        ? (BUILDING_TYPE_LABELS[(activeProjectData as any).buildingType] ?? (activeProjectData as any).buildingType)
                         : '—'
                     }
                   />
                   <InfoRow
                     label="Construction"
                     value={
-                      activeProject.buildingType
-                        ? (CONSTRUCTION_TYPE[activeProject.buildingType] ?? '—')
+                      (activeProjectData as any).buildingType
+                        ? (CONSTRUCTION_TYPE[(activeProjectData as any).buildingType] ?? '—')
                         : '—'
                     }
                   />
                   <InfoRow
                     label="Province"
-                    value={activeProject.province ?? '—'}
+                    value={(activeProjectData as any).province ?? '—'}
                   />
                   <InfoRow
                     label="Climate Zone"
                     value={
-                      activeProject.climateZone
-                        ? `Zone ${activeProject.climateZone}`
+                      (activeProjectData as any).climateZone
+                        ? `Zone ${(activeProjectData as any).climateZone}`
                         : '—'
                     }
                   />
                   <InfoRow
                     label="Code Edition"
                     value={
-                      activeProject.province
-                        ? (CODE_EDITION[activeProject.province] ?? 'NBC 2020')
+                      (activeProjectData as any).province
+                        ? (CODE_EDITION[(activeProjectData as any).province] ?? 'NBC 2020')
                         : '—'
                     }
                   />

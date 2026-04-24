@@ -25,6 +25,7 @@ import {
   complianceEvaluationResults,
   complianceAuditTrail,
   disclaimerAcknowledgments,
+  projects,
 } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
@@ -295,6 +296,25 @@ export const drawingAnalysisRouter = router({
       // ======================================================================
       // STAGE 1: LLM Extraction (PD2.0 §4.1 — extractor ONLY)
       // ======================================================================
+
+      // Fetch project context to enrich the extraction prompt
+      let projectContext: { occupancyCode?: string; province?: string } | undefined;
+      try {
+        const [proj] = await db
+          .select({ occupancyCode: projects.occupancyCode, province: projects.province })
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1);
+        if (proj) {
+          projectContext = {
+            occupancyCode: proj.occupancyCode ?? undefined,
+            province: proj.province ?? undefined,
+          };
+        }
+      } catch {
+        // Non-critical — proceed without context
+      }
+
       let extractionResult;
       let modelVersion = "unknown";
       try {
@@ -303,6 +323,7 @@ export const drawingAnalysisRouter = router({
           input.mimeType,
           input.analysisType,
           input.analysisQuality,
+          projectContext,
         );
         extractionResult = extracted.data;
         modelVersion = extracted.modelVersion;
