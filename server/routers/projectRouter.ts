@@ -42,6 +42,7 @@ export const projectRouter = router({
       stepCodeTier: z.string().max(5).optional(),
       jurisdictionDetected: z.boolean().optional(),
       projectCode: z.string().max(50).optional(),
+      grossFloorArea: z.number().positive().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return projectRepository.createProject({
@@ -69,6 +70,7 @@ export const projectRouter = router({
         stepCodeTier: z.string().max(5).optional(),
         jurisdictionDetected: z.boolean().optional(),
         projectCode: z.string().max(50).optional(),
+        grossFloorArea: z.number().positive().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

@@ -86,6 +86,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const [province, setProvince] = useState<Province | "">("");
   const [occupancyCode, setOccupancyCode] = useState("A-1");
   const [buildingType, setBuildingType] = useState("");
+  const [grossFloorArea, setGrossFloorArea] = useState<number | undefined>(undefined);
 
   // Step 3 detection results
   const [climateZone, setClimateZone] = useState("");
@@ -145,7 +146,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     setStep(1);
     setCreatedProjectId(null);
     setName(""); setProjectCode(""); setAddress(""); setNotes("");
-    setProvince(""); setOccupancyCode("A-1"); setBuildingType("");
+    setProvince(""); setOccupancyCode("A-1"); setBuildingType(""); setGrossFloorArea(undefined);
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
     setJurisdictionDetected(false); setDetectError(""); setManualOverride(false);
   }
@@ -188,6 +189,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       stepCodeTier: stepCodeTier || undefined,
       jurisdictionDetected,
       projectCode: projectCode.trim() || undefined,
+      grossFloorArea: grossFloorArea || undefined,
     });
   }
 
@@ -294,6 +296,17 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   <option key={bt.value} value={bt.value}>{bt.label}</option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wiz-gfa">Gross Floor Area (m²)</Label>
+              <Input
+                id="wiz-gfa"
+                type="number"
+                placeholder="Enter total floor area..."
+                value={grossFloorArea ?? ""}
+                onChange={e => setGrossFloorArea(e.target.value ? parseFloat(e.target.value) : undefined)}
+              />
+              <p className="text-xs text-muted-foreground">Optional — used to pre-populate compliance analysis</p>
             </div>
           </div>
         )}

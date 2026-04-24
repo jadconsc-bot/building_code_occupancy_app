@@ -151,6 +151,7 @@ export default function CompliancePage() {
               initialOccupancy={project?.occupancyCode ?? undefined}
               initialProvince={project?.province ?? undefined}
               initialBuildingType={project?.buildingType ?? undefined}
+              initialArea={project?.grossFloorArea ? parseFloat(project.grossFloorArea as string) : undefined}
               persistedInputs={savedInputs}
               onInputsChange={(inputs) => setSavedInputs(inputs)}
               onResult={(result) => { setComplianceResult(result); setPathway(null); }}
@@ -179,7 +180,7 @@ export default function CompliancePage() {
                 };
                 return {
                   occupancy: legacyMap[rawOcc] ?? rawOcc,
-                  area_m2: (src.area_m2 && src.area_m2 > 0) ? src.area_m2 : 0,
+                  area_m2: (src.area_m2 && src.area_m2 > 0) ? src.area_m2 : (project?.grossFloorArea ? parseFloat(project.grossFloorArea as string) : 0),
                   storeys: src.storeys ?? 1,
                   construction_type: toDisplayConstruction(src.construction_type),
                   sprinklers: src.sprinklers ?? false,

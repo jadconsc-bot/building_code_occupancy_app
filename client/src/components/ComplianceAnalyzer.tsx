@@ -40,6 +40,7 @@ export function ComplianceAnalyzer({
   initialOccupancy,
   initialProvince,
   initialBuildingType,
+  initialArea,
   persistedInputs,
   onInputsChange,
 }: {
@@ -48,6 +49,7 @@ export function ComplianceAnalyzer({
   initialOccupancy?: string;
   initialProvince?: string;
   initialBuildingType?: string;
+  initialArea?: number;
   persistedInputs?: ComplianceInput | null;
   onInputsChange?: (inputs: ComplianceInput) => void;
 }) {
@@ -61,6 +63,7 @@ export function ComplianceAnalyzer({
       construction_type: initialBuildingType
         ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
         : undefined,
+      area_m2: initialArea && initialArea > 0 ? initialArea : undefined,
     }
   );
   const [result, setResult] = useState<any>(null);

@@ -24,6 +24,7 @@ export interface CreateProjectInput {
   stepCodeTier?: string;
   jurisdictionDetected?: boolean;
   projectCode?: string;
+  grossFloorArea?: number;
 }
 
 export interface UpdateProjectInput {
@@ -41,6 +42,7 @@ export interface UpdateProjectInput {
   stepCodeTier?: string;
   jurisdictionDetected?: boolean;
   projectCode?: string;
+  grossFloorArea?: number;
 }
 
 export class ProjectRepository {
@@ -136,6 +138,7 @@ export class ProjectRepository {
         stepCodeTier: input.stepCodeTier || null,
         jurisdictionDetected: input.jurisdictionDetected ?? false,
         projectCode: input.projectCode || null,
+        grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
         projectNumber,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -184,6 +187,7 @@ export class ProjectRepository {
       if (input.stepCodeTier !== undefined) updateData.stepCodeTier = input.stepCodeTier;
       if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
+      if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
 
       await db
         .update(projects)
