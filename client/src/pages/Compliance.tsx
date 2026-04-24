@@ -172,11 +172,16 @@ export default function CompliancePage() {
                   institutional: 'B', industrial: 'F',
                 };
                 const rawOcc = src.occupancy_major ?? 'D';
+                const toDisplayConstruction = (val?: string) => {
+                  if (!val) return 'Combustible';
+                  const v = val.toLowerCase().replace(/[^a-z]/g, '');
+                  return v === 'noncombustible' ? 'Non-Combustible' : 'Combustible';
+                };
                 return {
                   occupancy: legacyMap[rawOcc] ?? rawOcc,
-                  area_m2: src.area_m2 ?? 0,
+                  area_m2: (src.area_m2 && src.area_m2 > 0) ? src.area_m2 : 0,
                   storeys: src.storeys ?? 1,
-                  construction_type: src.construction_type ?? 'combustible',
+                  construction_type: toDisplayConstruction(src.construction_type),
                   sprinklers: src.sprinklers ?? false,
                 };
               })()}
