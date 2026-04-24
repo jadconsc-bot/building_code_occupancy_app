@@ -2250,6 +2250,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Export compliance report as PDF
   const exportComplianceReport = () => {
+    if (!complianceLevel && ruleEvaluations.length === 0 && pdIssues.length === 0) {
+      toast.error("Run an analysis first before exporting.");
+      return;
+    }
+    try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 20;
@@ -2398,6 +2403,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const safeName = (fileName || "drawing").replace(/\.[^/.]+$/, "");
     const idStr = analysisId ? `-${analysisId}` : "";
     doc.save(`drawing-analysis${idStr}-${safeName}.pdf`);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   // Load image when drawing changes
