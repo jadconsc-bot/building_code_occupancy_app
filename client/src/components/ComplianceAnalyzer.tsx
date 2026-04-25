@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import jsPDF from "jspdf";
+import { toast } from "sonner";
 
 interface ComplianceInput {
   occupancy_major: string;
@@ -139,6 +141,103 @@ export function ComplianceAnalyzer({
         return "bg-yellow-50 border-yellow-200";
       default:
         return "bg-gray-50 border-gray-200";
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!result) {
+      toast.error("Run an analysis first before exporting.");
+      return;
+    }
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let y = margin;
+
+      // Branded header
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, pageWidth, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text("CodeComply", 14, 12);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y = 24;
+
+      // Status banner
+      const statusColor: [number, number, number] =
+        result.complianceStatus === "compliant" ? [22, 163, 74] :
+        result.complianceStatus === "non_compliant" ? [185, 28, 28] :
+        [202, 138, 4];
+      doc.setFillColor(...statusColor);
+      doc.rect(margin, y, pageWidth - margin * 2, 12, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(
+        result.complianceStatus === "compliant" ? "COMPLIANT" :
+        result.complianceStatus === "non_compliant" ? "NON-COMPLIANT" : "CONDITIONAL",
+        pageWidth / 2, y + 8, { align: "center" }
+      );
+      doc.setTextColor(0, 0, 0);
+      y += 18;
+
+      // Divider + Analysis Inputs
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 5;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Analysis Inputs", margin, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      Object.entries(result.inputs ?? {}).forEach(([key, val]) => {
+        doc.text(`${key.replace(/_/g, " ")}: ${val}`, margin, y);
+        y += 5;
+        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
+      });
+
+      // Divider + Compliance Flags
+      y += 3;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 5;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Compliance Checks", margin, y);
+      y += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      Object.entries(result.compliance_flags ?? {}).forEach(([key, val]) => {
+        doc.text(`${key.replace(/_/g, " ")}: ${val ? "PASS" : "FAIL"}`, margin, y);
+        y += 5;
+        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
+      });
+
+      // Footer on every page
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
+          pageWidth / 2, pageHeight - 8, { align: "center" }
+        );
+      }
+
+      doc.save(`compliance-analysis-${Date.now()}.pdf`);
+      toast.success("PDF exported successfully.");
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -413,7 +512,7 @@ export function ComplianceAnalyzer({
             </Tabs>
 
             {/* Export Button */}
-            <Button variant="outline" className="w-full mt-6" size="sm">
+            <Button variant="outline" className="w-full mt-6" size="sm" onClick={handleExportPDF}>
               <Download className="w-4 h-4 mr-2" />
               Export as PDF
             </Button>
