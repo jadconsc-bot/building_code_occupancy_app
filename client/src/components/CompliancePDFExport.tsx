@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, FileText, AlertCircle } from "lucide-react";
@@ -48,10 +49,10 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.rect(0, 0, pageWidth, 18, "F");
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(13);
-      (pdf.setFont as any)(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       pdf.text("CodeComply", 14, 12);
       pdf.setFontSize(9);
-      (pdf.setFont as any)(undefined, "normal");
+      pdf.setFont("helvetica", "normal");
       pdf.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
       pdf.setTextColor(0, 0, 0);
       yPosition = 24;
@@ -61,12 +62,12 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.line(margin, yPosition, pageWidth - margin, yPosition);
       yPosition += 4;
       pdf.setFontSize(12);
-      (pdf.setFont as any)(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       (pdf.text as any)("REPORT METADATA", margin, yPosition);
       yPosition += 8;
 
       pdf.setFontSize(10);
-      (pdf.setFont as any)(undefined, "normal");
+      pdf.setFont("helvetica", "normal");
       (pdf.text as any)(`Report ID: ${snapshot.snapshotId}`, margin, yPosition);
       yPosition += 6;
       (pdf.text as any)(`Generated: ${new Date(snapshot.createdAt).toLocaleString()}`, margin, yPosition);
@@ -92,7 +93,7 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.rect(margin, yPosition, contentWidth, 15, "F");
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(14);
-      (pdf.setFont as any)(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       const statusText =
         snapshot.complianceStatus === "compliant"
           ? "COMPLIANT"
@@ -108,12 +109,12 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.line(margin, yPosition, pageWidth - margin, yPosition);
       yPosition += 4;
       pdf.setFontSize(12);
-      (pdf.setFont as any)(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       (pdf.text as any)("INPUT PARAMETERS", margin, yPosition);
       yPosition += 8;
 
       pdf.setFontSize(10);
-      (pdf.setFont as any)(undefined, "normal");
+      pdf.setFont("helvetica", "normal");
       Object.entries(snapshot.inputs).forEach(([key, value]) => {
         const displayValue =
           typeof value === "boolean" ? (value ? "Yes" : "No") : JSON.stringify(value);
@@ -132,12 +133,12 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.line(margin, yPosition, pageWidth - margin, yPosition);
       yPosition += 4;
       pdf.setFontSize(12);
-      (pdf.setFont as any)(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       (pdf.text as any)("COMPLIANCE FINDINGS", margin, yPosition);
       yPosition += 8;
 
       pdf.setFontSize(10);
-      (pdf.setFont as any)(undefined, "normal");
+      pdf.setFont("helvetica", "normal");
       Object.entries(snapshot.outputs).forEach(([key, value]) => {
         const status = value ? "PASS" : "FAIL";
         (pdf.text as any)(`${key.replace(/_/g, " ")}: ${status}`, margin, yPosition);
@@ -153,7 +154,7 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       for (let i = 1; i <= pageCount; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
-        (pdf.setFont as any)(undefined, "normal");
+        pdf.setFont("helvetica", "normal");
         pdf.setTextColor(150, 150, 150);
         pdf.text(
           `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
@@ -167,6 +168,7 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.save(`compliance-report-${snapshot.snapshotId}.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
+      toast.error("PDF export failed: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setGenerating(false);
     }
