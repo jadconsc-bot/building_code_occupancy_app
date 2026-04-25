@@ -70,10 +70,23 @@ export class ChecklistPDFGenerator {
    * Add header with project title and date
    */
   private addHeader(project: Project): void {
-    this.doc.setFontSize(18);
+    // Branded header bar
+    this.doc.setFillColor(30, 58, 138);
+    this.doc.rect(0, 0, this.pageWidth, 18, 'F');
+    (this.doc as any).setTextColor(255, 255, 255);
+    this.doc.setFontSize(13);
+    (this.doc as any).setFont(undefined, 'bold');
+    this.doc.text('CodeComply', this.margin, 12);
+    this.doc.setFontSize(9);
+    (this.doc as any).setFont(undefined, 'normal');
+    this.doc.text('Building Code Compliance Report', this.pageWidth - this.margin, 12, { align: 'right' } as any);
+    (this.doc as any).setTextColor(0, 0, 0);
+    this.currentY = 26;
+
+    this.doc.setFontSize(16);
     (this.doc as any).setFont(undefined, 'bold');
     this.doc.text('Inspection Checklist Report', this.margin, this.currentY);
-    this.currentY += 12;
+    this.currentY += 10;
 
     this.doc.setFontSize(10);
     (this.doc as any).setFont(undefined, 'normal');
@@ -278,15 +291,16 @@ export class ChecklistPDFGenerator {
   /**
    * Add footer to each page
    */
-  private addPageFooter(): void {
-    const pageCount = this.doc.getNumberOfPages();
+  private addPageFooter(pageNum?: number): void {
+    const totalPages = this.doc.getNumberOfPages();
+    const current = pageNum ?? totalPages;
     this.doc.setFontSize(8);
-    (this.doc as any).setFont(undefined, 'italic');
-    (this.doc as any).setTextColor(150);
+    (this.doc as any).setFont(undefined, 'normal');
+    (this.doc as any).setTextColor(150, 150, 150);
     this.doc.text(
-      `Page ${pageCount}`,
+      `CodeComply PD2.0 — Page ${current} of ${totalPages} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
       this.pageWidth / 2,
-      this.pageHeight - 10,
+      this.pageHeight - 8,
       { align: 'center' } as any
     );
     (this.doc as any).setTextColor(0);
@@ -308,7 +322,7 @@ export class ChecklistPDFGenerator {
     const pageCount = this.doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       this.doc.setPage(i);
-      this.addPageFooter();
+      this.addPageFooter(i);
     }
 
     return this.doc;

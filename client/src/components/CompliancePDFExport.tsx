@@ -43,32 +43,23 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       const contentWidth = pageWidth - 2 * margin;
       let yPosition = margin;
 
-      // Header
-      pdf.setFontSize(16);
+      // Branded header
+      pdf.setFillColor(30, 58, 138);
+      pdf.rect(0, 0, pageWidth, 18, "F");
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(13);
       (pdf.setFont as any)(undefined, "bold");
-      (pdf.text as any)("COMPLIANCE ANALYSIS REPORT", margin, yPosition);
-      yPosition += 10;
-
-      pdf.setFontSize(11);
-      (pdf.setFont as any)(undefined, "normal");
-      (pdf.text as any)("Professional Code Compliance Evaluation", margin, yPosition);
-      yPosition += 15;
-
-      // Legal Disclaimer Box
-      pdf.setFillColor(255, 240, 240);
-      pdf.rect(margin, yPosition, contentWidth, 25, "F");
+      pdf.text("CodeComply", 14, 12);
       pdf.setFontSize(9);
-      (pdf.setFont as any)(undefined, "bold");
-      pdf.text("LEGAL DISCLAIMER", margin + 3, yPosition + 5);
       (pdf.setFont as any)(undefined, "normal");
-      pdf.setFontSize(8);
-      const disclaimerText =
-        "This analysis must be reviewed by a qualified professional before use in legal or regulatory proceedings. Results are provided as-is without warranty.";
-      const disclaimerLines = pdf.splitTextToSize(disclaimerText, contentWidth - 6) as string[];
-      (pdf.text as any)(disclaimerLines, margin + 3, yPosition + 10);
-      yPosition += 30;
+      pdf.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
+      pdf.setTextColor(0, 0, 0);
+      yPosition = 24;
 
       // Report Metadata
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 4;
       pdf.setFontSize(12);
       (pdf.setFont as any)(undefined, "bold");
       (pdf.text as any)("REPORT METADATA", margin, yPosition);
@@ -87,6 +78,9 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       yPosition += 15;
 
       // Compliance Status
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 4;
       const statusColor =
         snapshot.complianceStatus === "compliant"
           ? [0, 128, 0]
@@ -101,15 +95,18 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       (pdf.setFont as any)(undefined, "bold");
       const statusText =
         snapshot.complianceStatus === "compliant"
-          ? "✓ COMPLIANT"
+          ? "COMPLIANT"
           : snapshot.complianceStatus === "non_compliant"
-            ? "✗ NON-COMPLIANT"
-            : "⚠ CONDITIONAL";
+            ? "NON-COMPLIANT"
+            : "CONDITIONAL";
       (pdf.text as any)(statusText, margin + 5, yPosition + 10);
       pdf.setTextColor(0, 0, 0);
       yPosition += 20;
 
       // Input Summary
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 4;
       pdf.setFontSize(12);
       (pdf.setFont as any)(undefined, "bold");
       (pdf.text as any)("INPUT PARAMETERS", margin, yPosition);
@@ -131,6 +128,9 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       yPosition += 5;
 
       // Compliance Findings
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 4;
       pdf.setFontSize(12);
       (pdf.setFont as any)(undefined, "bold");
       (pdf.text as any)("COMPLIANCE FINDINGS", margin, yPosition);
@@ -139,7 +139,7 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
       pdf.setFontSize(10);
       (pdf.setFont as any)(undefined, "normal");
       Object.entries(snapshot.outputs).forEach(([key, value]) => {
-        const status = value ? "✓ PASS" : "✗ FAIL";
+        const status = value ? "PASS" : "FAIL";
         (pdf.text as any)(`${key.replace(/_/g, " ")}: ${status}`, margin, yPosition);
         yPosition += 6;
         if (yPosition > pageHeight - margin - 20) {
@@ -147,6 +147,21 @@ export function CompliancePDFExport({ snapshot }: { snapshot: ComplianceSnapshot
           yPosition = margin;
         }
       });
+
+      // Page footers
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        (pdf.setFont as any)(undefined, "normal");
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
+          pageWidth / 2,
+          pageHeight - 8,
+          { align: "center" }
+        );
+      }
 
       // Save PDF
       pdf.save(`compliance-report-${snapshot.snapshotId}.pdf`);

@@ -81,11 +81,18 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       const pageWidth = doc.internal.pageSize.getWidth();
       let y = 20;
 
-      // Title
-      doc.setFontSize(16);
+      // Branded header
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, pageWidth, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text("Compliance Analysis Snapshot", pageWidth / 2, y, { align: "center" });
-      y += 8;
+      doc.text("CodeComply", 14, 12);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y = 24;
 
       // Status banner
       const rawStatus = selected.complianceStatus || "unknown";
@@ -107,6 +114,9 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       y += 10;
 
       // Snapshot metadata
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, y, pageWidth - 14, y);
+      y += 4;
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text("Snapshot Information", 14, y);
@@ -127,6 +137,9 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       ]);
       if (inputRows.length > 0) {
         doc.setFont("helvetica", "bold");
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, y, pageWidth - 14, y);
+        y += 4;
         doc.text("Analysis Inputs", 14, y); y += 4;
         autoTable(doc, {
           startY: y,
@@ -148,6 +161,9 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       if (outputRows.length > 0) {
         if (y > 240) { doc.addPage(); y = 20; }
         doc.setFont("helvetica", "bold");
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, y, pageWidth - 14, y);
+        y += 4;
         doc.text("Analysis Outputs", 14, y); y += 4;
         autoTable(doc, {
           startY: y,
@@ -168,6 +184,9 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
       if (traceRows.length > 0) {
         if (y > 220) { doc.addPage(); y = 20; }
         doc.setFont("helvetica", "bold");
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, y, pageWidth - 14, y);
+        y += 4;
         doc.text("Rule Trace", 14, y); y += 4;
         autoTable(doc, {
           startY: y,
@@ -185,15 +204,19 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
         y = (doc as any).lastAutoTable.finalY + 8;
       }
 
-      // Footer
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(
-        "Immutable compliance snapshot — National Building Code of Canada",
-        14, y
-      ); y += 4;
-      doc.text(`Snapshot ID: ${selected.snapshotId ?? "N/A"}`, 14, y);
+      // Page footers
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
+          pageWidth / 2,
+          doc.internal.pageSize.height - 8,
+          { align: "center" }
+        );
+      }
 
       const snapId = selected.snapshotId?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20) ?? "snapshot";
       doc.save(`compliance-snapshot-${snapId}.pdf`);
