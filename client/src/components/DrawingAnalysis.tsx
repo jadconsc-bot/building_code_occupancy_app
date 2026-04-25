@@ -2259,12 +2259,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 20;
 
-    // Header
-    doc.setFontSize(16);
+    // Header bar
+    doc.setFillColor(30, 58, 138);
+    doc.rect(0, 0, pageWidth, 18, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text("CodeComply — Drawing Analysis Report", pageWidth / 2, y, { align: "center" });
-    y += 7;
+    doc.text("CodeComply", 14, 12);
     doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y = 24;
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
     doc.text(
@@ -2273,7 +2280,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     );
     doc.text(`File: ${fileName || "—"}`, pageWidth / 2, y + 4, { align: "center" });
     doc.setTextColor(0, 0, 0);
-    y += 14;
+    y += 12;
 
     // Status banner
     if (complianceLevel) {
@@ -2295,6 +2302,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // Summary table
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, y, pageWidth - 14, y);
+    y += 4;
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("Summary", 14, y);
@@ -2318,6 +2328,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Rule Evaluations
     if (ruleEvaluations.length > 0) {
       if (y > 220) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, y, pageWidth - 14, y);
+      y += 4;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("Rule Evaluations", 14, y);
@@ -2345,6 +2358,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Issues
     if (pdIssues.length > 0) {
       if (y > 210) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, y, pageWidth - 14, y);
+      y += 4;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("Issues", 14, y);
@@ -2372,23 +2388,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Recommendations
     if (pdRecommendations.length > 0) {
       if (y > 230) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, y, pageWidth - 14, y);
+      y += 4;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("Recommendations", 14, y);
-      y += 5;
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      for (const rec of pdRecommendations) {
-        const lines = doc.splitTextToSize(`• ${rec}`, pageWidth - 28);
-        if (y + lines.length * 4 > 270) { doc.addPage(); y = 20; }
-        doc.text(lines, 14, y);
-        y += lines.length * 4 + 2;
-      }
       y += 4;
+      autoTable(doc, {
+        startY: y,
+        head: [["#", "Recommendation"]],
+        body: pdRecommendations.map((r, i) => [String(i + 1), typeof r === "string" ? r : JSON.stringify(r)]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [30, 58, 138] },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: "auto" as any } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
     }
 
     // Footer disclaimer
-    if (y > 255) { doc.addPage(); y = 20; }
+    if (y > 245) { doc.addPage(); y = 20; }
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, y, pageWidth - 14, y);
+    y += 4;
     doc.setFontSize(7);
     doc.setTextColor(120, 120, 120);
     doc.text(
@@ -2399,6 +2421,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       "AI analysis is provided for informational purposes only and does not constitute professional engineering advice.",
       14, y + 5, { maxWidth: pageWidth - 28 }
     );
+
+    // Page footers
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
+        pageWidth / 2,
+        doc.internal.pageSize.height - 8,
+        { align: "center" }
+      );
+    }
 
     const safeName = (fileName || "drawing").replace(/\.[^/.]+$/, "");
     const idStr = analysisId ? `-${analysisId}` : "";
