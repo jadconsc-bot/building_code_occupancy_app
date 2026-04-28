@@ -264,6 +264,38 @@ const buildExtractionSystemPrompt = (
     ? `\nProject context (use to focus clause identification):\n${contextLines.join('\n')}\n`
     : '';
 
+  const typeSpecificGuidance: Record<string, string> = {
+    "fire-safety": `
+FIRE SAFETY EXTRACTION TARGETS:
+1. FIRE-RATED WALL OPENINGS (NBC 3.1.8): Every door/window/duct/pipe in a rated wall. Measure width x height. Note closure rating labels (45 min, 90 min). Note wall rating labels (1 hr, 2 hr). Check for self-closer symbols. Flag if opening appears to exceed 25% of wall area.
+2. EXIT WIDTHS (NBC 3.4.3.4): Every exit door — min clear width 860mm. Corridors — min 1100mm. Stairs — min 900mm clear. Note all dimension labels.
+3. TRAVEL DISTANCES (NBC 3.4.2): Trace longest path from occupied space to nearest exit. Note dimension strings along egress paths.
+4. EXIT DOOR HARDWARE: Panic hardware symbols. Self-closing devices. Door swing direction relative to egress travel. Delayed egress devices.
+5. FIRE SEPARATIONS (NBC 3.1.3): Walls with rating labels. Occupancy separation walls. Exit enclosures. Construction type (concrete, masonry, gypsum).
+6. SPRINKLER/ALARM: Sprinkler head symbols. Branch line indicators. Smoke detector symbols. Pull station locations.`,
+    "structural": `
+STRUCTURAL EXTRACTION TARGETS:
+1. MEMBER SIZES (NBC 9.23): All labeled lumber dimensions. Engineered lumber (LVL/LSL/PSL) with sizes. Steel member designations. Species/grade if labeled.
+2. SPANS (NBC 9.23.4): Floor joist spans. Roof rafter spans. Beam spans. Header spans over openings.
+3. FOUNDATION (NBC 9.12/9.15): Footing dimensions. Foundation wall thickness. Depth below grade. Frost wall depth. Reinforcement if shown.
+4. LOAD PATHS: Column/post locations and sizes. Bearing wall indicators. Cantilever conditions.
+5. CONNECTIONS (NBC 9.23.3): Joist hanger types. Beam-to-column connections. Hold-down anchors. Shear wall indicators.`,
+    "connections": `
+CONNECTION EXTRACTION TARGETS:
+1. FASTENERS (NBC 9.23.3/CSA O86): Nail sizes and types. Nail spacing in shear walls. Bolt sizes and spacing. Screw types and sizes.
+2. CONNECTORS: Joist hanger models. Post caps and bases. Hurricane/rafter ties. Tension ties and hold-downs. Seismic straps.
+3. CSA REFERENCES: CSA O86, CSA S16, CSA A23.3. Any callout referencing a CSA standard.
+4. WELDS: Weld type, size, and location.`,
+    "comprehensive": `
+Extract ALL of the following:
+FIRE SAFETY: Fire-rated wall openings with dimensions and closure ratings, exit widths, corridor widths, travel distances, door hardware, fire separations, sprinkler/alarm indicators, occupancy separations, smoke compartments.
+STRUCTURAL: Member sizes, spans, foundation elements, load paths, connections, opening headers, floor/wall system types.
+CONNECTIONS: Fastener types/sizes/spacing, connector hardware, CSA standard references, weld symbols.
+ACCESSIBILITY (NBC 3.8): Barrier-free path width (min 1100mm), turning circle (min 1500mm), accessible door clear width (min 810mm), ramp slope (max 1:12), grab bar locations, counter heights.`,
+  };
+
+  const guidance = typeSpecificGuidance[analysisType] || typeSpecificGuidance["comprehensive"];
+
   return `
 You are a technical drawing data extractor for a building code compliance system.
 
@@ -280,7 +312,7 @@ YOU MUST NOT:
 - Generate recommendations
 - Determine if requirements are satisfied
 
-For analysis type: ${analysisType}
+${guidance}
 ${contextBlock}
 Extract only what is VISIBLE in the drawing. If something is not clearly visible, omit it or mark as uncertain.
 Set confidence between 0 and 1 based on drawing clarity and completeness.
@@ -288,6 +320,16 @@ Set confidence between 0 and 1 based on drawing clarity and completeness.
 Return valid JSON matching the requested schema. Do not add commentary outside the JSON.
 `.trim();
 };
+
+function buildUserPrompt(analysisType: string): string {
+  const prompts: Record<string, string> = {
+    "fire-safety": `Analyze this drawing for fire safety elements. Extract every opening in fire-rated walls with dimensions and closure ratings. Extract all exit door widths, corridor widths, travel distances, door hardware, fire separations, and sprinkler/alarm indicators. Return structured JSON only.`,
+    "structural": `Analyze this drawing for structural elements. Extract all member sizes with dimensions, spans, foundation elements, load paths, and connection types. Note all labeled dimensions and material specifications. Return structured JSON only.`,
+    "connections": `Analyze this drawing for connection details. Extract all fastener types, sizes, and spacing. Note all connector hardware, CSA standard references, and weld symbols. Return structured JSON only.`,
+    "comprehensive": `Perform a comprehensive extraction of this drawing. Extract all fire safety elements (openings in rated walls, exit widths, travel distances, door hardware, separations), structural elements (member sizes, spans, foundations, load paths), connection details (fasteners, connectors, standards), and accessibility features (barrier-free paths, ramps, door widths). Return structured JSON only.`,
+  };
+  return prompts[analysisType] || prompts["comprehensive"];
+}
 
 /**
  * Stage 1: Extract structured data from a drawing image using the LLM.
@@ -323,6 +365,10 @@ export async function extractDrawingData(
         memberSizes: { type: "array", items: { type: "object", properties: { label: { type: "string" }, dimension: { type: "string" }, material: { type: "string" }, location: { type: "string" } }, required: ["label", "dimension"] } },
         connectionTypes: { type: "array", items: { type: "object", properties: { type: { type: "string" }, location: { type: "string" }, specification: { type: "string" } }, required: ["type"] } },
         loadPaths: { type: "array", items: { type: "string" } },
+        openingHeaders: { type: "array", items: { type: "object", properties: { location: { type: "string" }, span: { type: "string" }, headerSize: { type: "string" }, supportCondition: { type: "string" } }, required: ["location"] } },
+        foundationElements: { type: "array", items: { type: "object", properties: { type: { type: "string" }, dimension: { type: "string" }, depth: { type: "string" }, location: { type: "string" } }, required: ["type"] } },
+        floorSystemType: { type: "string" },
+        wallSystemType: { type: "string" },
         materials: { type: "array", items: { type: "object", properties: { material: { type: "string" }, grade: { type: "string" }, location: { type: "string" } }, required: ["material"] } },
         relevantNbcClauses: { type: "array", items: { type: "object", properties: { clause: { type: "string" }, reason: { type: "string" } }, required: ["clause", "reason"] } },
         observationNotes: { type: "string" },
@@ -341,6 +387,12 @@ export async function extractDrawingData(
         exitWidths: { type: "array", items: { type: "object", properties: { location: { type: "string" }, width: { type: "string" }, doorType: { type: "string" } }, required: ["location", "width"] } },
         corridorWidths: { type: "array", items: { type: "object", properties: { location: { type: "string" }, width: { type: "string" } }, required: ["location", "width"] } },
         fireSeparations: { type: "array", items: { type: "object", properties: { location: { type: "string" }, rating: { type: "string" }, construction: { type: "string" } }, required: ["location"] } },
+        fireRatedOpenings: { type: "array", items: { type: "object", properties: { location: { type: "string" }, openingType: { type: "string" }, openingWidth: { type: "string" }, openingHeight: { type: "string" }, closureRating: { type: "string" }, wallRating: { type: "string" }, hasClosureDevice: { type: "boolean" }, percentageOfWall: { type: "string" } }, required: ["location", "openingType"] } },
+        occupancySeparations: { type: "array", items: { type: "object", properties: { location: { type: "string" }, separatingOccupancies: { type: "string" }, rating: { type: "string" }, construction: { type: "string" } }, required: ["location", "separatingOccupancies"] } },
+        exitDoorHardware: { type: "array", items: { type: "object", properties: { location: { type: "string" }, hasPanicHardware: { type: "boolean" }, hasSelfCloser: { type: "boolean" }, hasDelayedEgress: { type: "boolean" }, swingDirection: { type: "string" } }, required: ["location"] } },
+        smokeCompartments: { type: "array", items: { type: "object", properties: { location: { type: "string" }, estimatedArea: { type: "string" }, smokeSeparationRating: { type: "string" } }, required: ["location"] } },
+        travelDistances: { type: "array", items: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, observedDistance: { type: "string" }, pathDescription: { type: "string" } }, required: ["from", "to"] } },
+        meanOfEgress: { type: "object", properties: { numberOfExits: { type: "number" }, exitStairwells: { type: "number" }, rampPresent: { type: "boolean" }, exitSignsIndicated: { type: "boolean" } } },
         relevantNbcClauses: { type: "array", items: { type: "object", properties: { clause: { type: "string" }, reason: { type: "string" } }, required: ["clause", "reason"] } },
         observationNotes: { type: "string" },
         confidence: { type: "number" },
@@ -371,7 +423,7 @@ export async function extractDrawingData(
     imageBase64: compressedImage,
     mimeType: compressedMime,
     systemPrompt,
-    userPrompt: `Extract all observable data from this ${analysisType} drawing. Return structured JSON only.`,
+    userPrompt: buildUserPrompt(analysisType),
     jsonSchema: {
       type: "object",
       properties: schemaProperties,
