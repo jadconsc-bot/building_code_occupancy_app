@@ -93,6 +93,24 @@ export const ExtractedStructuralDataSchema = z.object({
     specification: z.string().optional().describe("Specification if labeled"),
   })).default([]).describe("Connection types observed"),
   loadPaths: z.array(z.string()).default([]).describe("Described load paths if visible"),
+
+  openingHeaders: z.array(z.object({
+    location: z.string(),
+    span: z.string().optional(),
+    headerSize: z.string().optional(),
+    supportCondition: z.string().optional(),
+  })).default([]),
+
+  foundationElements: z.array(z.object({
+    type: z.string(),
+    dimension: z.string().optional(),
+    depth: z.string().optional(),
+    location: z.string().optional(),
+  })).default([]),
+
+  floorSystemType: z.string().optional(),
+  wallSystemType: z.string().optional(),
+
   materials: z.array(z.object({
     material: z.string(),
     grade: z.string().optional(),
@@ -123,6 +141,53 @@ export const ExtractedFireSafetyDataSchema = z.object({
     rating: z.string().optional().describe("Fire rating if labeled (e.g., '45 min')"),
     construction: z.string().optional(),
   })).default([]).describe("Fire separations observed"),
+
+  fireRatedOpenings: z.array(z.object({
+    location: z.string(),
+    openingType: z.string(),
+    openingWidth: z.string().optional(),
+    openingHeight: z.string().optional(),
+    closureRating: z.string().optional(),
+    wallRating: z.string().optional(),
+    hasClosureDevice: z.boolean().nullable(),
+    percentageOfWall: z.string().optional(),
+  })).default([]),
+
+  occupancySeparations: z.array(z.object({
+    location: z.string(),
+    separatingOccupancies: z.string(),
+    rating: z.string().optional(),
+    construction: z.string().optional(),
+  })).default([]),
+
+  exitDoorHardware: z.array(z.object({
+    location: z.string(),
+    hasPanicHardware: z.boolean().nullable(),
+    hasSelfCloser: z.boolean().nullable(),
+    hasDelayedEgress: z.boolean().nullable(),
+    swingDirection: z.string().optional(),
+  })).default([]),
+
+  smokeCompartments: z.array(z.object({
+    location: z.string(),
+    estimatedArea: z.string().optional(),
+    smokeSeparationRating: z.string().optional(),
+  })).default([]),
+
+  travelDistances: z.array(z.object({
+    from: z.string(),
+    to: z.string(),
+    observedDistance: z.string().optional(),
+    pathDescription: z.string().optional(),
+  })).default([]),
+
+  meanOfEgress: z.object({
+    numberOfExits: z.number().nullable(),
+    exitStairwells: z.number().nullable(),
+    rampPresent: z.boolean().nullable(),
+    exitSignsIndicated: z.boolean().nullable(),
+  }).optional(),
+
   sprinklerSystem: z.object({
     present: z.boolean().nullable().describe("Whether sprinkler system is indicated (null if unclear)"),
     type: z.string().optional(),
