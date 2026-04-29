@@ -43,3 +43,36 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+export const basicProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    const allowed = ['basic', 'professional', 'rule_editor', 'admin'];
+    if (!ctx.user || !allowed.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "This feature requires a paid subscription." });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);
+
+export const professionalProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    const allowed = ['professional', 'rule_editor', 'admin'];
+    if (!ctx.user || !allowed.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "This feature requires a Professional subscription with verified credentials." });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);
+
+export const ruleEditorProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    const allowed = ['rule_editor', 'admin'];
+    if (!ctx.user || !allowed.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Rule editing requires special authorization." });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);
