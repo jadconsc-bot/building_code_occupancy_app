@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book, ChevronRight, ArrowLeft, LayoutDashboard } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book, ChevronRight, ArrowLeft, LayoutDashboard, Upload, Loader2, Building, Award, LayoutGrid, Wind } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
@@ -84,6 +84,7 @@ import { DrawingAnalysis } from "@/components/DrawingAnalysis";
 import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
 import Projects from "@/pages/Projects";
 
+import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -155,6 +156,59 @@ export default function Home() {
     const saved = localStorage.getItem("selected_region");
     return saved || "AB";
   });
+  const [spaceAnalysisImage, setSpaceAnalysisImage] = useState<string | null>(null);
+  const [spaceAnalysisImageMime, setSpaceAnalysisImageMime] = useState<string>('image/jpeg');
+  const [spaceAnalysisResult, setSpaceAnalysisResult] = useState<any>(null);
+  const [spaceAnalysisLoading, setSpaceAnalysisLoading] = useState(false);
+  const spaceAnalysisFileRef = useRef<HTMLInputElement>(null);
+
+  const runSpaceAnalysis = async () => {
+    if (!spaceAnalysisImage) {
+      toast.error('Please upload a floor plan or drawing first.');
+      return;
+    }
+    setSpaceAnalysisLoading(true);
+    setSpaceAnalysisResult(null);
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          system: `You are an expert architectural consultant and sustainable design advisor specializing in Canadian building performance, space optimization, and LEED certification pathways.\n\nAnalyze the provided architectural drawing and deliver a structured assessment across six dimensions. Base all climate-specific recommendations on the provided climate zone. Do not make pass/fail compliance decisions — provide advisory recommendations only.\n\nANALYSIS DIMENSIONS:\n\n1. SPACE DISTRIBUTION EFFICIENCY\n- Identify wasted or underutilized areas\n- Flag circulation paths consuming excessive floor area (target: circulation < 20% of GFA)\n- Note opportunities for multi-use spaces\n- Assess room proportions and adjacency logic\n\n2. NATURAL LIGHT OPTIMIZATION\n- Identify rooms with no direct window access\n- Assess window-to-floor-area ratio per room (target WFA ratio > 10%)\n- Note sun path opportunities based on orientation if north arrow is visible\n- Flag deep plan conditions where daylight penetration is limited (depth > 2.5x window height)\n\n3. ROOM LAYOUT EFFICIENCY\n- Evaluate functional adjacencies (kitchen near dining, bathrooms near bedrooms)\n- Identify awkward circulation or dead-end corridors\n- Note rooms with poor aspect ratios (length:width > 3:1 is inefficient)\n- Flag areas where structural grid conflicts with room layout\n\n4. WIND AND VENTILATION STRATEGY\n- Based on climate zone, recommend natural ventilation opportunities\n- Identify cross-ventilation potential (openings on opposite walls)\n- Note stack ventilation opportunities in multi-storey sections\n- Flag rooms that would benefit from operable windows for cooling\n\n5. SUSTAINABLE MATERIALS (climate zone specific)\n- Recommend envelope insulation strategy based on climate zone HDD\n- Suggest glazing specifications (U-value, SHGC) appropriate for climate\n- Identify where thermal mass would be beneficial\n- Note where vapour barrier placement is critical\n\n6. LEED GAP ANALYSIS\nEvaluate against LEED v4 credit categories:\n- SS: Site selection, heat island, stormwater\n- WE: Water efficiency, fixture opportunities, rainwater harvesting\n- EA: Energy envelope performance, renewable readiness\n- MR: Materials — recycled content, local materials, wood products\n- IEQ: Daylight, views, ventilation, low-VOC potential\n- IN: Innovation strategies\n\nFor each LEED category provide: current observable status, gap identified, specific action to close gap, estimated points achievable.\n\nReturn ONLY valid JSON with this exact structure — no markdown, no commentary:\n{\n  "overallScore": number,\n  "climateZone": string,\n  "drawingType": string,\n  "spaceDistribution": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "naturalLight": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "roomLayout": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "ventilation": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "sustainableMaterials": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "leedGapAnalysis": {\n    "estimatedPoints": number,\n    "maxPossiblePoints": number,\n    "categories": [{ "category": string, "status": string, "gap": string, "action": string, "estimatedPoints": number }]\n  },\n  "priorityActions": ["string"],\n  "confidence": number\n}`,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: spaceAnalysisImageMime,
+                  data: spaceAnalysisImage,
+                }
+              },
+              {
+                type: 'text',
+                text: `Analyze this architectural drawing. Climate zone context: not specified (use Canadian NBC climate zones). Provide a comprehensive space optimization and LEED gap analysis. Return only the JSON object.`
+              }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.[0]?.text ?? '';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      setSpaceAnalysisResult(parsed);
+    } catch (err) {
+      console.error('Space analysis error:', err);
+      toast.error('Analysis failed. Please try again.');
+    } finally {
+      setSpaceAnalysisLoading(false);
+    }
+  };
 
   // Tab order for navigation
   const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
@@ -2712,13 +2766,185 @@ export default function Home() {
                   </section>
 
                   <section className="mt-8 pt-8 border-t border-border">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
-                      <FileImage className="w-5 h-5" /> AI-Powered Plan Analysis
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Upload architectural plans (floor plans, elevations, site plans) to automatically detect NBC 2025 code infractions using AI vision analysis. Get instant feedback on compliance issues with specific code references and recommendations.
-                    </p>
-                    <PlanAnalyzer />
+                    {/* Architectural Space Analyzer */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Architectural Space Analyzer</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Upload a floor plan to receive AI-powered recommendations for space efficiency,
+                        natural light, ventilation, sustainable materials, and LEED gap analysis.
+                      </p>
+
+                      {/* Upload Area */}
+                      <div
+                        className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                        onClick={() => spaceAnalysisFileRef.current?.click()}
+                      >
+                        {spaceAnalysisImage ? (
+                          <div className="space-y-2">
+                            <img
+                              src={`data:${spaceAnalysisImageMime};base64,${spaceAnalysisImage}`}
+                              alt="Uploaded plan"
+                              className="max-h-48 mx-auto rounded object-contain"
+                            />
+                            <p className="text-xs text-muted-foreground">Click to replace</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                            <p className="text-sm font-medium">Drop your floor plan here</p>
+                            <p className="text-xs text-muted-foreground">PDF, JPG, PNG supported</p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={spaceAnalysisFileRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const result = ev.target?.result as string;
+                            const base64 = result.split(',')[1];
+                            setSpaceAnalysisImage(base64);
+                            setSpaceAnalysisImageMime(file.type || 'image/jpeg');
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+
+                      <Button
+                        onClick={runSpaceAnalysis}
+                        disabled={!spaceAnalysisImage || spaceAnalysisLoading}
+                        className="w-full"
+                      >
+                        {spaceAnalysisLoading ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+                        ) : (
+                          <><Building className="w-4 h-4 mr-2" /> Analyze Space</>
+                        )}
+                      </Button>
+
+                      {/* Results */}
+                      {spaceAnalysisResult && (
+                        <div className="space-y-6 mt-4">
+
+                          {/* Overall Score */}
+                          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-lg">Overall Design Score</span>
+                              <span className="text-2xl font-bold text-primary">{spaceAnalysisResult.overallScore}/100</span>
+                            </div>
+                            <Progress value={spaceAnalysisResult.overallScore} className="h-2" />
+                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                              <span>Drawing: {spaceAnalysisResult.drawingType}</span>
+                              <span>Climate Zone: {spaceAnalysisResult.climateZone}</span>
+                            </div>
+                          </div>
+
+                          {/* Six Dimension Cards */}
+                          {[
+                            { key: 'spaceDistribution', label: 'Space Distribution', icon: LayoutGrid },
+                            { key: 'naturalLight', label: 'Natural Light', icon: Sun },
+                            { key: 'roomLayout', label: 'Room Layout', icon: Building },
+                            { key: 'ventilation', label: 'Wind & Ventilation', icon: Wind },
+                            { key: 'sustainableMaterials', label: 'Sustainable Materials', icon: Leaf },
+                          ].map(({ key, label, icon: Icon }) => {
+                            const section = spaceAnalysisResult[key];
+                            if (!section) return null;
+                            return (
+                              <div key={key} className="border border-border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Icon className="w-4 h-4 text-primary" />
+                                    <span className="font-medium">{label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={section.score} className="w-24 h-1.5" />
+                                    <span className="text-sm font-semibold">{section.score}/100</span>
+                                  </div>
+                                </div>
+                                {section.findings?.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">FINDINGS</p>
+                                    <ul className="space-y-1">
+                                      {section.findings.map((f: string, i: number) => (
+                                        <li key={i} className="text-sm flex gap-2">
+                                          <span className="text-amber-500 mt-0.5">•</span>
+                                          <span>{f}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {section.recommendations?.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">RECOMMENDATIONS</p>
+                                    <ul className="space-y-1">
+                                      {section.recommendations.map((r: string, i: number) => (
+                                        <li key={i} className="text-sm flex gap-2">
+                                          <span className="text-green-500 mt-0.5">→</span>
+                                          <span>{r}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* LEED Gap Analysis */}
+                          {spaceAnalysisResult.leedGapAnalysis && (
+                            <div className="border border-green-200 bg-green-50 rounded-lg p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Award className="w-4 h-4 text-green-600" />
+                                  <span className="font-medium text-green-800">LEED Gap Analysis</span>
+                                </div>
+                                <Badge variant="outline" className="border-green-400 text-green-700">
+                                  ~{spaceAnalysisResult.leedGapAnalysis.estimatedPoints} / {spaceAnalysisResult.leedGapAnalysis.maxPossiblePoints} pts
+                                </Badge>
+                              </div>
+                              <div className="space-y-3">
+                                {spaceAnalysisResult.leedGapAnalysis.categories?.map((cat: any, i: number) => (
+                                  <div key={i} className="bg-white rounded p-3 space-y-1 border border-green-100">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium text-sm">{cat.category}</span>
+                                      <Badge className="bg-green-100 text-green-700 text-xs">{cat.estimatedPoints} pts</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground"><span className="font-medium">Status:</span> {cat.status}</p>
+                                    <p className="text-xs text-amber-700"><span className="font-medium">Gap:</span> {cat.gap}</p>
+                                    <p className="text-xs text-green-700"><span className="font-medium">Action:</span> {cat.action}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Priority Actions */}
+                          {spaceAnalysisResult.priorityActions?.length > 0 && (
+                            <div className="border border-border rounded-lg p-4 space-y-2">
+                              <p className="font-medium text-sm">Priority Actions</p>
+                              <ol className="space-y-2">
+                                {spaceAnalysisResult.priorityActions.map((action: string, i: number) => (
+                                  <li key={i} className="text-sm flex gap-2">
+                                    <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">{i + 1}</span>
+                                    <span>{action}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                        </div>
+                      )}
+                    </div>
                   </section>
                 </div>
               </TabsContent>
