@@ -34,7 +34,7 @@ export async function createTestUser(overrides?: {
       openId,
       email: overrides?.email || `${testId}@example.com`,
       name: overrides?.name || `Test User ${testId}`,
-      role: 'user',
+      role: 'free',
     });
 
   // Fetch the created user

@@ -127,7 +127,7 @@ export class UserRepository {
           openId: input.openId,
           email: input.email,
           name: input.name || null,
-          role: 'user',
+          role: 'free',
           createdAt: new Date(),
           updatedAt: new Date(),
         });
