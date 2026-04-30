@@ -183,10 +183,13 @@ export default function Home() {
         mimeType: spaceAnalysisImageMime,
         climateZone: undefined,
       });
-      if (result.success) {
+      console.log('Space analysis raw result:', JSON.stringify(result));
+      if (result.success && result.result) {
         setSpaceAnalysisResult(result.result);
+        console.log('Space analysis result set:', result.result);
       } else {
-        toast.error('Analysis failed. Please try again.');
+        console.warn('Space analysis returned no result:', result);
+        toast.error('Analysis returned no data. Please try again.');
       }
     } catch (err) {
       console.error('Space analysis error:', err);
