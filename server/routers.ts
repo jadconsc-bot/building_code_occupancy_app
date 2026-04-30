@@ -216,9 +216,17 @@ Return ONLY valid JSON, no markdown:
             },
             required: ["overallScore", "drawingType", "priorityActions"],
           },
-          maxTokens: 4000,
+          maxTokens: 8000,
         });
-        return { success: true, result: response.parsed };
+        // Safety: extract just the JSON object if extra text was returned
+        let parsed = response.parsed;
+        if (typeof parsed === 'string') {
+          const match = (parsed as string).match(/\{[\s\S]*\}/);
+          if (match) {
+            try { parsed = JSON.parse(match[0]); } catch { /* use as-is */ }
+          }
+        }
+        return { success: true, result: parsed };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Analysis failed';
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message });
