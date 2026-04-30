@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +100,8 @@ import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutoco
 import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
 export default function Home() {
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
@@ -161,6 +166,9 @@ export default function Home() {
   const [spaceAnalysisResult, setSpaceAnalysisResult] = useState<any>(null);
   const [spaceAnalysisLoading, setSpaceAnalysisLoading] = useState(false);
   const spaceAnalysisFileRef = useRef<HTMLInputElement>(null);
+  const [spacePdfPages, setSpacePdfPages] = useState<string[]>([]);
+  const [spaceSelectedPage, setSpaceSelectedPage] = useState<number>(0);
+  const analyzeSpaceMutation = trpc.analyzeSpace.useMutation();
 
   const runSpaceAnalysis = async () => {
     if (!spaceAnalysisImage) {
@@ -170,41 +178,19 @@ export default function Home() {
     setSpaceAnalysisLoading(true);
     setSpaceAnalysisResult(null);
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          system: `You are an expert architectural consultant and sustainable design advisor specializing in Canadian building performance, space optimization, and LEED certification pathways.\n\nAnalyze the provided architectural drawing and deliver a structured assessment across six dimensions. Base all climate-specific recommendations on the provided climate zone. Do not make pass/fail compliance decisions — provide advisory recommendations only.\n\nANALYSIS DIMENSIONS:\n\n1. SPACE DISTRIBUTION EFFICIENCY\n- Identify wasted or underutilized areas\n- Flag circulation paths consuming excessive floor area (target: circulation < 20% of GFA)\n- Note opportunities for multi-use spaces\n- Assess room proportions and adjacency logic\n\n2. NATURAL LIGHT OPTIMIZATION\n- Identify rooms with no direct window access\n- Assess window-to-floor-area ratio per room (target WFA ratio > 10%)\n- Note sun path opportunities based on orientation if north arrow is visible\n- Flag deep plan conditions where daylight penetration is limited (depth > 2.5x window height)\n\n3. ROOM LAYOUT EFFICIENCY\n- Evaluate functional adjacencies (kitchen near dining, bathrooms near bedrooms)\n- Identify awkward circulation or dead-end corridors\n- Note rooms with poor aspect ratios (length:width > 3:1 is inefficient)\n- Flag areas where structural grid conflicts with room layout\n\n4. WIND AND VENTILATION STRATEGY\n- Based on climate zone, recommend natural ventilation opportunities\n- Identify cross-ventilation potential (openings on opposite walls)\n- Note stack ventilation opportunities in multi-storey sections\n- Flag rooms that would benefit from operable windows for cooling\n\n5. SUSTAINABLE MATERIALS (climate zone specific)\n- Recommend envelope insulation strategy based on climate zone HDD\n- Suggest glazing specifications (U-value, SHGC) appropriate for climate\n- Identify where thermal mass would be beneficial\n- Note where vapour barrier placement is critical\n\n6. LEED GAP ANALYSIS\nEvaluate against LEED v4 credit categories:\n- SS: Site selection, heat island, stormwater\n- WE: Water efficiency, fixture opportunities, rainwater harvesting\n- EA: Energy envelope performance, renewable readiness\n- MR: Materials — recycled content, local materials, wood products\n- IEQ: Daylight, views, ventilation, low-VOC potential\n- IN: Innovation strategies\n\nFor each LEED category provide: current observable status, gap identified, specific action to close gap, estimated points achievable.\n\nReturn ONLY valid JSON with this exact structure — no markdown, no commentary:\n{\n  "overallScore": number,\n  "climateZone": string,\n  "drawingType": string,\n  "spaceDistribution": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "naturalLight": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "roomLayout": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "ventilation": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "sustainableMaterials": { "score": number, "findings": ["string"], "recommendations": ["string"] },\n  "leedGapAnalysis": {\n    "estimatedPoints": number,\n    "maxPossiblePoints": number,\n    "categories": [{ "category": string, "status": string, "gap": string, "action": string, "estimatedPoints": number }]\n  },\n  "priorityActions": ["string"],\n  "confidence": number\n}`,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: spaceAnalysisImageMime,
-                  data: spaceAnalysisImage,
-                }
-              },
-              {
-                type: 'text',
-                text: `Analyze this architectural drawing. Climate zone context: not specified (use Canadian NBC climate zones). Provide a comprehensive space optimization and LEED gap analysis. Return only the JSON object.`
-              }
-            ]
-          }]
-        })
+      const result = await analyzeSpaceMutation.mutateAsync({
+        imageBase64: spaceAnalysisImage!,
+        mimeType: spaceAnalysisImageMime,
+        climateZone: undefined,
       });
-
-      const data = await response.json();
-      const text = data.content?.[0]?.text ?? '';
-      const clean = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
-      setSpaceAnalysisResult(parsed);
+      if (result.success) {
+        setSpaceAnalysisResult(result.result);
+      } else {
+        toast.error('Analysis failed. Please try again.');
+      }
     } catch (err) {
       console.error('Space analysis error:', err);
-      toast.error('Analysis failed. Please try again.');
+      toast.error('Analysis failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setSpaceAnalysisLoading(false);
     }
@@ -2807,16 +2793,73 @@ export default function Home() {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const result = ev.target?.result as string;
-                            const base64 = result.split(',')[1];
+
+                          if (file.type === 'application/pdf') {
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            const pageCount = Math.min(pdf.numPages, 20);
+                            const pages: string[] = [];
+                            for (let i = 1; i <= pageCount; i++) {
+                              const page = await pdf.getPage(i);
+                              const viewport = page.getViewport({ scale: 1.5 });
+                              const canvas = document.createElement('canvas');
+                              canvas.width = viewport.width;
+                              canvas.height = viewport.height;
+                              const ctx = canvas.getContext('2d')!;
+                              await page.render({ canvasContext: ctx, viewport } as any).promise;
+                              pages.push(canvas.toDataURL('image/png'));
+                            }
+                            setSpacePdfPages(pages);
+                            setSpaceSelectedPage(0);
+                            const base64 = pages[0].split(',')[1];
                             setSpaceAnalysisImage(base64);
-                            setSpaceAnalysisImageMime(file.type || 'image/jpeg');
-                          };
-                          reader.readAsDataURL(file);
+                            setSpaceAnalysisImageMime('image/png');
+                          } else {
+                            setSpacePdfPages([]);
+                            setSpaceSelectedPage(0);
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              const base64 = result.split(',')[1];
+                              setSpaceAnalysisImage(base64);
+                              setSpaceAnalysisImageMime(file.type || 'image/jpeg');
+                            };
+                            reader.readAsDataURL(file);
+                          }
                         }}
                       />
+
+                      {spacePdfPages.length > 1 && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground font-medium">SELECT PAGE TO ANALYZE</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {spacePdfPages.map((page, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setSpaceSelectedPage(idx);
+                                  setSpaceAnalysisImage(page.split(',')[1]);
+                                  setSpaceAnalysisImageMime('image/png');
+                                }}
+                                className={`flex-shrink-0 cursor-pointer rounded border-2 transition-all ${
+                                  spaceSelectedPage === idx
+                                    ? 'border-primary shadow-md'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                <img
+                                  src={page}
+                                  alt={`Page ${idx + 1}`}
+                                  className="h-24 w-auto rounded object-contain"
+                                />
+                                <p className="text-xs text-center text-muted-foreground py-1">
+                                  Page {idx + 1}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <Button
                         onClick={runSpaceAnalysis}

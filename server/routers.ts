@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
+import { callAnthropicVision } from './services/anthropicVisionService';
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
 import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog } from "../drizzle/schema";
@@ -151,6 +152,76 @@ If no infractions are found, return an empty array: []`;
           infractions: [],
           error: "Failed to analyze plan. Please try again.",
         };
+      }
+    }),
+
+  analyzeSpace: publicProcedure
+    .input(z.object({
+      imageBase64: z.string(),
+      mimeType: z.string(),
+      climateZone: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { imageBase64, mimeType, climateZone } = input;
+      const systemPrompt = `You are an expert architectural consultant and sustainable design advisor specializing in Canadian building performance, space optimization, and LEED certification pathways.
+
+Analyze the provided architectural drawing and deliver a structured assessment across six dimensions. Base all climate-specific recommendations on the provided climate zone. Do not make pass/fail compliance decisions — provide advisory recommendations only.
+
+1. SPACE DISTRIBUTION EFFICIENCY: Identify wasted areas, flag circulation > 20% GFA, note multi-use opportunities, assess room proportions.
+2. NATURAL LIGHT OPTIMIZATION: Identify rooms with no windows, assess WFA ratio (target >10%), note sun path opportunities, flag deep plan conditions (depth > 2.5x window height).
+3. ROOM LAYOUT EFFICIENCY: Evaluate functional adjacencies, identify awkward circulation or dead-end corridors, note poor aspect ratios (>3:1), flag structural grid conflicts.
+4. WIND AND VENTILATION STRATEGY: Recommend natural ventilation, identify cross-ventilation potential, note stack ventilation opportunities, flag rooms needing operable windows.
+5. SUSTAINABLE MATERIALS (climate zone specific): Recommend envelope insulation strategy, suggest glazing specs (U-value, SHGC), identify thermal mass opportunities, note vapour barrier placement.
+6. LEED GAP ANALYSIS (LEED v4): Evaluate SS (site, heat island, stormwater), WE (water efficiency, rainwater), EA (energy, renewables), MR (recycled content, local materials), IEQ (daylight, ventilation, low-VOC), IN (innovation). For each: current status, gap, action, estimated points.
+
+Return ONLY valid JSON, no markdown:
+{
+  "overallScore": number,
+  "climateZone": string,
+  "drawingType": string,
+  "spaceDistribution": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "naturalLight": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "roomLayout": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "ventilation": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "sustainableMaterials": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "leedGapAnalysis": {
+    "estimatedPoints": number,
+    "maxPossiblePoints": number,
+    "categories": [{ "category": string, "status": string, "gap": string, "action": string, "estimatedPoints": number }]
+  },
+  "priorityActions": ["string"],
+  "confidence": number
+}`;
+
+      try {
+        const response = await callAnthropicVision({
+          imageBase64,
+          mimeType: mimeType as any,
+          systemPrompt,
+          userPrompt: `Analyze this architectural drawing. Climate zone: ${climateZone ?? 'not specified'} (Canadian NBC climate zones). Return only the JSON object.`,
+          jsonSchema: {
+            type: "object",
+            properties: {
+              overallScore: { type: "number" },
+              climateZone: { type: "string" },
+              drawingType: { type: "string" },
+              spaceDistribution: { type: "object" },
+              naturalLight: { type: "object" },
+              roomLayout: { type: "object" },
+              ventilation: { type: "object" },
+              sustainableMaterials: { type: "object" },
+              leedGapAnalysis: { type: "object" },
+              priorityActions: { type: "array", items: { type: "string" } },
+              confidence: { type: "number" },
+            },
+            required: ["overallScore", "drawingType", "priorityActions"],
+          },
+          maxTokens: 4000,
+        });
+        return { success: true, result: response.parsed };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Analysis failed';
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message });
       }
     }),
 
