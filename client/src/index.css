@@ -41,65 +41,66 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   
-  /* Custom Construction Theme Colors */
-  --color-construction-orange: oklch(0.65 0.18 45);
-  --color-construction-brown: oklch(0.45 0.10 50);
-  --color-construction-cream: oklch(0.96 0.02 85);
-  --color-construction-beige: oklch(0.92 0.03 80);
-  --color-highlight-blue: oklch(0.55 0.20 250);
+  /* CodeComply Professional Theme Colors */
+  --color-navy-primary: oklch(0.30 0.10 255);
+  --color-navy-dark: oklch(0.22 0.08 255);
+  --color-navy-light: oklch(0.40 0.10 255);
+  --color-accent-orange: oklch(0.65 0.18 45);
+  --color-cream-bg: oklch(0.96 0.02 85);
+  --color-warm-beige: oklch(0.92 0.03 80);
 }
 
 :root {
-  /* Construction Professional Palette - Warm Orange/Brown Theme */
-  /* Primary: Construction Orange #E67E22 -> oklch(0.65 0.18 45) */
-  /* Secondary: Warm Brown #8B4513 -> oklch(0.45 0.10 50) */
-  /* Accent: Highlight Blue #2980B9 -> oklch(0.55 0.15 250) */
-  
-  --primary: oklch(0.65 0.18 45); /* Construction Orange */
-  --primary-foreground: oklch(0.98 0 0);
-  
-  --sidebar-primary: oklch(0.55 0.15 50); /* Darker Orange-Brown */
+  /* CodeComply Professional Palette — Navy + Warm Cream */
+  /* Primary: Deep Navy #1B3A6B */
+  /* Accent: Warm Orange #E07B39 */
+  /* Background: Warm Cream #FAF0E6 */
+
+  --primary: oklch(0.30 0.10 255); /* Deep Navy #1B3A6B */
+  --primary-foreground: oklch(0.98 0 0); /* White text on navy */
+
+  --sidebar-primary: oklch(0.25 0.09 255); /* Darker Navy for sidebar */
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  
-  --chart-1: oklch(0.65 0.18 45); /* Construction Orange */
-  --chart-2: oklch(0.45 0.10 50); /* Warm Brown */
-  --chart-3: oklch(0.55 0.20 250); /* Highlight Blue */
-  --chart-4: oklch(0.72 0.12 45); /* Light Orange */
-  --chart-5: oklch(0.35 0.08 50); /* Dark Brown */
-  
-  --radius: 0.375rem; /* Slightly rounded for modern look */
-  
-  --background: oklch(0.96 0.02 85); /* Warm Cream #FAF0E6 */
-  --foreground: oklch(0.20 0.05 50); /* Dark Brown Text */
-  
-  --card: oklch(0.98 0.01 85); /* Light Cream Card */
-  --card-foreground: oklch(0.20 0.05 50);
-  
-  --popover: oklch(0.98 0.01 85);
-  --popover-foreground: oklch(0.20 0.05 50);
-  
-  --secondary: oklch(0.45 0.10 50); /* Warm Brown */
+
+  --chart-1: oklch(0.30 0.10 255); /* Navy */
+  --chart-2: oklch(0.65 0.18 45);  /* Orange */
+  --chart-3: oklch(0.50 0.15 160); /* Teal */
+  --chart-4: oklch(0.55 0.14 255); /* Light Navy */
+  --chart-5: oklch(0.40 0.08 255); /* Mid Navy */
+
+  --radius: 0.375rem;
+
+  --background: oklch(0.96 0.02 85); /* Warm Cream — keep as-is */
+  --foreground: oklch(0.15 0.03 255); /* Near-black with navy tint */
+
+  --card: oklch(0.99 0.005 85); /* Near-white warm card */
+  --card-foreground: oklch(0.15 0.03 255);
+
+  --popover: oklch(0.99 0.005 85);
+  --popover-foreground: oklch(0.15 0.03 255);
+
+  --secondary: oklch(0.40 0.08 255); /* Mid Navy */
   --secondary-foreground: oklch(0.98 0 0);
-  
-  --muted: oklch(0.92 0.03 80); /* Beige */
-  --muted-foreground: oklch(0.45 0.05 50); /* Medium Brown */
-  
-  --accent: oklch(0.55 0.20 250); /* Highlight Blue for interactive elements */
+
+  --muted: oklch(0.92 0.03 80); /* Warm Beige — keep as-is */
+  --muted-foreground: oklch(0.48 0.04 255); /* Muted navy-gray */
+
+  --accent: oklch(0.65 0.18 45); /* Warm Orange — CTA accent */
   --accent-foreground: oklch(0.98 0 0);
-  
-  --destructive: oklch(0.55 0.22 25); /* Safety Red */
+
+  --destructive: oklch(0.50 0.22 25); /* Deep Red */
   --destructive-foreground: oklch(0.98 0 0);
-  
-  --border: oklch(0.85 0.04 75); /* Warm tan border */
-  --input: oklch(0.92 0.03 80);
-  --ring: oklch(0.65 0.18 45);
-  
-  --sidebar: oklch(0.55 0.15 50); /* Brown sidebar */
-  --sidebar-foreground: oklch(0.96 0.02 85);
-  --sidebar-accent: oklch(0.45 0.12 50);
+
+  --border: oklch(0.87 0.03 255); /* Cool light border */
+  --input: oklch(0.93 0.02 255);
+  --ring: oklch(0.30 0.10 255); /* Navy focus ring */
+
+  --sidebar: oklch(0.22 0.08 255); /* Dark Navy sidebar */
+  --sidebar-foreground: oklch(0.96 0.02 85); /* Cream text on navy */
+  --sidebar-accent: oklch(0.28 0.09 255);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.40 0.10 50);
-  --sidebar-ring: oklch(0.65 0.18 45);
+  --sidebar-border: oklch(0.25 0.07 255);
+  --sidebar-ring: oklch(0.65 0.18 45); /* Orange ring on navy */
 }
 
 .dark {
