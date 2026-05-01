@@ -3079,7 +3079,7 @@ export default function Home() {
                 { label: 'Industrial', code: 'F', icon: '🏭', description: 'Factories, storage' },
                 { label: 'Institutional', code: 'B', icon: '🏥', description: 'Hospitals, care homes' },
               ].map((item) => {
-                const group = occupancyData.find(g => g.group === item.code);
+                const group = occupancyData.find(g => g.code.startsWith(item.code));
                 return (
                   <button
                     key={item.code}
