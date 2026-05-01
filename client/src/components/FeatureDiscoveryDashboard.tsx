@@ -104,7 +104,7 @@ const features: Feature[] = [
     title: 'Project Analytics',
     description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
     icon: <TrendingUp className="w-6 h-6" />,
-    href: '/billing',
+    href: '/',
     category: 'professional',
   },
   {
