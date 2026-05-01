@@ -6,7 +6,7 @@
  * Helps users understand what capabilities are available
  */
 
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,6 +118,7 @@ const features: Feature[] = [
 ];
 
 export function FeatureDiscoveryDashboard() {
+  const [, navigate] = useLocation();
   const coreFeatures = features.filter((f) => f.category === 'core');
   const toolFeatures = features.filter((f) => f.category === 'tools');
   const professionalFeatures = features.filter((f) => f.category === 'professional');
@@ -146,11 +147,14 @@ export function FeatureDiscoveryDashboard() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         <CardDescription className="text-sm mb-4 flex-1">{feature.description}</CardDescription>
-        <Link href={feature.href}>
-          <Button variant="outline" size="sm" className="w-full">
-            Access <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => navigate(feature.href)}
+        >
+          Access <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
       </CardContent>
     </Card>
   );
