@@ -156,6 +156,7 @@ export default function Home() {
   const [showUserManual, setShowUserManual] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showProjectWizard, setShowProjectWizard] = useState(false);
+  const [showOccupancyAdvisor, setShowOccupancyAdvisor] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -3059,14 +3060,85 @@ export default function Home() {
             </Tabs>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto opacity-40">
-            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-              <Search className="w-10 h-10 text-muted-foreground" />
+          <div className="h-full flex flex-col gap-6 p-6 overflow-y-auto">
+            {/* Welcome header */}
+            <div>
+              <h2 className="text-2xl font-bold mb-1">Occupancy Classifier</h2>
+              <p className="text-muted-foreground text-sm">
+                Select an occupancy group from the sidebar or search to view detailed NBC compliance requirements.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Select a Building Type</h2>
-            <p className="text-muted-foreground">
-              Search for a building type in the sidebar or select an occupancy group to view detailed compliance requirements.
-            </p>
+
+            {/* Quick access grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Assembly', code: 'A', icon: '🎭', description: 'Theatres, arenas, schools' },
+                { label: 'Residential', code: 'C', icon: '🏠', description: 'Dwellings, hotels' },
+                { label: 'Business', code: 'D', icon: '🏢', description: 'Offices, banks' },
+                { label: 'Mercantile', code: 'E', icon: '🛒', description: 'Retail, shops' },
+                { label: 'Industrial', code: 'F', icon: '🏭', description: 'Factories, storage' },
+                { label: 'Institutional', code: 'B', icon: '🏥', description: 'Hospitals, care homes' },
+              ].map((item) => {
+                const group = occupancyData.find(g => g.group === item.code);
+                return (
+                  <button
+                    key={item.code}
+                    onClick={() => group && setSelectedGroup(group)}
+                    className="flex flex-col items-start gap-1 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors text-left"
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="font-semibold text-sm">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">{item.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search tip */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+              <Search className="w-4 h-4 shrink-0" />
+              <span>
+                Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-xs font-mono">/</kbd> to focus search, or type an occupancy type to filter the list.
+              </span>
+            </div>
+
+            {/* Occupancy Advisor teaser */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+              <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-sm mb-1">Not sure which occupancy applies?</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  The Occupancy Advisor asks a few quick questions and recommends the correct classification based on NBC 2025 criteria.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setShowOccupancyAdvisor(true)}>
+                  Launch Advisor
+                </Button>
+              </div>
+            </div>
+
+            {/* Occupancy Advisor modal */}
+            {showOccupancyAdvisor && (
+              <Dialog open={showOccupancyAdvisor} onOpenChange={setShowOccupancyAdvisor}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <HelpCircle className="w-5 h-5" /> Occupancy Advisor
+                    </DialogTitle>
+                    <DialogDescription>
+                      Answer a few questions to find the right occupancy classification.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 text-center text-muted-foreground text-sm">
+                    Occupancy Advisor coming soon. For now, use the search bar or browse the groups above.
+                  </div>
+                  <div className="flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setShowOccupancyAdvisor(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         )}
       </div>

@@ -204,7 +204,7 @@ export function NavigationHeader() {
 
   return (
     <TooltipProvider>
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full bg-[#1B3A6B] text-white shadow-md">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
 
           {/* Logo */}
@@ -212,10 +212,10 @@ export function NavigationHeader() {
             className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity cursor-pointer"
             onClick={() => navigate('/')}
           >
-            <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center rounded font-bold text-xs">
+            <div className="w-8 h-8 bg-[#E07B39] text-white flex items-center justify-center rounded font-bold text-xs">
               {userRole === 'admin' ? 'AB' : userRole === 'professional' ? 'PR' : userRole === 'basic' ? 'BS' : 'CC'}
             </div>
-            <span className="hidden sm:inline">CodeComply</span>
+            <span className="hidden sm:inline text-white">CodeComply</span>
           </div>
 
           {/* Desktop Primary Nav */}
@@ -228,8 +228,8 @@ export function NavigationHeader() {
                   onClick={() => accessible && navigate(feature.href)}
                   className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1 ${
                     accessible
-                      ? 'text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer'
-                      : 'text-muted-foreground/40 cursor-not-allowed'
+                      ? 'text-white/80 hover:text-white hover:bg-white/10 cursor-pointer'
+                      : 'text-white/30 cursor-not-allowed'
                   }`}
                 >
                   {!accessible && <Lock className="w-3 h-3" />}
@@ -257,7 +257,7 @@ export function NavigationHeader() {
             {/* Tools Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="hidden sm:flex">
+                <Button variant="outline" size="sm" className="hidden sm:flex text-white border-white/30 hover:bg-white/10 bg-transparent">
                   <Zap className="w-4 h-4 mr-2" />
                   Tools
                 </Button>
@@ -299,7 +299,7 @@ export function NavigationHeader() {
                     <div className="w-6 h-6 bg-primary text-primary-foreground flex items-center justify-center rounded-full text-xs font-bold">
                       {user.name?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="hidden sm:inline text-sm">{user.name}</span>
+                    <span className="hidden sm:inline text-sm text-white">{user.name}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -355,7 +355,7 @@ export function NavigationHeader() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="md:hidden text-white hover:bg-white/10"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -365,7 +365,7 @@ export function NavigationHeader() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-background/50 backdrop-blur">
+          <div className="md:hidden border-t border-white/20 bg-[#1B3A6B]">
             <nav className="container mx-auto px-4 py-3 flex flex-col gap-2">
               {toolsFeatures.map((feature) => {
                 const Icon = feature.icon;
@@ -377,8 +377,8 @@ export function NavigationHeader() {
                     disabled={!accessible}
                     className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-left w-full ${
                       accessible
-                        ? 'text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer'
-                        : 'text-muted-foreground/40 cursor-not-allowed'
+                        ? 'text-white/80 hover:text-white hover:bg-white/10 cursor-pointer'
+                        : 'text-white/30 cursor-not-allowed'
                     }`}
                   >
                     {accessible

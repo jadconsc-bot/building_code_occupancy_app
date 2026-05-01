@@ -18,7 +18,6 @@ import {
   BookOpen,
   FolderOpen,
   Zap,
-  TrendingUp,
   Lock,
   CheckCircle2,
   ArrowRight,
@@ -101,10 +100,10 @@ const features: Feature[] = [
   },
   {
     id: 'analytics',
-    title: 'Project Analytics',
-    description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
-    icon: <TrendingUp className="w-6 h-6" />,
-    href: '/',
+    title: 'Space Analyzer',
+    description: 'AI-powered architectural space analysis. Upload drawings for LEED gap analysis, occupancy classification, and NBC compliance review.',
+    icon: <Building2 className="w-6 h-6" />,
+    href: '/occupancy-classifier',
     category: 'professional',
   },
   {
