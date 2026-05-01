@@ -11,12 +11,36 @@ import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Shield, Settings } from "lucide-react";
+import { AlertCircle, Shield, Settings, FolderOpen } from "lucide-react";
 import { ScenarioComparison } from "@/components/ScenarioComparison";
 import { CompliancePathwayReport, type CompliancePathwayReportProps } from "@/components/CompliancePathwayReport";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
+
+function ProjectSelector() {
+  const [, navigate] = useLocation();
+  const { data: projects } = trpc.projects.list.useQuery();
+  if (!projects?.length) {
+    return <p className="text-sm text-muted-foreground">No projects found. Create one first.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {projects.map((p: any) => (
+        <button
+          key={p.id}
+          onClick={() => navigate(`/compliance/${p.id}`)}
+          className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors"
+        >
+          <div className="font-medium text-sm">{p.name}</div>
+          <div className="text-xs text-muted-foreground">
+            {p.projectNumber ?? p.projectCode ?? ''} {p.occupancyCode ? `· Occupancy ${p.occupancyCode}` : ''}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function CompliancePage() {
   const params = useParams();
@@ -87,19 +111,24 @@ export default function CompliancePage() {
   if (!projectId) {
     return (
       <div className="p-6">
-        <Card className="bg-yellow-50 border-yellow-200">
+        <Card className="max-w-lg mx-auto mt-12">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600" />
-              <CardTitle>No Project Selected</CardTitle>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-primary" />
+              Select a Project
+            </CardTitle>
+            <CardDescription>
+              Choose a project to run compliance analysis
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-700 mb-4">
-              Please select or create a project to use the compliance analysis engine.
-            </p>
-            <Button onClick={() => navigate("/project-checklists")} variant="outline">
-              Go to Projects
+          <CardContent className="space-y-4">
+            <ProjectSelector />
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate('/project-checklists')}
+            >
+              Or create a new project
             </Button>
           </CardContent>
         </Card>

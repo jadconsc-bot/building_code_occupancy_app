@@ -1,28 +1,55 @@
 /**
  * Dashboard Page
- * 
+ *
  * Main dashboard showing all available features and tools
  * Provides a comprehensive overview of the platform capabilities
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { SignIn } from '@clerk/clerk-react';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ReportBuilder } from '@/components/ReportBuilder';
-import { RuleManagementAccess } from '@/components/RuleManagementAccess';
-import { CalculationComparison } from '@/components/CalculationComparison';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { Button } from '@/components/ui/button';
 
+function LegalDisclaimerCollapsible() {
+  const [expanded, setExpanded] = React.useState(() => {
+    try { return localStorage.getItem('cc_disclaimer_expanded') === 'true'; }
+    catch { return false; }
+  });
+  const toggle = () => {
+    const next = !expanded;
+    setExpanded(next);
+    try { localStorage.setItem('cc_disclaimer_expanded', String(next)); } catch {}
+  };
+  return (
+    <div className="border border-amber-200 bg-amber-50 rounded-lg">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-amber-600">⚠</span>
+          <span className="text-sm font-medium text-amber-800">Legal Disclaimer & Professional Liability</span>
+        </div>
+        <span className="text-amber-600 text-xs">{expanded ? 'Collapse ▲' : 'Expand ▼'}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4">
+          <LegalDisclaimer />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { isAuthenticated, user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
   const [showReportBuilder, setShowReportBuilder] = useState(false);
-
 
   if (!isAuthenticated) {
     return (
@@ -40,9 +67,6 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-4xl font-bold mb-2">Welcome, {user?.name}!</h1>
-              <p className="text-lg text-muted-foreground">
-                Explore all available features and tools for building code compliance
-              </p>
             </div>
             <div className="flex gap-2">
               <NotificationCenter />
@@ -58,17 +82,11 @@ export default function Dashboard() {
 
         {/* Legal Disclaimer */}
         <div className="mb-8">
-          <LegalDisclaimer />
+          <LegalDisclaimerCollapsible />
         </div>
 
         {/* Feature Discovery Dashboard */}
         <FeatureDiscoveryDashboard />
-
-        {/* Rule Management Access */}
-        <RuleManagementAccess userRole={user?.role as 'admin' | 'editor' | 'user'} />
-
-        {/* Calculation Comparison */}
-        <CalculationComparison calculations={[]} />
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">

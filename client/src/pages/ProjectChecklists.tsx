@@ -158,7 +158,7 @@ export default function ProjectChecklistsPage() {
                         <div className="truncate">
                           <p className="font-medium text-sm truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {project.description || 'No description'}
+                            {project.description || [project.projectNumber, project.occupancyCode ? `Occupancy ${project.occupancyCode}` : null].filter(Boolean).join(' · ') || 'No description'}
                           </p>
                         </div>
                       </Button>
