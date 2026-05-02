@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SaveButton } from "@/components/CalculatorWithSave";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -265,9 +266,14 @@ export function OccupantLoadCalculator() {
         )}
       </div>
 
-      {/* Export Button */}
+      {/* Export + Save Buttons */}
       {result.occupantLoad > 0 && (
-        <div className="flex justify-end p-4 border-t border-border bg-muted/20">
+        <div className="flex justify-end gap-2 p-4 border-t border-border bg-muted/20">
+          <SaveButton
+            calculatorType="occupantLoad"
+            inputs={{ category, spaceType, floorArea }}
+            results={{ occupantLoad: result.occupantLoad, areaPerPerson: result.areaPerPerson }}
+          />
           <Button
             variant="outline"
             size="sm"

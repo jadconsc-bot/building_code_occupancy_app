@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SaveButton } from "@/components/CalculatorWithSave";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
@@ -244,9 +245,14 @@ export function ExitRequirementsCalculator() {
             </ul>
           </div>
 
-          {/* Export Button */}
+          {/* Export + Save Buttons */}
           {result.numExits > 0 && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <SaveButton
+                calculatorType="exitRequirements"
+                inputs={{ occupantLoad, buildingHeight, sprinklered }}
+                results={{ numExits: result.numExits, minWidthPerExit: result.minWidthPerExit, totalExitWidth: result.totalExitWidth, reasoning: result.reasoning }}
+              />
               <Button
                 variant="outline"
                 size="sm"

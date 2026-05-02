@@ -281,12 +281,12 @@ export default function ProjectChecklistsPage() {
                       {hasReport ? (
                         <>
                           <span className="text-green-600 font-bold shrink-0">✓</span>
-                          <span className="text-green-700">Report available</span>
+                          <span className="text-green-700">{reportsQuery.data!.length} calculation{reportsQuery.data!.length !== 1 ? 's' : ''} saved</span>
                         </>
                       ) : (
                         <>
                           <span className="text-muted-foreground shrink-0">—</span>
-                          <span className="text-muted-foreground">No report saved</span>
+                          <span className="text-muted-foreground">No calculations saved</span>
                         </>
                       )}
                     </div>
