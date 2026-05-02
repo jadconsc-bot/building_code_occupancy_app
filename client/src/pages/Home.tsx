@@ -172,12 +172,9 @@ function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | nul
               <Zap className="w-5 h-5" /> BC Energy Step Code
             </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a certified PDF report.
+              Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a quick PDF.
             </p>
             <StepCodeCalculator projectId={stepCodeProjectId} />
-            <div className="mt-6">
-              <StepCodeReport projectId={stepCodeProjectId} />
-            </div>
           </section>
 
           <section className="mt-8 pt-8 border-t border-border">
@@ -188,6 +185,16 @@ function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | nul
               Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
             </p>
             <AlbertaNBCReport projectId={stepCodeProjectId} />
+          </section>
+
+          <section className="mt-8 pt-8 border-t border-border">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Certified Step Code Report
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Generate a formal certified report from the last saved analysis with full audit trail and immutable signature.
+            </p>
+            <StepCodeReport projectId={stepCodeProjectId} />
           </section>
         </div>
       )}
