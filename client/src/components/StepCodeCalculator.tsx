@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, CheckCircle2, TrendingDown, Download } from "lucide-react";
+import { AlertCircle, CheckCircle2, TrendingDown, Download, Building2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface StepCodeCalculatorProps {
@@ -44,22 +44,22 @@ function extractMunicipality(address: string): string {
 }
 
 const MUNICIPALITY_OPTIONS = [
-  "Calgary",
-  "Edmonton",
-  "Red Deer",
-  "Lethbridge",
-  "Fort McMurray",
-  "Vancouver",
-  "Victoria",
-  "Kelowna",
-  "Prince George",
+  "Calgary", "Edmonton", "Red Deer", "Lethbridge", "Fort McMurray",
+  "Vancouver", "Victoria", "Kelowna", "Prince George",
 ];
+
+// Map project buildingType to the two StepCode categories
+function mapBuildingType(bt: string | null | undefined): "part9_single_family" | "part3_commercial" {
+  if (!bt) return "part9_single_family";
+  if (bt === "part9_single_family" || bt === "part9_multiplex") return "part9_single_family";
+  return "part3_commercial";
+}
 
 export function StepCodeCalculator({
   projectId,
   municipality: municipalityProp = "Calgary",
-  climateZone = "4",
-  buildingType = "part9_single_family",
+  climateZone: climateZoneProp = "4",
+  buildingType: buildingTypeProp = "part9_single_family",
   onResultReady,
 }: StepCodeCalculatorProps) {
   const [selectedTier, setSelectedTier] = useState("3");
@@ -72,19 +72,52 @@ export function StepCodeCalculator({
   const [result, setResult] = useState<StepCodeResult | null>(null);
   const [lastAnalysisId, setLastAnalysisId] = useState<string | null>(null);
   const [municipalityOverride, setMunicipalityOverride] = useState<string | null>(null);
+  const [buildingTypeOverride, setBuildingTypeOverride] = useState<"part9_single_family" | "part3_commercial" | null>(null);
+  const [climateZoneOverride, setClimateZoneOverride] = useState<string | null>(null);
+  // Track which fields were pre-populated from the project
+  const [prepopulated, setPrepopulated] = useState<Set<string>>(new Set());
 
   const { data: project } = trpc.projects.get.useQuery({ id: projectId });
+  const p = project as any;
+
+  // Pre-populate from project data when it loads
+  useEffect(() => {
+    if (!p) return;
+    const populated: string[] = [];
+
+    if (p.grossFloorArea) {
+      const area = parseFloat(p.grossFloorArea);
+      if (!isNaN(area) && area > 0) {
+        setBuildingArea(area);
+        setBuildingVolume(Math.round(area * 2.7)); // default 2.7m ceiling
+        populated.push("buildingArea", "buildingVolume");
+      }
+    }
+    if (p.climateZone) {
+      setClimateZoneOverride(String(p.climateZone));
+      populated.push("climateZone");
+    }
+    if (p.buildingType) {
+      setBuildingTypeOverride(mapBuildingType(p.buildingType));
+      populated.push("buildingType");
+    }
+    if (populated.length > 0) {
+      setPrepopulated(new Set(populated));
+    }
+  }, [p?.id]); // only re-run when project ID changes
 
   const detectedMunicipality = useMemo(() => {
-    if (project?.address) return extractMunicipality(project.address);
+    if (p?.address) return extractMunicipality(p.address);
     return municipalityProp;
-  }, [project?.address, municipalityProp]);
+  }, [p?.address, municipalityProp]);
 
   const effectiveMunicipality = municipalityOverride ?? detectedMunicipality;
+  const effectiveClimateZone  = climateZoneOverride ?? climateZoneProp;
+  const effectiveBuildingType = buildingTypeOverride ?? buildingTypeProp;
 
   const { data: tiersData } = trpc.stepCode.getTiers.useQuery({
-    buildingType,
-    climateZone,
+    buildingType: effectiveBuildingType,
+    climateZone:  effectiveClimateZone,
   });
 
   const tierData = useMemo(
@@ -122,15 +155,15 @@ export function StepCodeCalculator({
     return Math.min((teuiModelled / tierData.teuiTarget) * 100, 150);
   }, [teuiModelled, tierData]);
 
-  const getGaugeBgColor = (percentage: number) => {
-    if (percentage <= 100) return "bg-green-500";
-    if (percentage <= 110) return "bg-yellow-500";
+  const getGaugeBgColor = (pct: number) => {
+    if (pct <= 100) return "bg-green-500";
+    if (pct <= 110) return "bg-yellow-500";
     return "bg-red-500";
   };
 
-  const getComplianceStatus = (percentage: number) => {
-    if (percentage <= 100) return "PASS";
-    if (percentage <= 110) return "MARGINAL";
+  const getComplianceStatus = (pct: number) => {
+    if (pct <= 100) return "PASS";
+    if (pct <= 110) return "MARGINAL";
     return "FAIL";
   };
 
@@ -155,45 +188,73 @@ export function StepCodeCalculator({
     });
   };
 
+  const FromProject = () => (
+    <span className="ml-2 text-xs text-blue-600 font-medium">from project</span>
+  );
+
   return (
     <div className="space-y-6">
+      {/* Project info banner */}
+      {p && (
+        <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+          <Building2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <span className="font-semibold text-primary">{p.name}</span>
+            {(p.projectNumber || p.projectCode) && (
+              <span className="ml-2 text-muted-foreground">· {p.projectNumber ?? p.projectCode}</span>
+            )}
+            <div className="flex flex-wrap gap-2 mt-1">
+              {p.occupancyCode && (
+                <Badge variant="outline" className="text-xs">Occupancy {p.occupancyCode}</Badge>
+              )}
+              {p.province && (
+                <Badge variant="outline" className="text-xs">{p.province}</Badge>
+              )}
+              {p.climateZone && (
+                <Badge variant="outline" className="text-xs">Climate Zone {p.climateZone}</Badge>
+              )}
+              {p.grossFloorArea && (
+                <Badge variant="outline" className="text-xs">{p.grossFloorArea} m²</Badge>
+              )}
+            </div>
+          </div>
+          {prepopulated.size > 0 && (
+            <span className="text-xs text-blue-600 shrink-0">
+              {prepopulated.size} field{prepopulated.size !== 1 ? 's' : ''} pre-populated
+            </span>
+          )}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Step Code Calculator</CardTitle>
           <CardDescription>
             Enter building parameters to calculate TEDI/TEUI compliance for{" "}
-            {effectiveMunicipality}, Climate Zone {climateZone}
+            {effectiveMunicipality}, Climate Zone {effectiveClimateZone}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Municipality Detection */}
+          {/* Municipality */}
           <div className="space-y-2">
             <Label>Municipality</Label>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <p className="text-sm text-muted-foreground mb-1">
-                  Auto-detected from project
-                </p>
+                <p className="text-sm text-muted-foreground mb-1">Auto-detected from project</p>
                 <Badge variant="secondary">{detectedMunicipality}</Badge>
               </div>
               <div className="flex-1">
-                <p className="text-sm text-muted-foreground mb-1">
-                  Manual override
-                </p>
+                <p className="text-sm text-muted-foreground mb-1">Manual override</p>
                 <Select
                   value={municipalityOverride ?? ""}
-                  onValueChange={(v) =>
-                    setMunicipalityOverride(v || null)
-                  }
+                  onValueChange={(v) => setMunicipalityOverride(v || null)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Use detected" />
                   </SelectTrigger>
                   <SelectContent>
                     {MUNICIPALITY_OPTIONS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -201,21 +262,43 @@ export function StepCodeCalculator({
             </div>
           </div>
 
-          {/* Building Type & Tier Selection */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Building Type, Climate Zone, Tier */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Building Type</Label>
-              <Select value={buildingType} disabled>
+              <Label>
+                Building Type
+                {prepopulated.has("buildingType") && <FromProject />}
+              </Label>
+              <Select
+                value={effectiveBuildingType}
+                onValueChange={(v) => setBuildingTypeOverride(v as any)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="part9_single_family">
-                    Part 9 - Single Family
-                  </SelectItem>
-                  <SelectItem value="part3_commercial">
-                    Part 3 - Commercial
-                  </SelectItem>
+                  <SelectItem value="part9_single_family">Part 9 — Single Family</SelectItem>
+                  <SelectItem value="part3_commercial">Part 3 — Commercial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>
+                Climate Zone
+                {prepopulated.has("climateZone") && <FromProject />}
+              </Label>
+              <Select
+                value={effectiveClimateZone}
+                onValueChange={(v) => setClimateZoneOverride(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">Zone 4</SelectItem>
+                  <SelectItem value="5">Zone 5</SelectItem>
+                  <SelectItem value="6">Zone 6</SelectItem>
+                  <SelectItem value="7">Zone 7</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -239,19 +322,27 @@ export function StepCodeCalculator({
           {/* Building Parameters */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Building Area (m²)</Label>
+              <Label>
+                Building Area (m²)
+                {prepopulated.has("buildingArea") && <FromProject />}
+              </Label>
               <Input
                 type="number"
                 value={buildingArea}
                 onChange={(e) => setBuildingArea(parseFloat(e.target.value))}
+                className={prepopulated.has("buildingArea") ? "border-blue-300" : ""}
               />
             </div>
             <div>
-              <Label>Building Volume (m³)</Label>
+              <Label>
+                Building Volume (m³)
+                {prepopulated.has("buildingVolume") && <FromProject />}
+              </Label>
               <Input
                 type="number"
                 value={buildingVolume}
                 onChange={(e) => setBuildingVolume(parseFloat(e.target.value))}
+                className={prepopulated.has("buildingVolume") ? "border-blue-300" : ""}
               />
             </div>
             <div>
@@ -262,9 +353,7 @@ export function StepCodeCalculator({
                 min="0"
                 max="1"
                 value={windowWallRatio}
-                onChange={(e) =>
-                  setWindowWallRatio(parseFloat(e.target.value))
-                }
+                onChange={(e) => setWindowWallRatio(parseFloat(e.target.value))}
               />
             </div>
           </div>
@@ -293,9 +382,7 @@ export function StepCodeCalculator({
                 type="number"
                 step="0.1"
                 value={airtightnessModelled}
-                onChange={(e) =>
-                  setAirtightnessModelled(parseFloat(e.target.value))
-                }
+                onChange={(e) => setAirtightnessModelled(parseFloat(e.target.value))}
               />
             </div>
           </div>
@@ -305,33 +392,21 @@ export function StepCodeCalculator({
             disabled={checkCompliance.isPending || !tierData}
             className="w-full"
           >
-            {checkCompliance.isPending ? "Checking..." : "Check Compliance"}
+            {checkCompliance.isPending ? "Checking…" : "Check Compliance"}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Results Section */}
+      {/* Results */}
       {result && (
         <>
-          <Card
-            className={
-              result.compliant
-                ? "border-green-200 bg-green-50"
-                : "border-red-200 bg-red-50"
-            }
-          >
+          <Card className={result.compliant ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {result.compliant ? (
-                  <>
-                    <CheckCircle2 className="w-6 h-6 text-green-600" />
-                    <span className="text-green-900">Compliant</span>
-                  </>
+                  <><CheckCircle2 className="w-6 h-6 text-green-600" /><span className="text-green-900">Compliant</span></>
                 ) : (
-                  <>
-                    <AlertCircle className="w-6 h-6 text-red-600" />
-                    <span className="text-red-900">Non-Compliant</span>
-                  </>
+                  <><AlertCircle className="w-6 h-6 text-red-600" /><span className="text-red-900">Non-Compliant</span></>
                 )}
               </CardTitle>
             </CardHeader>
@@ -343,12 +418,9 @@ export function StepCodeCalculator({
             </CardContent>
           </Card>
 
-          {/* TEDI/TEUI Gauge Charts */}
           <div className="grid grid-cols-2 gap-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">TEDI Performance</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">TEDI Performance</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Target: {tierData?.tediTarget} kWh/m²/yr</span>
@@ -362,17 +434,9 @@ export function StepCodeCalculator({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Gap:{" "}
-                    {(tediModelled - (tierData?.tediTarget ?? 0)).toFixed(1)}{" "}
-                    kWh/m²/yr
+                    Gap: {(tediModelled - (tierData?.tediTarget ?? 0)).toFixed(1)} kWh/m²/yr
                   </span>
-                  <Badge
-                    className={
-                      getComplianceStatus(tediGaugeValue) === "PASS"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }
-                  >
+                  <Badge className={getComplianceStatus(tediGaugeValue) === "PASS" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
                     {getComplianceStatus(tediGaugeValue)}
                   </Badge>
                 </div>
@@ -380,9 +444,7 @@ export function StepCodeCalculator({
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">TEUI Performance</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">TEUI Performance</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Target: {tierData?.teuiTarget} kWh/m²/yr</span>
@@ -396,17 +458,9 @@ export function StepCodeCalculator({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Gap:{" "}
-                    {(teuiModelled - (tierData?.teuiTarget ?? 0)).toFixed(1)}{" "}
-                    kWh/m²/yr
+                    Gap: {(teuiModelled - (tierData?.teuiTarget ?? 0)).toFixed(1)} kWh/m²/yr
                   </span>
-                  <Badge
-                    className={
-                      getComplianceStatus(teuiGaugeValue) === "PASS"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }
-                  >
+                  <Badge className={getComplianceStatus(teuiGaugeValue) === "PASS" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
                     {getComplianceStatus(teuiGaugeValue)}
                   </Badge>
                 </div>
@@ -416,9 +470,7 @@ export function StepCodeCalculator({
 
           {result.recommendations.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Recommendations</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Recommendations</CardTitle></CardHeader>
               <CardContent>
                 <ul className="space-y-2">
                   {result.recommendations.map((rec, idx) => (
@@ -438,7 +490,7 @@ export function StepCodeCalculator({
             className="w-full"
           >
             <Download className="w-4 h-4 mr-2" />
-            {generateReport.isPending ? "Generating..." : "Generate PDF Report"}
+            {generateReport.isPending ? "Generating…" : "Generate PDF Report"}
           </Button>
         </>
       )}

@@ -102,6 +102,96 @@ import { LegalDisclaimer } from "@/components/LegalDisclaimer";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
+function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | null | undefined }) {
+  const { data: projects } = trpc.projects.list.useQuery();
+  const [stepCodeProjectId, setStepCodeProjectId] = useState<number | null>(
+    activeProjectId ?? null
+  );
+
+  const selectedProject = projects?.find((p) => p.id === stepCodeProjectId);
+
+  return (
+    <div className="space-y-6">
+      {/* Project selector */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" /> Select Project
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={stepCodeProjectId ? String(stepCodeProjectId) : ""}
+            onValueChange={(v) => setStepCodeProjectId(v ? Number(v) : null)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose a project to pre-populate fields…" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects?.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>
+                  {p.name}{p.projectNumber ? ` — ${p.projectNumber}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedProject && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedProject.province && (
+                <Badge variant="outline" className="text-xs">{selectedProject.province}</Badge>
+              )}
+              {selectedProject.climateZone && (
+                <Badge variant="outline" className="text-xs">Zone {selectedProject.climateZone}</Badge>
+              )}
+              {selectedProject.buildingType && (
+                <Badge variant="outline" className="text-xs">{selectedProject.buildingType}</Badge>
+              )}
+              {selectedProject.grossFloorArea && (
+                <Badge variant="outline" className="text-xs">{selectedProject.grossFloorArea} m²</Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {!stepCodeProjectId ? (
+        <Card className="border-dashed">
+          <CardContent className="pt-8 pb-8 text-center text-muted-foreground text-sm">
+            <Building2 className="w-8 h-8 mx-auto mb-3 opacity-40" />
+            <p>Select a project above to pre-populate the calculator with project data.</p>
+            <p className="mt-1 text-xs">You can still edit all fields manually after selection.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-8">
+          <section>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+              <Zap className="w-5 h-5" /> BC Energy Step Code
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a certified PDF report.
+            </p>
+            <StepCodeCalculator projectId={stepCodeProjectId} />
+            <div className="mt-6">
+              <StepCodeReport projectId={stepCodeProjectId} />
+            </div>
+          </section>
+
+          <section className="mt-8 pt-8 border-t border-border">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+              <Zap className="w-5 h-5" /> Alberta NBC Compliance
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
+            </p>
+            <AlbertaNBCReport projectId={stepCodeProjectId} />
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
@@ -3028,30 +3118,7 @@ export default function Home() {
               </TabsContent>
 
               <TabsContent value="step-code" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                <div className="space-y-8">
-                  <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
-                      <Zap className="w-5 h-5" /> BC Energy Step Code
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a certified PDF report.
-                    </p>
-                    <StepCodeCalculator projectId={1} />
-                    <div className="mt-6">
-                      <StepCodeReport projectId={1} />
-                    </div>
-                  </section>
-
-                  <section className="mt-8 pt-8 border-t border-border">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
-                      <Zap className="w-5 h-5" /> Alberta NBC Compliance
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
-                    </p>
-                    <AlbertaNBCReport projectId={1} />
-                  </section>
-                </div>
+                <StepCodeTabContent activeProjectId={activeProjectId} />
               </TabsContent>
 
               <TabsContent value="projects" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
