@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, CheckCircle2, TrendingDown, Download, Building2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, TrendingDown, Download, Building2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface StepCodeCalculatorProps {
@@ -74,6 +74,7 @@ export function StepCodeCalculator({
   const [municipalityOverride, setMunicipalityOverride] = useState<string | null>(null);
   const [buildingTypeOverride, setBuildingTypeOverride] = useState<"part9_single_family" | "part3_commercial" | null>(null);
   const [climateZoneOverride, setClimateZoneOverride] = useState<string | null>(null);
+  const [occupancyType, setOccupancyType] = useState<"residential" | "non-residential">("residential");
   // Track which fields were pre-populated from the project
   const [prepopulated, setPrepopulated] = useState<Set<string>>(new Set());
 
@@ -100,6 +101,12 @@ export function StepCodeCalculator({
     if (p.buildingType) {
       setBuildingTypeOverride(mapBuildingType(p.buildingType));
       populated.push("buildingType");
+    }
+    if (p.occupancyCode) {
+      const part3Types = ["part3_residential", "part3_commercial", "part3_industrial"];
+      setBuildingTypeOverride(part3Types.includes(p.buildingType ?? "") ? "part3_commercial" : "part9_single_family");
+      setOccupancyType(p.occupancyCode.startsWith("C") ? "residential" : "non-residential");
+      populated.push("occupancyType");
     }
     if (populated.length > 0) {
       setPrepopulated(new Set(populated));
@@ -223,6 +230,16 @@ export function StepCodeCalculator({
               {prepopulated.size} field{prepopulated.size !== 1 ? 's' : ''} pre-populated
             </span>
           )}
+        </div>
+      )}
+
+      {p?.province && p.province !== "BC" && p.province !== "British Columbia" && (
+        <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-800">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            Step Code applies to BC buildings only. This project is in{" "}
+            <strong>{p.province}</strong>.
+          </span>
         </div>
       )}
 

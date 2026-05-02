@@ -125,18 +125,18 @@ function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | nul
             onValueChange={(v) => setStepCodeProjectId(v ? Number(v) : null)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Choose a project to pre-populate fields…" />
+              <SelectValue placeholder="Select Project (optional)" />
             </SelectTrigger>
             <SelectContent>
               {projects?.map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name}{p.projectNumber ? ` — ${p.projectNumber}` : ""}
+                  {p.projectNumber ? `[${p.projectNumber}] ` : ""}{p.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {selectedProject && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
               {selectedProject.province && (
                 <Badge variant="outline" className="text-xs">{selectedProject.province}</Badge>
               )}
@@ -146,9 +146,12 @@ function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | nul
               {selectedProject.buildingType && (
                 <Badge variant="outline" className="text-xs">{selectedProject.buildingType}</Badge>
               )}
-              {selectedProject.grossFloorArea && (
-                <Badge variant="outline" className="text-xs">{selectedProject.grossFloorArea} m²</Badge>
-              )}
+              <button
+                onClick={() => setStepCodeProjectId(null)}
+                className="ml-auto text-xs text-muted-foreground underline hover:text-destructive"
+              >
+                Clear project
+              </button>
             </div>
           )}
         </CardContent>
