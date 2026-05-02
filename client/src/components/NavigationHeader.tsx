@@ -88,7 +88,7 @@ const NAV_FEATURES: NavFeature[] = [
   {
     label: 'Compliance Engine',
     icon: Shield,
-    href: '/project-checklists',
+    href: '/compliance',
     description: 'Deterministic code compliance analysis',
     requiredRole: 'basic',
     upgradeMessage: 'Upgrade to Basic to access the Compliance Engine',
