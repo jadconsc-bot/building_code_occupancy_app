@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Download, FileText, Check, AlertCircle, Thermometer } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  C, TABLE_STYLES, INFO_COL_LABEL, INFO_COL_VALUE,
+  drawHeader, drawStatusBanner, drawSectionBar, drawFooters, contentHeight,
+} from "@/lib/pdfStyles";
 
 interface AlbertaNBCReportProps {
   projectId: number;
@@ -77,82 +81,74 @@ export function AlbertaNBCReport({
     setIsGenerating(true);
     try {
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
-
-      // Title
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("Alberta NBC 2024 Compliance Report", pageWidth / 2, y, { align: "center" });
-      y += 8;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Generated: ${new Date().toLocaleString()}  |  By: ${user?.name ?? "System"}`, pageWidth / 2, y, { align: "center" });
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      // Project info
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Project Information", 14, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      doc.text(`Name: ${project?.name ?? "N/A"}`, 14, y);
-      y += 5;
+      const maxY = contentHeight(doc);
+      const analystName = (user as any)?.name ?? (user as any)?.email ?? user?.name ?? "System";
+      const today = new Date().toLocaleDateString("en-CA");
       const albertaDisplayCode = (project as any)?.projectCode || (project as any)?.projectNumber;
-      if (albertaDisplayCode) {
-        doc.text(`Project Code: ${albertaDisplayCode}`, 14, y);
-        y += 5;
-      }
-      doc.text(`Address: ${project?.address ?? "N/A"}`, 14, y);
-      y += 10;
+      const overallPass = complianceItems.every((ci) => ci.status === "pass");
 
-      // Climate zone
-      doc.setFont("helvetica", "bold");
-      doc.text(`Climate Zone ${climateZone} — ${zoneInfo.description}`, 14, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      doc.text(`Heating Degree Days: ${zoneInfo.hdd} HDD`, 14, y);
-      y += 5;
-      doc.text(`Design Temperature: ${zoneInfo.designTemp} deg C`, 14, y);
-      y += 5;
-      doc.text(
-        `Seismic Zone: ${seismicZoneData?.seismicData?.seismicZone ?? "N/A"} (NBC 4.1.8)`,
-        14,
+      let y = drawHeader(doc, "Alberta NBC 2024 Compliance Report", today, analystName);
+
+      y = drawStatusBanner(
+        doc,
+        overallPass ? "compliant" : "non_compliant",
+        overallPass ? "All applicable NBC(AE) 2024 requirements satisfied" : "One or more requirements not satisfied",
         y
       );
-      y += 10;
+
+      // Project info table
+      y = drawSectionBar(doc, "Project Information", y);
+      autoTable(doc, {
+        startY: y,
+        head: [],
+        body: [
+          ["Project Name",   project?.name ?? "N/A"],
+          ["Project Number", albertaDisplayCode ?? "N/A"],
+          ["Address",        project?.address ?? "N/A"],
+          ["Climate Zone",   `Zone ${climateZone} — ${zoneInfo.description}`],
+          ["Heating Degree Days", `${zoneInfo.hdd} HDD`],
+          ["Design Temperature",  `${zoneInfo.designTemp}\xB0C`],
+          ["Seismic Zone",   `${seismicZoneData?.seismicData?.seismicZone ?? "N/A"} (NBC 4.1.8)`],
+          ["Report Date",    today],
+          ["Prepared By",    analystName],
+        ],
+        theme: "plain",
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, cellPadding: 3, fontSize: 10 },
+        columnStyles: {
+          0: { ...INFO_COL_LABEL, cellWidth: 52 },
+          1: { ...INFO_COL_VALUE, cellWidth: 118 },
+        },
+        didParseCell: (data) => {
+          if (data.column.index === 1 && data.row.index % 2 === 1) {
+            data.cell.styles.fillColor = C.creamWarm;
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
 
       // Cold climate compliance checklist
-      doc.setFont("helvetica", "bold");
-      doc.text("Cold Climate Compliance Checklist", 14, y);
-      y += 4;
-
+      y = drawSectionBar(doc, "Cold Climate Compliance Checklist", y);
       autoTable(doc, {
         startY: y,
         head: [["Requirement", "Standard", "Status"]],
-        body: complianceItems.map((ci) => [ci.item, ci.requirement, ci.status === "pass" ? "Pass" : "Fail"]),
+        body: complianceItems.map((ci) => [ci.item, ci.requirement, ci.status === "pass" ? "PASS" : "FAIL"]),
+        ...TABLE_STYLES,
+        columnStyles: { 2: { cellWidth: 20, halign: "center", fontStyle: "bold" } },
         didParseCell: (data) => {
           if (data.column.index === 2 && data.section === "body") {
-            data.cell.styles.textColor =
-              data.cell.raw === "Pass" ? [22, 163, 74] : [185, 28, 28];
+            data.cell.styles.textColor = data.cell.raw === "PASS" ? C.green : C.red;
           }
         },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [30, 58, 138] },
+        margin: { left: 14, right: 14 },
       });
-
       y = (doc as any).lastAutoTable.finalY + 8;
 
-      // Building envelope (if analysis present)
+      // Building envelope analysis (if present)
       if (currentAnalysis) {
-        if (y > 220) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.text("Building Envelope Analysis", 14, y);
-        y += 4;
-
+        if (y > maxY - 50) { doc.addPage(); y = drawHeader(doc, "Alberta NBC 2024 Compliance Report", today, analystName); }
+        y = drawSectionBar(doc, "Building Envelope Analysis", y);
         autoTable(doc, {
           startY: y,
           head: [["Parameter", "Modelled", "Target", "Status"]],
@@ -160,52 +156,45 @@ export function AlbertaNBCReport({
             [
               "Airtightness (ACH50)",
               String(currentAnalysis.airtightnessModelled ?? "N/A"),
-              "<= 2.5 ACH50",
-              currentAnalysis.airtightnessCompliant ? "Pass" : "Fail",
+              "≤ 2.5 ACH50",
+              currentAnalysis.airtightnessCompliant ? "PASS" : "FAIL",
             ],
             [
               "Mechanical Efficiency",
               String(currentAnalysis.mechEfficiencyModelled ?? "N/A"),
-              ">= 0.90 AFUE",
-              currentAnalysis.mechEfficiencyCompliant ? "Pass" : "Fail",
+              "≥ 0.90 AFUE",
+              currentAnalysis.mechEfficiencyCompliant ? "PASS" : "FAIL",
             ],
           ],
+          ...TABLE_STYLES,
+          columnStyles: { 3: { cellWidth: 20, halign: "center", fontStyle: "bold" } },
           didParseCell: (data) => {
             if (data.column.index === 3 && data.section === "body") {
-              data.cell.styles.textColor =
-                data.cell.raw === "Pass" ? [22, 163, 74] : [185, 28, 28];
+              data.cell.styles.textColor = data.cell.raw === "PASS" ? C.green : C.red;
             }
           },
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [30, 58, 138] },
+          margin: { left: 14, right: 14 },
         });
-
         y = (doc as any).lastAutoTable.finalY + 8;
 
-        // Audit trail
-        if (y > 240) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.text("Immutable Audit Trail", 14, y);
-        y += 5;
+        if (y > maxY - 30) { doc.addPage(); y = drawHeader(doc, "Alberta NBC 2024 Compliance Report", today, analystName); }
+        y = drawSectionBar(doc, "Immutable Audit Trail", y);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Analysis Created: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y);
-        y += 5;
-        doc.text(`Signature Verified: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y);
-        y += 5;
+        doc.setTextColor(...C.textPrimary);
+        doc.text(`Analysis Created: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y); y += 5;
+        doc.text(`Signature Verified: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y); y += 5;
         if (currentAnalysis.cryptographicSignature) {
-          doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 16)}...`, 14, y);
-          y += 5;
+          doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 24)}...`, 14, y); y += 5;
         }
         y += 3;
       }
 
-      // Regulatory reference footer
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text("National Building Code 2024 — Alberta Edition", 14, y);
-      y += 4;
-      doc.text("Part 5: Structural Design  |  Part 9: Housing and Small Buildings — Cold Climate Provisions", 14, y);
+      drawFooters(
+        doc,
+        "CodeComply \xB7 NBC(AE) 2024 \xB7 Part 5 Structural + Part 9 Cold Climate",
+        albertaDisplayCode ?? ""
+      );
 
       const filename = `Alberta_NBC_Report_${new Date().toISOString().split("T")[0]}.pdf`;
       doc.save(filename);

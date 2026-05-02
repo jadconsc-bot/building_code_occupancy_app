@@ -8,6 +8,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  C, TABLE_STYLES, INFO_COL_LABEL, INFO_COL_VALUE,
+  drawHeader, drawStatusBanner, drawSectionBar, drawFooters, contentHeight, statusLabel,
+} from "@/lib/pdfStyles";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -78,80 +82,74 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
     setIsExporting(true);
     try {
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
-
-      // Branded header
-      doc.setFillColor(30, 58, 138);
-      doc.rect(0, 0, pageWidth, 18, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.text("CodeComply", 14, 12);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y = 24;
-
-      // Status banner
-      const rawStatus = selected.complianceStatus || "unknown";
-      const isCompliant = rawStatus === "compliant";
-      const isNonCompliant = rawStatus === "non_compliant";
-      doc.setFontSize(12);
-      doc.setTextColor(
-        isCompliant ? 22 : 185,
-        isCompliant ? 163 : 28,
-        isCompliant ? 74 : 28
-      );
-      doc.text(
-        isCompliant ? "COMPLIANT" : isNonCompliant ? "NON-COMPLIANT" : rawStatus.toUpperCase(),
-        pageWidth / 2,
-        y,
-        { align: "center" }
-      );
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      // Snapshot metadata
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, y, pageWidth - 14, y);
-      y += 4;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Snapshot Information", 14, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
+      const maxY = contentHeight(doc);
       const analystName =
         (user as any)?.name ?? (user as any)?.email ?? (user as any)?.username ?? "Authenticated User";
-      doc.text(`Snapshot ID: ${selected.snapshotId ?? "N/A"}`, 14, y); y += 5;
-      doc.text(`Analysis Date: ${new Date(selected.createdAt || Date.now()).toLocaleString()}`, 14, y); y += 5;
-      doc.text(`Analyst: ${analystName}`, 14, y); y += 5;
-      doc.text(`Ruleset: ${selected.rulesetId ?? "N/A"}`, 14, y); y += 5;
-      doc.text(`Mode: ${selected.mode ?? "soft"}`, 14, y); y += 10;
+      const today = new Date().toLocaleDateString("en-CA");
 
-      // Inputs table
+      let y = drawHeader(doc, "Compliance Snapshot Report", today, analystName);
+
+      const rawStatus = selected.complianceStatus || "unknown";
+      y = drawStatusBanner(
+        doc, rawStatus,
+        `${statusLabel(rawStatus)}  \xB7  ${new Date(selected.createdAt || Date.now()).toLocaleDateString("en-CA")}  \xB7  Mode: ${selected.mode ?? "soft"}`,
+        y
+      );
+
+      y = drawSectionBar(doc, "Snapshot Information", y);
+
+      autoTable(doc, {
+        startY: y,
+        head: [],
+        body: [
+          ["Snapshot ID",    (selected.snapshotId ?? "N/A").slice(0, 40)],
+          ["Status",         statusLabel(rawStatus)],
+          ["Mode",           selected.mode ?? "soft"],
+          ["Ruleset",        selected.rulesetId ?? "N/A"],
+          ["Analysis Date",  new Date(selected.createdAt || Date.now()).toLocaleString()],
+          ["Analyst",        analystName],
+        ],
+        theme: "plain",
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, cellPadding: 2 },
+        columnStyles: {
+          0: { ...INFO_COL_LABEL, cellWidth: 38 },
+          1: { ...INFO_COL_VALUE, cellWidth: 132, overflow: "linebreak" },
+        },
+        didParseCell: (data) => {
+          if (data.row.index === 1 && data.column.index === 1) {
+            const isGreen = rawStatus === "compliant";
+            const isRed   = rawStatus === "non_compliant";
+            data.cell.styles.textColor = isGreen ? C.green : isRed ? C.red : C.amber;
+            data.cell.styles.fontStyle = "bold";
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+
+      // Inputs
       const inputRows = Object.entries(selected.inputs || {}).map(([k, v]) => [
-        k.replace(/_/g, " "),
-        String(v),
+        k.replace(/_/g, " "), String(v),
       ]);
       if (inputRows.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y, pageWidth - 14, y);
-        y += 4;
-        doc.text("Analysis Inputs", 14, y); y += 4;
+        if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, "Compliance Snapshot Report", today, analystName); }
+        y = drawSectionBar(doc, "Analysis Inputs", y);
         autoTable(doc, {
           startY: y,
           head: [["Field", "Value"]],
           body: inputRows,
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [30, 58, 138] },
+          ...TABLE_STYLES,
+          columnStyles: {
+            0: { cellWidth: 80, overflow: "linebreak" },
+            1: { cellWidth: 90, overflow: "linebreak" },
+          },
+          margin: { left: 14, right: 14 },
         });
         y = (doc as any).lastAutoTable.finalY + 8;
       }
 
-      // Outputs table
+      // Outputs
       const outputRows = Object.entries(selected.outputs || {}).map(([k, v]) => [
         OUTPUT_PDF_LABELS[k] ?? k.replace(/_/g, " "),
         k === "occupant_load" ? `${v} persons`
@@ -159,64 +157,57 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
           : String(v),
       ]);
       if (outputRows.length > 0) {
-        if (y > 240) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y, pageWidth - 14, y);
-        y += 4;
-        doc.text("Analysis Outputs", 14, y); y += 4;
+        if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, "Compliance Snapshot Report", today, analystName); }
+        y = drawSectionBar(doc, "Analysis Outputs", y);
         autoTable(doc, {
           startY: y,
           head: [["Output", "Value"]],
           body: outputRows,
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [30, 58, 138] },
+          ...TABLE_STYLES,
+          columnStyles: {
+            0: { cellWidth: 80, overflow: "linebreak" },
+            1: { cellWidth: 90, overflow: "linebreak" },
+          },
+          margin: { left: 14, right: 14 },
         });
         y = (doc as any).lastAutoTable.finalY + 8;
       }
 
-      // Rule trace table
+      // Rule trace
       const traceRows = (selected.ruleTrace || []).map((step: any) => [
         step.rule_id ?? "",
         step.clause ?? "",
         step.fired ? "PASS" : "FAIL",
       ]);
       if (traceRows.length > 0) {
-        if (y > 220) { doc.addPage(); y = 20; }
-        doc.setFont("helvetica", "bold");
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y, pageWidth - 14, y);
-        y += 4;
-        doc.text("Rule Trace", 14, y); y += 4;
+        if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, "Compliance Snapshot Report", today, analystName); }
+        y = drawSectionBar(doc, "Rule Trace", y);
         autoTable(doc, {
           startY: y,
-          head: [["Rule ID", "Description", "Result"]],
+          head: [["Rule ID", "Clause", "Result"]],
           body: traceRows,
+          ...TABLE_STYLES,
+          columnStyles: {
+            0: { cellWidth: 40 },
+            1: { cellWidth: 110, overflow: "linebreak" },
+            2: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+          },
           didParseCell: (data) => {
             if (data.column.index === 2 && data.section === "body") {
               data.cell.styles.textColor =
-                data.cell.raw === "PASS" ? [22, 163, 74] : [185, 28, 28];
+                data.cell.raw === "PASS" ? C.green : C.red;
             }
           },
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [30, 58, 138] },
+          margin: { left: 14, right: 14 },
         });
         y = (doc as any).lastAutoTable.finalY + 8;
       }
 
-      // Page footers
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `CodeComply PD2.0 — Page ${i} of ${pageCount} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
-          pageWidth / 2,
-          doc.internal.pageSize.height - 8,
-          { align: "center" }
-        );
-      }
+      drawFooters(
+        doc,
+        "CodeComply \xB7 Deterministic Rule Engine v1.0 \xB7 NBC(AE) 2023",
+        selected.snapshotId?.slice(0, 20) ?? ""
+      );
 
       const snapId = selected.snapshotId?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20) ?? "snapshot";
       doc.save(`compliance-snapshot-${snapId}.pdf`);

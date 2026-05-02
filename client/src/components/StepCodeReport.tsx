@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Download, FileText, Check, AlertCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  C, TABLE_STYLES, INFO_COL_LABEL, INFO_COL_VALUE,
+  drawHeader, drawStatusBanner, drawSectionBar, drawFooters, contentHeight,
+} from "@/lib/pdfStyles";
 
 interface StepCodeReportProps {
   projectId: number;
@@ -92,136 +96,116 @@ export function StepCodeReport({
 
     try {
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
-
-      // Title
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text(labels.title, pageWidth / 2, y, { align: "center" });
-      y += 10;
-
-      // Compliance status banner
-      doc.setFontSize(12);
-      doc.setTextColor(currentAnalysis.overallCompliant ? 22 : 185, currentAnalysis.overallCompliant ? 163 : 28, currentAnalysis.overallCompliant ? 74 : 28);
-      doc.text(
-        currentAnalysis.overallCompliant ? labels.compliant.toUpperCase() : labels.nonCompliant.toUpperCase(),
-        pageWidth / 2,
-        y,
-        { align: "center" }
-      );
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      // Project info
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Project Information", 14, y);
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      doc.text(`${labels.projectName}: ${project?.name ?? "N/A"}`, 14, y);
-      y += 5;
+      const pw = doc.internal.pageSize.getWidth();
+      const maxY = contentHeight(doc);
+      const analystName = (user as any)?.name ?? (user as any)?.email ?? user?.name ?? "System";
+      const today = new Date().toLocaleDateString("en-CA");
       const stepDisplayCode = (project as any)?.projectCode || (project as any)?.projectNumber;
-      if (stepDisplayCode) {
-        doc.text(`Project Code: ${stepDisplayCode}`, 14, y);
-        y += 5;
-      }
-      doc.text(`${labels.address}: ${project?.address ?? "N/A"}`, 14, y);
-      y += 5;
-      doc.text(
-        `${labels.generatedAt}: ${new Date().toLocaleString()}`,
-        14,
+
+      let y = drawHeader(doc, labels.title, today, analystName);
+
+      y = drawStatusBanner(
+        doc,
+        currentAnalysis.overallCompliant ? "compliant" : "non_compliant",
+        currentAnalysis.overallCompliant ? labels.compliant.toUpperCase() : labels.nonCompliant.toUpperCase(),
         y
       );
-      y += 5;
-      doc.text(`${labels.generatedBy}: ${user?.name ?? "System"}`, 14, y);
-      y += 10;
 
-      // Tier info
-      doc.setFont("helvetica", "bold");
-      doc.text(`${labels.tierTarget}: Tier ${currentAnalysis.tierTarget}`, 14, y);
-      y += 5;
-      doc.text(
-        `${labels.tierAchieved}: ${currentAnalysis.tierAchieved ? `Tier ${currentAnalysis.tierAchieved}` : "N/A"}`,
-        14,
-        y
-      );
-      y += 10;
-
-      // TEDI / TEUI table
-      doc.setFont("helvetica", "bold");
-      doc.text(labels.complianceAnalysis, 14, y);
-      y += 4;
-
+      // Project info table
+      y = drawSectionBar(doc, "Project Information", y);
       autoTable(doc, {
         startY: y,
-        head: [["Metric", labels.target + " (kWh/m2/yr)", labels.modelled + " (kWh/m2/yr)", labels.gap, "Status"]],
+        head: [],
+        body: [
+          [labels.projectName, project?.name ?? "N/A"],
+          ["Project Number",   stepDisplayCode ?? "N/A"],
+          [labels.address,     project?.address ?? "N/A"],
+          [labels.tierTarget,  `Tier ${currentAnalysis.tierTarget}`],
+          [labels.tierAchieved, currentAnalysis.tierAchieved ? `Tier ${currentAnalysis.tierAchieved}` : "N/A"],
+          [labels.generatedAt, today],
+          [labels.generatedBy, analystName],
+        ],
+        theme: "plain",
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, cellPadding: 3, fontSize: 10 },
+        columnStyles: {
+          0: { ...INFO_COL_LABEL, cellWidth: 52 },
+          1: { ...INFO_COL_VALUE, cellWidth: 118 },
+        },
+        didParseCell: (data) => {
+          if (data.column.index === 1 && data.row.index % 2 === 1) {
+            data.cell.styles.fillColor = C.creamWarm;
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+
+      // TEDI / TEUI table
+      y = drawSectionBar(doc, labels.complianceAnalysis, y);
+      autoTable(doc, {
+        startY: y,
+        head: [["Metric", `${labels.target} (kWh/m\xB2/yr)`, `${labels.modelled} (kWh/m\xB2/yr)`, labels.gap, "Status"]],
         body: [
           [
             "TEDI",
             String(currentAnalysis.tediTarget),
             String(currentAnalysis.tediModelled),
             String(currentAnalysis.tediGap ?? 0),
-            currentAnalysis.tediCompliant ? labels.compliant : labels.nonCompliant,
+            currentAnalysis.tediCompliant ? "PASS" : "FAIL",
           ],
           [
             "TEUI",
             String(currentAnalysis.teuiTarget),
             String(currentAnalysis.teuiModelled),
             String(currentAnalysis.teuiGap ?? 0),
-            currentAnalysis.teuiCompliant ? labels.compliant : labels.nonCompliant,
+            currentAnalysis.teuiCompliant ? "PASS" : "FAIL",
           ],
         ],
+        ...TABLE_STYLES,
+        columnStyles: { 4: { cellWidth: 20, halign: "center", fontStyle: "bold" } },
         didParseCell: (data) => {
           if (data.column.index === 4 && data.section === "body") {
-            const isPass = data.cell.raw === labels.compliant;
-            data.cell.styles.textColor = isPass ? [22, 163, 74] : [185, 28, 28];
+            data.cell.styles.textColor = data.cell.raw === "PASS" ? C.green : C.red;
           }
         },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [30, 58, 138] },
+        margin: { left: 14, right: 14 },
       });
-
       y = (doc as any).lastAutoTable.finalY + 8;
 
       // Recommendations
       if (currentAnalysis.recommendations?.length > 0) {
-        if (y > 240) { doc.addPage(); y = 20; }
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(labels.recommendations, 14, y);
-        y += 6;
+        if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, labels.title, today, analystName); }
+        y = drawSectionBar(doc, labels.recommendations, y);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
+        doc.setTextColor(...C.textPrimary);
         for (const rec of currentAnalysis.recommendations) {
-          const lines = doc.splitTextToSize(`• ${rec}`, pageWidth - 28) as string[];
-          if (y + lines.length * 5 > 280) { doc.addPage(); y = 20; }
+          const lines = doc.splitTextToSize(`•  ${rec}`, pw - 28) as string[];
+          if (y + lines.length * 4.5 > maxY) { doc.addPage(); y = drawHeader(doc, labels.title, today, analystName); }
           doc.text(lines, 14, y);
-          y += lines.length * 5 + 2;
+          y += lines.length * 4.5 + 2;
         }
         y += 4;
       }
 
       // Audit trail
-      if (y > 240) { doc.addPage(); y = 20; }
+      if (y > maxY - 30) { doc.addPage(); y = drawHeader(doc, labels.title, today, analystName); }
+      y = drawSectionBar(doc, labels.auditTrail, y);
       doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text(labels.auditTrail, 14, y);
-      y += 5;
       doc.setFont("helvetica", "normal");
-      doc.text(`${labels.generatedAt}: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y);
-      y += 5;
-      doc.text(`${labels.signatureVerified}: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y);
-      y += 5;
+      doc.setTextColor(...C.textPrimary);
+      doc.text(`${labels.generatedAt}: ${new Date(currentAnalysis.createdAt).toLocaleString()}`, 14, y); y += 5;
+      doc.text(`${labels.signatureVerified}: ${currentAnalysis.signatureVerified ? "Yes" : "No"}`, 14, y); y += 5;
       if (currentAnalysis.cryptographicSignature) {
-        doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 16)}...`, 14, y);
-        y += 5;
+        doc.text(`Signature: ${currentAnalysis.cryptographicSignature.substring(0, 24)}...`, 14, y); y += 5;
       }
-      y += 3;
 
-      // Footer reference
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(labels.regulatoryReference, 14, y);
+      drawFooters(
+        doc,
+        "CodeComply \xB7 BC Energy Step Code \xB7 NBC 2024",
+        stepDisplayCode ?? ""
+      );
 
       const filename = `StepCode_Report_${new Date().toISOString().split("T")[0]}.pdf`;
       doc.save(filename);

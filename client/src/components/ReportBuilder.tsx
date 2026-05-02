@@ -3,6 +3,12 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/_core/hooks/useAuth';
+import {
+  C, TABLE_STYLES, INFO_COL_LABEL, INFO_COL_VALUE,
+  BUILDING_TYPE_LABELS,
+  drawHeader, drawStatusBanner, drawSectionBar, drawFooters, contentHeight,
+  statusLabel,
+} from '@/lib/pdfStyles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -27,6 +33,19 @@ interface ReportBuilderProps {
   open: boolean;
   onClose: () => void;
   projectId?: number;
+}
+
+// Deduplicate snapshots: if two snapshots have identical inputs, keep only the latest.
+function deduplicateSnapshots(snapshots: any[]): any[] {
+  const seen = new Map<string, any>();
+  const sorted = [...snapshots].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
+  for (const snap of sorted) {
+    const key = JSON.stringify(snap.inputs ?? {});
+    if (!seen.has(key)) seen.set(key, snap);
+  }
+  return Array.from(seen.values());
 }
 
 export function ReportBuilder({ open, onClose, projectId: initialProjectId }: ReportBuilderProps) {
@@ -74,135 +93,134 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
   const analystName =
     (user as any)?.name ?? (user as any)?.email ?? (user as any)?.username ?? 'Authenticated User';
 
+  const p = project as any;
+  const projectNum = p?.projectNumber ?? p?.projectCode ?? 'N/A';
+  const buildingTypeLabel = p?.buildingType
+    ? (BUILDING_TYPE_LABELS[p.buildingType] ?? p.buildingType)
+    : 'Not specified';
+
   const handleGenerateReport = async () => {
     if (!selectedProjectId || !project) return;
     setIsGenerating(true);
 
     try {
       const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+      const maxY = contentHeight(doc);
       let y = 0;
 
-      const addPageHeader = (subtitle?: string) => {
-        doc.setFillColor(27, 58, 107);
-        doc.rect(0, 0, pageWidth, 16, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('CodeComply', 14, 11);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(subtitle ?? 'Building Code Compliance Report', pageWidth - 14, 11, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-        y = 24;
+      const today = new Date().toLocaleDateString('en-CA');
+      const reportType = 'Building Code Compliance Report';
+
+      const freshHeader = (subtitle?: string) => {
+        y = drawHeader(doc, subtitle ?? reportType, today, analystName);
       };
 
-      const addSection = (title: string) => {
-        if (y > pageHeight - 40) { doc.addPage(); addPageHeader(); }
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, y, pageWidth - 14, y);
-        y += 5;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, 14, y);
-        y += 7;
+      const section = (title: string) => {
+        if (y > maxY - 20) { doc.addPage(); freshHeader(); }
+        y = drawSectionBar(doc, title, y);
         doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
       };
 
-      // ── PAGE 1: COVER ──────────────────────────────────────────────
-      addPageHeader('Building Code Compliance Report');
+      // ── COVER PAGE ─────────────────────────────────────────────────
+      freshHeader();
 
       const rawStatus = latestSnapshot?.complianceStatus ?? null;
       if (rawStatus) {
-        const isCompliant = rawStatus === 'compliant';
-        const isNonCompliant = rawStatus === 'non_compliant';
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(
-          isCompliant ? 22 : isNonCompliant ? 185 : 120,
-          isCompliant ? 163 : isNonCompliant ? 28 : 100,
-          isCompliant ? 74 : isNonCompliant ? 28 : 30
+        y = drawStatusBanner(
+          doc, rawStatus,
+          `All applicable NBC requirements — ${statusLabel(rawStatus)}`,
+          y
         );
-        doc.text(
-          isCompliant ? '✓ COMPLIANT' : isNonCompliant ? '✗ NON-COMPLIANT' : '~ CONDITIONAL',
-          pageWidth / 2, y, { align: 'center' }
-        );
-        doc.setTextColor(0, 0, 0);
-        y += 10;
       }
 
-      doc.setFontSize(20);
+      y += 6;
+      doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(27, 58, 107);
-      doc.text('Building Code Compliance Report', pageWidth / 2, y, { align: 'center' });
+      doc.setTextColor(...C.navyDark);
+      doc.text(reportType, pw / 2, y, { align: 'center' });
       y += 8;
-      doc.setFontSize(14);
-      doc.setTextColor(80, 80, 80);
-      doc.text((project as any).name ?? 'Unnamed Project', pageWidth / 2, y, { align: 'center' });
-      y += 16;
-      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(13);
+      doc.setTextColor(...C.textMuted);
+      doc.text(p?.name ?? 'Unnamed Project', pw / 2, y, { align: 'center' });
+      y += 14;
+      doc.setTextColor(...C.textPrimary);
 
-      const projectNum = (project as any).projectNumber ?? (project as any).projectCode ?? '—';
+      // Cover info table (navy labels / cream values)
       autoTable(doc, {
         startY: y,
         head: [],
         body: [
-          ['Project Name', (project as any).name ?? '—'],
+          ['Project Name',   p?.name ?? 'Not specified'],
           ['Project Number', projectNum],
-          ['Occupancy Code', (project as any).occupancyCode ?? '—'],
-          ['Building Type', (project as any).buildingType ?? '—'],
-          ['Province', (project as any).province ?? '—'],
-          ['Report Date', new Date().toLocaleDateString('en-CA')],
-          ['Generated By', analystName],
-        ] as [string, string][],
+          ['Occupancy Code', p?.occupancyCode ?? 'Not specified'],
+          ['Building Type',  buildingTypeLabel],
+          ['Province',       p?.province ?? 'Not specified'],
+          ['Report Date',    today],
+          ['Generated By',   analystName],
+        ],
         theme: 'plain',
-        styles: { fontSize: 11, cellPadding: 3 },
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, fontSize: 10, cellPadding: 3 },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 50, textColor: [80, 80, 80] as any },
-          1: { cellWidth: 120 },
+          0: { ...INFO_COL_LABEL, cellWidth: 52 },
+          1: { ...INFO_COL_VALUE, cellWidth: 118 },
+        },
+        didParseCell: (data) => {
+          if (data.column.index === 1 && data.row.index % 2 === 1) {
+            data.cell.styles.fillColor = C.creamWarm;
+          }
         },
         margin: { left: 14, right: 14 },
       });
-      y = (doc as any).lastAutoTable.finalY + 10;
+      y = (doc as any).lastAutoTable.finalY + 8;
 
-      // Data summary on cover
+      // Data availability summary
+      section('Data Summary');
       autoTable(doc, {
         startY: y,
-        head: [['Data Type', 'Available']],
+        head: [['Section', 'Available']],
         body: [
           ['Compliance Analyses', String(snapshots?.length ?? 0)],
-          ['Calculator Results', String(calculatorResults?.length ?? 0)],
-          ['Checklist Items', hasChecklist ? `${checklistItems!.length} items, ${checklistPct}% complete` : '0'],
-        ] as [string, string][],
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [27, 58, 107] as any },
+          ['Calculator Results',  String(calculatorResults?.length ?? 0)],
+          ['Checklist Items',     hasChecklist ? `${checklistItems!.length} items · ${checklistPct}% complete` : '0'],
+        ],
+        ...TABLE_STYLES,
         margin: { left: 14, right: 14 },
       });
 
       // ── PROJECT INFORMATION ────────────────────────────────────────
       if (includeProjectInfo) {
         doc.addPage();
-        addPageHeader('Project Information');
-        addSection('Project Details');
+        freshHeader('Project Information');
+        section('Project Details');
 
         autoTable(doc, {
           startY: y,
           head: [],
           body: [
-            ['Project Name', (project as any).name ?? '—'],
-            ['Project Number', projectNum],
-            ['Occupancy Code', (project as any).occupancyCode ?? '—'],
-            ['Building Type', (project as any).buildingType ?? '—'],
-            ['Province', (project as any).province ?? '—'],
-            ['Climate Zone', (project as any).climateZone ? `Zone ${(project as any).climateZone}` : '—'],
-            ['Gross Floor Area', (project as any).grossFloorArea ? `${(project as any).grossFloorArea} m²` : '—'],
-          ] as [string, string][],
-          theme: 'striped',
-          styles: { fontSize: 10, cellPadding: 3 },
+            ['Project Name',     p?.name ?? 'Not specified'],
+            ['Project Number',   projectNum],
+            ['Occupancy Code',   p?.occupancyCode ?? 'Not specified'],
+            ['Building Type',    buildingTypeLabel],
+            ['Province',         p?.province ?? 'Not specified'],
+            ['Climate Zone',     p?.climateZone ? `Zone ${p.climateZone}` : 'Not specified'],
+            ['Gross Floor Area', p?.grossFloorArea ? `${p.grossFloorArea} m\xB2` : 'Not specified'],
+            ['Code Edition',     p?.province === 'AB' ? 'NBC(AE) 2023' : p?.province === 'BC' ? 'BCBC 2024' : 'NBC 2020'],
+          ],
+          theme: 'plain',
+          ...TABLE_STYLES,
+          styles: { ...TABLE_STYLES.styles, fontSize: 10, cellPadding: 3 },
           columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 55 },
-            1: { cellWidth: 115 },
+            0: { ...INFO_COL_LABEL, cellWidth: 52 },
+            1: { ...INFO_COL_VALUE, cellWidth: 118 },
+          },
+          didParseCell: (data) => {
+            if (data.column.index === 1 && data.row.index % 2 === 1) {
+              data.cell.styles.fillColor = C.creamWarm;
+            }
           },
           margin: { left: 14, right: 14 },
         });
@@ -211,38 +229,42 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
 
       // ── COMPLIANCE SNAPSHOTS ───────────────────────────────────────
       if (includeCompliance && hasSnapshots) {
-        const sorted = [...(snapshots ?? [])].sort(
-          (a: any, b: any) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-        );
+        const dedupedSnaps = deduplicateSnapshots(snapshots ?? []);
 
-        for (const snap of sorted) {
+        for (const snap of dedupedSnaps) {
           doc.addPage();
-          addPageHeader('Compliance Analysis');
-          const snapStatus = (snap as any).complianceStatus ?? 'unknown';
-          const snapCompliant = snapStatus === 'compliant';
-          const snapFail = snapStatus === 'non_compliant';
-          addSection(`Analysis — ${new Date((snap as any).createdAt || Date.now()).toLocaleDateString('en-CA')}`);
+          freshHeader('Compliance Analysis');
 
+          const snapStatus = snap.complianceStatus ?? 'unknown';
+          const snapDate = new Date(snap.createdAt || Date.now()).toLocaleDateString('en-CA');
+          y = drawStatusBanner(doc, snapStatus, `${snapStatus.replace(/_/g, '-').toUpperCase()}  ·  ${snapDate}  ·  Mode: ${snap.mode ?? 'soft'}`, y);
+
+          section(`Analysis — ${snapDate}`);
+
+          // Meta table
           autoTable(doc, {
             startY: y,
             head: [],
             body: [
-              ['Snapshot ID', ((snap as any).snapshotId ?? '—').slice(0, 40)],
-              ['Status', snapCompliant ? 'COMPLIANT' : snapFail ? 'NON-COMPLIANT' : 'CONDITIONAL'],
-              ['Mode', (snap as any).mode ?? 'soft'],
-              ['Ruleset', (snap as any).rulesetId ?? '—'],
-              ['Date', new Date((snap as any).createdAt || Date.now()).toLocaleString()],
-              ['Analyst', analystName],
-            ] as [string, string][],
+              ['Snapshot ID', (snap.snapshotId ?? '—').slice(0, 40)],
+              ['Status',      statusLabel(snapStatus)],
+              ['Mode',        snap.mode ?? 'soft'],
+              ['Ruleset',     snap.rulesetId ?? '—'],
+              ['Date',        new Date(snap.createdAt || Date.now()).toLocaleString()],
+              ['Analyst',     analystName],
+            ],
             theme: 'plain',
-            styles: { fontSize: 9, cellPadding: 2 },
+            ...TABLE_STYLES,
+            styles: { ...TABLE_STYLES.styles, cellPadding: 2 },
             columnStyles: {
-              0: { fontStyle: 'bold', cellWidth: 40, textColor: [80, 80, 80] as any },
-              1: { cellWidth: 130 },
+              0: { ...INFO_COL_LABEL, cellWidth: 38 },
+              1: { ...INFO_COL_VALUE, cellWidth: 132, overflow: 'linebreak' },
             },
             didParseCell: (data) => {
               if (data.row.index === 1 && data.column.index === 1) {
-                data.cell.styles.textColor = (snapCompliant ? [22, 163, 74] : snapFail ? [185, 28, 28] : [120, 90, 20]) as any;
+                const isGreen = snapStatus === 'compliant';
+                const isRed   = snapStatus === 'non_compliant';
+                data.cell.styles.textColor = isGreen ? C.green : isRed ? C.red : C.amber;
                 data.cell.styles.fontStyle = 'bold';
               }
             },
@@ -250,63 +272,72 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
           });
           y = (doc as any).lastAutoTable.finalY + 8;
 
-          const inputRows = Object.entries((snap as any).inputs || {}).map(([k, v]) => [
+          // Inputs
+          const inputRows = Object.entries(snap.inputs || {}).map(([k, v]) => [
             k.replace(/_/g, ' '), String(v),
           ]);
           if (inputRows.length > 0) {
-            if (y > pageHeight - 50) { doc.addPage(); addPageHeader('Compliance Analysis'); }
-            doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-            doc.text('Inputs', 14, y); y += 4;
+            if (y > maxY - 40) { doc.addPage(); freshHeader('Compliance Analysis'); }
+            y = drawSectionBar(doc, 'Analysis Inputs', y);
             autoTable(doc, {
               startY: y,
               head: [['Parameter', 'Value']],
               body: inputRows,
-              styles: { fontSize: 9 },
-              headStyles: { fillColor: [27, 58, 107] as any },
+              ...TABLE_STYLES,
+              columnStyles: {
+                0: { cellWidth: 80, overflow: 'linebreak' },
+                1: { cellWidth: 90, overflow: 'linebreak' },
+              },
               margin: { left: 14, right: 14 },
             });
             y = (doc as any).lastAutoTable.finalY + 8;
           }
 
-          const outputRows = Object.entries((snap as any).outputs || {}).map(([k, v]) => [
+          // Outputs
+          const outputRows = Object.entries(snap.outputs || {}).map(([k, v]) => [
             k.replace(/_/g, ' '), String(v),
           ]);
           if (outputRows.length > 0) {
-            if (y > pageHeight - 50) { doc.addPage(); addPageHeader('Compliance Analysis'); }
-            doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-            doc.text('Outputs', 14, y); y += 4;
+            if (y > maxY - 40) { doc.addPage(); freshHeader('Compliance Analysis'); }
+            y = drawSectionBar(doc, 'Analysis Outputs', y);
             autoTable(doc, {
               startY: y,
               head: [['Output', 'Value']],
               body: outputRows,
-              styles: { fontSize: 9 },
-              headStyles: { fillColor: [27, 58, 107] as any },
+              ...TABLE_STYLES,
+              columnStyles: {
+                0: { cellWidth: 80, overflow: 'linebreak' },
+                1: { cellWidth: 90, overflow: 'linebreak' },
+              },
               margin: { left: 14, right: 14 },
             });
             y = (doc as any).lastAutoTable.finalY + 8;
           }
 
-          const traceRows = ((snap as any).ruleTrace || []).map((step: any) => [
+          // Rule trace
+          const traceRows = (snap.ruleTrace || []).map((step: any) => [
             step.rule_id ?? '',
             step.clause ?? '',
             step.fired ? 'PASS' : 'FAIL',
           ]);
           if (traceRows.length > 0) {
-            if (y > pageHeight - 50) { doc.addPage(); addPageHeader('Compliance Analysis'); }
-            doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-            doc.text('Rule Trace', 14, y); y += 4;
+            if (y > maxY - 40) { doc.addPage(); freshHeader('Compliance Analysis'); }
+            y = drawSectionBar(doc, 'Rule Trace', y);
             autoTable(doc, {
               startY: y,
               head: [['Rule ID', 'Clause', 'Result']],
               body: traceRows,
+              ...TABLE_STYLES,
+              columnStyles: {
+                0: { cellWidth: 40 },
+                1: { cellWidth: 110, overflow: 'linebreak' },
+                2: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+              },
               didParseCell: (data) => {
                 if (data.column.index === 2 && data.section === 'body') {
-                  data.cell.styles.textColor = (data.cell.raw === 'PASS' ? [22, 163, 74] : [185, 28, 28]) as any;
-                  data.cell.styles.fontStyle = 'bold';
+                  data.cell.styles.textColor = data.cell.raw === 'PASS' ? C.green : C.red;
                 }
               },
-              styles: { fontSize: 9 },
-              headStyles: { fillColor: [27, 58, 107] as any },
               margin: { left: 14, right: 14 },
             });
             y = (doc as any).lastAutoTable.finalY + 8;
@@ -317,15 +348,15 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
       // ── CALCULATOR RESULTS ─────────────────────────────────────────
       if (includeCalculations && hasCalculations) {
         doc.addPage();
-        addPageHeader('Calculator Results');
-        addSection('Step Code & Calculator Results');
+        freshHeader('Calculator Results');
+        section('Step Code & Calculator Results');
 
         const calcRows = (calculatorResults ?? []).map((r: any) => {
           let summary = '';
           try {
             const parsed = JSON.parse(r.resultData);
             summary = typeof parsed === 'object'
-              ? Object.entries(parsed).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ')
+              ? Object.entries(parsed).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('  ·  ')
               : String(parsed);
           } catch {
             summary = (r.resultData ?? '').slice(0, 80);
@@ -341,9 +372,9 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
           startY: y,
           head: [['Calculator', 'Result Summary', 'Date']],
           body: calcRows,
-          styles: { fontSize: 9, overflow: 'linebreak' },
-          headStyles: { fillColor: [27, 58, 107] as any },
-          columnStyles: { 1: { cellWidth: 90 } },
+          ...TABLE_STYLES,
+          styles: { ...TABLE_STYLES.styles, overflow: 'linebreak' },
+          columnStyles: { 1: { cellWidth: 95, overflow: 'linebreak' }, 2: { cellWidth: 28 } },
           margin: { left: 14, right: 14 },
         });
         y = (doc as any).lastAutoTable.finalY + 10;
@@ -352,8 +383,8 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
       // ── INSPECTION CHECKLIST ───────────────────────────────────────
       if (includeChecklist && hasChecklist) {
         doc.addPage();
-        addPageHeader('Inspection Checklist');
-        addSection('Inspection Checklist');
+        freshHeader('Inspection Checklist');
+        section('Inspection Checklist');
 
         const byPhase: Record<string, any[]> = {};
         for (const item of (checklistItems ?? [])) {
@@ -363,17 +394,20 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
         }
 
         for (const [phase, items] of Object.entries(byPhase)) {
-          if (y > pageHeight - 60) { doc.addPage(); addPageHeader('Inspection Checklist'); }
+          if (y > maxY - 50) { doc.addPage(); freshHeader('Inspection Checklist'); }
           const phaseCompleted = items.filter((i: any) => i.isCompleted === 1).length;
           const phasePct = Math.round((phaseCompleted / items.length) * 100);
 
-          doc.setFontSize(10);
+          // Phase header bar (navy mid)
+          doc.setFillColor(...C.navyMid);
+          doc.rect(14, y, pw - 28, 8, 'F');
+          doc.setTextColor(...C.white);
+          doc.setFontSize(8.5);
           doc.setFont('helvetica', 'bold');
-          doc.text(
-            `${phase.charAt(0).toUpperCase() + phase.slice(1)} — ${phaseCompleted}/${items.length} (${phasePct}%)`,
-            14, y
-          );
-          y += 4;
+          const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
+          doc.text(`${phaseTitle}  ·  ${phaseCompleted}/${items.length} items  ·  ${phasePct}% complete`, 18, y + 5.5);
+          doc.setTextColor(...C.textPrimary);
+          y += 11;
 
           autoTable(doc, {
             startY: y,
@@ -382,14 +416,16 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
               item.isCompleted === 1 ? '✓' : '○',
               item.itemText ?? '',
             ]),
-            styles: { fontSize: 8, cellPadding: 2 },
+            ...TABLE_STYLES,
+            styles: { ...TABLE_STYLES.styles, fontSize: 8, cellPadding: 2 },
             columnStyles: {
               0: { cellWidth: 10, halign: 'center' },
               1: { cellWidth: 160, overflow: 'linebreak' },
             },
             didParseCell: (data) => {
               if (data.column.index === 0) {
-                data.cell.styles.textColor = (data.cell.raw === '✓' ? [22, 163, 74] : [180, 180, 180]) as any;
+                data.cell.styles.textColor = data.cell.raw === '✓' ? C.green : C.textMuted;
+                data.cell.styles.fontStyle = 'bold';
               }
             },
             margin: { left: 14, right: 14 },
@@ -397,85 +433,73 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
           y = (doc as any).lastAutoTable.finalY + 8;
         }
 
-        if (y > pageHeight - 20) { doc.addPage(); addPageHeader('Inspection Checklist'); }
-        doc.setFontSize(10);
+        if (y > maxY - 16) { doc.addPage(); freshHeader('Inspection Checklist'); }
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Overall: ${checklistCompleted}/${checklistItems!.length} items complete (${checklistPct}%)`, 14, y);
+        doc.setTextColor(...C.navyDark);
+        doc.text(
+          `Overall Completion: ${checklistCompleted}/${checklistItems!.length} items (${checklistPct}%)`,
+          14, y
+        );
+        doc.setTextColor(...C.textPrimary);
         y += 10;
       }
 
       // ── LEGAL & GOVERNANCE ─────────────────────────────────────────
       doc.addPage();
-      addPageHeader('Legal & Governance');
-      addSection('Legal Disclaimer');
+      freshHeader('Legal & Governance');
+      section('Legal Disclaimer');
 
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
-      const disclaimerLines = [
-        'This report has been generated by CodeComply and is based solely on the inputs provided by the user.',
-        'It does not constitute professional engineering or architectural advice. All calculations must be',
-        'verified by a licensed professional engineer or architect before use in any permit application,',
-        'construction document, or regulatory submission.',
-        '',
-        'Compliance determinations are made against the National Building Code of Canada (NBC) as referenced',
-        'in the applicable ruleset. Local amendments and authority-having-jurisdiction (AHJ) requirements',
-        'may impose additional or different requirements not reflected in this report.',
-      ];
-      for (const line of disclaimerLines) {
-        if (y > pageHeight - 20) { doc.addPage(); addPageHeader('Legal & Governance'); }
-        if (line) { doc.text(line, 14, y, { maxWidth: pageWidth - 28 }); }
-        y += line ? 5 : 3;
-      }
-      y += 6;
+      doc.setTextColor(...C.textPrimary);
+      const disclaimerText =
+        'This report has been generated by CodeComply and is based solely on the inputs provided by the user. ' +
+        'It does not constitute professional engineering or architectural advice. All calculations must be verified ' +
+        'by a licensed professional engineer or architect before use in any permit application, construction document, ' +
+        'or regulatory submission. Compliance determinations are made against the National Building Code of Canada ' +
+        '(NBC) as referenced in the applicable ruleset. Local amendments and authority-having-jurisdiction (AHJ) ' +
+        'requirements may impose additional or different requirements not reflected in this report.';
+      const dLines = doc.splitTextToSize(disclaimerText, pw - 28) as string[];
+      doc.text(dLines, 14, y);
+      y += dLines.length * 4.5 + 8;
 
-      addSection('Immutability & Audit Trail');
-      doc.setFontSize(9);
-      doc.text(
-        'All compliance analyses are cryptographically identified by immutable snapshot IDs:',
-        14, y, { maxWidth: pageWidth - 28 }
-      );
+      section('Immutability & Audit Trail');
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('All compliance analyses are stored as cryptographically identified immutable snapshots:', 14, y, { maxWidth: pw - 28 });
       y += 7;
       for (const snap of (snapshots ?? [])) {
-        if (y > pageHeight - 20) { doc.addPage(); addPageHeader('Legal & Governance'); }
-        doc.text(`• ${(snap as any).snapshotId ?? '—'}`, 18, y, { maxWidth: pageWidth - 32 });
+        if (y > maxY - 12) { doc.addPage(); freshHeader('Legal & Governance'); }
+        doc.setTextColor(...C.textMuted);
+        doc.text(`•  ${(snap as any).snapshotId ?? '—'}`, 18, y, { maxWidth: pw - 32 });
         y += 5;
       }
       if ((snapshots ?? []).length === 0) {
+        doc.setTextColor(...C.textMuted);
         doc.text('No compliance snapshots recorded for this project.', 18, y);
         y += 5;
       }
+      doc.setTextColor(...C.textPrimary);
       y += 8;
 
-      addSection('Signature Block');
-      doc.setFontSize(10);
+      section('Signature Block');
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Report prepared by: ${analystName}`, 14, y); y += 6;
-      doc.text(`Report generated: ${new Date().toLocaleString('en-CA')}`, 14, y); y += 18;
-      doc.setDrawColor(0, 0, 0);
+      doc.text(`Report prepared by:  ${analystName}`, 14, y); y += 6;
+      doc.text(`Report generated:    ${new Date().toLocaleString('en-CA')}`, 14, y); y += 16;
+      doc.setDrawColor(...C.creamBorder);
       doc.line(14, y, 100, y); y += 4;
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(7.5);
+      doc.setTextColor(...C.textMuted);
       doc.text('Signature of Reviewing Professional', 14, y); y += 5;
       doc.text('Date: _________________________', 14, y);
 
-      // Page footers
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `CodeComply — Page ${i} of ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 8,
-          { align: 'center' }
-        );
-      }
+      // Footers
+      drawFooters(doc, 'CodeComply \xB7 Deterministic Rule Engine v1.0 \xB7 NBC(AE) 2023', projectNum);
 
-      const safeName = ((project as any).name ?? 'project')
-        .replace(/[^a-zA-Z0-9]/g, '_')
-        .slice(0, 30);
-      doc.save(`codecomply-report-${safeName}-${new Date().toISOString().split('T')[0]}.pdf`);
+      const safeName = (p?.name ?? 'project').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+      doc.save(`codecomply-report-${safeName}-${today}.pdf`);
       setStep('generated');
     } finally {
       setIsGenerating(false);
@@ -495,15 +519,11 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
         <div className="space-y-4 overflow-y-auto max-h-[65vh]">
           {step === 'options' && (
             <>
-              {/* Project selector */}
               <div>
                 <Label className="text-sm font-medium">Project</Label>
                 <Select
                   value={selectedProjectId ? String(selectedProjectId) : ''}
-                  onValueChange={(v) => {
-                    setSelectedProjectId(Number(v));
-                    setStep('options');
-                  }}
+                  onValueChange={(v) => { setSelectedProjectId(Number(v)); setStep('options'); }}
                 >
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select a project…" />
@@ -511,9 +531,7 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                   <SelectContent>
                     {(projects ?? []).map((p: any) => (
                       <SelectItem key={p.id} value={String(p.id)}>
-                        {p.projectNumber ?? p.projectCode
-                          ? `[${p.projectNumber ?? p.projectCode}] `
-                          : ''}
+                        {p.projectNumber ?? p.projectCode ? `[${p.projectNumber ?? p.projectCode}] ` : ''}
                         {p.name}
                       </SelectItem>
                     ))}
@@ -521,7 +539,6 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                 </Select>
               </div>
 
-              {/* Report contents — only show after project selected */}
               {selectedProjectId && (
                 <Card>
                   <CardHeader className="pb-3">
@@ -529,27 +546,19 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                     <CardDescription>Select sections to include</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* Project Info — always available */}
                     <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="inc-project"
-                        checked={includeProjectInfo}
-                        onCheckedChange={(c) => setIncludeProjectInfo(c as boolean)}
-                      />
+                      <Checkbox id="inc-project" checked={includeProjectInfo}
+                        onCheckedChange={(c) => setIncludeProjectInfo(c as boolean)} />
                       <Label htmlFor="inc-project" className="cursor-pointer flex-1">
                         Project Information
                         <span className="ml-2 text-xs text-muted-foreground">Always available</span>
                       </Label>
                     </div>
 
-                    {/* Compliance Analysis */}
                     {hasSnapshots ? (
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="inc-compliance"
-                          checked={includeCompliance}
-                          onCheckedChange={(c) => setIncludeCompliance(c as boolean)}
-                        />
+                        <Checkbox id="inc-compliance" checked={includeCompliance}
+                          onCheckedChange={(c) => setIncludeCompliance(c as boolean)} />
                         <Label htmlFor="inc-compliance" className="cursor-pointer flex-1">
                           Compliance Analysis
                           <span className="ml-2 text-xs text-green-600">
@@ -559,22 +568,17 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 opacity-50">
-                        <Checkbox id="inc-compliance-none" disabled />
-                        <Label htmlFor="inc-compliance-none" className="flex-1 text-muted-foreground">
-                          Compliance Analysis
-                          <span className="ml-2 text-xs">No data available</span>
+                        <Checkbox disabled />
+                        <Label className="flex-1 text-muted-foreground">
+                          Compliance Analysis <span className="ml-2 text-xs">No data available</span>
                         </Label>
                       </div>
                     )}
 
-                    {/* Calculator Results */}
                     {hasCalculations ? (
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="inc-calc"
-                          checked={includeCalculations}
-                          onCheckedChange={(c) => setIncludeCalculations(c as boolean)}
-                        />
+                        <Checkbox id="inc-calc" checked={includeCalculations}
+                          onCheckedChange={(c) => setIncludeCalculations(c as boolean)} />
                         <Label htmlFor="inc-calc" className="cursor-pointer flex-1">
                           Step Code Calculations
                           <span className="ml-2 text-xs text-green-600">
@@ -585,22 +589,17 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 opacity-50">
-                        <Checkbox id="inc-calc-none" disabled />
-                        <Label htmlFor="inc-calc-none" className="flex-1 text-muted-foreground">
-                          Step Code Calculations
-                          <span className="ml-2 text-xs">No data available</span>
+                        <Checkbox disabled />
+                        <Label className="flex-1 text-muted-foreground">
+                          Step Code Calculations <span className="ml-2 text-xs">No data available</span>
                         </Label>
                       </div>
                     )}
 
-                    {/* Inspection Checklist */}
                     {hasChecklist ? (
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="inc-checklist"
-                          checked={includeChecklist}
-                          onCheckedChange={(c) => setIncludeChecklist(c as boolean)}
-                        />
+                        <Checkbox id="inc-checklist" checked={includeChecklist}
+                          onCheckedChange={(c) => setIncludeChecklist(c as boolean)} />
                         <Label htmlFor="inc-checklist" className="cursor-pointer flex-1">
                           Inspection Checklist
                           <span className="ml-2 text-xs text-green-600">
@@ -610,10 +609,9 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 opacity-50">
-                        <Checkbox id="inc-checklist-none" disabled />
-                        <Label htmlFor="inc-checklist-none" className="flex-1 text-muted-foreground">
-                          Inspection Checklist
-                          <span className="ml-2 text-xs">No data available</span>
+                        <Checkbox disabled />
+                        <Label className="flex-1 text-muted-foreground">
+                          Inspection Checklist <span className="ml-2 text-xs">No data available</span>
                         </Label>
                       </div>
                     )}
@@ -622,23 +620,12 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
               )}
 
               <div className="flex gap-3 justify-end pt-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleGenerateReport}
-                  disabled={!selectedProjectId || isGenerating}
-                >
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                <Button onClick={handleGenerateReport} disabled={!selectedProjectId || isGenerating}>
                   {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating…
-                    </>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
                   ) : (
-                    <>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Generate Report
-                    </>
+                    <><FileText className="w-4 h-4 mr-2" />Generate Report</>
                   )}
                 </Button>
               </div>
@@ -650,14 +637,10 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
               <div>
                 <h3 className="text-lg font-semibold">Report Generated</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your PDF has been downloaded automatically.
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Your PDF has been downloaded automatically.</p>
               </div>
               <div className="flex gap-3 justify-center pt-2">
-                <Button variant="outline" onClick={() => setStep('options')}>
-                  Generate Another
-                </Button>
+                <Button variant="outline" onClick={() => setStep('options')}>Generate Another</Button>
                 <Button onClick={onClose}>Done</Button>
               </div>
             </div>
