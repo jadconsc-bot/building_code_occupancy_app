@@ -12,9 +12,11 @@ interface StepCodeCalculatorProps {
   projectId: number;
   municipality?: string;
   climateZone?: string;
-  buildingType?: "part9_single_family" | "part3_commercial";
+  buildingType?: StepCodeBuildingType;
   onResultReady?: (result: StepCodeResult) => void;
 }
+
+type StepCodeBuildingType = "part9_single_family" | "part3_murb" | "part3_commercial" | "part3_industrial";
 
 interface StepCodeResult {
   compliant: boolean;
@@ -48,11 +50,24 @@ const MUNICIPALITY_OPTIONS = [
   "Vancouver", "Victoria", "Kelowna", "Prince George",
 ];
 
-// Map project buildingType to the two StepCode categories
-function mapBuildingType(bt: string | null | undefined): "part9_single_family" | "part3_commercial" {
+// Map project buildingType to actual seeded DB values in stepCodeTiers
+function mapBuildingType(bt: string | null | undefined): StepCodeBuildingType {
   if (!bt) return "part9_single_family";
   if (bt === "part9_single_family" || bt === "part9_multiplex") return "part9_single_family";
+  if (bt === "part3_residential") return "part3_murb";
+  if (bt === "part3_industrial")  return "part3_industrial";
   return "part3_commercial";
+}
+
+// Map project climateZone to actual seeded DB values (4, 5, 6 only)
+function mapClimateZone(cz: string | null | undefined): string {
+  if (!cz) return "4";
+  const upper = cz.toUpperCase();
+  if (upper === "4") return "4";
+  if (upper === "5") return "5";
+  if (upper.startsWith("6")) return "6";
+  // 7A, 7B, 8 — map to nearest available zone
+  return "6";
 }
 
 export function StepCodeCalculator({
@@ -72,7 +87,7 @@ export function StepCodeCalculator({
   const [result, setResult] = useState<StepCodeResult | null>(null);
   const [lastAnalysisId, setLastAnalysisId] = useState<string | null>(null);
   const [municipalityOverride, setMunicipalityOverride] = useState<string | null>(null);
-  const [buildingTypeOverride, setBuildingTypeOverride] = useState<"part9_single_family" | "part3_commercial" | null>(null);
+  const [buildingTypeOverride, setBuildingTypeOverride] = useState<StepCodeBuildingType | null>(null);
   const [climateZoneOverride, setClimateZoneOverride] = useState<string | null>(null);
   const [occupancyType, setOccupancyType] = useState<"residential" | "non-residential">("residential");
   // Track which fields were pre-populated from the project
@@ -95,7 +110,7 @@ export function StepCodeCalculator({
       }
     }
     if (p.climateZone) {
-      setClimateZoneOverride(String(p.climateZone));
+      setClimateZoneOverride(mapClimateZone(String(p.climateZone)));
       populated.push("climateZone");
     }
     if (p.buildingType) {
@@ -103,8 +118,6 @@ export function StepCodeCalculator({
       populated.push("buildingType");
     }
     if (p.occupancyCode) {
-      const part3Types = ["part3_residential", "part3_commercial", "part3_industrial"];
-      setBuildingTypeOverride(part3Types.includes(p.buildingType ?? "") ? "part3_commercial" : "part9_single_family");
       setOccupancyType(p.occupancyCode.startsWith("C") ? "residential" : "non-residential");
       populated.push("occupancyType");
     }
@@ -295,7 +308,9 @@ export function StepCodeCalculator({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="part9_single_family">Part 9 — Single Family</SelectItem>
+                  <SelectItem value="part3_murb">Part 3 — Multi-Unit Residential</SelectItem>
                   <SelectItem value="part3_commercial">Part 3 — Commercial</SelectItem>
+                  <SelectItem value="part3_industrial">Part 3 — Industrial</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -314,8 +329,7 @@ export function StepCodeCalculator({
                 <SelectContent>
                   <SelectItem value="4">Zone 4</SelectItem>
                   <SelectItem value="5">Zone 5</SelectItem>
-                  <SelectItem value="6">Zone 6</SelectItem>
-                  <SelectItem value="7">Zone 7</SelectItem>
+                  <SelectItem value="6">Zone 6 (incl. 7A/7B/8)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
