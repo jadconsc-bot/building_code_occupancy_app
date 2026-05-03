@@ -25,6 +25,14 @@ export interface CreateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  zoningCategory?: string;
+  siteConstraints?: string;
+  storeys?: number;
+  buildingHeight?: number;
+  constructionType?: string;
+  sprinklersRequired?: boolean;
+  part3Determination?: string;
+  codeEdition?: string;
 }
 
 export interface UpdateProjectInput {
@@ -43,6 +51,14 @@ export interface UpdateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  zoningCategory?: string;
+  siteConstraints?: string;
+  storeys?: number;
+  buildingHeight?: number;
+  constructionType?: string;
+  sprinklersRequired?: boolean;
+  part3Determination?: string;
+  codeEdition?: string;
 }
 
 export class ProjectRepository {
@@ -140,6 +156,14 @@ export class ProjectRepository {
         projectCode: input.projectCode || null,
         grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
         projectNumber,
+        zoningCategory: input.zoningCategory || null,
+        siteConstraints: input.siteConstraints || null,
+        storeys: input.storeys || null,
+        buildingHeight: input.buildingHeight ? String(input.buildingHeight) : null,
+        constructionType: input.constructionType || null,
+        sprinklersRequired: input.sprinklersRequired !== undefined ? (input.sprinklersRequired ? 1 : 0) : null,
+        part3Determination: input.part3Determination || null,
+        codeEdition: input.codeEdition || null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -188,6 +212,14 @@ export class ProjectRepository {
       if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
       if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
+      if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;
+      if (input.siteConstraints !== undefined) updateData.siteConstraints = input.siteConstraints;
+      if (input.storeys !== undefined) updateData.storeys = input.storeys;
+      if (input.buildingHeight !== undefined) updateData.buildingHeight = String(input.buildingHeight);
+      if (input.constructionType !== undefined) updateData.constructionType = input.constructionType;
+      if (input.sprinklersRequired !== undefined) updateData.sprinklersRequired = input.sprinklersRequired ? 1 : 0;
+      if (input.part3Determination !== undefined) updateData.part3Determination = input.part3Determination;
+      if (input.codeEdition !== undefined) updateData.codeEdition = input.codeEdition;
 
       await db
         .update(projects)

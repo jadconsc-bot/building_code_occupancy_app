@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, AlertTriangle, Info } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { occupancyData } from "@/lib/occupancyData";
 import { getChecklistForOccupancy } from "@/lib/inspectorChecklistData";
@@ -24,7 +24,7 @@ interface ProjectWizardProps {
   onSuccess?: (projectId: number) => void;
 }
 
-type Province = "AB" | "BC" | "OTHER";
+type Province = "AB" | "BC" | "ON" | "OTHER";
 
 const BUILDING_TYPES = [
   { value: "part9_single_family", label: "Part 9 — Single Family Residential" },
@@ -34,19 +34,98 @@ const BUILDING_TYPES = [
   { value: "part3_industrial", label: "Part 3 — Industrial" },
 ];
 
-const STEP_LABELS = ["Project Details", "Building Type", "Jurisdiction", "Confirm & Create", "Done"];
+const CONSTRUCTION_TYPES = [
+  { value: "Combustible", label: "Combustible", desc: "Wood-frame, typical Part 9" },
+  { value: "Non-Combustible", label: "Non-Combustible", desc: "Steel/concrete, typical Part 3" },
+  { value: "Heavy Timber", label: "Heavy Timber", desc: "Large-dimension wood members" },
+  { value: "Encapsulated Mass Timber", label: "Encapsulated Mass Timber", desc: "CLT/glulam with fire protection" },
+];
+
+const ZONING_CATEGORIES = ["Residential", "Commercial", "Industrial", "Institutional", "Mixed-Use"];
+
+const SITE_CONSTRAINTS = [
+  { value: "fire_access", label: "Fire access route constraints" },
+  { value: "spatial_separation", label: "Spatial separation concerns (adjacent buildings)" },
+  { value: "heritage", label: "Heritage designation" },
+  { value: "flood_plain", label: "Flood plain / environmental overlay" },
+  { value: "steep_grade", label: "Steep grade / slope concerns" },
+];
+
+const CODE_EDITIONS: Record<string, string> = {
+  AB: "NBC(AE) 2023",
+  BC: "BCBC 2024",
+  ON: "OBC 2024",
+  OTHER: "NBC 2020",
+};
+
+const STEP_LABELS = ["Project Identity", "Pre-Design", "Code Strategy", "Jurisdiction", "Risk Summary", "Confirm & Create"];
+
+type RiskSeverity = "critical" | "warning" | "info";
+interface RiskFlag {
+  severity: RiskSeverity;
+  message: string;
+}
 
 function extractMunicipality(address: string): string {
-  const known = ["Vancouver", "Victoria", "Kelowna", "Prince George", "Calgary", "Edmonton"];
+  const known = ["Vancouver", "Victoria", "Kelowna", "Prince George", "Calgary", "Edmonton", "Toronto", "Ottawa"];
   const lower = address.toLowerCase();
   return known.find(city => lower.includes(city.toLowerCase())) ?? "";
 }
 
+function determinePart(storeys: number, area: number, occupancyCode: string): string {
+  if (storeys <= 3 && area <= 600 && occupancyCode.startsWith("C")) return "Part 9";
+  if (storeys <= 3 && area <= 600) return "Part 9";
+  return "Part 3";
+}
+
+function suggestConstruction(part3Det: string): string {
+  return part3Det === "Part 9" ? "Combustible" : "Non-Combustible";
+}
+
+function calcSprinklersRequired(part3Det: string, area: number, storeys: number, occupancyCode: string): boolean {
+  const isPart3 = part3Det === "Part 3";
+  if (isPart3 && (area > 1200 || storeys > 3)) return true;
+  if (occupancyCode.startsWith("A") || occupancyCode.startsWith("B")) return true;
+  if (occupancyCode === "F-1") return true;
+  return false;
+}
+
+function generateRiskFlags(
+  sprinklersRequired: boolean,
+  part3Det: string,
+  constructionType: string,
+  storeys: number,
+  occupancyCode: string,
+  province: Province | "",
+  siteConstraints: string[],
+): RiskFlag[] {
+  const flags: RiskFlag[] = [];
+  if (sprinklersRequired) {
+    flags.push({ severity: "critical", message: "Sprinkler system required — coordinate with mechanical early" });
+  }
+  if (part3Det === "Part 3" && constructionType === "Combustible") {
+    flags.push({ severity: "warning", message: "Combustible construction in Part 3 — verify area/height limits" });
+  }
+  if (storeys > 6) {
+    flags.push({ severity: "warning", message: "High-rise provisions may apply — verify NBC Section 3.2.6" });
+  }
+  if (occupancyCode.startsWith("A") || occupancyCode.startsWith("B")) {
+    flags.push({ severity: "info", message: "Assembly/Institutional occupancy — enhanced egress requirements apply" });
+  }
+  if (province === "BC") {
+    flags.push({ severity: "info", message: "BC Energy Step Code applies — coordinate energy modeling early" });
+  }
+  if (siteConstraints.includes("spatial_separation")) {
+    flags.push({ severity: "warning", message: "Spatial separation constraints detected — calculate exposure early" });
+  }
+  return flags;
+}
+
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-2 mb-6">
+    <div className="flex items-center gap-1.5 mb-6 flex-wrap">
       {Array.from({ length: total }, (_, i) => i + 1).map(step => (
-        <div key={step} className="flex items-center gap-2">
+        <div key={step} className="flex items-center gap-1.5">
           <div
             className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
               step < current
@@ -59,7 +138,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
             {step < current ? <CheckCircle2 className="w-4 h-4" /> : step}
           </div>
           {step < total && (
-            <div className={`h-px w-8 ${step < current ? "bg-green-600" : "bg-border"}`} />
+            <div className={`h-px w-6 ${step < current ? "bg-green-600" : "bg-border"}`} />
           )}
         </div>
       ))}
@@ -70,31 +149,95 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
+function RiskFlagCard({ flag }: { flag: RiskFlag }) {
+  if (flag.severity === "critical") {
+    return (
+      <div className="flex items-start gap-2 p-3 rounded bg-red-50 border border-red-200 text-red-800 text-sm">
+        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>{flag.message}</span>
+      </div>
+    );
+  }
+  if (flag.severity === "warning") {
+    return (
+      <div className="flex items-start gap-2 p-3 rounded bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>{flag.message}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-2 p-3 rounded bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+      <Info className="w-4 h-4 mt-0.5 shrink-0" />
+      <span>{flag.message}</span>
+    </div>
+  );
+}
+
 export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardProps) {
   const [, setLocation] = useLocation();
   const { setActiveProjectId } = useProject();
   const [step, setStep] = useState(1);
   const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
 
-  // Step 1 fields
+  // Step 1
   const [name, setName] = useState("");
   const [projectCode, setProjectCode] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Step 2 fields
+  // Step 2
   const [province, setProvince] = useState<Province | "">("");
-  const [occupancyCode, setOccupancyCode] = useState("A-1");
-  const [buildingType, setBuildingType] = useState("");
-  const [grossFloorArea, setGrossFloorArea] = useState<number | undefined>(undefined);
+  const [codeEdition, setCodeEdition] = useState("");
+  const [codeEditionOverride, setCodeEditionOverride] = useState(false);
+  const [zoningCategory, setZoningCategory] = useState("");
+  const [siteConstraints, setSiteConstraints] = useState<string[]>([]);
 
-  // Step 3 detection results
+  // Step 3
+  const [occupancyCode, setOccupancyCode] = useState("A-1");
+  const [grossFloorArea, setGrossFloorArea] = useState<number | undefined>(undefined);
+  const [storeys, setStoreys] = useState<number | undefined>(undefined);
+  const [buildingHeight, setBuildingHeight] = useState<number | undefined>(undefined);
+  const [part3Determination, setPart3Determination] = useState("");
+  const [part3Override, setPart3Override] = useState(false);
+  const [constructionType, setConstructionType] = useState("");
+  const [sprinklersRequired, setSprinklersRequired] = useState(false);
+  const [sprinklersOverride, setSprinklersOverride] = useState<boolean | null>(null);
+  const [buildingType, setBuildingType] = useState("");
+
+  // Step 4 — jurisdiction
   const [climateZone, setClimateZone] = useState("");
   const [seismicZone, setSeismicZone] = useState("");
   const [stepCodeTier, setStepCodeTier] = useState("");
   const [jurisdictionDetected, setJurisdictionDetected] = useState(false);
   const [detectError, setDetectError] = useState("");
   const [manualOverride, setManualOverride] = useState(false);
+
+  // Auto-set code edition when province changes
+  useEffect(() => {
+    if (province && !codeEditionOverride) {
+      setCodeEdition(CODE_EDITIONS[province] ?? "NBC 2020");
+    }
+  }, [province, codeEditionOverride]);
+
+  // Auto-calculate Part 3/9 + sprinklers when inputs change
+  useEffect(() => {
+    if (grossFloorArea && storeys && occupancyCode && !part3Override) {
+      const det = determinePart(storeys, grossFloorArea, occupancyCode);
+      setPart3Determination(det);
+      if (!constructionType) {
+        setConstructionType(suggestConstruction(det));
+      }
+    }
+  }, [grossFloorArea, storeys, occupancyCode, part3Override]);
+
+  useEffect(() => {
+    if (part3Determination && grossFloorArea && storeys && sprinklersOverride === null) {
+      setSprinklersRequired(calcSprinklersRequired(part3Determination, grossFloorArea, storeys, occupancyCode));
+    } else if (sprinklersOverride !== null) {
+      setSprinklersRequired(sprinklersOverride);
+    }
+  }, [part3Determination, grossFloorArea, storeys, occupancyCode, sprinklersOverride]);
 
   const detectMutation = trpc.jurisdiction.detect.useMutation({
     onSuccess: (data) => {
@@ -134,7 +277,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
         });
         onSuccess?.(data.id);
         setCreatedProjectId(data.id);
-        setStep(5);
+        setStep(7);
       }
     },
     onError: (err) => {
@@ -146,7 +289,12 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     setStep(1);
     setCreatedProjectId(null);
     setName(""); setProjectCode(""); setAddress(""); setNotes("");
-    setProvince(""); setOccupancyCode("A-1"); setBuildingType(""); setGrossFloorArea(undefined);
+    setProvince(""); setCodeEdition(""); setCodeEditionOverride(false);
+    setZoningCategory(""); setSiteConstraints([]);
+    setOccupancyCode("A-1"); setGrossFloorArea(undefined); setStoreys(undefined);
+    setBuildingHeight(undefined); setPart3Determination(""); setPart3Override(false);
+    setConstructionType(""); setSprinklersRequired(false); setSprinklersOverride(null);
+    setBuildingType("");
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
     setJurisdictionDetected(false); setDetectError(""); setManualOverride(false);
   }
@@ -155,20 +303,26 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     if (!open) resetForm();
   }, [open]);
 
-  function handleNextFromStep2() {
-    setStep(3);
+  function toggleSiteConstraint(value: string) {
+    setSiteConstraints(prev =>
+      prev.includes(value) ? prev.filter(c => c !== value) : [...prev, value]
+    );
+  }
+
+  function handleNextFromStep3() {
+    setStep(4);
     setClimateZone(""); setSeismicZone(""); setStepCodeTier("");
     setJurisdictionDetected(false); setDetectError(""); setManualOverride(false);
 
-    if (province === "OTHER") {
+    if (province === "OTHER" || province === "") {
       setManualOverride(true);
       return;
     }
 
     const municipality = extractMunicipality(address);
-    const detectionProvince = province === "AB" ? "AB" as const : "BC" as const;
+    const detectionProvince = province as "AB" | "BC";
 
-    if (municipality) {
+    if (municipality && (province === "AB" || province === "BC")) {
       detectMutation.mutate({ municipality, province: detectionProvince });
     } else {
       setDetectError("Could not detect municipality from address. Please enter jurisdiction details manually.");
@@ -190,13 +344,34 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       jurisdictionDetected,
       projectCode: projectCode.trim() || undefined,
       grossFloorArea: grossFloorArea || undefined,
+      zoningCategory: zoningCategory || undefined,
+      siteConstraints: siteConstraints.length > 0 ? JSON.stringify(siteConstraints) : undefined,
+      storeys: storeys || undefined,
+      buildingHeight: buildingHeight || undefined,
+      constructionType: constructionType || undefined,
+      sprinklersRequired,
+      part3Determination: part3Determination || undefined,
+      codeEdition: codeEdition || undefined,
     });
   }
 
   const step1Valid = name.trim().length > 0 && address.trim().length > 0;
-  const step2Valid = occupancyCode !== "" && buildingType !== "";
+  const step2Valid = province !== "" && zoningCategory !== "";
+  const step3Valid = occupancyCode !== "" && buildingType !== "" && !!grossFloorArea && !!storeys && constructionType !== "";
 
-  const detectedProvince = province === "AB" ? "Alberta" : province === "BC" ? "British Columbia" : province === "OTHER" ? "Other" : "—";
+  const selectedOccupancy = occupancyData.find(o => o.code === occupancyCode);
+
+  const riskFlags = generateRiskFlags(
+    sprinklersRequired,
+    part3Determination,
+    constructionType,
+    storeys ?? 0,
+    occupancyCode,
+    province,
+    siteConstraints,
+  );
+
+  const detectedProvince = province === "AB" ? "Alberta" : province === "BC" ? "British Columbia" : province === "ON" ? "Ontario" : province === "OTHER" ? "Other" : "—";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,9 +380,9 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
 
-        <StepIndicator current={step} total={5} />
+        {step <= 6 && <StepIndicator current={step} total={6} />}
 
-        {/* ── Step 1: Project Details ── */}
+        {/* ── Step 1: Project Identity ── */}
         {step === 1 && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -251,7 +426,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           </div>
         )}
 
-        {/* ── Step 2: Building Type ── */}
+        {/* ── Step 2: Pre-Design / Due Diligence ── */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -265,9 +440,81 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 <option value="">Select province...</option>
                 <option value="AB">Alberta</option>
                 <option value="BC">British Columbia</option>
-                <option value="OTHER">Other</option>
+                <option value="ON">Ontario</option>
+                <option value="OTHER">Other Province / Territory</option>
               </select>
             </div>
+
+            {province && (
+              <div className="space-y-2">
+                <Label className="flex items-center justify-between">
+                  <span>Code Edition</span>
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() => setCodeEditionOverride(v => !v)}
+                  >
+                    {codeEditionOverride ? "Use default" : "Override"}
+                  </button>
+                </Label>
+                {codeEditionOverride ? (
+                  <select
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                    value={codeEdition}
+                    onChange={e => setCodeEdition(e.target.value)}
+                  >
+                    <option value="NBC(AE) 2023">NBC(AE) 2023 — Alberta</option>
+                    <option value="BCBC 2024">BCBC 2024 — British Columbia</option>
+                    <option value="OBC 2024">OBC 2024 — Ontario</option>
+                    <option value="NBC 2020">NBC 2020 — Other</option>
+                    <option value="NBC 2025">NBC 2025 — National (latest)</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="font-mono">{codeEdition}</Badge>
+                    <span className="text-xs text-muted-foreground">auto-selected for {detectedProvince}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="wiz-zoning">Zoning Category *</Label>
+              <select
+                id="wiz-zoning"
+                className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                value={zoningCategory}
+                onChange={e => setZoningCategory(e.target.value)}
+              >
+                <option value="">Select zoning category...</option>
+                {ZONING_CATEGORIES.map(z => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Site Constraints (optional)</Label>
+              <div className="space-y-2">
+                {SITE_CONSTRAINTS.map(sc => (
+                  <label key={sc.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={siteConstraints.includes(sc.value)}
+                      onChange={() => toggleSiteConstraint(sc.value)}
+                      className="rounded"
+                    />
+                    {sc.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Code Strategy ── */}
+        {step === 3 && (
+          <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="wiz-occ">Occupancy Classification *</Label>
               <select
@@ -282,7 +529,165 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   </option>
                 ))}
               </select>
+              {selectedOccupancy?.compliance && (
+                <div className="mt-2 p-3 bg-muted/40 rounded-md border border-border text-xs space-y-1">
+                  <p className="font-semibold text-muted-foreground uppercase tracking-wide text-[10px] mb-2">Compliance Preview</p>
+                  {selectedOccupancy.compliance.fireResistance && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fire Resistance</span>
+                      <span className="font-medium">{selectedOccupancy.compliance.fireResistance}</span>
+                    </div>
+                  )}
+                  {selectedOccupancy.compliance.sprinklers && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Sprinklers</span>
+                      <span className="font-medium">{selectedOccupancy.compliance.sprinklers}</span>
+                    </div>
+                  )}
+                  {selectedOccupancy.compliance.construction && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Construction</span>
+                      <span className="font-medium">{selectedOccupancy.compliance.construction}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="wiz-area">Building Area m² *</Label>
+                <Input
+                  id="wiz-area"
+                  type="number"
+                  placeholder="e.g. 1200"
+                  value={grossFloorArea ?? ""}
+                  onChange={e => setGrossFloorArea(e.target.value ? parseFloat(e.target.value) : undefined)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wiz-storeys">Storeys *</Label>
+                <Input
+                  id="wiz-storeys"
+                  type="number"
+                  placeholder="e.g. 4"
+                  min="1"
+                  value={storeys ?? ""}
+                  onChange={e => setStoreys(e.target.value ? parseInt(e.target.value) : undefined)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="wiz-height">Building Height m (optional)</Label>
+              <Input
+                id="wiz-height"
+                type="number"
+                placeholder="e.g. 12.5"
+                value={buildingHeight ?? ""}
+                onChange={e => setBuildingHeight(e.target.value ? parseFloat(e.target.value) : undefined)}
+              />
+            </div>
+
+            {/* Part 3 / Part 9 Determination */}
+            {part3Determination && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Part 3 / Part 9 Determination</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() => setPart3Override(v => !v)}
+                  >
+                    {part3Override ? "Use auto" : "Override"}
+                  </button>
+                </div>
+                {part3Override ? (
+                  <select
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                    value={part3Determination}
+                    onChange={e => setPart3Determination(e.target.value)}
+                  >
+                    <option value="Part 9">Part 9 — Small Buildings</option>
+                    <option value="Part 3">Part 3 — Large Buildings</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge className={part3Determination === "Part 9" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}>
+                      {part3Determination}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {part3Determination === "Part 9" ? "≤3 storeys, ≤600 m²" : ">3 storeys or >600 m²"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Construction Type */}
+            <div className="space-y-2">
+              <Label>Construction Type *</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {CONSTRUCTION_TYPES.map(ct => (
+                  <label
+                    key={ct.value}
+                    className={`flex items-start gap-3 p-3 border rounded-md cursor-pointer transition-colors ${
+                      constructionType === ct.value
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/30"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="constructionType"
+                      value={ct.value}
+                      checked={constructionType === ct.value}
+                      onChange={() => setConstructionType(ct.value)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{ct.label}</p>
+                      <p className="text-xs text-muted-foreground">{ct.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Sprinkler Requirement */}
+            {part3Determination && grossFloorArea && storeys && (
+              <div className="space-y-2">
+                <div className={`p-3 rounded-md border ${sprinklersRequired ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {sprinklersRequired ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      )}
+                      <span className={`text-sm font-semibold ${sprinklersRequired ? "text-red-700" : "text-green-700"}`}>
+                        {sprinklersRequired ? "Sprinklers Required by NBC" : "Sprinklers Not Required"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline"
+                      onClick={() => {
+                        if (sprinklersOverride !== null) {
+                          setSprinklersOverride(null);
+                        } else {
+                          setSprinklersOverride(!sprinklersRequired);
+                        }
+                      }}
+                    >
+                      {sprinklersOverride !== null ? "Use auto" : "Override"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Building Type */}
             <div className="space-y-2">
               <Label htmlFor="wiz-btype">Building Type *</Label>
               <select
@@ -297,26 +702,16 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="wiz-gfa">Gross Floor Area (m²)</Label>
-              <Input
-                id="wiz-gfa"
-                type="number"
-                placeholder="Enter total floor area..."
-                value={grossFloorArea ?? ""}
-                onChange={e => setGrossFloorArea(e.target.value ? parseFloat(e.target.value) : undefined)}
-              />
-              <p className="text-xs text-muted-foreground">Optional — used to pre-populate compliance analysis</p>
-            </div>
           </div>
         )}
 
-        {/* ── Step 3: Jurisdiction Detection ── */}
-        {step === 3 && (
+        {/* ── Step 4: Jurisdiction Detection ── */}
+        {step === 4 && (
           <div className="space-y-4">
             <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
               <p><span className="font-semibold">Province:</span> {detectedProvince}</p>
               <p><span className="font-semibold">Address:</span> {address}</p>
+              <p><span className="font-semibold">Code Edition:</span> <span className="font-mono text-xs">{codeEdition}</span></p>
             </div>
 
             {detectMutation.isPending && (
@@ -349,6 +744,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   )}
                 </div>
                 <button
+                  type="button"
                   className="text-xs text-muted-foreground underline"
                   onClick={() => setManualOverride(true)}
                 >
@@ -364,7 +760,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
               </div>
             )}
 
-            {(!detectMutation.isPending && manualOverride) && (
+            {!detectMutation.isPending && manualOverride && (
               <div className="space-y-3 border-t pt-3">
                 <p className="text-sm font-semibold">Manual Entry</p>
                 <div className="space-y-2">
@@ -416,8 +812,47 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
           </div>
         )}
 
-        {/* ── Step 4: Confirm & Create ── */}
-        {step === 4 && (
+        {/* ── Step 5: Risk Summary ── */}
+        {step === 5 && (
+          <div className="space-y-4">
+            {/* Compliance Readiness */}
+            <div className="border rounded-lg p-4 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Compliance Readiness</p>
+              {[
+                { label: "Code Edition confirmed", done: !!codeEdition },
+                { label: "Occupancy classified", done: !!occupancyCode },
+                { label: "Construction type determined", done: !!constructionType },
+                { label: "Sprinkler requirement assessed", done: part3Determination !== "" },
+                { label: "Jurisdiction detected", done: jurisdictionDetected || !!climateZone },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2 text-sm">
+                  {item.done
+                    ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                    : <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />}
+                  <span className={item.done ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Risk Flags */}
+            {riskFlags.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Risk Flags</p>
+                {riskFlags.map((flag, i) => (
+                  <RiskFlagCard key={i} flag={flag} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 rounded bg-green-50 border border-green-200 text-green-800 text-sm">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>No risk flags — project parameters look straightforward.</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Step 6: Confirm & Create ── */}
+        {step === 6 && (
           <div className="space-y-4">
             <div className="border rounded-lg divide-y text-sm">
               <div className="px-4 py-3 flex justify-between">
@@ -439,6 +874,14 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 <span className="font-semibold">{detectedProvince}</span>
               </div>
               <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Code Edition</span>
+                <span className="font-mono text-xs">{codeEdition}</span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Zoning</span>
+                <span className="font-semibold">{zoningCategory || "—"}</span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
                 <span className="text-muted-foreground">Occupancy</span>
                 <span className="font-semibold">{occupancyCode}</span>
               </div>
@@ -447,6 +890,26 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 <span className="font-semibold text-right max-w-[60%]">
                   {BUILDING_TYPES.find(b => b.value === buildingType)?.label ?? "—"}
                 </span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Area / Storeys</span>
+                <span className="font-semibold">{grossFloorArea ? `${grossFloorArea} m²` : "—"} / {storeys ?? "—"}</span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Determination</span>
+                <Badge className={part3Determination === "Part 9" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}>
+                  {part3Determination || "—"}
+                </Badge>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Construction</span>
+                <span className="font-semibold">{constructionType || "—"}</span>
+              </div>
+              <div className="px-4 py-3 flex justify-between">
+                <span className="text-muted-foreground">Sprinklers</span>
+                <Badge className={sprinklersRequired ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                  {sprinklersRequired ? "Required" : "Not Required"}
+                </Badge>
               </div>
               <div className="px-4 py-3 flex justify-between">
                 <span className="text-muted-foreground">Climate Zone</span>
@@ -462,6 +925,18 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   <span className="font-semibold">{stepCodeTier ? `Tier ${stepCodeTier}` : "Not required"}</span>
                 </div>
               )}
+              {siteConstraints.length > 0 && (
+                <div className="px-4 py-3">
+                  <span className="text-muted-foreground block mb-1">Site Constraints</span>
+                  <div className="flex flex-wrap gap-1">
+                    {siteConstraints.map(c => (
+                      <Badge key={c} variant="outline" className="text-xs">
+                        {SITE_CONSTRAINTS.find(sc => sc.value === c)?.label ?? c}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               {notes && (
                 <div className="px-4 py-3">
                   <span className="text-muted-foreground block mb-1">Notes</span>
@@ -471,15 +946,20 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
             </div>
 
             {jurisdictionDetected && (
-              <div className="flex items-center gap-2">
-                <Badge className="bg-green-100 text-green-800 text-xs">Jurisdiction auto-detected</Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs">Jurisdiction auto-detected</Badge>
+            )}
+
+            {riskFlags.filter(f => f.severity === "critical").length > 0 && (
+              <div className="flex items-start gap-2 p-3 rounded bg-red-50 border border-red-200 text-red-800 text-sm">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{riskFlags.filter(f => f.severity === "critical").length} critical flag(s) — review Step 5 before proceeding</span>
               </div>
             )}
           </div>
         )}
 
-        {/* ── Step 5: Success ── */}
-        {step === 5 && (
+        {/* ── Step 7: Success ── */}
+        {step === 7 && (
           <div className="space-y-6 py-4 text-center">
             <div className="flex flex-col items-center gap-3">
               <CheckCircle2 className="w-12 h-12 text-green-600" />
@@ -523,37 +1003,38 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
         )}
 
         {/* ── Navigation ── */}
-        {step < 5 && (
-        <div className="flex items-center justify-between pt-4 border-t mt-4">
-          <Button
-            variant="ghost"
-            onClick={() => step === 1 ? onOpenChange(false) : setStep(s => s - 1)}
-            disabled={createMutation.isPending}
-          >
-            {step === 1 ? "Cancel" : <><ChevronLeft className="w-4 h-4 mr-1" /> Back</>}
-          </Button>
-
-          {step < 4 ? (
+        {step < 7 && (
+          <div className="flex items-center justify-between pt-4 border-t mt-4">
             <Button
-              onClick={() => {
-                if (step === 2) handleNextFromStep2();
-                else setStep(s => s + 1);
-              }}
-              disabled={
-                (step === 1 && !step1Valid) ||
-                (step === 2 && (!step2Valid || province === "")) ||
-                (step === 3 && detectMutation.isPending)
-              }
+              variant="ghost"
+              onClick={() => step === 1 ? onOpenChange(false) : setStep(s => s - 1)}
+              disabled={createMutation.isPending}
             >
-              Next <ChevronRight className="w-4 h-4 ml-1" />
+              {step === 1 ? "Cancel" : <><ChevronLeft className="w-4 h-4 mr-1" /> Back</>}
             </Button>
-          ) : (
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Create Project
-            </Button>
-          )}
-        </div>
+
+            {step < 6 ? (
+              <Button
+                onClick={() => {
+                  if (step === 3) handleNextFromStep3();
+                  else setStep(s => s + 1);
+                }}
+                disabled={
+                  (step === 1 && !step1Valid) ||
+                  (step === 2 && !step2Valid) ||
+                  (step === 3 && !step3Valid) ||
+                  (step === 4 && detectMutation.isPending)
+                }
+              >
+                Next <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleCreate} disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Create Project
+              </Button>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>

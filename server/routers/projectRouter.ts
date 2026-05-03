@@ -43,6 +43,14 @@ export const projectRouter = router({
       jurisdictionDetected: z.boolean().optional(),
       projectCode: z.string().max(50).optional(),
       grossFloorArea: z.number().positive().optional(),
+      zoningCategory: z.string().max(50).optional(),
+      siteConstraints: z.string().optional(),
+      storeys: z.number().int().positive().optional(),
+      buildingHeight: z.number().positive().optional(),
+      constructionType: z.string().max(50).optional(),
+      sprinklersRequired: z.boolean().optional(),
+      part3Determination: z.string().max(20).optional(),
+      codeEdition: z.string().max(20).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return projectRepository.createProject({
@@ -71,6 +79,14 @@ export const projectRouter = router({
         jurisdictionDetected: z.boolean().optional(),
         projectCode: z.string().max(50).optional(),
         grossFloorArea: z.number().positive().optional(),
+        zoningCategory: z.string().max(50).optional(),
+        siteConstraints: z.string().optional(),
+        storeys: z.number().int().positive().optional(),
+        buildingHeight: z.number().positive().optional(),
+        constructionType: z.string().max(50).optional(),
+        sprinklersRequired: z.boolean().optional(),
+        part3Determination: z.string().max(20).optional(),
+        codeEdition: z.string().max(20).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
