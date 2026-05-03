@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Search, Loader2, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Loader2, FileText, Brain } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { ProjectComplianceCard } from "@/components/ProjectComplianceCard";
 import { ProjectWizard } from "@/components/ProjectWizard";
+import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
 
 export default function Projects() {
   const [, setLocation] = useLocation();
@@ -31,7 +32,10 @@ export default function Projects() {
     notes: "",
   });
 
+  const utils = trpc.useUtils();
   const { data: projects = [], isLoading, refetch } = trpc.projects.list.useQuery();
+  const [advisorProjectId, setAdvisorProjectId] = useState<number | null>(null);
+  const [showAdvisor, setShowAdvisor] = useState(false);
 
   const updateProjectMutation = trpc.projects.update.useMutation({
     onMutate: async (updatedProject) => {
@@ -85,6 +89,8 @@ export default function Projects() {
       ),
     [projects, searchQuery]
   );
+
+  const advisorProject = projects.find(p => p.id === advisorProjectId);
 
   function resetEditForm() {
     setEditFormData({ name: "", address: "", occupancyCode: "", template: "", notes: "" });
@@ -250,6 +256,15 @@ export default function Projects() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={(e) => { e.stopPropagation(); setAdvisorProjectId(project.id); setShowAdvisor(true); }}
+                  title="AI Occupancy Classification"
+                >
+                  <Brain className="w-4 h-4" />
+                </Button>
+                <Button
                   variant="ghost"
                   size="sm"
                   onClick={(e) => { e.stopPropagation(); handleEditProject(project); }}
@@ -273,6 +288,23 @@ export default function Projects() {
           ))
         )}
       </div>
+
+      <OccupancyAdvisor
+        open={showAdvisor}
+        onOpenChange={(open) => {
+          setShowAdvisor(open);
+          if (!open) setAdvisorProjectId(null);
+        }}
+        projectId={advisorProject?.id}
+        province={advisorProject?.province ?? undefined}
+        initialArea={advisorProject?.grossFloorArea ? parseFloat(String(advisorProject.grossFloorArea)) : undefined}
+        initialStoreys={advisorProject?.storeys ?? undefined}
+        onConfirm={() => {
+          setShowAdvisor(false);
+          setAdvisorProjectId(null);
+          utils.projects.list.invalidate();
+        }}
+      />
     </div>
   );
 }
