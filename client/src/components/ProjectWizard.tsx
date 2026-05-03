@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, AlertTriangle, Info } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, AlertTriangle, Info, Bot } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { occupancyData } from "@/lib/occupancyData";
+import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
 import { getChecklistForOccupancy } from "@/lib/inspectorChecklistData";
 import { useProject } from "@/contexts/ProjectContext";
 
@@ -194,6 +195,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const [siteConstraints, setSiteConstraints] = useState<string[]>([]);
 
   // Step 3
+  const [showAdvisor, setShowAdvisor] = useState(false);
   const [occupancyCode, setOccupancyCode] = useState("A-1");
   const [grossFloorArea, setGrossFloorArea] = useState<number | undefined>(undefined);
   const [storeys, setStoreys] = useState<number | undefined>(undefined);
@@ -291,6 +293,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     setName(""); setProjectCode(""); setAddress(""); setNotes("");
     setProvince(""); setCodeEdition(""); setCodeEditionOverride(false);
     setZoningCategory(""); setSiteConstraints([]);
+    setShowAdvisor(false);
     setOccupancyCode("A-1"); setGrossFloorArea(undefined); setStoreys(undefined);
     setBuildingHeight(undefined); setPart3Determination(""); setPart3Override(false);
     setConstructionType(""); setSprinklersRequired(false); setSprinklersOverride(null);
@@ -374,6 +377,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const detectedProvince = province === "AB" ? "Alberta" : province === "BC" ? "British Columbia" : province === "ON" ? "Ontario" : province === "OTHER" ? "Other" : "—";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -552,6 +556,16 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   )}
                 </div>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setShowAdvisor(true)}
+              >
+                <Bot className="w-3.5 h-3.5" />
+                Get AI Help with Classification
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1038,5 +1052,18 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
         )}
       </DialogContent>
     </Dialog>
+
+    <OccupancyAdvisor
+      open={showAdvisor}
+      onOpenChange={setShowAdvisor}
+      province={province !== "OTHER" ? province : ""}
+      initialArea={grossFloorArea}
+      initialStoreys={storeys}
+      onConfirm={(code) => {
+        setOccupancyCode(code);
+        setShowAdvisor(false);
+      }}
+    />
+    </>
   );
 }

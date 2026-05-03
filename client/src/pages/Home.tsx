@@ -86,6 +86,7 @@ import { MunicipalBylawsCalculator } from "@/components/MunicipalBylawsCalculato
 import { DrawingAnalysis } from "@/components/DrawingAnalysis";
 import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
 import Projects from "@/pages/Projects";
+import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
 
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -3194,28 +3195,11 @@ export default function Home() {
             </div>
 
             {/* Occupancy Advisor modal */}
-            {showOccupancyAdvisor && (
-              <Dialog open={showOccupancyAdvisor} onOpenChange={setShowOccupancyAdvisor}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5" /> Occupancy Advisor
-                    </DialogTitle>
-                    <DialogDescription>
-                      Answer a few questions to find the right occupancy classification.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4 text-center text-muted-foreground text-sm">
-                    Occupancy Advisor coming soon. For now, use the search bar or browse the groups above.
-                  </div>
-                  <div className="flex justify-end">
-                    <Button variant="outline" size="sm" onClick={() => setShowOccupancyAdvisor(false)}>
-                      Close
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
+            <OccupancyAdvisor
+              open={showOccupancyAdvisor}
+              onOpenChange={setShowOccupancyAdvisor}
+              onConfirm={() => setShowOccupancyAdvisor(false)}
+            />
           </div>
         )}
       </div>
