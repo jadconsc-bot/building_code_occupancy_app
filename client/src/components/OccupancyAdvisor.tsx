@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import {
   Dialog,
@@ -98,6 +99,7 @@ interface OccupancyAdvisorProps {
   onConfirm?: (occupancyCode: string) => void;
   initialArea?: number;
   initialStoreys?: number;
+  projectId?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ export function OccupancyAdvisor({
   onConfirm,
   initialArea,
   initialStoreys,
+  projectId,
 }: OccupancyAdvisorProps) {
   const [screen, setScreen] = useState<1 | 2 | 3>(1);
 
@@ -137,6 +140,12 @@ export function OccupancyAdvisor({
   const [checked3, setChecked3] = useState(false);
 
   // ── Mutations ────────────────────────────────────────────────────────────────
+
+  const updateProjectMutation = trpc.projects.update.useMutation({
+    onSuccess: () => {
+      toast.success("Occupancy classification saved to project");
+    },
+  });
 
   const scoreMutation = trpc.occupancyAdvisor.scoreCandidate.useMutation({
     onSuccess: (data) => {
@@ -200,6 +209,9 @@ export function OccupancyAdvisor({
   }
 
   function handleConfirm() {
+    if (projectId) {
+      updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
+    }
     onConfirm?.(selectedCode);
     handleClose();
   }

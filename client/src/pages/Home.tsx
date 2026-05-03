@@ -3198,6 +3198,7 @@ export default function Home() {
             <OccupancyAdvisor
               open={showOccupancyAdvisor}
               onOpenChange={setShowOccupancyAdvisor}
+              projectId={activeProjectId ?? undefined}
               onConfirm={() => setShowOccupancyAdvisor(false)}
             />
           </div>
