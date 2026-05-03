@@ -233,8 +233,8 @@ export function OccupancyAdvisor({
   const candidatesWithScores: CandidateWithScore[] = (classifyResult?.candidates ?? []).map(c => {
     const score = ruleScores[c.code];
     const combined = score
-      ? Math.round(c.confidence * 0.4 + score.ruleScore * 0.6)
-      : Math.round(c.confidence * 0.4);
+      ? Math.round(c.confidence * 100 * 0.4 + score.ruleScore * 0.6)
+      : Math.round(c.confidence * 100 * 0.4);
     return { ...c, ruleScore: score?.ruleScore, combined, scoreResult: score };
   }).sort((a, b) => b.combined - a.combined);
 
@@ -563,10 +563,10 @@ export function OccupancyAdvisor({
                           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-400 rounded-full"
-                              style={{ width: `${c.confidence}%` }}
+                              style={{ width: `${c.confidence * 100}%` }}
                             />
                           </div>
-                          <span className="w-8 text-right font-medium">{c.confidence}%</span>
+                          <span className="w-8 text-right font-medium">{Math.round(c.confidence * 100)}%</span>
                         </div>
                         {c.ruleScore !== undefined ? (
                           <div className="flex items-center gap-2 text-xs">
