@@ -14,7 +14,7 @@ import { router, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import { getDb } from '../db';
 import { jurisdictionProfiles } from '../../drizzle/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 // ============================================================================
 // JURISDICTION DATABASE - Static lookup (no external API)
@@ -143,7 +143,7 @@ async function getJurisdictionData(municipality: string): Promise<JurisdictionDa
           const dbResult = await database
             .select()
             .from(jurisdictionProfiles)
-            .where(eq(jurisdictionProfiles.municipality, municipality))
+            .where(sql`LOWER(${jurisdictionProfiles.municipality}) = LOWER(${municipality})`)
             .limit(1);
     
           if (dbResult.length > 0) {

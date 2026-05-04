@@ -1,7 +1,9 @@
-import { db } from "../_core/db";
+import { getDb } from "../db";
 import { jurisdictionProfiles } from "../../drizzle/schema";
 
 export async function seedJurisdictionProfiles() {
+  const db = await getDb();
+  if (!db) throw new Error("Database connection unavailable");
   await db.insert(jurisdictionProfiles).values([
 
     // ─── ALBERTA (NBC(AE) 2023) ───────────────────────────────────────
@@ -15,6 +17,8 @@ export async function seedJurisdictionProfiles() {
     { province: "AB", municipality: "Grande Prairie", climateZone: "7A", heatingDegreeDays: 6100, designTemperatureWinter: -38, designTemperatureSummer: 26, seismicZone: "Low", spectralAccelerationSa02: "0.070", spectralAccelerationSa05: "0.044", spectralAccelerationSa10: "0.026", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
     { province: "AB", municipality: "Fort McMurray", climateZone: "7B", heatingDegreeDays: 6900, designTemperatureWinter: -41, designTemperatureSummer: 27, seismicZone: "Low", spectralAccelerationSa02: "0.060", spectralAccelerationSa05: "0.038", spectralAccelerationSa10: "0.022", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
     { province: "AB", municipality: "Leduc", climateZone: "7A", heatingDegreeDays: 5620, designTemperatureWinter: -34, designTemperatureSummer: 27, seismicZone: "Low", spectralAccelerationSa02: "0.085", spectralAccelerationSa05: "0.052", spectralAccelerationSa10: "0.030", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
+    { province: "AB", municipality: "Spruce Grove", climateZone: "7A", heatingDegreeDays: 5200, designTemperatureWinter: -33, designTemperatureSummer: 27, seismicZone: "Low", spectralAccelerationSa02: "0.100", spectralAccelerationSa05: "0.060", spectralAccelerationSa10: "0.040", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
+    { province: "AB", municipality: "Canmore", climateZone: "7A", heatingDegreeDays: 5800, designTemperatureWinter: -35, designTemperatureSummer: 25, seismicZone: "Low", spectralAccelerationSa02: "0.120", spectralAccelerationSa05: "0.070", spectralAccelerationSa10: "0.050", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
 
     // ─── BRITISH COLUMBIA (BCBC 2024) ─────────────────────────────────
     { province: "BC", municipality: "Vancouver", climateZone: "4A", heatingDegreeDays: 2825, designTemperatureWinter: -7, designTemperatureSummer: 28, seismicZone: "Very High", spectralAccelerationSa02: "0.940", spectralAccelerationSa05: "0.640", spectralAccelerationSa10: "0.330", stepCodeAdopted: true, currentStepCodeTier: "3", stepCodeEffectiveDate: "2023-05-01", nbcEdition: "2024", isActive: true },
@@ -44,5 +48,5 @@ export async function seedJurisdictionProfiles() {
 
   ]).onDuplicateKeyUpdate({ set: { isActive: true } });
 
-  console.log("jurisdictionProfiles seeded: 31 rows (AB x10, BC x10, ON x11)");
+  console.log("jurisdictionProfiles seeded: 33 rows (AB x12, BC x10, ON x11)");
 }
