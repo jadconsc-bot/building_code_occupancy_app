@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Bell, AlertTriangle, Download } from "lucide-react";
 import { exportFireAlarmToExcel } from "@/lib/excelExport";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 // NBC Part 3.2.4 - Fire Alarm and Detection Systems
 export function FireAlarmCalculator() {
@@ -289,7 +290,12 @@ export function FireAlarmCalculator() {
 
           {/* Export Button */}
           {result.systemRequired && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <SaveButton
+                calculatorType="fireAlarm"
+                inputs={{ occupancy, buildingHeight, floorArea, occupantLoad }}
+                results={result}
+              />
               <Button
                 variant="outline"
                 size="sm"

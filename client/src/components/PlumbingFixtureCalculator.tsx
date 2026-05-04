@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Droplet, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 export function PlumbingFixtureCalculator() {
   const [toilets, setToilets] = useState<string>("0");
@@ -133,7 +134,15 @@ export function PlumbingFixtureCalculator() {
               NBC 7.2 - Drainage, vent, and water supply pipe sizing
             </CardDescription>
           </div>
-          <CalculatorActions
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="plumbingFixture"
+                inputs={{ toilets, sinks, showers, bathtubs, washingMachines, dishwashers, buildingType }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
             calculatorId="plumbing_fixture"
             calculatorName="Plumbing Fixture"
             exportData={() => ({
@@ -177,6 +186,7 @@ export function PlumbingFixtureCalculator() {
             }}
             hasResults={!!results}
           />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

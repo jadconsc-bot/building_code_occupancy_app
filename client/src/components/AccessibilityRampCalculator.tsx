@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accessibility, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 export function AccessibilityRampCalculator() {
   const [rise, setRise] = useState<string>("");
@@ -72,34 +73,43 @@ export function AccessibilityRampCalculator() {
               NBC 3.8.3 - Calculate barrier-free ramp dimensions and landing requirements
             </CardDescription>
           </div>
-          <CalculatorActions
-            calculatorId="accessibility_ramp"
-            calculatorName="Accessibility Ramp"
-            exportData={() => ({
-              filename: `Accessibility_Ramp_${new Date().toISOString().split('T')[0]}`,
-              sheetName: "Accessibility Ramp",
-              data: results ? [
-                ["Parameter", "Value"],
-                ["Total Rise", `${rise} mm`],
-                ["Maximum Slope", results.slope],
-                ["Minimum Run", `${results.minRun} mm`],
-                ["Number of Runs", results.numRuns],
-                ["Rise Per Section", `${results.actualRisePerRun} mm`],
-                ["Run Length Per Section", `${results.runLengthPerSection} mm`],
-                ["Number of Landings", results.numLandings],
-                ["Total Horizontal Distance", `${results.totalHorizontal} mm`],
-                ["Handrail Height", results.handrailHeight],
-                ["Handrail Extension", results.handrailExtension],
-                ["Edge Protection", results.edgeProtection],
-                ["Compliant", results.compliant ? "Yes" : "No"],
-                ["", ""],
-                ["NBC Reference", "3.8.3 - Barrier-Free Ramps"],
-              ] : []
-            })}
-            currentState={{ rise }}
-            onLoadPreset={(data) => setRise(data.rise)}
-            hasResults={!!results}
-          />
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="accessibilityRamp"
+                inputs={{ rise }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
+              calculatorId="accessibility_ramp"
+              calculatorName="Accessibility Ramp"
+              exportData={() => ({
+                filename: `Accessibility_Ramp_${new Date().toISOString().split('T')[0]}`,
+                sheetName: "Accessibility Ramp",
+                data: results ? [
+                  ["Parameter", "Value"],
+                  ["Total Rise", `${rise} mm`],
+                  ["Maximum Slope", results.slope],
+                  ["Minimum Run", `${results.minRun} mm`],
+                  ["Number of Runs", results.numRuns],
+                  ["Rise Per Section", `${results.actualRisePerRun} mm`],
+                  ["Run Length Per Section", `${results.runLengthPerSection} mm`],
+                  ["Number of Landings", results.numLandings],
+                  ["Total Horizontal Distance", `${results.totalHorizontal} mm`],
+                  ["Handrail Height", results.handrailHeight],
+                  ["Handrail Extension", results.handrailExtension],
+                  ["Edge Protection", results.edgeProtection],
+                  ["Compliant", results.compliant ? "Yes" : "No"],
+                  ["", ""],
+                  ["NBC Reference", "3.8.3 - Barrier-Free Ramps"],
+                ] : []
+              })}
+              currentState={{ rise }}
+              onLoadPreset={(data) => setRise(data.rise)}
+              hasResults={!!results}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

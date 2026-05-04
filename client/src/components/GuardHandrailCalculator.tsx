@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShieldAlert, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 export function GuardHandrailCalculator() {
   const [occupancyType, setOccupancyType] = useState<string>("residential");
@@ -67,7 +68,15 @@ export function GuardHandrailCalculator() {
               NBC 3.4.6.5-3.4.6.8 - Determine guard and handrail requirements
             </CardDescription>
           </div>
-          <CalculatorActions
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="guardHandrail"
+                inputs={{ occupancyType, location, height }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
             calculatorId="guard_handrail"
             calculatorName="Guard & Handrail"
             exportData={() => ({
@@ -97,6 +106,7 @@ export function GuardHandrailCalculator() {
             }}
             hasResults={!!results}
           />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CloudSnow, AlertCircle } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 export function SnowLoadCalculator() {
   const [location, setLocation] = useState<string>("calgary");
@@ -94,7 +95,15 @@ export function SnowLoadCalculator() {
               NBC 4.1.6 - Calculate design snow load for roof structures
             </CardDescription>
           </div>
-          <CalculatorActions
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="snowLoad"
+                inputs={{ location, roofType, roofSlope, importance, exposure }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
             calculatorId="snow_load"
             calculatorName="Snow Load"
             exportData={() => ({
@@ -129,6 +138,7 @@ export function SnowLoadCalculator() {
             }}
             hasResults={!!results}
           />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

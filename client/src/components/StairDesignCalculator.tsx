@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 import { useCalculationHistory } from "@/contexts/CalculationHistoryContext";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { useEffect } from "react";
@@ -121,6 +122,13 @@ export function StairDesignCalculator() {
               calculatorType="stair_design"
               onLoadHistory={handleLoadHistory}
             />
+            {results !== null && (
+              <SaveButton
+                calculatorType="stairDesign"
+                inputs={{ stairType, totalRise }}
+                results={results}
+              />
+            )}
             <CalculatorActions
               calculatorId="stair_design"
               calculatorName="Stair Design"

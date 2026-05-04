@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 interface Layer {
   id: string;
@@ -127,7 +128,15 @@ export function ThermalResistanceCalculator() {
               NBC 5.3 - Calculate effective thermal resistance for building assemblies
             </CardDescription>
           </div>
-          <CalculatorActions
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="thermalResistance"
+                inputs={{ climateZone, assemblyType, layers }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
             calculatorId="thermal_resistance"
             calculatorName="Thermal Resistance"
             exportData={() => ({
@@ -158,6 +167,7 @@ export function ThermalResistanceCalculator() {
             }}
             hasResults={!!results}
           />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
