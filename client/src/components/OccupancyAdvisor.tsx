@@ -13,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2, X, Layers } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+type Screen = 1 | 2 | 'stackPlanner' | 3;
 
 type Candidate = {
   code: string;
@@ -49,6 +51,15 @@ type CandidateWithScore = Candidate & {
   scoreResult?: ScoreResult;
 };
 
+interface StackZone {
+  code: string;
+  name: string;
+  color: string;
+  textColor: string;
+  sprinklersRequired: boolean;
+  part3Required: boolean;
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ACTIVITY_OPTIONS = [
@@ -80,6 +91,43 @@ const RESTRICTIVENESS: Record<string, number> = {
   "D": 3, "E": 2, "F-3": 1,
 };
 
+const OCCUPANCY_VISUAL_DATA: Record<string, {
+  color: string; textColor: string;
+  sprinklersRequired: boolean; part3Required: boolean;
+}> = {
+  'A-1': { color: '#534AB7', textColor: '#EEEDFE', sprinklersRequired: true,  part3Required: true  },
+  'A-2': { color: '#534AB7', textColor: '#EEEDFE', sprinklersRequired: true,  part3Required: true  },
+  'A-3': { color: '#534AB7', textColor: '#EEEDFE', sprinklersRequired: true,  part3Required: true  },
+  'A-4': { color: '#534AB7', textColor: '#EEEDFE', sprinklersRequired: true,  part3Required: true  },
+  'B-1': { color: '#993556', textColor: '#FBEAF0', sprinklersRequired: true,  part3Required: true  },
+  'B-2': { color: '#993556', textColor: '#FBEAF0', sprinklersRequired: true,  part3Required: true  },
+  'B-3': { color: '#993556', textColor: '#FBEAF0', sprinklersRequired: true,  part3Required: true  },
+  'C':   { color: '#0F6E56', textColor: '#E1F5EE', sprinklersRequired: false, part3Required: false },
+  'D':   { color: '#185FA5', textColor: '#E6F1FB', sprinklersRequired: false, part3Required: false },
+  'E':   { color: '#BA7517', textColor: '#FAEEDA', sprinklersRequired: false, part3Required: false },
+  'F-1': { color: '#A32D2D', textColor: '#FCEBEB', sprinklersRequired: true,  part3Required: true  },
+  'F-2': { color: '#633806', textColor: '#FAEEDA', sprinklersRequired: false, part3Required: true  },
+  'F-3': { color: '#3B6D11', textColor: '#EAF3DE', sprinklersRequired: false, part3Required: false },
+};
+
+const ALL_NBC_CODES: { code: string; name: string }[] = [
+  { code: 'A-1', name: 'Theatre & Entertainment' },
+  { code: 'A-2', name: 'Restaurant & Arena'      },
+  { code: 'A-3', name: 'Museum & Library'         },
+  { code: 'A-4', name: 'Open Air Assembly'        },
+  { code: 'B-1', name: 'Detention Occupancy'      },
+  { code: 'B-2', name: 'Care & Treatment'         },
+  { code: 'B-3', name: 'Care Occupancy'           },
+  { code: 'C',   name: 'Residential'              },
+  { code: 'D',   name: 'Business & Services'      },
+  { code: 'E',   name: 'Mercantile'               },
+  { code: 'F-1', name: 'High-Hazard Industrial'   },
+  { code: 'F-2', name: 'Medium-Hazard Industrial' },
+  { code: 'F-3', name: 'Low-Hazard Industrial'    },
+];
+
+// ── Pure helpers ──────────────────────────────────────────────────────────────
+
 function badgeClass(code: string): string {
   return OCCUPANCY_BADGE[code.charAt(0)] ?? "bg-gray-100 text-gray-800 border-gray-200";
 }
@@ -88,6 +136,26 @@ function mostRestrictiveCode(candidates: Candidate[]): string {
   return candidates.reduce((max, c) =>
     (RESTRICTIVENESS[c.code] ?? 0) > (RESTRICTIVENESS[max.code] ?? 0) ? c : max
   ).code;
+}
+
+function getFireSeparation(codeA: string, codeB: string): {
+  frr: string; hours: number; color: string; bgColor: string; nbcRef: string;
+} {
+  const a = codeA.split('-')[0];
+  const b = codeB.split('-')[0];
+
+  if (a === 'B' || b === 'B')
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
+  if (a === 'A' || b === 'A')
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
+  if (codeA === 'F-1' || codeB === 'F-1')
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
+
+  const pair = [a, b].sort().join('-');
+  if (pair === 'C-E' || pair === 'D-F' || pair === 'E-F')
+    return { frr: '1 hr', hours: 1, color: '#BA7517', bgColor: '#FAEEDA', nbcRef: 'NBC 3.1.3.4' };
+
+  return { frr: '45 min', hours: 0.75, color: '#639922', bgColor: '#EAF3DE', nbcRef: 'NBC 3.1.3.4' };
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -115,7 +183,7 @@ export function OccupancyAdvisor({
   projectId,
   projectName,
 }: OccupancyAdvisorProps) {
-  const [screen, setScreen] = useState<1 | 2 | 3>(1);
+  const [screen, setScreen] = useState<Screen>(1);
 
   // Screen 1 form
   const [buildingDescription, setBuildingDescription] = useState("");
@@ -135,6 +203,11 @@ export function OccupancyAdvisor({
   const [ruleScores, setRuleScores] = useState<Record<string, ScoreResult>>({});
   const [scoreCount, setScoreCount] = useState(0);
   const [selectedCode, setSelectedCode] = useState("");
+
+  // Screen 2.5 stack planner
+  const [stackZones, setStackZones] = useState<StackZone[]>([]);
+  const [stackOrientation, setStackOrientation] = useState<'vertical' | 'horizontal'>('vertical');
+  const [draggingCode, setDraggingCode] = useState<string | null>(null);
 
   // Screen 3 confirmation
   const [checked1, setChecked1] = useState(false);
@@ -190,16 +263,41 @@ export function OccupancyAdvisor({
     setActivities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
   }
 
-  function addZone() {
+  function addMixedUseZone() {
     setMixedUseZones(prev => [...prev, { use: "", area: "" }]);
   }
 
-  function removeZone(i: number) {
+  function removeMixedUseZone(i: number) {
     setMixedUseZones(prev => prev.filter((_, idx) => idx !== i));
   }
 
-  function updateZone(i: number, field: "use" | "area", value: string) {
+  function updateMixedUseZone(i: number, field: "use" | "area", value: string) {
     setMixedUseZones(prev => prev.map((z, idx) => idx === i ? { ...z, [field]: value } : z));
+  }
+
+  function addStackZoneFromCode(code: string) {
+    const visual = OCCUPANCY_VISUAL_DATA[code];
+    const entry = ALL_NBC_CODES.find(c => c.code === code);
+    if (!visual || !entry) return;
+    setStackZones(prev => [...prev, { code, name: entry.name, ...visual }]);
+  }
+
+  function removeStackZone(i: number) {
+    setStackZones(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function handleGoToStackPlanner() {
+    if (stackZones.length === 0 && candidatesWithScores.length >= 2) {
+      const c0 = candidatesWithScores[0];
+      const c1 = candidatesWithScores[1];
+      const v0 = OCCUPANCY_VISUAL_DATA[c0.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
+      const v1 = OCCUPANCY_VISUAL_DATA[c1.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
+      setStackZones([
+        { code: c0.code, name: c0.name, ...v0 },
+        { code: c1.code, name: c1.name, ...v1 },
+      ]);
+    }
+    setScreen('stackPlanner');
   }
 
   function handleAnalyze() {
@@ -224,6 +322,13 @@ export function OccupancyAdvisor({
     if (projectId) {
       updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
     }
+    if (stackZones.length > 0) {
+      const separationSchedule = stackZones.slice(0, -1).map((zone, i) => ({
+        interface: `${zone.code} / ${stackZones[i + 1].code}`,
+        ...getFireSeparation(zone.code, stackZones[i + 1].code),
+      }));
+      console.log('Mixed occupancy stack confirmed', { stackZones, stackOrientation, separationSchedule });
+    }
     onConfirm?.(selectedCode);
     handleClose();
   }
@@ -242,6 +347,7 @@ export function OccupancyAdvisor({
     setSelectedProvince(province);
     setClassifyError("");
     setClassifyResult(null); setRuleScores({}); setScoreCount(0); setSelectedCode("");
+    setStackZones([]); setStackOrientation('vertical'); setDraggingCode(null);
     setChecked1(false); setChecked2(false); setChecked3(false);
   }
 
@@ -249,10 +355,6 @@ export function OccupancyAdvisor({
 
   const formValid =
     buildingDescription.trim().length >= 10 && !!occupantBehavior && !!hazardLevel;
-
-  const allScored = classifyResult
-    ? scoreCount >= classifyResult.candidates.length
-    : false;
 
   const candidatesWithScores: CandidateWithScore[] = (classifyResult?.candidates ?? []).map(c => {
     const score = ruleScores[c.code];
@@ -268,6 +370,12 @@ export function OccupancyAdvisor({
 
   const confirmEnabled = checked1 && checked2 && checked3 && !!selectedCode;
 
+  const governingStackCode = stackZones.length > 0
+    ? stackZones.reduce((max, z) =>
+        (RESTRICTIVENESS[z.code] ?? 0) > (RESTRICTIVENESS[max.code] ?? 0) ? z : max
+      ).code
+    : '';
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -278,7 +386,7 @@ export function OccupancyAdvisor({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`${screen === 'stackPlanner' ? 'max-w-3xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5 text-primary" />
@@ -353,11 +461,11 @@ export function OccupancyAdvisor({
               <Label>Occupant Behavior *</Label>
               <div className="space-y-1.5">
                 {[
-                  { value: "Transient visitors", desc: "Short-stay public (retail, assembly)" },
-                  { value: "Regular employees", desc: "Daily workers (office, industrial)" },
+                  { value: "Transient visitors",  desc: "Short-stay public (retail, assembly)" },
+                  { value: "Regular employees",   desc: "Daily workers (office, industrial)" },
                   { value: "Residents/overnight", desc: "Sleep on premises (residential, hotel)" },
                   { value: "Detained/supervised", desc: "Cannot self-evacuate (hospital, prison)" },
-                  { value: "Mixed", desc: "Combination of the above" },
+                  { value: "Mixed",               desc: "Combination of the above" },
                 ].map(opt => (
                   <label
                     key={opt.value}
@@ -388,9 +496,9 @@ export function OccupancyAdvisor({
               <Label>Hazard Level *</Label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { value: "Low", desc: "Office, retail, residential" },
+                  { value: "Low",    desc: "Office, retail, residential" },
                   { value: "Medium", desc: "Workshop, lab, food processing" },
-                  { value: "High", desc: "Chemical, explosive, flammable storage" },
+                  { value: "High",   desc: "Chemical, explosive, flammable storage" },
                 ].map(opt => (
                   <label
                     key={opt.value}
@@ -455,28 +563,28 @@ export function OccupancyAdvisor({
                       <Input
                         placeholder="Use description"
                         value={zone.use}
-                        onChange={e => updateZone(i, "use", e.target.value)}
+                        onChange={e => updateMixedUseZone(i, "use", e.target.value)}
                         className="flex-1"
                       />
                       <Input
                         placeholder="Area m²"
                         type="number"
                         value={zone.area}
-                        onChange={e => updateZone(i, "area", e.target.value)}
+                        onChange={e => updateMixedUseZone(i, "area", e.target.value)}
                         className="w-24"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeZone(i)}
+                        onClick={() => removeMixedUseZone(i)}
                         className="h-8 w-8 shrink-0"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addZone} className="gap-1.5">
+                  <Button type="button" variant="outline" size="sm" onClick={addMixedUseZone} className="gap-1.5">
                     <Plus className="w-3.5 h-3.5" /> Add Use Zone
                   </Button>
                 </div>
@@ -693,16 +801,365 @@ export function OccupancyAdvisor({
                 <div className="flex justify-between gap-2 pt-2 border-t">
                   <Button variant="ghost" onClick={() => setScreen(1)}>← Back</Button>
                   <Button
-                    onClick={() => setScreen(3)}
+                    onClick={() => {
+                      if (isMixedUse) {
+                        handleGoToStackPlanner();
+                      } else {
+                        setScreen(3);
+                      }
+                    }}
                     disabled={!selectedCode}
                   >
-                    Confirm Selection → {selectedCode}
+                    {isMixedUse ? (
+                      <><Layers className="w-4 h-4 mr-2" />Plan Mixed Use Stack →</>
+                    ) : (
+                      <>Confirm Selection → {selectedCode}</>
+                    )}
                   </Button>
                 </div>
               </>
             )}
           </div>
         )}
+
+        {/* ── Screen 2.5: Mixed Use Stack Planner ── */}
+        {screen === 'stackPlanner' && (() => {
+          const separationSchedule = stackZones.slice(0, -1).map((zone, i) => ({
+            interfaceLabel: `${zone.code} / ${stackZones[i + 1].code}`,
+            zoneA: zone,
+            zoneB: stackZones[i + 1],
+            ...getFireSeparation(zone.code, stackZones[i + 1].code),
+          }));
+
+          const stackFlags: { severity: 'critical' | 'warning' | 'info'; message: string }[] = [];
+          const sprinklerTrigger = stackZones.find(z => z.sprinklersRequired);
+          if (sprinklerTrigger) {
+            stackFlags.push({
+              severity: 'critical',
+              message: `Sprinkler system required throughout building (NBC 3.2.5.2) — ${sprinklerTrigger.code} triggers this requirement`,
+            });
+          }
+          if (stackOrientation === 'vertical' && stackZones.length > 2) {
+            stackFlags.push({
+              severity: 'warning',
+              message: 'Vertical shafts (stairs, elevators, mechanical) must be fire-separated per NBC 3.6',
+            });
+          }
+          if (stackZones.some(z => z.code.startsWith('B'))) {
+            stackFlags.push({
+              severity: 'critical',
+              message: 'Group B requires 2-hour separation from all other occupancies (NBC 3.1.3.4)',
+            });
+          }
+          if (stackZones.some(z => z.part3Required)) {
+            stackFlags.push({
+              severity: 'warning',
+              message: 'Part 3 provisions apply — verify limits in NBC Table 3.2.2.70',
+            });
+          }
+          if (stackOrientation === 'horizontal' && stackZones.length > 1) {
+            stackFlags.push({
+              severity: 'info',
+              message: 'Each occupancy zone requires independent means of egress (NBC 3.4.1)',
+            });
+          }
+
+          const constructionRec = stackZones.some(z =>
+            z.code.startsWith('B') || z.code.startsWith('A') || z.code === 'F-1'
+          ) ? 'Non-Combustible required' : 'Combustible may be acceptable — verify limits';
+
+          const governingVisual = governingStackCode ? OCCUPANCY_VISUAL_DATA[governingStackCode] : null;
+
+          return (
+            <div className="space-y-4 mt-2">
+              <div>
+                <p className="text-sm font-semibold">Mixed Use Stack Planner</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Arrange your occupancy zones to calculate fire separation requirements between each interface.
+                </p>
+              </div>
+
+              {/* Orientation toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">Layout:</span>
+                <div className="flex rounded border overflow-hidden text-xs">
+                  <button
+                    className={`px-3 py-1.5 transition-colors ${stackOrientation === 'vertical' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
+                    onClick={() => setStackOrientation('vertical')}
+                  >
+                    Vertical Stack
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 transition-colors border-l ${stackOrientation === 'horizontal' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
+                    onClick={() => setStackOrientation('horizontal')}
+                  >
+                    Horizontal Adjacent
+                  </button>
+                </div>
+              </div>
+
+              {/* Zone palette */}
+              <div className="rounded border border-dashed border-border p-3 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Drag zones onto canvas — or click to add
+                </p>
+
+                {/* AI candidates */}
+                {candidatesWithScores.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">AI candidates</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {candidatesWithScores.slice(0, 3).map(c => {
+                        const vis = OCCUPANCY_VISUAL_DATA[c.code];
+                        return (
+                          <button
+                            key={c.code}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', c.code);
+                              setDraggingCode(c.code);
+                            }}
+                            onDragEnd={() => setDraggingCode(null)}
+                            onClick={() => addStackZoneFromCode(c.code)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold cursor-grab active:cursor-grabbing border"
+                            style={vis ? { backgroundColor: vis.color, color: vis.textColor, borderColor: vis.color } : {}}
+                            title={c.name}
+                          >
+                            {c.code}
+                            <Plus className="w-3 h-3 opacity-70" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* All NBC codes */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">All NBC codes</p>
+                  <div className="flex flex-wrap gap-1">
+                    {ALL_NBC_CODES.map(({ code, name }) => {
+                      const vis = OCCUPANCY_VISUAL_DATA[code];
+                      return (
+                        <button
+                          key={code}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', code);
+                            setDraggingCode(code);
+                          }}
+                          onDragEnd={() => setDraggingCode(null)}
+                          onClick={() => addStackZoneFromCode(code)}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold cursor-grab active:cursor-grabbing border"
+                          style={vis ? { backgroundColor: vis.color, color: vis.textColor, borderColor: vis.color } : {}}
+                          title={name}
+                        >
+                          {code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Canvas */}
+              <div
+                className={`rounded border-2 border-dashed p-3 min-h-[140px] transition-colors ${
+                  draggingCode ? 'border-primary bg-primary/5' : 'border-border bg-muted/10'
+                }`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const code = e.dataTransfer.getData('text/plain') || draggingCode;
+                  if (code) addStackZoneFromCode(code);
+                  setDraggingCode(null);
+                }}
+              >
+                {stackZones.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
+                    <Layers className="w-8 h-8 mb-2 opacity-30" />
+                    <p className="text-xs">Drag occupancy chips here, or click them above</p>
+                  </div>
+                ) : stackOrientation === 'vertical' ? (
+                  /* Vertical stack */
+                  <div className="space-y-0">
+                    {stackZones.map((zone, i) => (
+                      <div key={i}>
+                        <div
+                          className="px-4 py-3 flex items-center justify-between"
+                          style={{ backgroundColor: zone.color, color: zone.textColor }}
+                        >
+                          <div>
+                            <span className="font-bold text-base font-mono">{zone.code}</span>
+                            <span className="ml-2 text-xs opacity-80">{zone.name}</span>
+                            <span className="ml-3 text-[10px] opacity-60">
+                              {i === 0 ? 'Ground Floor' : `Level ${i + 1}`}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeStackZone(i)}
+                            className="opacity-70 hover:opacity-100 p-0.5 rounded"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {i < stackZones.length - 1 && (() => {
+                          const sep = getFireSeparation(zone.code, stackZones[i + 1].code);
+                          return (
+                            <div
+                              className="flex items-center gap-2 px-4 py-1 text-xs font-semibold border-y"
+                              style={{ backgroundColor: sep.bgColor, color: sep.color, borderColor: sep.color + '40' }}
+                            >
+                              <span>──── Fire Separation: {sep.frr} ────</span>
+                              <span className="text-[10px] opacity-70">{sep.nbcRef}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Horizontal adjacent */
+                  <div className="flex h-32 rounded overflow-hidden">
+                    {stackZones.map((zone, i) => (
+                      <div key={i} className="flex" style={{ flex: 1 }}>
+                        <div
+                          className="flex flex-col items-center justify-center p-2 relative w-full"
+                          style={{ backgroundColor: zone.color, color: zone.textColor }}
+                        >
+                          <span className="font-bold text-sm font-mono">{zone.code}</span>
+                          <span className="text-[10px] opacity-80 text-center leading-tight mt-0.5">{zone.name}</span>
+                          <button
+                            onClick={() => removeStackZone(i)}
+                            className="absolute top-1 right-1 opacity-70 hover:opacity-100"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {i < stackZones.length - 1 && (() => {
+                          const sep = getFireSeparation(zone.code, stackZones[i + 1].code);
+                          return (
+                            <div
+                              className="flex items-center justify-center w-10 shrink-0 text-[10px] font-bold writing-mode-vertical"
+                              style={{ backgroundColor: sep.bgColor, color: sep.color, borderLeft: `3px solid ${sep.color}`, borderRight: `3px solid ${sep.color}` }}
+                            >
+                              <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{sep.frr}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Analysis panel */}
+              {stackZones.length > 0 && (
+                <div className="space-y-3 rounded border border-border p-3 bg-muted/10">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Real-Time Analysis</p>
+
+                  {/* Governing occupancy */}
+                  {governingStackCode && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground shrink-0">Governing occupancy:</span>
+                      <span
+                        className="px-2 py-0.5 rounded text-xs font-bold font-mono border"
+                        style={governingVisual ? {
+                          backgroundColor: governingVisual.color,
+                          color: governingVisual.textColor,
+                          borderColor: governingVisual.color,
+                        } : {}}
+                      >
+                        {governingStackCode}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        (most restrictive — drives overall classification)
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Separation schedule */}
+                  {separationSchedule.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Separation Schedule</p>
+                      <div className="rounded overflow-hidden border border-border text-xs">
+                        <div className="grid grid-cols-4 bg-muted/40 font-semibold">
+                          <div className="px-2 py-1.5">Interface</div>
+                          <div className="px-2 py-1.5">Zone A</div>
+                          <div className="px-2 py-1.5">Zone B</div>
+                          <div className="px-2 py-1.5">Required FRR</div>
+                        </div>
+                        {separationSchedule.map((row, i) => (
+                          <div
+                            key={i}
+                            className="grid grid-cols-4 border-t border-border"
+                            style={{ backgroundColor: row.bgColor + '60' }}
+                          >
+                            <div className="px-2 py-1.5 text-muted-foreground">{row.interfaceLabel}</div>
+                            <div className="px-2 py-1.5 font-mono font-bold" style={{ color: row.zoneA.color }}>{row.zoneA.code}</div>
+                            <div className="px-2 py-1.5 font-mono font-bold" style={{ color: row.zoneB.color }}>{row.zoneB.code}</div>
+                            <div className="px-2 py-1.5 font-bold" style={{ color: row.color }}>
+                              {row.frr}
+                              <span className="ml-1 font-normal text-[10px] text-muted-foreground">{row.nbcRef}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Flags */}
+                  {stackFlags.length > 0 && (
+                    <div className="space-y-1.5">
+                      {stackFlags.map((flag, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-2 p-2 rounded text-xs border ${
+                            flag.severity === 'critical'
+                              ? 'bg-red-50 border-red-200 text-red-800'
+                              : flag.severity === 'warning'
+                              ? 'bg-amber-50 border-amber-200 text-amber-800'
+                              : 'bg-blue-50 border-blue-200 text-blue-800'
+                          }`}
+                        >
+                          {flag.severity === 'critical' ? (
+                            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          ) : flag.severity === 'warning' ? (
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          ) : (
+                            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          )}
+                          <span>{flag.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Construction recommendation */}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground shrink-0">Construction type:</span>
+                    <span className={`font-semibold ${constructionRec.startsWith('Non') ? 'text-red-700' : 'text-green-700'}`}>
+                      {constructionRec}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between gap-2 pt-2 border-t">
+                <Button variant="ghost" onClick={() => setScreen(2)}>← Back</Button>
+                <Button
+                  onClick={() => {
+                    if (governingStackCode) setSelectedCode(governingStackCode);
+                    setScreen(3);
+                  }}
+                  disabled={stackZones.length === 0}
+                >
+                  Confirm Arrangement →
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Screen 3: Professional Confirmation ── */}
         {screen === 3 && (
@@ -714,8 +1171,14 @@ export function OccupancyAdvisor({
                 {selectedCode}
               </span>
               <p className="text-sm font-medium mt-2">
-                {classifyResult?.candidates.find(c => c.code === selectedCode)?.name}
+                {classifyResult?.candidates.find(c => c.code === selectedCode)?.name
+                  ?? ALL_NBC_CODES.find(c => c.code === selectedCode)?.name}
               </p>
+              {isMixedUse && stackZones.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Governing occupancy from {stackZones.length}-zone mixed use stack
+                </p>
+              )}
             </div>
 
             {projectName && (
@@ -749,7 +1212,9 @@ export function OccupancyAdvisor({
             )}
 
             <div className="flex justify-between gap-2 pt-2 border-t">
-              <Button variant="ghost" onClick={() => setScreen(2)}>← Back</Button>
+              <Button variant="ghost" onClick={() => isMixedUse ? setScreen('stackPlanner') : setScreen(2)}>
+                ← Back
+              </Button>
               <Button
                 onClick={handleConfirm}
                 disabled={!confirmEnabled}
