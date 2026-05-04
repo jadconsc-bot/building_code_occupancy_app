@@ -326,7 +326,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     const detectionProvince = province as "AB" | "BC";
 
     if (municipality && (province === "AB" || province === "BC")) {
-      detectMutation.mutate({ municipality, province: detectionProvince });
+      detectMutation.mutate({ municipality, province: detectionProvince, address });
     } else {
       setDetectError("Could not detect municipality from address. Please enter jurisdiction details manually.");
       setManualOverride(true);

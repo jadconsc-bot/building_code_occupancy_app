@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { getDb } from '../db';
 import { jurisdictionProfiles } from '../../drizzle/schema';
 import { eq, and, sql } from 'drizzle-orm';
+import { geocodeAddress } from '../services/googleMapsService';
 
 // ============================================================================
 // JURISDICTION DATABASE - Static lookup (no external API)
@@ -190,7 +191,8 @@ export const jurisdictionRouter = router({
   detect: protectedProcedure
     .input(z.object({
       municipality: z.string().min(2).max(100),
-      province: z.enum(['BC', 'AB', 'ON', 'SK', 'MB']).optional()
+      province: z.enum(['BC', 'AB', 'ON', 'SK', 'MB']).optional(),
+      address: z.string().optional(),
     }))
     .output(z.object({
       success: z.boolean(),
@@ -212,12 +214,19 @@ export const jurisdictionRouter = router({
     }))
     .mutation(async ({ input }) => {
       try {
-        const jurisdiction = await getJurisdictionData(input.municipality);
-        
+        // Geocode-first: if a full address is supplied, resolve municipality via Google Maps
+        let resolvedMunicipality = input.municipality;
+        if (input.address) {
+          const geo = await geocodeAddress(input.address);
+          if (geo?.municipality) resolvedMunicipality = geo.municipality;
+        }
+
+        const jurisdiction = await getJurisdictionData(resolvedMunicipality);
+
         if (!jurisdiction) {
           return {
             success: false,
-            error: `Jurisdiction not found for "${input.municipality}". Supported municipalities: Vancouver, Victoria, Kelowna, Prince George (BC), Calgary, Edmonton (AB)`
+            error: `Jurisdiction not found for "${resolvedMunicipality}". Supported municipalities: Vancouver, Victoria, Kelowna, Prince George (BC), Calgary, Edmonton (AB)`
           };
         }
         
