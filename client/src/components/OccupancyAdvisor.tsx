@@ -995,13 +995,30 @@ export function OccupancyAdvisor({
                     <p className="text-xs">Drag occupancy chips here, or click them above</p>
                   </div>
                 ) : stackOrientation === 'vertical' ? (
-                  /* ── Vertical: each floor row, split zones side-by-side ── */
+                  /* ── Vertical: floors rendered top-to-bottom in REVERSE so Ground Floor is at bottom ── */
                   <div>
-                    {floors.map((floor, floorIdx) => {
+                    {floors.slice().reverse().map((floor, reversedIdx) => {
+                      // Original index in the data array (0 = Ground Floor)
+                      const floorIdx = floors.length - 1 - reversedIdx;
                       const floorArea = floor.zones.reduce((s, z) => s + z.area_m2, 0);
                       const floorH = Math.max(64, (floorArea / totalArea) * 400);
                       return (
                         <div key={floor.id}>
+                          {/* Between-floor separation — shown ABOVE each floor except the topmost */}
+                          {reversedIdx > 0 && (() => {
+                            // In the reversed render, the floor above in the visual is floors[floorIdx + 1]
+                            const sep = getMaxFloorSeparation(floors[floorIdx + 1].zones, floor.zones);
+                            return (
+                              <div
+                                className="flex items-center gap-2 px-4 py-1 text-xs font-semibold border-y"
+                                style={{ backgroundColor: sep.bgColor, color: sep.color, borderColor: `${sep.color}40` }}
+                              >
+                                <span>──── Floor Separation: {sep.frr} ────</span>
+                                <span className="text-[10px] opacity-70">{sep.nbcRef}</span>
+                              </div>
+                            );
+                          })()}
+
                           {/* Floor row */}
                           <div className="flex overflow-hidden" style={{ height: `${floorH}px` }}>
                             {/* Floor label strip */}
@@ -1090,20 +1107,6 @@ export function OccupancyAdvisor({
                               </button>
                             </div>
                           )}
-
-                          {/* Between-floor separation */}
-                          {floorIdx < floors.length - 1 && (() => {
-                            const sep = getMaxFloorSeparation(floor.zones, floors[floorIdx + 1].zones);
-                            return (
-                              <div
-                                className="flex items-center gap-2 px-4 py-1 text-xs font-semibold border-y"
-                                style={{ backgroundColor: sep.bgColor, color: sep.color, borderColor: `${sep.color}40` }}
-                              >
-                                <span>──── Floor Separation: {sep.frr} ────</span>
-                                <span className="text-[10px] opacity-70">{sep.nbcRef}</span>
-                              </div>
-                            );
-                          })()}
                         </div>
                       );
                     })}
