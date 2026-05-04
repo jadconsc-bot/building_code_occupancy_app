@@ -61,6 +61,11 @@ interface StackZone {
   area_m2: number;
 }
 
+interface FloorLevel {
+  id: string;
+  zones: StackZone[];
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ACTIVITY_OPTIONS = [
@@ -159,6 +164,24 @@ function getFireSeparation(codeA: string, codeB: string): {
   return { frr: '45 min', hours: 0.75, color: '#639922', bgColor: '#EAF3DE', nbcRef: 'NBC 3.1.3.4' };
 }
 
+function getMaxFloorSeparation(zonesA: StackZone[], zonesB: StackZone[]): ReturnType<typeof getFireSeparation> {
+  let best = getFireSeparation(zonesA[0]?.code ?? 'D', zonesB[0]?.code ?? 'D');
+  for (const a of zonesA) {
+    for (const b of zonesB) {
+      const sep = getFireSeparation(a.code, b.code);
+      if (sep.hours > best.hours) best = sep;
+    }
+  }
+  return best;
+}
+
+function makeStackZone(code: string): StackZone | null {
+  const visual = OCCUPANCY_VISUAL_DATA[code];
+  const entry = ALL_NBC_CODES.find(c => c.code === code);
+  if (!visual || !entry) return null;
+  return { code, name: entry.name, ...visual, area_m2: 100 };
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface OccupancyAdvisorProps {
@@ -206,9 +229,10 @@ export function OccupancyAdvisor({
   const [selectedCode, setSelectedCode] = useState("");
 
   // Screen 2.5 stack planner
-  const [stackZones, setStackZones] = useState<StackZone[]>([]);
+  const [floors, setFloors] = useState<FloorLevel[]>([]);
   const [stackOrientation, setStackOrientation] = useState<'vertical' | 'horizontal'>('vertical');
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
+  const [splitFloorIndex, setSplitFloorIndex] = useState<number | null>(null);
 
   // Screen 3 confirmation
   const [checked1, setChecked1] = useState(false);
@@ -276,32 +300,51 @@ export function OccupancyAdvisor({
     setMixedUseZones(prev => prev.map((z, idx) => idx === i ? { ...z, [field]: value } : z));
   }
 
-  function addStackZoneFromCode(code: string) {
-    const visual = OCCUPANCY_VISUAL_DATA[code];
-    const entry = ALL_NBC_CODES.find(c => c.code === code);
-    if (!visual || !entry) return;
-    setStackZones(prev => [...prev, { code, name: entry.name, ...visual, area_m2: 100 }]);
+  // Add a new floor (storey) containing one zone
+  function addFloorFromCode(code: string) {
+    const zone = makeStackZone(code);
+    if (!zone) return;
+    setFloors(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, zones: [zone] }]);
   }
 
-  function removeStackZone(i: number) {
-    setStackZones(prev => prev.filter((_, idx) => idx !== i));
+  // Add a zone alongside existing zones on a given floor (split floor)
+  function addZoneToFloor(floorIdx: number, code: string) {
+    const zone = makeStackZone(code);
+    if (!zone) return;
+    setFloors(prev => prev.map((f, i) =>
+      i === floorIdx ? { ...f, zones: [...f.zones, zone] } : f
+    ));
+    setSplitFloorIndex(null);
   }
 
-  function updateZoneArea(index: number, area: number) {
-    setStackZones(prev => prev.map((z, i) =>
-      i === index ? { ...z, area_m2: Math.max(10, area) } : z
+  // Remove a single zone from a floor; removes the whole floor if it was the last zone
+  function removeZoneFromFloor(floorIdx: number, zoneIdx: number) {
+    setFloors(prev => {
+      const floor = prev[floorIdx];
+      if (floor.zones.length <= 1) return prev.filter((_, i) => i !== floorIdx);
+      return prev.map((f, i) =>
+        i === floorIdx ? { ...f, zones: f.zones.filter((_, zi) => zi !== zoneIdx) } : f
+      );
+    });
+  }
+
+  function updateZoneArea(floorIdx: number, zoneIdx: number, area: number) {
+    setFloors(prev => prev.map((f, fi) =>
+      fi === floorIdx
+        ? { ...f, zones: f.zones.map((z, zi) => zi === zoneIdx ? { ...z, area_m2: Math.max(10, area) } : z) }
+        : f
     ));
   }
 
   function handleGoToStackPlanner() {
-    if (stackZones.length === 0 && candidatesWithScores.length >= 2) {
+    if (floors.length === 0 && candidatesWithScores.length >= 2) {
       const c0 = candidatesWithScores[0];
       const c1 = candidatesWithScores[1];
       const v0 = OCCUPANCY_VISUAL_DATA[c0.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
       const v1 = OCCUPANCY_VISUAL_DATA[c1.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
-      setStackZones([
-        { code: c0.code, name: c0.name, ...v0, area_m2: 100 },
-        { code: c1.code, name: c1.name, ...v1, area_m2: 100 },
+      setFloors([
+        { id: '1', zones: [{ code: c0.code, name: c0.name, ...v0, area_m2: 100 }] },
+        { id: '2', zones: [{ code: c1.code, name: c1.name, ...v1, area_m2: 100 }] },
       ]);
     }
     setScreen('stackPlanner');
@@ -329,15 +372,15 @@ export function OccupancyAdvisor({
     if (projectId) {
       updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
     }
-    if (stackZones.length > 0) {
-      const totalArea = stackZones.reduce((sum, z) => sum + z.area_m2, 0);
-      const separationSchedule = stackZones.slice(0, -1).map((zone, i) => ({
-        interface: `${zone.code} / ${stackZones[i + 1].code}`,
-        zoneA: { code: zone.code, area_m2: zone.area_m2, pct: Math.round((zone.area_m2 / totalArea) * 100) },
-        zoneB: { code: stackZones[i + 1].code, area_m2: stackZones[i + 1].area_m2, pct: Math.round((stackZones[i + 1].area_m2 / totalArea) * 100) },
-        ...getFireSeparation(zone.code, stackZones[i + 1].code),
+    if (floors.length > 0) {
+      const allZones = floors.flatMap(f => f.zones);
+      const totalArea = allZones.reduce((sum, z) => sum + z.area_m2, 0);
+      const floorSeparations = floors.slice(0, -1).map((floor, i) => ({
+        from: floor.zones.map(z => z.code).join('/'),
+        to: floors[i + 1].zones.map(z => z.code).join('/'),
+        ...getMaxFloorSeparation(floor.zones, floors[i + 1].zones),
       }));
-      console.log('Mixed occupancy stack confirmed', { stackZones, stackOrientation, totalArea, separationSchedule });
+      console.log('Mixed occupancy stack confirmed', { floors, stackOrientation, totalArea, floorSeparations });
     }
     onConfirm?.(selectedCode);
     handleClose();
@@ -357,7 +400,7 @@ export function OccupancyAdvisor({
     setSelectedProvince(province);
     setClassifyError("");
     setClassifyResult(null); setRuleScores({}); setScoreCount(0); setSelectedCode("");
-    setStackZones([]); setStackOrientation('vertical'); setDraggingCode(null);
+    setFloors([]); setStackOrientation('vertical'); setDraggingCode(null); setSplitFloorIndex(null);
     setChecked1(false); setChecked2(false); setChecked3(false);
   }
 
@@ -380,8 +423,9 @@ export function OccupancyAdvisor({
 
   const confirmEnabled = checked1 && checked2 && checked3 && !!selectedCode;
 
-  const governingStackCode = stackZones.length > 0
-    ? stackZones.reduce((max, z) =>
+  const allStackZones = floors.flatMap(f => f.zones);
+  const governingStackCode = allStackZones.length > 0
+    ? allStackZones.reduce((max, z) =>
         (RESTRICTIVENESS[z.code] ?? 0) > (RESTRICTIVENESS[max.code] ?? 0) ? z : max
       ).code
     : '';
@@ -649,12 +693,10 @@ export function OccupancyAdvisor({
               </div>
             ) : (
               <>
-                {/* Screen 2 sub-header */}
                 {projectName && (
                   <p className="text-sm font-semibold text-gray-700">Results for {projectName}</p>
                 )}
 
-                {/* AI model attribution */}
                 {classifyResult?.modelVersion && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Bot className="w-3 h-3" />
@@ -662,7 +704,6 @@ export function OccupancyAdvisor({
                   </p>
                 )}
 
-                {/* Ambiguity notes */}
                 {classifyResult?.ambiguityNotes && (
                   <div className="flex items-start gap-2 p-3 rounded bg-blue-50 border border-blue-200 text-blue-800 text-xs">
                     <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -670,7 +711,6 @@ export function OccupancyAdvisor({
                   </div>
                 )}
 
-                {/* Most restrictive warning */}
                 {candidatesWithScores.length > 1 && classifyResult?.defaultToMoreRestrictive && (
                   <div className="flex items-start gap-2 p-3 rounded bg-amber-50 border border-amber-200 text-amber-800 text-sm">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -681,7 +721,6 @@ export function OccupancyAdvisor({
                   </div>
                 )}
 
-                {/* Candidate cards */}
                 <div className="space-y-3">
                   {candidatesWithScores.map((c, rank) => (
                     <div
@@ -711,15 +750,11 @@ export function OccupancyAdvisor({
                         </div>
                       </div>
 
-                      {/* Score bars */}
                       <div className="space-y-1.5 mb-3">
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-muted-foreground w-20 shrink-0">AI confidence</span>
                           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-400 rounded-full"
-                              style={{ width: `${c.confidence * 100}%` }}
-                            />
+                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${c.confidence * 100}%` }} />
                           </div>
                           <span className="w-8 text-right font-medium">{Math.round(c.confidence * 100)}%</span>
                         </div>
@@ -727,10 +762,7 @@ export function OccupancyAdvisor({
                           <div className="flex items-center gap-2 text-xs">
                             <span className="text-muted-foreground w-20 shrink-0">Rule score</span>
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-green-400 rounded-full"
-                                style={{ width: `${c.ruleScore}%` }}
-                              />
+                              <div className="h-full bg-green-400 rounded-full" style={{ width: `${c.ruleScore}%` }} />
                             </div>
                             <span className="w-8 text-right font-medium">{c.ruleScore}%</span>
                           </div>
@@ -742,10 +774,8 @@ export function OccupancyAdvisor({
                         )}
                       </div>
 
-                      {/* AI reasoning */}
                       <p className="text-xs text-muted-foreground mb-2">{c.reasoning}</p>
 
-                      {/* Key factors */}
                       <ul className="space-y-0.5 mb-3">
                         {c.keyFactors.map((f, i) => (
                           <li key={i} className="flex items-start gap-1.5 text-xs">
@@ -755,20 +785,13 @@ export function OccupancyAdvisor({
                         ))}
                       </ul>
 
-                      {/* Rule score details */}
                       {c.scoreResult && (
                         <div className="pt-3 border-t border-border space-y-2">
                           <div className="flex items-center gap-3 flex-wrap">
-                            <Badge className={c.scoreResult.sprinklersRequired
-                              ? "bg-red-100 text-red-800 text-xs"
-                              : "bg-green-100 text-green-800 text-xs"
-                            }>
+                            <Badge className={c.scoreResult.sprinklersRequired ? "bg-red-100 text-red-800 text-xs" : "bg-green-100 text-green-800 text-xs"}>
                               {c.scoreResult.sprinklersRequired ? "Sprinklers Required" : "Sprinklers Not Required"}
                             </Badge>
-                            <Badge className={c.scoreResult.part3Required
-                              ? "bg-orange-100 text-orange-800 text-xs"
-                              : "bg-blue-100 text-blue-800 text-xs"
-                            }>
+                            <Badge className={c.scoreResult.part3Required ? "bg-orange-100 text-orange-800 text-xs" : "bg-blue-100 text-blue-800 text-xs"}>
                               {c.scoreResult.part3Required ? "Part 3" : "Part 9"}
                             </Badge>
                           </div>
@@ -792,7 +815,6 @@ export function OccupancyAdvisor({
                   ))}
                 </div>
 
-                {/* Mixed use flags */}
                 {classifyResult?.mixedUseFlags && classifyResult.mixedUseFlags.length > 0 && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mixed Use Considerations</p>
@@ -811,13 +833,7 @@ export function OccupancyAdvisor({
                 <div className="flex justify-between gap-2 pt-2 border-t">
                   <Button variant="ghost" onClick={() => setScreen(1)}>← Back</Button>
                   <Button
-                    onClick={() => {
-                      if (isMixedUse) {
-                        handleGoToStackPlanner();
-                      } else {
-                        setScreen(3);
-                      }
-                    }}
+                    onClick={() => isMixedUse ? handleGoToStackPlanner() : setScreen(3)}
                     disabled={!selectedCode}
                   >
                     {isMixedUse ? (
@@ -834,59 +850,57 @@ export function OccupancyAdvisor({
 
         {/* ── Screen 2.5: Mixed Use Stack Planner ── */}
         {screen === 'stackPlanner' && (() => {
-          const totalArea = stackZones.reduce((sum, z) => sum + z.area_m2, 0) || 1;
-          const separationSchedule = stackZones.slice(0, -1).map((zone, i) => ({
-            interfaceLabel: `${zone.code} / ${stackZones[i + 1].code}`,
-            zoneA: zone,
-            zoneB: stackZones[i + 1],
-            ...getFireSeparation(zone.code, stackZones[i + 1].code),
+          const allZones = floors.flatMap(f => f.zones);
+          const totalArea = allZones.reduce((sum, z) => sum + z.area_m2, 0) || 1;
+
+          // Floor-to-floor separation schedule (vertical mode)
+          const floorSepSchedule = floors.slice(0, -1).map((floor, i) => ({
+            interfaceLabel: `Floor ${i + 1} → Floor ${i + 2}`,
+            zonesA: floor.zones,
+            zonesB: floors[i + 1].zones,
+            ...getMaxFloorSeparation(floor.zones, floors[i + 1].zones),
           }));
 
+          // Flags
           const stackFlags: { severity: 'critical' | 'warning' | 'info'; message: string }[] = [];
-          const sprinklerTrigger = stackZones.find(z => z.sprinklersRequired);
+          const sprinklerTrigger = allZones.find(z => z.sprinklersRequired);
           if (sprinklerTrigger) {
-            stackFlags.push({
-              severity: 'critical',
-              message: `Sprinkler system required throughout building (NBC 3.2.5.2) — ${sprinklerTrigger.code} triggers this requirement`,
-            });
+            stackFlags.push({ severity: 'critical', message: `Sprinkler system required throughout building (NBC 3.2.5.2) — ${sprinklerTrigger.code} triggers this requirement` });
           }
-          if (stackOrientation === 'vertical' && stackZones.length > 2) {
-            stackFlags.push({
-              severity: 'warning',
-              message: 'Vertical shafts (stairs, elevators, mechanical) must be fire-separated per NBC 3.6',
-            });
+          if (stackOrientation === 'vertical' && floors.length > 2) {
+            stackFlags.push({ severity: 'warning', message: 'Vertical shafts (stairs, elevators, mechanical) must be fire-separated per NBC 3.6' });
           }
-          if (stackZones.some(z => z.code.startsWith('B'))) {
-            stackFlags.push({
-              severity: 'critical',
-              message: 'Group B requires 2-hour separation from all other occupancies (NBC 3.1.3.4)',
-            });
+          if (allZones.some(z => z.code.startsWith('B'))) {
+            stackFlags.push({ severity: 'critical', message: 'Group B requires 2-hour separation from all other occupancies (NBC 3.1.3.4)' });
           }
-          if (stackZones.some(z => z.part3Required)) {
-            stackFlags.push({
-              severity: 'warning',
-              message: 'Part 3 provisions apply — verify limits in NBC Table 3.2.2.70',
-            });
+          if (allZones.some(z => z.part3Required)) {
+            stackFlags.push({ severity: 'warning', message: 'Part 3 provisions apply — verify limits in NBC Table 3.2.2.70' });
           }
-          if (stackOrientation === 'horizontal' && stackZones.length > 1) {
-            stackFlags.push({
-              severity: 'info',
-              message: 'Each occupancy zone requires independent means of egress (NBC 3.4.1)',
-            });
+          if (stackOrientation === 'horizontal' && allZones.length > 1) {
+            stackFlags.push({ severity: 'info', message: 'Each occupancy zone requires independent means of egress (NBC 3.4.1)' });
           }
 
-          const constructionRec = stackZones.some(z =>
+          const constructionRec = allZones.some(z =>
             z.code.startsWith('B') || z.code.startsWith('A') || z.code === 'F-1'
           ) ? 'Non-Combustible required' : 'Combustible may be acceptable — verify limits';
 
           const governingVisual = governingStackCode ? OCCUPANCY_VISUAL_DATA[governingStackCode] : null;
+
+          // Inline area input style
+          const areaInputStyle = (transparent?: boolean): React.CSSProperties => ({
+            width: '60px', fontSize: '11px',
+            background: transparent ? 'transparent' : undefined,
+            border: '1px solid rgba(255,255,255,0.4)',
+            color: 'inherit', borderRadius: '4px', padding: '2px 4px', textAlign: 'center',
+          });
 
           return (
             <div className="space-y-4 mt-2">
               <div>
                 <p className="text-sm font-semibold">Mixed Use Stack Planner</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Arrange your occupancy zones to calculate fire separation requirements between each interface.
+                  Arrange occupancy zones to calculate fire separation requirements between each interface.
+                  In vertical mode, use + to split a floor into side-by-side zones.
                 </p>
               </div>
 
@@ -912,10 +926,8 @@ export function OccupancyAdvisor({
               {/* Zone palette */}
               <div className="rounded border border-dashed border-border p-3 space-y-2">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Drag zones onto canvas — or click to add
+                  Drag onto canvas or click to add new floor — use + on a floor to split it
                 </p>
-
-                {/* AI candidates */}
                 {candidatesWithScores.length > 0 && (
                   <div>
                     <p className="text-[10px] text-muted-foreground mb-1">AI candidates</p>
@@ -926,26 +938,20 @@ export function OccupancyAdvisor({
                           <button
                             key={c.code}
                             draggable
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData('text/plain', c.code);
-                              setDraggingCode(c.code);
-                            }}
+                            onDragStart={(e) => { e.dataTransfer.setData('text/plain', c.code); setDraggingCode(c.code); }}
                             onDragEnd={() => setDraggingCode(null)}
-                            onClick={() => addStackZoneFromCode(c.code)}
+                            onClick={() => addFloorFromCode(c.code)}
                             className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold cursor-grab active:cursor-grabbing border"
                             style={vis ? { backgroundColor: vis.color, color: vis.textColor, borderColor: vis.color } : {}}
                             title={c.name}
                           >
-                            {c.code}
-                            <Plus className="w-3 h-3 opacity-70" />
+                            {c.code}<Plus className="w-3 h-3 opacity-70" />
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 )}
-
-                {/* All NBC codes */}
                 <div>
                   <p className="text-[10px] text-muted-foreground mb-1">All NBC codes</p>
                   <div className="flex flex-wrap gap-1">
@@ -955,12 +961,9 @@ export function OccupancyAdvisor({
                         <button
                           key={code}
                           draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', code);
-                            setDraggingCode(code);
-                          }}
+                          onDragStart={(e) => { e.dataTransfer.setData('text/plain', code); setDraggingCode(code); }}
                           onDragEnd={() => setDraggingCode(null)}
-                          onClick={() => addStackZoneFromCode(code)}
+                          onClick={() => addFloorFromCode(code)}
                           className="px-2 py-0.5 rounded text-[10px] font-bold cursor-grab active:cursor-grabbing border"
                           style={vis ? { backgroundColor: vis.color, color: vis.textColor, borderColor: vis.color } : {}}
                           title={name}
@@ -975,91 +978,143 @@ export function OccupancyAdvisor({
 
               {/* Canvas */}
               <div
-                className={`rounded border-2 border-dashed p-3 min-h-[140px] transition-colors ${
+                className={`rounded border-2 border-dashed transition-colors ${
                   draggingCode ? 'border-primary bg-primary/5' : 'border-border bg-muted/10'
                 }`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   const code = e.dataTransfer.getData('text/plain') || draggingCode;
-                  if (code) addStackZoneFromCode(code);
+                  if (code) addFloorFromCode(code);
                   setDraggingCode(null);
                 }}
               >
-                {stackZones.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
+                {floors.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-28 text-muted-foreground">
                     <Layers className="w-8 h-8 mb-2 opacity-30" />
                     <p className="text-xs">Drag occupancy chips here, or click them above</p>
                   </div>
                 ) : stackOrientation === 'vertical' ? (
-                  /* Vertical stack */
-                  <div className="space-y-0">
-                    {stackZones.map((zone, i) => (
-                      <div key={i}>
-                        <div
-                          className="px-4 flex items-center justify-between overflow-hidden transition-all"
-                          style={{
-                            backgroundColor: zone.color,
-                            color: zone.textColor,
-                            height: `${Math.max(60, (zone.area_m2 / totalArea) * 400)}px`,
-                          }}
-                        >
-                          <div>
-                            <span className="font-bold text-base font-mono">{zone.code}</span>
-                            <span className="ml-2 text-xs opacity-80">{zone.name}</span>
-                            <span className="ml-3 text-[10px] opacity-60">
-                              {i === 0 ? 'Ground Floor' : `Level ${i + 1}`}
-                            </span>
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                value={zone.area_m2}
-                                min={10}
-                                onChange={(e) => updateZoneArea(i, Number(e.target.value))}
-                                onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  width: '70px', fontSize: '11px', background: 'transparent',
-                                  border: '1px solid rgba(255,255,255,0.4)', color: 'inherit',
-                                  borderRadius: '4px', padding: '2px 4px', textAlign: 'center',
-                                }}
-                              />
-                              <span style={{ fontSize: '10px', opacity: 0.8 }}>m²</span>
-                              <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                · {Math.round((zone.area_m2 / totalArea) * 100)}% of total
-                              </span>
+                  /* ── Vertical: each floor row, split zones side-by-side ── */
+                  <div>
+                    {floors.map((floor, floorIdx) => {
+                      const floorArea = floor.zones.reduce((s, z) => s + z.area_m2, 0);
+                      const floorH = Math.max(64, (floorArea / totalArea) * 400);
+                      return (
+                        <div key={floor.id}>
+                          {/* Floor row */}
+                          <div className="flex overflow-hidden" style={{ height: `${floorH}px` }}>
+                            {/* Floor label strip */}
+                            <div className="w-14 shrink-0 flex flex-col items-center justify-center bg-gray-100 border-r border-gray-200 text-[9px] text-gray-500 font-semibold gap-0.5">
+                              <span>{floorIdx === 0 ? 'G/F' : `L${floorIdx + 1}`}</span>
                             </div>
-                          </div>
-                          <button
-                            onClick={() => removeStackZone(i)}
-                            className="opacity-70 hover:opacity-100 p-0.5 rounded"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        {i < stackZones.length - 1 && (() => {
-                          const sep = getFireSeparation(zone.code, stackZones[i + 1].code);
-                          return (
-                            <div
-                              className="flex items-center gap-2 px-4 py-1 text-xs font-semibold border-y"
-                              style={{ backgroundColor: sep.bgColor, color: sep.color, borderColor: sep.color + '40' }}
+
+                            {/* Zones on this floor */}
+                            <div className="flex flex-1 overflow-hidden">
+                              {floor.zones.map((zone, zoneIdx) => (
+                                <div key={zoneIdx} className="flex">
+                                  {/* Zone block */}
+                                  <div
+                                    className="relative flex flex-col justify-center px-3 h-full"
+                                    style={{ flex: zone.area_m2, minWidth: '80px', backgroundColor: zone.color, color: zone.textColor }}
+                                  >
+                                    <span className="font-bold text-sm font-mono leading-tight">{zone.code}</span>
+                                    <span className="text-[10px] opacity-80 leading-tight">{zone.name}</span>
+                                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                                      <input
+                                        type="number"
+                                        value={zone.area_m2}
+                                        min={10}
+                                        onChange={(e) => updateZoneArea(floorIdx, zoneIdx, Number(e.target.value))}
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={areaInputStyle(true)}
+                                      />
+                                      <span style={{ fontSize: '10px', opacity: 0.8 }}>m²</span>
+                                      <span style={{ fontSize: '10px', opacity: 0.65 }}>
+                                        {Math.round((zone.area_m2 / totalArea) * 100)}%
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => removeZoneFromFloor(floorIdx, zoneIdx)}
+                                      className="absolute top-1 right-1 opacity-60 hover:opacity-100"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* In-floor separation divider */}
+                                  {zoneIdx < floor.zones.length - 1 && (() => {
+                                    const sep = getFireSeparation(zone.code, floor.zones[zoneIdx + 1].code);
+                                    return (
+                                      <div
+                                        className="flex items-center justify-center shrink-0 text-[9px] font-bold"
+                                        style={{ width: '28px', backgroundColor: sep.bgColor, color: sep.color, borderLeft: `2px solid ${sep.color}`, borderRight: `2px solid ${sep.color}` }}
+                                      >
+                                        <span style={{ writingMode: 'vertical-rl' }}>{sep.frr}</span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Split-floor button */}
+                            <button
+                              onClick={() => setSplitFloorIndex(splitFloorIndex === floorIdx ? null : floorIdx)}
+                              className="w-8 shrink-0 flex items-center justify-center border-l border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                              title="Add zone to this floor"
                             >
-                              <span>──── Fire Separation: {sep.frr} ────</span>
-                              <span className="text-[10px] opacity-70">{sep.nbcRef}</span>
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Split-floor zone picker */}
+                          {splitFloorIndex === floorIdx && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-muted/20 border-x border-b border-dashed border-border">
+                              <span className="text-[10px] text-muted-foreground shrink-0">Add to Floor {floorIdx + 1}:</span>
+                              <select
+                                className="flex-1 text-xs border rounded px-2 py-1 bg-background"
+                                defaultValue=""
+                                onChange={(e) => { if (e.target.value) addZoneToFloor(floorIdx, e.target.value); }}
+                              >
+                                <option value="" disabled>Pick occupancy…</option>
+                                {ALL_NBC_CODES.map(({ code, name }) => (
+                                  <option key={code} value={code}>{code} — {name}</option>
+                                ))}
+                              </select>
+                              <button
+                                className="text-[10px] text-muted-foreground hover:text-foreground"
+                                onClick={() => setSplitFloorIndex(null)}
+                              >
+                                Cancel
+                              </button>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    ))}
+                          )}
+
+                          {/* Between-floor separation */}
+                          {floorIdx < floors.length - 1 && (() => {
+                            const sep = getMaxFloorSeparation(floor.zones, floors[floorIdx + 1].zones);
+                            return (
+                              <div
+                                className="flex items-center gap-2 px-4 py-1 text-xs font-semibold border-y"
+                                style={{ backgroundColor: sep.bgColor, color: sep.color, borderColor: `${sep.color}40` }}
+                              >
+                                <span>──── Floor Separation: {sep.frr} ────</span>
+                                <span className="text-[10px] opacity-70">{sep.nbcRef}</span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
-                  /* Horizontal adjacent */
-                  <div className="flex h-48 rounded overflow-hidden">
-                    {stackZones.map((zone, i) => (
-                      <div
-                        key={i}
-                        className="flex shrink-0 transition-all"
-                        style={{ width: `${Math.max(80, (zone.area_m2 / totalArea) * 500)}px` }}
-                      >
+                  /* ── Horizontal: all zones flat, proportional flex widths ── */
+                  <div className="flex w-full overflow-hidden rounded" style={{ height: '200px' }}>
+                    {floors.flatMap((floor, floorIdx) =>
+                      floor.zones.map((zone, zoneIdx) => ({ zone, floorIdx, zoneIdx }))
+                    ).map(({ zone, floorIdx, zoneIdx }, flatIdx, arr) => (
+                      <div key={`${floorIdx}-${zoneIdx}`} className="flex" style={{ flex: zone.area_m2, minWidth: '60px' }}>
                         <div
                           className="flex flex-col items-center justify-center p-2 relative w-full"
                           style={{ backgroundColor: zone.color, color: zone.textColor }}
@@ -1072,13 +1127,9 @@ export function OccupancyAdvisor({
                                 type="number"
                                 value={zone.area_m2}
                                 min={10}
-                                onChange={(e) => updateZoneArea(i, Number(e.target.value))}
+                                onChange={(e) => updateZoneArea(floorIdx, zoneIdx, Number(e.target.value))}
                                 onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  width: '60px', fontSize: '11px', background: 'transparent',
-                                  border: '1px solid rgba(255,255,255,0.4)', color: 'inherit',
-                                  borderRadius: '4px', padding: '2px 4px', textAlign: 'center',
-                                }}
+                                style={areaInputStyle(true)}
                               />
                               <span style={{ fontSize: '10px', opacity: 0.8 }}>m²</span>
                             </div>
@@ -1087,18 +1138,20 @@ export function OccupancyAdvisor({
                             </span>
                           </div>
                           <button
-                            onClick={() => removeStackZone(i)}
+                            onClick={() => removeZoneFromFloor(floorIdx, zoneIdx)}
                             className="absolute top-1 right-1 opacity-70 hover:opacity-100"
                           >
                             <X className="w-3 h-3" />
                           </button>
                         </div>
-                        {i < stackZones.length - 1 && (() => {
-                          const sep = getFireSeparation(zone.code, stackZones[i + 1].code);
+                        {/* Separation divider between adjacent flat zones */}
+                        {flatIdx < arr.length - 1 && (() => {
+                          const nextEntry = arr[flatIdx + 1];
+                          const sep = getFireSeparation(zone.code, nextEntry.zone.code);
                           return (
                             <div
-                              className="flex items-center justify-center w-10 shrink-0 text-[10px] font-bold writing-mode-vertical"
-                              style={{ backgroundColor: sep.bgColor, color: sep.color, borderLeft: `3px solid ${sep.color}`, borderRight: `3px solid ${sep.color}` }}
+                              className="flex items-center justify-center shrink-0 text-[9px] font-bold"
+                              style={{ width: '28px', backgroundColor: sep.bgColor, color: sep.color, borderLeft: `3px solid ${sep.color}`, borderRight: `3px solid ${sep.color}` }}
                             >
                               <span style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{sep.frr}</span>
                             </div>
@@ -1111,27 +1164,21 @@ export function OccupancyAdvisor({
               </div>
 
               {/* Analysis panel */}
-              {stackZones.length > 0 && (
+              {allZones.length > 0 && (
                 <div className="space-y-3 rounded border border-border p-3 bg-muted/10">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Real-Time Analysis</p>
 
                   {/* Governing occupancy */}
                   {governingStackCode && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground shrink-0">Governing occupancy:</span>
                       <span
                         className="px-2 py-0.5 rounded text-xs font-bold font-mono border"
-                        style={governingVisual ? {
-                          backgroundColor: governingVisual.color,
-                          color: governingVisual.textColor,
-                          borderColor: governingVisual.color,
-                        } : {}}
+                        style={governingVisual ? { backgroundColor: governingVisual.color, color: governingVisual.textColor, borderColor: governingVisual.color } : {}}
                       >
                         {governingStackCode}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        (most restrictive — drives overall classification)
-                      </span>
+                      <span className="text-xs text-muted-foreground">(most restrictive)</span>
                     </div>
                   )}
 
@@ -1139,41 +1186,68 @@ export function OccupancyAdvisor({
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground shrink-0">Total building area:</span>
                     <span className="font-semibold">{(totalArea === 1 ? 0 : totalArea).toLocaleString()} m²</span>
+                    <span className="text-muted-foreground">across {floors.length} floor{floors.length !== 1 ? 's' : ''}, {allZones.length} zone{allZones.length !== 1 ? 's' : ''}</span>
                   </div>
 
-                  {/* Separation schedule */}
-                  {separationSchedule.length > 0 && (
+                  {/* Floor breakdown (vertical mode) */}
+                  {stackOrientation === 'vertical' && floors.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Floor Breakdown</p>
+                      <div className="space-y-0.5">
+                        {floors.map((floor, i) => {
+                          const floorArea = floor.zones.reduce((s, z) => s + z.area_m2, 0);
+                          return (
+                            <div key={floor.id} className="flex items-center gap-2 text-xs">
+                              <span className="text-muted-foreground w-20 shrink-0">{i === 0 ? 'Ground Floor' : `Level ${i + 1}`}</span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {floor.zones.map((z, zi) => {
+                                  const vis = OCCUPANCY_VISUAL_DATA[z.code];
+                                  return (
+                                    <span
+                                      key={zi}
+                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border"
+                                      style={vis ? { backgroundColor: vis.color, color: vis.textColor, borderColor: vis.color } : {}}
+                                    >
+                                      {z.code}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                              <span className="text-muted-foreground text-[10px]">{floorArea} m² ({Math.round((floorArea / totalArea) * 100)}%)</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Floor separation schedule */}
+                  {floorSepSchedule.length > 0 && (
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Separation Schedule</p>
                       <div className="rounded overflow-hidden border border-border text-xs">
-                        <div className="grid grid-cols-4 bg-muted/40 font-semibold">
+                        <div className="grid grid-cols-4 bg-muted/40 font-semibold text-[10px]">
                           <div className="px-2 py-1.5">Interface</div>
-                          <div className="px-2 py-1.5">Zone A (area)</div>
-                          <div className="px-2 py-1.5">Zone B (area)</div>
+                          <div className="px-2 py-1.5">Floor A zones</div>
+                          <div className="px-2 py-1.5">Floor B zones</div>
                           <div className="px-2 py-1.5">Required FRR</div>
                         </div>
-                        {separationSchedule.map((row, i) => (
-                          <div
-                            key={i}
-                            className="grid grid-cols-4 border-t border-border"
-                            style={{ backgroundColor: row.bgColor + '60' }}
-                          >
+                        {floorSepSchedule.map((row, i) => (
+                          <div key={i} className="grid grid-cols-4 border-t border-border text-[10px]" style={{ backgroundColor: `${row.bgColor}60` }}>
                             <div className="px-2 py-1.5 text-muted-foreground">{row.interfaceLabel}</div>
-                            <div className="px-2 py-1.5 font-mono font-bold" style={{ color: row.zoneA.color }}>
-                              {row.zoneA.code}
-                              <span className="ml-1 font-normal text-[10px] text-muted-foreground">
-                                {row.zoneA.area_m2} m²
-                              </span>
+                            <div className="px-2 py-1.5">
+                              {row.zonesA.map(z => (
+                                <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
+                              ))}
                             </div>
-                            <div className="px-2 py-1.5 font-mono font-bold" style={{ color: row.zoneB.color }}>
-                              {row.zoneB.code}
-                              <span className="ml-1 font-normal text-[10px] text-muted-foreground">
-                                {row.zoneB.area_m2} m²
-                              </span>
+                            <div className="px-2 py-1.5">
+                              {row.zonesB.map(z => (
+                                <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
+                              ))}
                             </div>
                             <div className="px-2 py-1.5 font-bold" style={{ color: row.color }}>
                               {row.frr}
-                              <span className="ml-1 font-normal text-[10px] text-muted-foreground">{row.nbcRef}</span>
+                              <span className="ml-1 font-normal text-[9px] text-muted-foreground">{row.nbcRef}</span>
                             </div>
                           </div>
                         ))}
@@ -1188,20 +1262,14 @@ export function OccupancyAdvisor({
                         <div
                           key={i}
                           className={`flex items-start gap-2 p-2 rounded text-xs border ${
-                            flag.severity === 'critical'
-                              ? 'bg-red-50 border-red-200 text-red-800'
-                              : flag.severity === 'warning'
-                              ? 'bg-amber-50 border-amber-200 text-amber-800'
-                              : 'bg-blue-50 border-blue-200 text-blue-800'
+                            flag.severity === 'critical' ? 'bg-red-50 border-red-200 text-red-800'
+                            : flag.severity === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-blue-50 border-blue-200 text-blue-800'
                           }`}
                         >
-                          {flag.severity === 'critical' ? (
-                            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                          ) : flag.severity === 'warning' ? (
-                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                          ) : (
-                            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                          )}
+                          {flag.severity === 'critical' ? <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            : flag.severity === 'warning' ? <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            : <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
                           <span>{flag.message}</span>
                         </div>
                       ))}
@@ -1225,7 +1293,7 @@ export function OccupancyAdvisor({
                     if (governingStackCode) setSelectedCode(governingStackCode);
                     setScreen(3);
                   }}
-                  disabled={stackZones.length === 0}
+                  disabled={floors.length === 0}
                 >
                   Confirm Arrangement →
                 </Button>
@@ -1237,7 +1305,6 @@ export function OccupancyAdvisor({
         {/* ── Screen 3: Professional Confirmation ── */}
         {screen === 3 && (
           <div className="space-y-4 mt-2">
-            {/* Selected occupancy display */}
             <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Selected Classification</p>
               <span className={`text-3xl font-bold px-4 py-2 rounded border-2 font-mono inline-block ${badgeClass(selectedCode)}`}>
@@ -1247,9 +1314,9 @@ export function OccupancyAdvisor({
                 {classifyResult?.candidates.find(c => c.code === selectedCode)?.name
                   ?? ALL_NBC_CODES.find(c => c.code === selectedCode)?.name}
               </p>
-              {isMixedUse && stackZones.length > 0 && (
+              {isMixedUse && allStackZones.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Governing occupancy from {stackZones.length}-zone mixed use stack
+                  Governing occupancy from {floors.length}-floor, {allStackZones.length}-zone mixed use stack
                 </p>
               )}
             </div>
@@ -1288,10 +1355,7 @@ export function OccupancyAdvisor({
               <Button variant="ghost" onClick={() => isMixedUse ? setScreen('stackPlanner') : setScreen(2)}>
                 ← Back
               </Button>
-              <Button
-                onClick={handleConfirm}
-                disabled={!confirmEnabled}
-              >
+              <Button onClick={handleConfirm} disabled={!confirmEnabled}>
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 Confirm Classification
               </Button>
