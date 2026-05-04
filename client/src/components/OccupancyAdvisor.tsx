@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import {
@@ -138,6 +138,16 @@ export function OccupancyAdvisor({
   const [checked1, setChecked1] = useState(false);
   const [checked2, setChecked2] = useState(false);
   const [checked3, setChecked3] = useState(false);
+
+  // Sync prop values into form state whenever the dialog opens or the target project changes.
+  // useState initial values only capture props at first mount, so re-sync is needed here.
+  useEffect(() => {
+    if (open) {
+      setEstimatedArea(initialArea?.toString() ?? "");
+      setStoreysStr(initialStoreys?.toString() ?? "");
+      setSelectedProvince(province ?? "");
+    }
+  }, [open, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
