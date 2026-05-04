@@ -296,6 +296,7 @@ export default function Projects() {
           if (!open) setAdvisorProjectId(null);
         }}
         projectId={advisorProject?.id}
+        projectName={advisorProject?.name}
         province={advisorProject?.province ?? undefined}
         initialArea={advisorProject?.grossFloorArea ? parseFloat(String(advisorProject.grossFloorArea)) : undefined}
         initialStoreys={advisorProject?.storeys ?? undefined}

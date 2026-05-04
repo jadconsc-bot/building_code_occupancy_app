@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,6 +100,7 @@ interface OccupancyAdvisorProps {
   initialArea?: number;
   initialStoreys?: number;
   projectId?: number;
+  projectName?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ export function OccupancyAdvisor({
   initialArea,
   initialStoreys,
   projectId,
+  projectName,
 }: OccupancyAdvisorProps) {
   const [screen, setScreen] = useState<1 | 2 | 3>(1);
 
@@ -295,6 +297,14 @@ export function OccupancyAdvisor({
             A licensed architect or engineer must confirm all occupancy classifications before use in permit submissions.
           </span>
         </div>
+
+        {/* Project name banner */}
+        {projectName && (
+          <div className="bg-blue-50 border border-blue-200 rounded px-4 py-2 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="text-sm font-medium text-blue-800">Classifying: {projectName}</span>
+          </div>
+        )}
 
         {/* ── Screen 1: Form ── */}
         {screen === 1 && (
@@ -521,6 +531,11 @@ export function OccupancyAdvisor({
               </div>
             ) : (
               <>
+                {/* Screen 2 sub-header */}
+                {projectName && (
+                  <p className="text-sm font-semibold text-gray-700">Results for {projectName}</p>
+                )}
+
                 {/* AI model attribution */}
                 {classifyResult?.modelVersion && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -702,6 +717,10 @@ export function OccupancyAdvisor({
                 {classifyResult?.candidates.find(c => c.code === selectedCode)?.name}
               </p>
             </div>
+
+            {projectName && (
+              <p className="text-sm font-semibold text-gray-700">Confirm classification for {projectName}</p>
+            )}
 
             <div className="rounded-lg border border-border p-4 bg-muted/20 space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Professional Confirmation Required</p>
