@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { useProject } from "@/contexts/ProjectContext";
+import { Badge } from "@/components/ui/badge";
 
 interface ProjectTabViewProps {
   readonly projectId: string;
@@ -182,6 +183,52 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
           >
             {badge.label}
           </span>
+        </div>
+
+        {/* Project Credentials */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {project.codeEdition && (
+            <Badge variant="outline" className="text-xs">
+              📋 {project.codeEdition}
+            </Badge>
+          )}
+          {project.part3Determination && (
+            <Badge variant="outline" className="text-xs">
+              🏗️ {project.part3Determination}
+            </Badge>
+          )}
+          {project.constructionType && (
+            <Badge variant="outline" className="text-xs">
+              🧱 {project.constructionType === 'combustible' ? 'Combustible' :
+                  project.constructionType === 'non_combustible' ? 'Non-Combustible' :
+                  project.constructionType}
+            </Badge>
+          )}
+          {project.sprinklersRequired === 1 && (
+            <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+              🚿 Sprinklers Required
+            </Badge>
+          )}
+          {project.sprinklersRequired === 0 && (
+            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+              ✓ Sprinklers Not Required
+            </Badge>
+          )}
+          {project.zoningCategory && (
+            <Badge variant="outline" className="text-xs">
+              🏘️ {project.zoningCategory}
+            </Badge>
+          )}
+          {project.storeys && (
+            <Badge variant="outline" className="text-xs">
+              📐 {project.storeys} {project.storeys === 1 ? 'Storey' : 'Storeys'}
+            </Badge>
+          )}
+          {project.buildingHeight && (
+            <Badge variant="outline" className="text-xs">
+              📏 {parseFloat(project.buildingHeight as string).toFixed(1)}m height
+            </Badge>
+          )}
         </div>
       </div>
 

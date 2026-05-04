@@ -5,7 +5,7 @@
  * Shows side-by-side results with differences highlighted
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,7 @@ const DEFAULT_BASE_CASE: Omit<Scenario, 'id' | 'name'> = {
 };
 
 export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
+  projectId,
   onCalculate,
   onExport,
   results = {},
@@ -73,14 +74,27 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
     },
   ]);
 
+  const initializedRef = useRef(false);
+
   useEffect(() => {
     if (!initialScenario) return;
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     setScenarios(prev => prev.map(s =>
-      s.id === '1'
-        ? { ...s, occupancy: initialScenario.occupancy, area_m2: initialScenario.area_m2, storeys: initialScenario.storeys, construction_type: initialScenario.construction_type, sprinklers: initialScenario.sprinklers }
-        : s
+      s.id === '1' ? {
+        ...s,
+        occupancy: initialScenario.occupancy ?? s.occupancy,
+        area_m2: initialScenario.area_m2 ?? s.area_m2,
+        storeys: initialScenario.storeys ?? s.storeys,
+        construction_type: initialScenario.construction_type ?? s.construction_type,
+        sprinklers: initialScenario.sprinklers ?? s.sprinklers,
+      } : s
     ));
-  }, [initialScenario?.occupancy, initialScenario?.area_m2, initialScenario?.storeys]);
+  }, [initialScenario]);
+
+  useEffect(() => {
+    initializedRef.current = false;
+  }, [projectId]);
 
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set(['1']));
   const [editingId, setEditingId] = useState<string | null>(null);
