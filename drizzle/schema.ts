@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint, json, char } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -17,6 +17,8 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["free", "basic", "professional", "rule_editor", "admin"]).notNull().default("free"),
+  organization: varchar("organization", { length: 200 }),
+  userRole: mysqlEnum("userRole", ["builder", "architect", "engineer", "admin"]).default("builder"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -107,6 +109,9 @@ export const projects = mysqlTable("projects", {
   sprinklersRequired: tinyint("sprinklersRequired"),
   part3Determination: varchar("part3Determination", { length: 20 }),
   codeEdition: varchar("codeEdition", { length: 20 }),
+  lat: decimal("lat", { precision: 10, scale: 7 }),
+  lng: decimal("lng", { precision: 10, scale: 7 }),
+  jurisdictionProfileId: int("jurisdictionProfileId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -793,6 +798,10 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   validatedByUserId: int("validatedByUserId"),
   validatedByLicenseNumber: varchar("validatedByLicenseNumber", { length: 100 }),
   validatedByAssociation: varchar("validatedByAssociation", { length: 100 }),
+  fileUrl: varchar("fileUrl", { length: 500 }),
+  fileType: mysqlEnum("fileType", ["pdf", "dwg", "png", "jpeg"]),
+  pageCount: int("pageCount").default(1),
+  uploadStatus: mysqlEnum("uploadStatus", ["pending", "processing", "complete", "error"]).default("complete"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1166,3 +1175,144 @@ export const professionalSeals = mysqlTable("professionalSeals", {
 
 export type ProfessionalSeal = typeof professionalSeals.$inferSelect;
 export type InsertProfessionalSeal = typeof professionalSeals.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 Tables
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Drawing Pages - individual pages extracted from a multi-page drawing upload
+ */
+export const drawingPages = mysqlTable("drawingPages", {
+  id: int("id").autoincrement().primaryKey(),
+  drawingId: int("drawingId").notNull(),
+  pageNumber: int("pageNumber").notNull(),
+  widthPx: int("widthPx").notNull(),
+  heightPx: int("heightPx").notNull(),
+  preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DrawingPage = typeof drawingPages.$inferSelect;
+export type InsertDrawingPage = typeof drawingPages.$inferInsert;
+
+/**
+ * Detected Rooms - rooms identified by the AI on a drawing page
+ */
+export const detectedRooms = mysqlTable("detectedRooms", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),
+  projectId: int("projectId").notNull(),
+  roomLabel: varchar("roomLabel", { length: 100 }),
+  boundingBoxJson: json("boundingBoxJson").notNull(),
+  areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+  occupancyGroup: char("occupancyGroup", { length: 1 }),
+  occupancyDivision: int("occupancyDivision"),
+  flaggedForReview: tinyint("flaggedForReview").default(0),
+  manualOverride: tinyint("manualOverride").default(0),
+  correctedBy: int("correctedBy"),
+  correctedAt: timestamp("correctedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DetectedRoom = typeof detectedRooms.$inferSelect;
+export type InsertDetectedRoom = typeof detectedRooms.$inferInsert;
+
+/**
+ * Detected Features - architectural features (doors, windows, walls) within a room
+ */
+export const detectedFeatures = mysqlTable("detectedFeatures", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  featureType: varchar("featureType", { length: 50 }).notNull(),
+  positionJson: json("positionJson").notNull(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+  metadataJson: json("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DetectedFeature = typeof detectedFeatures.$inferSelect;
+export type InsertDetectedFeature = typeof detectedFeatures.$inferInsert;
+
+/**
+ * Occupancy Classifications - reference table of NBC occupancy groups and divisions
+ */
+export const occupancyClassifications = mysqlTable("occupancyClassifications", {
+  id: int("id").autoincrement().primaryKey(),
+  groupCode: char("groupCode", { length: 1 }).notNull(),
+  division: int("division"),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  nbcReference: varchar("nbcReference", { length: 50 }),
+  fireResistanceText: text("fireResistanceText"),
+  sprinklersText: text("sprinklersText"),
+  occupantLoadText: text("occupantLoadText"),
+  exitsText: text("exitsText"),
+  constructionText: text("constructionText"),
+  isActive: tinyint("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OccupancyClassification = typeof occupancyClassifications.$inferSelect;
+export type InsertOccupancyClassification = typeof occupancyClassifications.$inferInsert;
+
+/**
+ * Compliance Results - per-rule pass/fail outcomes for a project or room
+ */
+export const complianceResults = mysqlTable("complianceResults", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  roomId: int("roomId"),
+  ruleReference: varchar("ruleReference", { length: 50 }).notNull(),
+  ruleCategory: varchar("ruleCategory", { length: 50 }).notNull(),
+  ruleText: text("ruleText").notNull(),
+  status: mysqlEnum("status", ["pass", "fail", "warning", "not_applicable"]).notNull(),
+  actualValue: varchar("actualValue", { length: 100 }),
+  requiredValue: varchar("requiredValue", { length: 100 }),
+  remediationSuggestion: text("remediationSuggestion"),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+  checkedAt: timestamp("checkedAt").defaultNow().notNull(),
+});
+
+export type ComplianceResult = typeof complianceResults.$inferSelect;
+export type InsertComplianceResult = typeof complianceResults.$inferInsert;
+
+/**
+ * Collaboration Comments - pin-based comments on drawing pages
+ */
+export const collaborationComments = mysqlTable("collaborationComments", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  drawingPageId: int("drawingPageId"),
+  pinX: int("pinX"),
+  pinY: int("pinY"),
+  commentText: text("commentText").notNull(),
+  resolved: tinyint("resolved").default(0),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CollaborationComment = typeof collaborationComments.$inferSelect;
+export type InsertCollaborationComment = typeof collaborationComments.$inferInsert;
+
+/**
+ * Code Rules - deterministic compliance rules tied to jurisdiction and occupancy
+ */
+export const codeRules = mysqlTable("codeRules", {
+  id: int("id").autoincrement().primaryKey(),
+  jurisdictionProfileId: int("jurisdictionProfileId"),
+  occupancyClassificationId: int("occupancyClassificationId"),
+  ruleCategory: varchar("ruleCategory", { length: 50 }).notNull(),
+  ruleText: text("ruleText").notNull(),
+  thresholdValue: decimal("thresholdValue", { precision: 10, scale: 2 }),
+  thresholdUnit: varchar("thresholdUnit", { length: 20 }),
+  nbcSection: varchar("nbcSection", { length: 50 }),
+  isActive: tinyint("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CodeRule = typeof codeRules.$inferSelect;
+export type InsertCodeRule = typeof codeRules.$inferInsert;
