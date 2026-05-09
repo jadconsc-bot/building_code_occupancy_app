@@ -1,9 +1,11 @@
 /**
  * Deterministic Compliance Engine
- * 
+ *
  * Evaluates building code compliance based on versioned, immutable rulesets.
  * Produces reproducible results with full traceability for legal defensibility.
  */
+
+import { Constraints } from './engine/constraints';
 
 export interface Rule {
   rule_id: string;
@@ -100,16 +102,29 @@ export class ComplianceEvaluator {
     }
 
     // Populate standard derived outputs
+    const cf = Constraints.occupant_load.factors;
     const loadFactors: Record<string, number> = {
-      A: 1.0, B: 4.6, C: 25.0, D: 9.3, E: 3.7, F: 30, "F-1": 30, "F-2": 30, "F-3": 30,
+      A: cf['A'].value as number,
+      B: cf['B'].value as number,
+      C: cf['C'].value as number,
+      D: cf['D'].value as number,
+      E: cf['E'].value as number,
+      F:    cf['F'].value as number,
+      'F-1': cf['F'].value as number,
+      'F-2': cf['F'].value as number,
+      'F-3': cf['F'].value as number,
     };
     if (inputs.area_m2 && inputs.occupancy_major) {
-      const factor = loadFactors[inputs.occupancy_major] ?? 9.3;
+      const factor = loadFactors[inputs.occupancy_major] ?? (cf['D'].value as number);
       const occupantLoad = Math.ceil(Number(inputs.area_m2) / factor);
       outputs.occupant_load = occupantLoad;
-      outputs.exits_required = occupantLoad <= 60 ? 1 : occupantLoad <= 600 ? 2 : 3;
+      const low  = Constraints.egress.exit_count.threshold_low.value as number;
+      const mid  = Constraints.egress.exit_count.threshold_mid.value as number;
+      outputs.exits_required = occupantLoad <= low ? 1 : occupantLoad <= mid ? 2 : 3;
     }
-    outputs.travel_distance_max = 40;
+    outputs.travel_distance_max = inputs.sprinklers
+      ? Constraints.egress.travel_distance.sprinklered.value
+      : Constraints.egress.travel_distance.unsprinklered.value;
     if (inputs.occupancy_major && inputs.construction_type) {
       const nonCombustibleValues = ["non_combustible", "Non-Combustible", "fire_resistant", "Fire-Resistant"];
       const isNonCombustible = nonCombustibleValues.includes(inputs.construction_type);
