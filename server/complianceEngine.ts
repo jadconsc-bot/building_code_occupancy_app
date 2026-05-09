@@ -6,6 +6,7 @@
  */
 
 import { Constraints } from './engine/constraints';
+import { ComplianceTrace, buildFederalTrace, computeMargin } from './engine/types/trace';
 
 export interface Rule {
   rule_id: string;
@@ -56,6 +57,7 @@ export interface ComplianceResult {
   outputs: ComplianceOutput;
   rule_trace: RuleTrace[];
   compliance_flags: { [key: string]: boolean };
+  traces: ComplianceTrace[];
   mode: "strict" | "soft";
   timestamp: string;
 }
@@ -145,10 +147,141 @@ export class ComplianceEvaluator {
     const anyFail = Object.values(complianceFlags).some((f) => f === false);
     outputs.compliance_status = allPass ? "pass" : anyFail ? "fail" : "conditional";
 
+    // ── Trace generation ─────────────────────────────────────────────────────
+    const traces: ComplianceTrace[] = [];
+
+    // 1. Area check
+    const areaLimit = Constraints.building_limits.part9_threshold.max_area.value as number;
+    const areaActual = inputs.area_m2 ?? 0;
+    const areaPass = complianceFlags["area_ok"];
+    {
+      const { margin, marginPercent } = computeMargin(areaActual, areaLimit);
+      traces.push(buildFederalTrace({
+        result: areaPass ? 'pass' : 'fail',
+        rule: Constraints.building_limits.part9_threshold.max_area.ref,
+        constraintId: 'building_limits.part9_threshold.max_area',
+        severity: areaPass ? 'info' : 'high',
+        evaluatedInputs: {
+          actual: areaActual,
+          required: areaLimit,
+          unit: 'm²',
+          margin,
+          marginPercent,
+        },
+        reasoning: areaPass
+          ? `Floor area of ${areaActual} m² is within the Part 9 limit of ${areaLimit} m².`
+          : `Floor area of ${areaActual} m² exceeds the Part 9 limit of ${areaLimit} m². Part 3 applies.`,
+        recommendations: areaPass ? [] : ['Review Part 3 requirements for this building.'],
+      }));
+    }
+
+    // 2. Sprinklers check
+    const sprinklersRequired = outputs.sprinklers_required === true;
+    const sprinklersProvided = inputs.sprinklers === true;
+    const sprinklersPass = complianceFlags["sprinklers_ok"];
+    traces.push(buildFederalTrace({
+      result: sprinklersPass ? 'pass' : 'fail',
+      rule: 'NBC 3.2.5.2.(1)',
+      constraintId: 'sprinklers.required_occupancies',
+      severity: sprinklersPass ? 'info' : 'critical',
+      evaluatedInputs: {
+        actual: sprinklersProvided ? 'yes' : 'no',
+        required: sprinklersRequired ? 'yes' : 'no',
+        unit: 'boolean',
+      },
+      reasoning: sprinklersPass
+        ? sprinklersRequired
+          ? 'Sprinkler system required and provided.'
+          : 'Sprinkler system not required for this occupancy.'
+        : `Sprinkler system is required for occupancy group ${inputs.occupancy_major} but has not been provided.`,
+      recommendations: sprinklersPass ? [] : ['Install an automatic sprinkler system throughout.'],
+    }));
+
+    // 3. Fire alarm check
+    const fireAlarmRequired = outputs.fire_alarm_required === true;
+    const fireAlarmProvided = inputs.fire_alarm === true;
+    const fireAlarmPass = complianceFlags["fire_alarm_ok"];
+    traces.push(buildFederalTrace({
+      result: fireAlarmPass ? 'pass' : 'fail',
+      rule: 'NBC 3.2.4.7.(1)',
+      constraintId: 'fire.alarm_required',
+      severity: fireAlarmPass ? 'info' : 'critical',
+      evaluatedInputs: {
+        actual: fireAlarmProvided ? 'yes' : 'no',
+        required: fireAlarmRequired ? 'yes' : 'no',
+        unit: 'boolean',
+      },
+      reasoning: fireAlarmPass
+        ? fireAlarmRequired
+          ? 'Fire alarm system required and provided.'
+          : 'Fire alarm system not required for this occupancy and size.'
+        : 'Fire alarm system is required but has not been provided.',
+      recommendations: fireAlarmPass ? [] : ['Install a fire alarm system conforming to NBC 3.2.4.'],
+    }));
+
+    // 4. Exits check
+    const exitsRequired = typeof outputs.exits_required === 'number' ? outputs.exits_required : 1;
+    const exitsProvided = inputs.exits ?? 0;
+    const exitsPass = complianceFlags["exits_ok"];
+    {
+      const { margin, marginPercent } = computeMargin(exitsProvided, exitsRequired);
+      traces.push(buildFederalTrace({
+        result: exitsPass ? 'pass' : 'fail',
+        rule: Constraints.egress.exit_count.threshold_low.ref,
+        constraintId: 'egress.exit_count',
+        severity: exitsPass ? 'info' : 'high',
+        evaluatedInputs: {
+          actual: exitsProvided,
+          required: exitsRequired,
+          unit: 'exits',
+          margin,
+          marginPercent,
+        },
+        reasoning: exitsPass
+          ? `${exitsProvided} exit(s) provided meets the minimum of ${exitsRequired} for the calculated occupant load.`
+          : `${exitsProvided} exit(s) provided is fewer than the required ${exitsRequired} for the calculated occupant load of ${outputs.occupant_load ?? '?'} persons.`,
+        recommendations: exitsPass ? [] : [`Add ${exitsRequired - exitsProvided} additional exit(s) conforming to NBC 3.4.2.`],
+      }));
+    }
+
+    // 5. Travel distance check
+    const travelMax = outputs.travel_distance_max as number;
+    const travelActual = inputs.travel_distance_m ?? 0;
+    const travelPass = complianceFlags["travel_distance_ok"];
+    {
+      const { margin, marginPercent } = computeMargin(travelActual, travelMax);
+      const ref = inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.ref
+        : Constraints.egress.travel_distance.unsprinklered.ref;
+      traces.push(buildFederalTrace({
+        result: travelPass ? 'pass' : 'fail',
+        rule: ref,
+        constraintId: inputs.sprinklers
+          ? 'egress.travel_distance.sprinklered'
+          : 'egress.travel_distance.unsprinklered',
+        severity: travelPass ? 'info' : 'high',
+        evaluatedInputs: {
+          actual: travelActual,
+          required: travelMax,
+          unit: 'm',
+          margin: -margin,         // positive = headroom (actual < required is good here)
+          marginPercent: -marginPercent,
+        },
+        reasoning: travelPass
+          ? `Travel distance of ${travelActual} m is within the ${inputs.sprinklers ? 'sprinklered' : 'unsprinklered'} limit of ${travelMax} m.`
+          : `Travel distance of ${travelActual} m exceeds the ${inputs.sprinklers ? 'sprinklered' : 'unsprinklered'} limit of ${travelMax} m (ref ${ref}).`,
+        recommendations: travelPass ? [] : [
+          'Redesign egress paths to reduce travel distance.',
+          inputs.sprinklers ? '' : 'Installing sprinklers increases the limit to 45 m.',
+        ].filter(Boolean),
+      }));
+    }
+
     return {
       outputs,
       rule_trace: ruleTrace,
       compliance_flags: complianceFlags,
+      traces,
       mode: this.mode,
       timestamp: new Date().toISOString(),
     };
