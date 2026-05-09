@@ -9,7 +9,7 @@ export interface EvaluatedInputs {
 export interface OverrideChainEntry {
   layer: 'federal' | 'provincial' | 'municipal' | 'project';
   source: string | null;  // e.g. "NBC 2023", "City of Calgary Bylaw 123"
-  value: number | string | null;
+  value: number | string | boolean | null;
   applied: boolean;       // was this layer's value the one used?
 }
 
@@ -42,12 +42,12 @@ export interface ComplianceTrace {
   confidence?: number;          // 0-1, for AI-assisted evaluations only
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
 /** Compute margin between actual and required values. */
 export function computeMargin(
   actual: number,
-  required: number
+  required: number,
 ): { margin: number; marginPercent: number } {
   const margin = actual - required;
   const marginPercent = required !== 0 ? (margin / required) * 100 : 0;
@@ -57,7 +57,28 @@ export function computeMargin(
   };
 }
 
-/** Build a minimal federal-layer trace (no provincial/municipal overrides). */
+/** Build a trace with full jurisdiction/source/override-chain control. */
+export function buildTrace(params: {
+  result: ComplianceStatus;
+  rule: string;
+  jurisdiction: string;
+  source: string;
+  reasoning: string;
+  evaluatedInputs: EvaluatedInputs;
+  severity: Severity;
+  constraintId: string;
+  overrideChain: OverrideChainEntry[];
+  evaluationPath?: string[];
+  recommendations?: string[];
+  confidence?: number;
+}): ComplianceTrace {
+  return {
+    ...params,
+    evaluationTimestamp: new Date().toISOString(),
+  };
+}
+
+/** Convenience wrapper for federal-only traces (no provincial/municipal overrides). */
 export function buildFederalTrace(params: {
   result: ComplianceStatus;
   rule: string;
@@ -67,16 +88,15 @@ export function buildFederalTrace(params: {
   constraintId: string;
   recommendations?: string[];
 }): ComplianceTrace {
-  return {
+  return buildTrace({
     ...params,
     jurisdiction: 'Federal',
     source: 'NBC 2020',
-    evaluationTimestamp: new Date().toISOString(),
     overrideChain: [
-      { layer: 'federal',     source: 'NBC 2020', value: params.evaluatedInputs.required, applied: true },
-      { layer: 'provincial',  source: null,        value: null,                            applied: false },
-      { layer: 'municipal',   source: null,        value: null,                            applied: false },
-      { layer: 'project',     source: null,        value: null,                            applied: false },
+      { layer: 'federal',    source: 'NBC 2020', value: params.evaluatedInputs.required, applied: true },
+      { layer: 'provincial', source: null,        value: null,                            applied: false },
+      { layer: 'municipal',  source: null,        value: null,                            applied: false },
+      { layer: 'project',    source: null,        value: null,                            applied: false },
     ],
-  };
+  });
 }

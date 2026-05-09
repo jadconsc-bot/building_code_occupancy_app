@@ -1,26 +1,60 @@
 import { Constraints } from '../constraints';
-import { ComplianceTrace, buildFederalTrace, computeMargin } from '../types/trace';
+import { ComplianceTrace, OverrideChainEntry, buildFederalTrace, buildTrace, computeMargin } from '../types/trace';
 import type { ComplianceInput } from '../types/context';
+import type { ResolvedRule } from '../RuleResolver';
 
-export function evaluateTravelDistance(inputs: ComplianceInput): ComplianceTrace {
-  const maxTravel = inputs.sprinklers
+export function evaluateTravelDistance(
+  inputs: ComplianceInput,
+  resolvedRule?: ResolvedRule,
+): ComplianceTrace {
+  const sprinklered = !!inputs.sprinklers;
+  const constraintId = sprinklered
+    ? 'egress.travel_distance.sprinklered'
+    : 'egress.travel_distance.unsprinklered';
+  const federalRef = sprinklered
+    ? Constraints.egress.travel_distance.sprinklered.ref
+    : Constraints.egress.travel_distance.unsprinklered.ref;
+  const federalMax = sprinklered
     ? Constraints.egress.travel_distance.sprinklered.value as number
     : Constraints.egress.travel_distance.unsprinklered.value as number;
 
-  const constraintId = inputs.sprinklers
-    ? 'egress.travel_distance.sprinklered'
-    : 'egress.travel_distance.unsprinklered';
+  const ref          = resolvedRule?.ref ?? federalRef;
+  const jurisdiction = resolvedRule
+    ? (resolvedRule.layer === 'provincial' ? 'Provincial' : 'Federal')
+    : 'Federal';
+  const source       = resolvedRule?.source ?? 'NBC 2020 Federal';
+  const overrideChain: OverrideChainEntry[] = (resolvedRule?.overrideChain as OverrideChainEntry[] | undefined) ?? [
+    { layer: 'federal',    source: 'NBC 2020', value: federalMax, applied: true },
+    { layer: 'provincial', source: null,        value: null,       applied: false },
+    { layer: 'municipal',  source: null,        value: null,       applied: false },
+    { layer: 'project',    source: null,        value: null,       applied: false },
+  ];
 
-  const ref = inputs.sprinklers
-    ? Constraints.egress.travel_distance.sprinklered.ref
-    : Constraints.egress.travel_distance.unsprinklered.ref;
+  // Provincial amendment removed this rule
+  if (resolvedRule && (resolvedRule.value === 'not_applicable' || resolvedRule.value === 'removed')) {
+    return buildTrace({
+      result: 'not_applicable',
+      rule: ref,
+      jurisdiction,
+      source,
+      reasoning: 'Travel distance requirement removed by provincial amendment',
+      evaluatedInputs: { actual: inputs.travel_distance_m ?? 0, required: 0, unit: 'm' },
+      severity: 'info',
+      constraintId,
+      overrideChain,
+      recommendations: [],
+    });
+  }
 
-  const actual = inputs.travel_distance_m ?? 0;
-  const pass = actual <= maxTravel;
+  const maxTravel = resolvedRule ? Number(resolvedRule.value) : federalMax;
+  const actual    = inputs.travel_distance_m ?? 0;
+  const pass      = actual <= maxTravel;
 
-  return buildFederalTrace({
+  return buildTrace({
     result: pass ? 'pass' : 'fail',
     rule: ref,
+    jurisdiction,
+    source,
     reasoning: pass
       ? `Travel distance ${actual}m is within the ${maxTravel}m limit`
       : `Travel distance ${actual}m exceeds the ${maxTravel}m maximum`,
@@ -32,6 +66,7 @@ export function evaluateTravelDistance(inputs: ComplianceInput): ComplianceTrace
     },
     severity: pass ? 'info' : 'high',
     constraintId,
+    overrideChain,
     recommendations: pass ? [] : [
       'Add an additional exit to reduce travel distance',
       'Install sprinkler system to increase maximum travel distance to 45m',
@@ -90,7 +125,7 @@ export function evaluateExitWidth(inputs: ComplianceInput): ComplianceTrace {
   }
 
   const actual = inputs.exit_width_mm;
-  const pass = actual >= required;
+  const pass   = actual >= required;
 
   return buildFederalTrace({
     result: pass ? 'pass' : 'fail',

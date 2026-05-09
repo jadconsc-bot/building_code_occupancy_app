@@ -12,6 +12,7 @@ import { ComplianceTrace, buildFederalTrace, computeMargin } from './engine/type
 import { evaluateTravelDistance, evaluateExitCount, evaluateExitWidth } from './engine/rules/egress';
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from './engine/rules/fire';
 import { evaluateOccupantLoad } from './engine/rules/occupancy';
+import { ruleResolver } from './engine/RuleResolver';
 
 export type { ComplianceInput, EvaluationContext } from './engine/types/context';
 import type { ComplianceInput } from './engine/types/context';
@@ -74,7 +75,7 @@ export class ComplianceEvaluator {
    * Evaluate compliance for given inputs
    * Returns deterministic results with full rule trace
    */
-  evaluate(inputs: ComplianceInput): ComplianceResult {
+  async evaluate(inputs: ComplianceInput): Promise<ComplianceResult> {
     const outputs: ComplianceOutput = {};
     const ruleTrace: RuleTrace[] = [];
     const complianceFlags: { [key: string]: boolean } = {};
@@ -126,7 +127,27 @@ export class ComplianceEvaluator {
 
     // ── Rule evaluations ─────────────────────────────────────────────────────
 
-    const travelDistanceTrace = evaluateTravelDistance(inputs);
+    const travelDistanceRule = await ruleResolver.resolveConstraint(
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.ref
+        : Constraints.egress.travel_distance.unsprinklered.ref,
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.value as number
+        : Constraints.egress.travel_distance.unsprinklered.value as number,
+      'm',
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.ref
+        : Constraints.egress.travel_distance.unsprinklered.ref,
+      {
+        inputs,
+        jurisdiction: {
+          province: inputs.province ?? 'AB',
+          codeEdition: 'NBC 2020',
+        },
+        mode: this.mode,
+      },
+    );
+    const travelDistanceTrace = evaluateTravelDistance(inputs, travelDistanceRule);
     const sprinklersTrace     = evaluateSprinklerRequirement(inputs);
     const fireAlarmTrace      = evaluateFireAlarm(inputs);
     const exitWidthTrace      = evaluateExitWidth(inputs);
