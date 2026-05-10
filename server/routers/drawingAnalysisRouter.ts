@@ -31,6 +31,8 @@ import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
 import { evaluateCompliance, RULE_ENGINE_VERSION } from "../services/drawingComplianceEngine";
 import { storagePut } from "../storage";
+import { preprocessDocument } from "../services/documentPreprocessingService";
+import { queuePageAnalysis } from "../services/analysisQueue";
 import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
 
@@ -190,7 +192,7 @@ export const drawingAnalysisRouter = router({
     .input(z.object({
       projectId: z.number().int().positive(),
       imageBase64: z.string().min(1),
-      mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+      mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]),
       fileName: z.string().min(1).max(255),
       analysisType: z.enum(["structural", "fire-safety", "connections", "comprehensive"]),
       analysisQuality: z.enum(["fast", "standard", "detailed"]).default("standard"),
@@ -294,6 +296,31 @@ export const drawingAnalysisRouter = router({
       });
 
       // ======================================================================
+      // PDF PRE-PROCESSING: rasterize pages, upload, record drawingPages rows
+      // ======================================================================
+
+      let page1Base64 = input.imageBase64;
+      let page1MimeType: string = input.mimeType;
+      let pageCount = 1;
+
+      if (input.mimeType === "application/pdf") {
+        try {
+          const preprocessed = await preprocessDocument(analysisId, ctx.user.id, imageBuffer);
+          pageCount = preprocessed.pageCount;
+          if (preprocessed.pages.length > 0) {
+            page1Base64 = preprocessed.pages[0].base64;
+            page1MimeType = preprocessed.pages[0].mimeType;
+          }
+        } catch (err) {
+          console.error("[DrawingAnalysis] PDF preprocessing failed:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "PDF preprocessing failed. Please ensure the file is a valid, non-encrypted PDF.",
+          });
+        }
+      }
+
+      // ======================================================================
       // STAGE 1: LLM Extraction (PD2.0 §4.1 — extractor ONLY)
       // ======================================================================
 
@@ -318,13 +345,13 @@ export const drawingAnalysisRouter = router({
       let extractionResult;
       let modelVersion = "unknown";
       try {
-        const extracted = await extractDrawingData(
-          input.imageBase64,
-          input.mimeType,
+        const extracted = await queuePageAnalysis(() => extractDrawingData(
+          page1Base64,
+          page1MimeType,
           input.analysisType,
           input.analysisQuality,
           projectContext,
-        );
+        ));
         extractionResult = extracted.data;
         modelVersion = extracted.modelVersion;
 
@@ -469,6 +496,7 @@ export const drawingAnalysisRouter = router({
         disclaimerVersion: CURRENT_DISCLAIMER_VERSION,
         llmModelVersion: modelVersion,
         ruleEngineVersion: RULE_ENGINE_VERSION,
+        pageCount,
         complianceScore: engineOutput.complianceScore,
         complianceLevel: engineOutput.complianceLevel,
         ruleEvaluations: engineOutput.ruleEvaluations,
