@@ -13,8 +13,15 @@ import { evaluateTravelDistance, evaluateExitCount, evaluateExitWidth } from './
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from './engine/rules/fire';
 import { evaluateOccupantLoad } from './engine/rules/occupancy';
 import { ruleResolver } from './engine/RuleResolver';
+import {
+  EvaluationResult,
+  calculateComplianceScore,
+  buildSummary,
+  deriveStatus,
+} from './engine/EvaluationContract';
 
 export type { ComplianceInput, EvaluationContext } from './engine/types/context';
+export type { EvaluationResult } from './engine/EvaluationContract';
 import type { ComplianceInput } from './engine/types/context';
 
 export interface Rule {
@@ -75,7 +82,7 @@ export class ComplianceEvaluator {
    * Evaluate compliance for given inputs
    * Returns deterministic results with full rule trace
    */
-  async evaluate(inputs: ComplianceInput): Promise<ComplianceResult> {
+  async evaluate(inputs: ComplianceInput): Promise<EvaluationResult> {
     const outputs: ComplianceOutput = {};
     const ruleTrace: RuleTrace[] = [];
     const complianceFlags: { [key: string]: boolean } = {};
@@ -198,12 +205,21 @@ export class ComplianceEvaluator {
     ];
 
     return {
-      outputs,
-      rule_trace: ruleTrace,
-      compliance_flags: complianceFlags,
+      complianceStatus: deriveStatus(traces, this.mode),
+      overallScore: calculateComplianceScore(traces),
       traces,
-      mode: this.mode,
-      timestamp: new Date().toISOString(),
+      outputs: {
+        occupant_load:           (outputs.occupant_load          as number)  ?? 0,
+        exits_required:          (outputs.exits_required         as number)  ?? 0,
+        travel_distance_max:     (outputs.travel_distance_max    as number)  ?? 0,
+        fire_resistance_rating:  (outputs.fire_resistance_rating as string)  ?? '',
+        compliance_status:       (outputs.compliance_status      as string)  ?? 'conditional',
+        sprinklers_required:     (outputs.sprinklers_required    as boolean) ?? false,
+      },
+      summary: buildSummary(traces),
+      evaluatedAt: new Date().toISOString(),
+      engineVersion: '1.0',
+      jurisdictionApplied: travelDistanceRule.source,
     };
   }
 
