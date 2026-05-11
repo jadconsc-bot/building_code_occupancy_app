@@ -26,6 +26,9 @@ import {
   complianceAuditTrail,
   disclaimerAcknowledgments,
   projects,
+  drawingPages,
+  detectedRooms,
+  detectedFeatures,
 } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
@@ -33,8 +36,12 @@ import { evaluateCompliance, RULE_ENGINE_VERSION } from "../services/drawingComp
 import { storagePut } from "../storage";
 import { preprocessDocument } from "../services/documentPreprocessingService";
 import { queuePageAnalysis } from "../services/analysisQueue";
+import { detectRoomsFromPage } from "../engine/spatial/roomDetectionService";
 import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
+
+/** Feature flag: enables multi-page PDF preprocessing. Off by default to protect prod. */
+const MULTI_PAGE_ENABLED = process.env.MULTI_PAGE_PDF === 'true';
 
 /** Current disclaimer version — increment when disclaimer text changes (PD2.0 §8.1) */
 export const CURRENT_DISCLAIMER_VERSION = "2.0";
@@ -296,20 +303,31 @@ export const drawingAnalysisRouter = router({
       });
 
       // ======================================================================
-      // PDF PRE-PROCESSING: rasterize pages, upload, record drawingPages rows
+      // PDF PRE-PROCESSING (MULTI_PAGE_ENABLED guard)
+      // Rasterizes pages, uploads to storage, records drawingPages rows.
+      // When flag is off, PDF uploads are rejected early — Claude Vision
+      // cannot process raw PDF bytes, so there is no fallback single-image path.
       // ======================================================================
 
       let page1Base64 = input.imageBase64;
       let page1MimeType: string = input.mimeType;
       let pageCount = 1;
+      // Holds the preprocessed result so room detection can use it later
+      let pdfPreprocessed: Awaited<ReturnType<typeof preprocessDocument>> | null = null;
 
       if (input.mimeType === "application/pdf") {
+        if (!MULTI_PAGE_ENABLED) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Multi-page PDF analysis is not yet enabled. Please upload a JPEG, PNG, or WebP image.",
+          });
+        }
         try {
-          const preprocessed = await preprocessDocument(analysisId, ctx.user.id, imageBuffer);
-          pageCount = preprocessed.pageCount;
-          if (preprocessed.pages.length > 0) {
-            page1Base64 = preprocessed.pages[0].base64;
-            page1MimeType = preprocessed.pages[0].mimeType;
+          pdfPreprocessed = await preprocessDocument(analysisId, ctx.user.id, imageBuffer);
+          pageCount = pdfPreprocessed.pageCount;
+          if (pdfPreprocessed.pages.length > 0) {
+            page1Base64 = pdfPreprocessed.pages[0].base64;
+            page1MimeType = pdfPreprocessed.pages[0].mimeType;
           }
         } catch (err) {
           console.error("[DrawingAnalysis] PDF preprocessing failed:", err);
@@ -325,10 +343,10 @@ export const drawingAnalysisRouter = router({
       // ======================================================================
 
       // Fetch project context to enrich the extraction prompt
-      let projectContext: { occupancyCode?: string; province?: string } | undefined;
+      let projectContext: { occupancyCode?: string; province?: string; buildingType?: string } | undefined;
       try {
         const [proj] = await db
-          .select({ occupancyCode: projects.occupancyCode, province: projects.province })
+          .select({ occupancyCode: projects.occupancyCode, province: projects.province, buildingType: projects.buildingType })
           .from(projects)
           .where(eq(projects.id, input.projectId))
           .limit(1);
@@ -336,6 +354,7 @@ export const drawingAnalysisRouter = router({
           projectContext = {
             occupancyCode: proj.occupancyCode ?? undefined,
             province: proj.province ?? undefined,
+            buildingType: proj.buildingType ?? undefined,
           };
         }
       } catch {
@@ -486,6 +505,45 @@ export const drawingAnalysisRouter = router({
           sql: (updateError as any)?.cause?.sql?.substring(0, 200),
         }));
         // Continue — don't throw, results still returned to client
+      }
+
+      // ======================================================================
+      // ROOM DETECTION — non-blocking, runs after main analysis completes
+      // ======================================================================
+
+      // PDF path: room detection from rasterized page 1
+      if (pdfPreprocessed && pdfPreprocessed.pages.length > 0) {
+        const page1b64 = pdfPreprocessed.pages[0].base64;
+        // Look up the drawingPages row inserted during preprocessing
+        db.select()
+          .from(drawingPages)
+          .where(and(eq(drawingPages.drawingId, analysisId), eq(drawingPages.pageNumber, 1)))
+          .limit(1)
+          .then(([page1Record]) => {
+            if (!page1Record) return;
+            return queuePageAnalysis(() =>
+              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext)
+            );
+          })
+          .catch(err => console.error('[RoomDetection] PDF page 1 detection failed:', err));
+      }
+
+      // Single-image path: create a synthetic drawingPage row, then detect
+      if (input.mimeType !== "application/pdf") {
+        db.insert(drawingPages).values({
+          drawingId: analysisId,
+          pageNumber: 1,
+          widthPx: 0,
+          heightPx: 0,
+          preprocessedUrl: drawingUrl || null,
+        })
+          .then(result => {
+            const syntheticPageId = result[0].insertId;
+            return queuePageAnalysis(() =>
+              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext)
+            );
+          })
+          .catch(err => console.error('[RoomDetection] Image detection failed:', err));
       }
 
       // PD2.0 §6.4: Response payload must include all required fields
@@ -818,5 +876,58 @@ export const drawingAnalysisRouter = router({
       });
 
       return { success: true, analysisStatus: "REJECTED" as const };
+    }),
+
+  /**
+   * Get all detected rooms and features for a drawing (all pages)
+   */
+  getRoomsForDrawing: protectedProcedure
+    .input(z.object({ drawingId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Verify ownership
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, input.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Drawing not found" });
+      }
+
+      const pages = await db
+        .select()
+        .from(drawingPages)
+        .where(eq(drawingPages.drawingId, input.drawingId));
+
+      const rooms = [];
+      for (const page of pages) {
+        const pageRooms = await db
+          .select()
+          .from(detectedRooms)
+          .where(eq(detectedRooms.pageId, page.id));
+
+        for (const room of pageRooms) {
+          const features = await db
+            .select()
+            .from(detectedFeatures)
+            .where(eq(detectedFeatures.roomId, room.id));
+
+          rooms.push({
+            ...room,
+            boundingBox: JSON.parse(room.boundingBoxJson as string),
+            flags: room.flagsJson ? JSON.parse(room.flagsJson as string) : [],
+            features: features.map(f => ({
+              ...f,
+              position: JSON.parse(f.positionJson as string),
+              metadata: f.metadataJson ? JSON.parse(f.metadataJson as string) : null,
+            })),
+          });
+        }
+      }
+
+      return { pages, rooms };
     }),
 });
