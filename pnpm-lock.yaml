@@ -32,3 +32,339 @@ overrides:
   qs@<6.14.1: '>=6.14.1'
   tar@<=7.5.9: '>=7.5.10'
   fast-xml-parser@>=5.0.0 <5.3.8: '>=5.3.8'
+
+importers:
+
+  .:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.90.0
+        version: 0.90.0(zod@4.4.3)
+      '@aws-sdk/client-s3':
+        specifier: ^3.693.0
+        version: 3.1045.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.693.0
+        version: 3.1045.0
+      '@clerk/backend':
+        specifier: ^3.2.4
+        version: 3.4.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@clerk/clerk-react':
+        specifier: ^5.61.3
+        version: 5.61.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@hookform/resolvers':
+        specifier: ^5.2.2
+        version: 5.2.2(react-hook-form@7.75.0(react@19.2.6))
+      '@napi-rs/canvas':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@radix-ui/react-accordion':
+        specifier: ^1.2.12
+        version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-alert-dialog':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-aspect-ratio':
+        specifier: ^1.1.7
+        version: 1.1.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-avatar':
+        specifier: ^1.1.10
+        version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-checkbox':
+        specifier: ^1.3.3
+        version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-collapsible':
+        specifier: ^1.1.12
+        version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-context-menu':
+        specifier: ^2.2.16
+        version: 2.2.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-dropdown-menu':
+        specifier: ^2.1.16
+        version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-hover-card':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-label':
+        specifier: ^2.1.7
+        version: 2.1.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-menubar':
+        specifier: ^1.1.16
+        version: 1.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-navigation-menu':
+        specifier: ^1.2.14
+        version: 1.2.14(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-popover':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-progress':
+        specifier: ^1.1.7
+        version: 1.1.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-radio-group':
+        specifier: ^1.3.8
+        version: 1.3.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-scroll-area':
+        specifier: ^1.2.10
+        version: 1.2.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-select':
+        specifier: ^2.2.6
+        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-separator':
+        specifier: ^1.1.7
+        version: 1.1.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-slider':
+        specifier: ^1.3.6
+        version: 1.3.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.3
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.6)
+      '@radix-ui/react-switch':
+        specifier: ^1.2.6
+        version: 1.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-tabs':
+        specifier: ^1.1.13
+        version: 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-toggle':
+        specifier: ^1.1.10
+        version: 1.1.10(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-toggle-group':
+        specifier: ^1.1.11
+        version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@radix-ui/react-tooltip':
+        specifier: ^1.2.8
+        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@tanstack/react-query':
+        specifier: ^5.90.2
+        version: 5.100.10(react@19.2.6)
+      '@trpc/client':
+        specifier: ^11.6.0
+        version: 11.17.0(@trpc/server@11.17.0(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/react-query':
+        specifier: ^11.6.0
+        version: 11.17.0(@tanstack/react-query@5.100.10(react@19.2.6))(@trpc/client@11.17.0(@trpc/server@11.17.0(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.17.0(typescript@5.9.3))(react@19.2.6)(typescript@5.9.3)
+      '@trpc/server':
+        specifier: ^11.6.0
+        version: 11.17.0(typescript@5.9.3)
+      '@types/qrcode':
+        specifier: ^1.5.6
+        version: 1.5.6
+      '@types/sharp':
+        specifier: ^0.32.0
+        version: 0.32.0
+      axios:
+        specifier: '>=1.13.5'
+        version: 1.16.0
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      cookie:
+        specifier: ^1.0.2
+        version: 1.1.1
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      dotenv:
+        specifier: ^17.2.2
+        version: 17.4.2
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.7(mysql2@3.22.3(@types/node@22.19.19))
+      embla-carousel-react:
+        specifier: ^8.6.0
+        version: 8.6.0(react@19.2.6)
+      exceljs:
+        specifier: ^4.4.0
+        version: 4.4.0
+      express:
+        specifier: ^4.21.2
+        version: 4.22.2
+      framer-motion:
+        specifier: ^12.23.22
+        version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      input-otp:
+        specifier: ^1.4.2
+        version: 1.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      jose:
+        specifier: 6.1.0
+        version: 6.1.0
+      jspdf:
+        specifier: ^4.2.0
+        version: 4.2.1
+      jspdf-autotable:
+        specifier: ^5.0.7
+        version: 5.0.7(jspdf@4.2.1)
+      lucide-react:
+        specifier: ^0.453.0
+        version: 0.453.0(react@19.2.6)
+      mysql2:
+        specifier: ^3.15.0
+        version: 3.22.3(@types/node@22.19.19)
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.11
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      p-queue:
+        specifier: ^9.2.0
+        version: 9.2.0
+      pdfjs-dist:
+        specifier: 4.4.168
+        version: 4.4.168
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
+      react:
+        specifier: ^19.2.1
+        version: 19.2.6
+      react-day-picker:
+        specifier: ^9.11.1
+        version: 9.14.0(react@19.2.6)
+      react-dom:
+        specifier: ^19.2.1
+        version: 19.2.6(react@19.2.6)
+      react-hook-form:
+        specifier: ^7.64.0
+        version: 7.75.0(react@19.2.6)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.14)(react@19.2.6)
+      react-resizable-panels:
+        specifier: ^3.0.6
+        version: 3.0.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      react-swipeable:
+        specifier: ^7.0.2
+        version: 7.0.2(react@19.2.6)
+      recharts:
+        specifier: ^2.15.2
+        version: 2.15.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      streamdown:
+        specifier: ^1.4.0
+        version: 1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.6)
+      superjson:
+        specifier: ^1.13.3
+        version: 1.13.3
+      tailwind-merge:
+        specifier: ^3.3.1
+        version: 3.6.0
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@4.3.0)
+      uuid:
+        specifier: ^13.0.0
+        version: 13.0.2
+      vaul:
+        specifier: ^1.1.2
+        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      wouter:
+        specifier: ^3.3.5
+        version: 3.9.0(react@19.2.6)
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+    devDependencies:
+      '@aws-sdk/client-kms':
+        specifier: ^3.1001.0
+        version: 3.1045.0
+      '@builder.io/vite-plugin-jsx-loc':
+        specifier: ^0.1.1
+        version: 0.1.1(vite@8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0))
+      '@playwright/test':
+        specifier: ^1.59.1
+        version: 1.60.0
+      '@tailwindcss/typography':
+        specifier: ^0.5.15
+        version: 0.5.19(tailwindcss@4.3.0)
+      '@tailwindcss/vite':
+        specifier: ^4.1.3
+        version: 4.3.0(vite@8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0))
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
+      '@types/google.maps':
+        specifier: ^3.58.1
+        version: 3.64.0
+      '@types/node':
+        specifier: ^22.19.15
+        version: 22.19.19
+      '@types/react':
+        specifier: ^19.2.1
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.1
+        version: 19.2.3(@types/react@19.2.14)
+      '@types/supertest':
+        specifier: ^7.2.0
+        version: 7.2.0
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
+      '@vitejs/plugin-react':
+        specifier: ^5.0.4
+        version: 5.2.0(vite@8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0))
+      add:
+        specifier: ^2.0.6
+        version: 2.0.6
+      autoprefixer:
+        specifier: ^10.4.20
+        version: 10.5.0(postcss@8.5.14)
+      drizzle-kit:
+        specifier: ^0.31.4
+        version: 0.31.10
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      pnpm:
+        specifier: '>=10.28.1'
+        version: 11.1.0
+      postcss:
+        specifier: ^8.4.47
+        version: 8.5.14
+      prettier:
+        specifier: ^3.6.2
+        version: 3.8.3
+      supertest:
+        specifier: ^7.2.2
+        version: 7.2.2
+      tailwindcss:
+        specifier: ^4.1.14
+        version: 4.3.0
+      tsx:
+        specifier: ^4.19.1
+        version: 4.21.0
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vite:
+        specifier: '>=7.1.11'
+        version: 8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0)
+      vite-plugin-manus-runtime:
+        specifier: ^0.0.57
+        version: 0.0.57
+      vite-plugin-pwa:
+        specifier: ^1.2.0
+        version: 1.3.0(vite@8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.6(@types/node@22.19.19)(vite@8.0.12(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.47.1)(tsx@4.21.0))
+      workbox-window:
+        specifier: ^7.4.0
+        version: 7.4.1
