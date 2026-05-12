@@ -9,7 +9,7 @@
  */
 
 import * as pdfjsLib from "pdfjs-dist";
-import { createCanvas } from "canvas";
+import { createCanvas } from "@napi-rs/canvas";
 import sharp from "sharp";
 import { getDb } from "../db";
 import { drawingAnalyses, drawingPages } from "../../drizzle/schema";
