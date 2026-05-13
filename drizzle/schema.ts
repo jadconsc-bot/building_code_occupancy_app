@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1221,3 +1221,24 @@ export const detectedFeatures = mysqlTable("detectedFeatures", {
 
 export type DetectedFeature = typeof detectedFeatures.$inferSelect;
 export type InsertDetectedFeature = typeof detectedFeatures.$inferInsert;
+
+export const complianceResults = mysqlTable('complianceResults', {
+  id: int('id').autoincrement().primaryKey(),
+  projectId: int('projectId').notNull(),
+  roomId: int('roomId'),
+  ruleReference: varchar('ruleReference', { length: 50 }).notNull(),
+  ruleCategory: varchar('ruleCategory', { length: 50 }).notNull(),
+  ruleText: text('ruleText').notNull(),
+  status: mysqlEnum('status', ['pass', 'fail', 'warning', 'not_applicable']).notNull(),
+  actualValue: varchar('actualValue', { length: 100 }),
+  requiredValue: varchar('requiredValue', { length: 100 }),
+  remediationSuggestion: text('remediationSuggestion'),
+  confidence: decimal('confidence', { precision: 3, scale: 2 }),
+  severity: varchar('severity', { length: 20 }),
+  constraintId: varchar('constraintId', { length: 100 }),
+  overrideChain: json('overrideChain'),
+  checkedAt: timestamp('checkedAt').defaultNow(),
+});
+
+export type ComplianceResult = typeof complianceResults.$inferSelect;
+export type InsertComplianceResult = typeof complianceResults.$inferInsert;

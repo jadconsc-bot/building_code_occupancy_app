@@ -7,6 +7,7 @@ import {
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { getDb } from '../../db';
 import { detectedRooms, detectedFeatures } from '../../../drizzle/schema';
+import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
@@ -20,6 +21,7 @@ export async function detectRoomsFromPage(
     province?: string;
     buildingType?: string;
   },
+  province: string = 'AB',
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
@@ -65,7 +67,7 @@ Critical rules:
 
   const flaggedForReview = rooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(rooms, pageId, projectId);
+  await saveRoomsToDb(rooms, pageId, projectId, province);
 
   return {
     rooms,
@@ -81,6 +83,7 @@ async function saveRoomsToDb(
   rooms: DetectedRoom[],
   pageId: number,
   projectId: number,
+  province: string = 'AB',
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
@@ -102,6 +105,10 @@ async function saveRoomsToDb(
     });
 
     const roomId = result[0].insertId;
+
+    // Queue compliance evaluation (non-blocking)
+    evaluateRoomCompliance(room, roomId, projectId, province)
+      .catch(err => console.error('[RoomCompliance] Evaluation failed:', err));
 
     for (const feature of room.features) {
       await db.insert(detectedFeatures).values({
