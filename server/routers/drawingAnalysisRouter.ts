@@ -29,6 +29,7 @@ import {
   drawingPages,
   detectedRooms,
   detectedFeatures,
+  complianceResults,
 } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
@@ -929,5 +930,41 @@ export const drawingAnalysisRouter = router({
       }
 
       return { pages, rooms };
+    }),
+
+  /**
+   * Get per-room compliance results for a project
+   */
+  getRoomCompliance: protectedProcedure
+    .input(z.object({
+      drawingId: z.number(),
+      projectId: z.number()
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const rooms = await db
+        .select()
+        .from(detectedRooms)
+        .where(eq(detectedRooms.projectId, input.projectId));
+
+      const results = [];
+      for (const room of rooms) {
+        const compliance = await db
+          .select()
+          .from(complianceResults)
+          .where(eq(complianceResults.roomId, room.id));
+
+        results.push({
+          room: {
+            ...room,
+            boundingBox: JSON.parse(room.boundingBoxJson as string)
+          },
+          compliance
+        });
+      }
+
+      return results;
     }),
 });
