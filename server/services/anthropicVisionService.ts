@@ -15,7 +15,7 @@ export async function callAnthropicVision(params: {
   jsonSchema: Record<string, unknown>;
   /** Maximum tokens for the response. Defaults to 8192. */
   maxTokens?: number;
-}): Promise<{ parsed: unknown; modelVersion: string }> {
+}): Promise<{ parsed: unknown; rawText: string; modelVersion: string }> {
   if (!ENV.anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
@@ -55,10 +55,14 @@ export async function callAnthropicVision(params: {
   }
 
   // Strip markdown code fences the model may add despite instructions
-  const text = block.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  const rawText = block.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
 
-  return {
-    parsed: JSON.parse(text),
-    modelVersion: response.model,
-  };
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    // Caller receives rawText for truncation recovery; parsed stays null
+  }
+
+  return { parsed, rawText, modelVersion: response.model };
 }

@@ -3,7 +3,6 @@ import sharp from 'sharp';
 import {
   ROOM_DETECTION_SYSTEM_PROMPT,
   ROOM_DETECTION_FEATURES,
-  ROOM_DETECTION_JSON_SCHEMA,
 } from './roomDetectionPrompt';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { getDb } from '../../db';
@@ -11,6 +10,42 @@ import { detectedRooms, detectedFeatures } from '../../../drizzle/schema';
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 
 const CONFIDENCE_THRESHOLD = 0.7;
+
+async function safeParseRoomJSON(raw: string): Promise<{ rooms: any[]; metadata: any }> {
+  // First try clean parse
+  try {
+    const clean = raw.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    // Try to recover truncated JSON by finding last complete room
+    console.warn('[RoomDetection] JSON truncated, attempting recovery...');
+    const clean = raw.replace(/```json|```/g, '').trim();
+
+    const roomsMatch = clean.match(/"rooms"\s*:\s*\[/);
+    if (!roomsMatch) throw new Error('No rooms array found in response');
+
+    const roomsStart = clean.indexOf('[', roomsMatch.index!);
+    let depth = 0;
+    let lastCompleteRoom = roomsStart;
+
+    for (let i = roomsStart; i < clean.length; i++) {
+      if (clean[i] === '{') depth++;
+      if (clean[i] === '}') {
+        depth--;
+        if (depth === 0) lastCompleteRoom = i + 1;
+      }
+    }
+
+    const recoveredRooms = clean.substring(roomsStart, lastCompleteRoom) + ']';
+    try {
+      const rooms = JSON.parse(recoveredRooms);
+      console.warn('[RoomDetection] Recovered', rooms.length, 'rooms from truncated response');
+      return { rooms, metadata: {} };
+    } catch (e2) {
+      throw new Error('Could not recover truncated JSON: ' + (e as Error).message);
+    }
+  }
+}
 
 export async function detectRoomsFromPage(
   pageBase64: string,
@@ -41,23 +76,25 @@ Critical rules:
 2. Default to MORE RESTRICTIVE occupancy when ambiguous
 3. Include ALL visible rooms — do not skip small spaces
 4. BoundingBox coordinates in pixels from top-left corner
-5. Area in square metres based on visible dimensions or scale bar`;
+5. Area in square metres based on visible dimensions or scale bar
+
+Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 
   const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
     .jpeg({ quality: 85 })
     .toBuffer();
   const jpegBase64 = jpegBuffer.toString('base64');
 
-  const { parsed, modelVersion } = await callAnthropicVision({
+  const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: jpegBase64,
     mimeType: 'image/jpeg',
     systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
     userPrompt,
-    jsonSchema: ROOM_DETECTION_JSON_SCHEMA as Record<string, unknown>,
-    maxTokens: 4000,
+    jsonSchema: {},
+    maxTokens: 8000,
   });
 
-  const raw = parsed as { rooms?: unknown[]; metadata?: unknown };
+  const raw = await safeParseRoomJSON(rawText);
 
   const rooms: DetectedRoom[] = (raw.rooms ?? []).map((r: any) => ({
     label: r.label ?? 'Unknown Room',
