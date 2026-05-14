@@ -68,6 +68,7 @@ Critical rules:
   const flaggedForReview = rooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
   await saveRoomsToDb(rooms, pageId, projectId, province);
+  console.log('[RoomDetection] Saved', rooms.length, 'rooms to DB for page', pageId);
 
   return {
     rooms,

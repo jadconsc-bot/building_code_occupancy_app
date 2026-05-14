@@ -522,6 +522,7 @@ export const drawingAnalysisRouter = router({
           .limit(1)
           .then(([page1Record]) => {
             if (!page1Record) return;
+            console.log('[RoomDetection] Queuing room detection for page', page1Record.id);
             return queuePageAnalysis(() =>
               detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext)
             );
@@ -540,6 +541,7 @@ export const drawingAnalysisRouter = router({
         })
           .then(result => {
             const syntheticPageId = result[0].insertId;
+            console.log('[RoomDetection] Queuing room detection for page', syntheticPageId);
             return queuePageAnalysis(() =>
               detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext)
             );
