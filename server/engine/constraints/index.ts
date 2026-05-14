@@ -135,6 +135,14 @@ export const Constraints = {
     part9_threshold: {
       max_storeys: { value: 3, unit: 'storeys', ref: 'NBC 9.1.1.1', description: 'Maximum storeys for Part 9' },
       max_area:    { value: 600, unit: 'm2',      ref: 'NBC 9.1.1.1', description: 'Maximum area for Part 9' }
+    },
+    part3_area_threshold: {
+      value: 600, unit: 'm2', ref: 'NBC 9.1.1.1',
+      description: 'Buildings exceeding 600m² gross floor area require Part 3 compliance'
+    },
+    part3_storey_threshold: {
+      value: 3, unit: 'storeys', ref: 'NBC 9.1.1.1',
+      description: 'Buildings exceeding 3 storeys require Part 3 compliance'
     }
   },
   accessibility: {
