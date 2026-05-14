@@ -1,4 +1,5 @@
 import { callAnthropicVision } from '../../services/anthropicVisionService';
+import sharp from 'sharp';
 import {
   ROOM_DETECTION_SYSTEM_PROMPT,
   ROOM_DETECTION_FEATURES,
@@ -42,8 +43,13 @@ Critical rules:
 4. BoundingBox coordinates in pixels from top-left corner
 5. Area in square metres based on visible dimensions or scale bar`;
 
+  const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
+    .jpeg({ quality: 85 })
+    .toBuffer();
+  const jpegBase64 = jpegBuffer.toString('base64');
+
   const { parsed, modelVersion } = await callAnthropicVision({
-    imageBase64: pageBase64,
+    imageBase64: jpegBase64,
     mimeType: 'image/jpeg',
     systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
     userPrompt,
