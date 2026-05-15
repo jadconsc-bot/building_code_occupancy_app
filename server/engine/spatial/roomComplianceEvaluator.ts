@@ -544,6 +544,8 @@ async function saveTracesToDb(
       severity: trace.severity,
       constraintId: trace.constraintId,
       overrideChain: trace.overrideChain
+        ? JSON.stringify(trace.overrideChain)
+        : null
     });
   }
 }

@@ -920,12 +920,18 @@ export const drawingAnalysisRouter = router({
 
           rooms.push({
             ...room,
-            boundingBox: JSON.parse(room.boundingBoxJson as string),
+            boundingBox: room.boundingBoxJson
+              ? JSON.parse(room.boundingBoxJson as string)
+              : null,
             flags: room.flagsJson ? JSON.parse(room.flagsJson as string) : [],
             features: features.map(f => ({
               ...f,
-              position: JSON.parse(f.positionJson as string),
-              metadata: f.metadataJson ? JSON.parse(f.metadataJson as string) : null,
+              position: f.positionJson
+                ? JSON.parse(f.positionJson as string)
+                : null,
+              metadata: f.metadataJson
+                ? JSON.parse(f.metadataJson as string)
+                : null,
             })),
           });
         }
