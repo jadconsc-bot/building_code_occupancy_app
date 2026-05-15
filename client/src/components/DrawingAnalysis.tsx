@@ -445,6 +445,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   );
 
   useEffect(() => {
+    console.log('[RoomOverlay] analysisId:', analysisId, 'roomsData:', roomsData);
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
     }
@@ -825,6 +826,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // ===== ROOM OVERLAY LAYER =====
+    if (detectedRoomsData.length > 0) {
+      console.log('[RoomOverlay] Rendering', detectedRoomsData.length, 'rooms');
+    }
     if (showRoomOverlay && detectedRoomsData?.length) {
       for (const room of detectedRoomsData) {
         const geometry = room.boundingBox;
