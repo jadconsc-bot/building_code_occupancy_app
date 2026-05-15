@@ -172,6 +172,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
+  const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -459,6 +460,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     console.log('[RoomOverlay] analysisId:', analysisId, 'roomsData:', roomsData);
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
+    }
+    if (roomsData?.pages && roomsData.pages.length > 0) {
+      const p = roomsData.pages[0];
+      if (p.widthPx > 0 && p.heightPx > 0) {
+        setAnalyzedPageDims({ width: p.widthPx, height: p.heightPx });
+        console.log('[RoomOverlay] Analyzed page dims:', p.widthPx, 'x', p.heightPx);
+      }
     }
   }, [roomsData]);
 
@@ -841,15 +849,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       console.log('[RoomOverlay] Rendering', detectedRoomsData.length, 'rooms');
     }
     if (showRoomOverlay && detectedRoomsData?.length) {
+      // Compute scale factor: Claude Vision may process images at a lower internal
+      // resolution. If we stored the analyzed dimensions (widthPx/heightPx) and the
+      // canvas image has different natural dimensions, scale bounding boxes accordingly.
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const scaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const scaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
       for (const room of detectedRoomsData) {
         const geometry = room.boundingBox;
         // Future: if room.polygon, use polygon renderer instead
         if (!geometry) continue;
 
-        const screenX = geometry.x * zoom + pan.x;
-        const screenY = geometry.y * zoom + pan.y;
-        const screenW = geometry.width * zoom;
-        const screenH = geometry.height * zoom;
+        const screenX = geometry.x * scaleX * zoom + pan.x;
+        const screenY = geometry.y * scaleY * zoom + pan.y;
+        const screenW = geometry.width * scaleX * zoom;
+        const screenH = geometry.height * scaleY * zoom;
 
         const group = room.occupancyGroup ?? 'D';
         const colors = ROOM_OVERLAY_COLORS.occupancy[group as keyof typeof ROOM_OVERLAY_COLORS.occupancy]
@@ -984,7 +1002,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {

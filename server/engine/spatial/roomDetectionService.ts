@@ -5,8 +5,9 @@ import {
   ROOM_DETECTION_FEATURES,
 } from './roomDetectionPrompt';
 import type { RoomDetectionResult, DetectedRoom } from './types';
+import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
-import { detectedRooms, detectedFeatures } from '../../../drizzle/schema';
+import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/schema';
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -65,6 +66,17 @@ export async function detectRoomsFromPage(
     ? `Project context: Occupancy ${projectContext.occupancyCode ?? 'unknown'}, Province ${projectContext.province ?? 'unknown'}, Building type ${projectContext.buildingType ?? 'unknown'}. Use this to focus classification.`
     : '';
 
+  // Convert first so we can read the exact pixel dimensions before building the prompt.
+  // Claude Vision internally downscales large images; injecting the true dimensions
+  // forces it to return bounding box coordinates in the original pixel space.
+  const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
+    .jpeg({ quality: 85 })
+    .toBuffer();
+  const jpegBase64 = jpegBuffer.toString('base64');
+
+  const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
+  console.log('[RoomDetection] Image sent to Claude:', imgW, 'x', imgH, 'px');
+
   const userPrompt = `Analyze this architectural floor plan drawing.
 ${contextStr}
 
@@ -75,15 +87,11 @@ Critical rules:
 1. Use confidence < 0.7 for uncertain detections
 2. Default to MORE RESTRICTIVE occupancy when ambiguous
 3. Include ALL visible rooms — do not skip small spaces
-4. BoundingBox coordinates in pixels from top-left corner
+4. IMPORTANT: This image is exactly ${imgW}×${imgH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${imgW}, y values 0–${imgH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
 
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 
-  const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
-    .jpeg({ quality: 85 })
-    .toBuffer();
-  const jpegBase64 = jpegBuffer.toString('base64');
 
   const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: jpegBase64,
@@ -110,7 +118,7 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
 
   const flaggedForReview = rooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(rooms, pageId, projectId, province);
+  await saveRoomsToDb(rooms, pageId, projectId, province, imgW, imgH);
   console.log('[RoomDetection] Saved', rooms.length, 'rooms to DB for page', pageId);
 
   return {
@@ -128,9 +136,18 @@ async function saveRoomsToDb(
   pageId: number,
   projectId: number,
   province: string = 'AB',
+  imgW: number = 0,
+  imgH: number = 0,
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
+
+  // Backfill the page dimensions so the client can compute a scale factor
+  if (imgW > 0 && imgH > 0) {
+    await db.update(drawingPages)
+      .set({ widthPx: imgW, heightPx: imgH })
+      .where(eq(drawingPages.id, pageId));
+  }
 
   for (const room of rooms) {
     const result = await db.insert(detectedRooms).values({
