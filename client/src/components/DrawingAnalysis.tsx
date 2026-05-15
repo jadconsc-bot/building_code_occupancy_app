@@ -436,6 +436,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     },
   });
 
+  const { data: recentAnalyses } = trpc.drawingAnalysis.listByProject.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId && !analysisId }
+  );
+
+  useEffect(() => {
+    if (!analysisId && recentAnalyses && recentAnalyses.length > 0) {
+      setAnalysisId(recentAnalyses[0].id);
+    }
+  }, [recentAnalyses, analysisId]);
+
   const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
     { drawingId: analysisId ?? 0 },
     {
