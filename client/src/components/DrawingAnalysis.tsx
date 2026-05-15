@@ -173,6 +173,27 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
 
+  const ROOM_OVERLAY_COLORS = {
+    occupancy: {
+      A: { fill: 'rgba(83,74,183,0.25)', stroke: 'rgba(83,74,183,0.8)' },
+      B: { fill: 'rgba(153,53,86,0.25)', stroke: 'rgba(153,53,86,0.8)' },
+      C: { fill: 'rgba(15,110,86,0.25)', stroke: 'rgba(15,110,86,0.8)' },
+      D: { fill: 'rgba(24,95,165,0.25)', stroke: 'rgba(24,95,165,0.8)' },
+      E: { fill: 'rgba(186,117,23,0.25)', stroke: 'rgba(186,117,23,0.8)' },
+      F: { fill: 'rgba(163,45,45,0.25)', stroke: 'rgba(163,45,45,0.8)' },
+    },
+    confidence: {
+      high: 'rgba(34,197,94,0.25)',
+      medium: 'rgba(251,191,36,0.25)',
+      low: 'rgba(239,68,68,0.25)',
+    },
+    status: {
+      fail: 'rgba(220,38,38,0.9)',
+      warning: 'rgba(217,119,6,0.9)',
+      flagged: 'rgba(217,119,6,0.6)',
+    },
+  } as const;
+
   // State for dimension input
   const [dimensionValue, setDimensionValue] = useState<string>("");
   const [dimensionCategory, setDimensionCategory] = useState<DimensionAnnotation["category"]>("other");
@@ -803,45 +824,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       });
     }
 
-    // Room overlay layer
-    if (showRoomOverlay && detectedRoomsData.length > 0) {
-      const OCCUPANCY_COLORS: Record<string, string> = {
-        'A': 'rgba(83, 74, 183, 0.25)',
-        'B': 'rgba(153, 53, 86, 0.25)',
-        'C': 'rgba(15, 110, 86, 0.25)',
-        'D': 'rgba(24, 95, 165, 0.25)',
-        'E': 'rgba(186, 117, 23, 0.25)',
-        'F': 'rgba(163, 45, 45, 0.25)',
-      };
-      const BORDER_COLORS: Record<string, string> = {
-        'A': 'rgba(83, 74, 183, 0.8)',
-        'B': 'rgba(153, 53, 86, 0.8)',
-        'C': 'rgba(15, 110, 86, 0.8)',
-        'D': 'rgba(24, 95, 165, 0.8)',
-        'E': 'rgba(186, 117, 23, 0.8)',
-        'F': 'rgba(163, 45, 45, 0.8)',
-      };
-
+    // ===== ROOM OVERLAY LAYER =====
+    if (showRoomOverlay && detectedRoomsData?.length) {
       for (const room of detectedRoomsData) {
-        const bbox = room.boundingBox as { x: number; y: number; width: number; height: number };
-        if (!bbox) continue;
+        const geometry = room.boundingBox;
+        // Future: if room.polygon, use polygon renderer instead
+        if (!geometry) continue;
 
-        const screenX = bbox.x * zoom + pan.x;
-        const screenY = bbox.y * zoom + pan.y;
-        const screenW = bbox.width * zoom;
-        const screenH = bbox.height * zoom;
+        const screenX = geometry.x * zoom + pan.x;
+        const screenY = geometry.y * zoom + pan.y;
+        const screenW = geometry.width * zoom;
+        const screenH = geometry.height * zoom;
 
         const group = room.occupancyGroup ?? 'D';
-        const fillColor = OCCUPANCY_COLORS[group] ?? 'rgba(100,100,100,0.2)';
-        const borderColor = BORDER_COLORS[group] ?? 'rgba(100,100,100,0.6)';
+        const colors = ROOM_OVERLAY_COLORS.occupancy[group as keyof typeof ROOM_OVERLAY_COLORS.occupancy]
+          ?? { fill: 'rgba(100,100,100,0.2)', stroke: 'rgba(100,100,100,0.6)' };
 
         const hasFailure = room.compliance?.some((c: any) => c.status === 'fail');
         const hasWarning = room.compliance?.some((c: any) => c.status === 'warning');
-        const statusBorder = hasFailure ? 'rgba(220, 38, 38, 0.9)'
-          : hasWarning ? 'rgba(217, 119, 6, 0.9)'
-          : borderColor;
+        const statusBorder = hasFailure ? ROOM_OVERLAY_COLORS.status.fail
+          : hasWarning ? ROOM_OVERLAY_COLORS.status.warning
+          : colors.stroke;
 
-        ctx.fillStyle = fillColor;
+        ctx.fillStyle = colors.fill;
         ctx.fillRect(screenX, screenY, screenW, screenH);
 
         ctx.strokeStyle = statusBorder;
@@ -862,13 +867,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           ctx.fillText(shortLabel, screenX + screenW / 2, screenY + screenH / 2 - fontSize / 2);
 
           ctx.font = `bold ${fontSize - 1}px Inter, sans-serif`;
-          ctx.fillStyle = borderColor;
+          ctx.fillStyle = colors.stroke;
           const badge = `Group ${group}${room.occupancyDivision ? '-' + room.occupancyDivision : ''}`;
           ctx.fillText(badge, screenX + screenW / 2, screenY + screenH / 2 + fontSize / 2 + 2);
         }
 
         if (room.flaggedForReview) {
-          ctx.fillStyle = 'rgba(217, 119, 6, 0.9)';
+          ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flagged;
           ctx.font = 'bold 10px Inter, sans-serif';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
@@ -876,6 +881,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         }
       }
     }
+    // ===== END ROOM OVERLAY LAYER =====
 
     // Draw current drawing in progress
     if (isDrawing && currentPoints.length > 0) {
