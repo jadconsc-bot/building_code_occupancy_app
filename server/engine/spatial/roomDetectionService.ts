@@ -80,7 +80,22 @@ export async function detectRoomsFromPage(
   const userPrompt = `Analyze this architectural floor plan drawing.
 ${contextStr}
 
-TARGET: Detect rooms in the PRIMARY floor plan — the largest, most detailed drawing on the page. Architectural sheets often contain a small key plan, legend, or schematic diagram alongside the main drawing. IGNORE small-scale diagrams, key plans, legends, title blocks, and room schedule tables. Focus exclusively on the main floor plan where individual rooms are drawn at full scale with walls, doors, and dimensions.
+CRITICAL INSTRUCTION — FLOOR PLAN SELECTION:
+This drawing page contains multiple drawings at different scales.
+You MUST identify and analyze ONLY the PRIMARY floor plan:
+- The PRIMARY floor plan is the LARGEST drawing on the page
+- It typically occupies the CENTER or BOTTOM portion of the page
+- It has detailed room labels, dimensions, and annotations
+- It has a scale bar or title block
+
+IGNORE completely:
+- Key plans (small schematic diagrams, usually top-left corner)
+- North arrows diagrams
+- Legends and schedules
+- Title blocks
+- Any drawing smaller than 30% of the total page area
+
+If you detect rooms from a small key plan instead of the main floor plan, your bounding boxes will be in the wrong location. Only return rooms from the single largest, most detailed floor plan drawing visible on this page.
 
 Detect ALL rooms, spaces, and architectural features in the primary floor plan.
 Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
