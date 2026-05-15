@@ -80,18 +80,20 @@ export async function detectRoomsFromPage(
   const userPrompt = `Analyze this architectural floor plan drawing.
 ${contextStr}
 
-Detect ALL rooms, spaces, and architectural features.
+TARGET: Detect rooms in the PRIMARY floor plan — the largest, most detailed drawing on the page. Architectural sheets often contain a small key plan, legend, or schematic diagram alongside the main drawing. IGNORE small-scale diagrams, key plans, legends, title blocks, and room schedule tables. Focus exclusively on the main floor plan where individual rooms are drawn at full scale with walls, doors, and dimensions.
+
+Detect ALL rooms, spaces, and architectural features in the primary floor plan.
 Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
 
 Critical rules:
 1. Use confidence < 0.7 for uncertain detections
 2. Default to MORE RESTRICTIVE occupancy when ambiguous
-3. Include ALL visible rooms — do not skip small spaces
+3. Include ALL visible rooms in the main floor plan — do not skip small spaces
 4. IMPORTANT: This image is exactly ${imgW}×${imgH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${imgW}, y values 0–${imgH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
+6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
 
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
-
 
   const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: jpegBase64,
