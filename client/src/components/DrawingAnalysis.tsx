@@ -170,7 +170,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [showAnnotations, setShowAnnotations] = useState(true);
-  
+  const [showRoomOverlay, setShowRoomOverlay] = useState(true);
+  const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
+
   // State for dimension input
   const [dimensionValue, setDimensionValue] = useState<string>("");
   const [dimensionCategory, setDimensionCategory] = useState<DimensionAnnotation["category"]>("other");
@@ -412,6 +414,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
     },
   });
+
+  const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
+    { drawingId: analysisId ?? 0 },
+    {
+      enabled: !!analysisId,
+      refetchInterval: detectedRoomsData.length === 0 ? 3000 : false,
+    }
+  );
+
+  useEffect(() => {
+    if (roomsData?.rooms && roomsData.rooms.length > 0) {
+      setDetectedRoomsData(roomsData.rooms);
+    }
+  }, [roomsData]);
 
   // Legacy mutation (kept for backward compat, now unused)
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
@@ -787,6 +803,80 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       });
     }
 
+    // Room overlay layer
+    if (showRoomOverlay && detectedRoomsData.length > 0) {
+      const OCCUPANCY_COLORS: Record<string, string> = {
+        'A': 'rgba(83, 74, 183, 0.25)',
+        'B': 'rgba(153, 53, 86, 0.25)',
+        'C': 'rgba(15, 110, 86, 0.25)',
+        'D': 'rgba(24, 95, 165, 0.25)',
+        'E': 'rgba(186, 117, 23, 0.25)',
+        'F': 'rgba(163, 45, 45, 0.25)',
+      };
+      const BORDER_COLORS: Record<string, string> = {
+        'A': 'rgba(83, 74, 183, 0.8)',
+        'B': 'rgba(153, 53, 86, 0.8)',
+        'C': 'rgba(15, 110, 86, 0.8)',
+        'D': 'rgba(24, 95, 165, 0.8)',
+        'E': 'rgba(186, 117, 23, 0.8)',
+        'F': 'rgba(163, 45, 45, 0.8)',
+      };
+
+      for (const room of detectedRoomsData) {
+        const bbox = room.boundingBox as { x: number; y: number; width: number; height: number };
+        if (!bbox) continue;
+
+        const screenX = bbox.x * zoom + pan.x;
+        const screenY = bbox.y * zoom + pan.y;
+        const screenW = bbox.width * zoom;
+        const screenH = bbox.height * zoom;
+
+        const group = room.occupancyGroup ?? 'D';
+        const fillColor = OCCUPANCY_COLORS[group] ?? 'rgba(100,100,100,0.2)';
+        const borderColor = BORDER_COLORS[group] ?? 'rgba(100,100,100,0.6)';
+
+        const hasFailure = room.compliance?.some((c: any) => c.status === 'fail');
+        const hasWarning = room.compliance?.some((c: any) => c.status === 'warning');
+        const statusBorder = hasFailure ? 'rgba(220, 38, 38, 0.9)'
+          : hasWarning ? 'rgba(217, 119, 6, 0.9)'
+          : borderColor;
+
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(screenX, screenY, screenW, screenH);
+
+        ctx.strokeStyle = statusBorder;
+        ctx.lineWidth = hasFailure ? 2.5 : 1.5;
+        ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+        ctx.strokeRect(screenX, screenY, screenW, screenH);
+        ctx.setLineDash([]);
+
+        if (screenW > 40 && screenH > 20) {
+          const fontSize = Math.max(9, Math.min(13, screenW / 8));
+          ctx.font = `${fontSize}px Inter, sans-serif`;
+          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          const label = room.roomLabel ?? 'Unknown';
+          const shortLabel = label.length > 18 ? label.substring(0, 16) + '…' : label;
+          ctx.fillText(shortLabel, screenX + screenW / 2, screenY + screenH / 2 - fontSize / 2);
+
+          ctx.font = `bold ${fontSize - 1}px Inter, sans-serif`;
+          ctx.fillStyle = borderColor;
+          const badge = `Group ${group}${room.occupancyDivision ? '-' + room.occupancyDivision : ''}`;
+          ctx.fillText(badge, screenX + screenW / 2, screenY + screenH / 2 + fontSize / 2 + 2);
+        }
+
+        if (room.flaggedForReview) {
+          ctx.fillStyle = 'rgba(217, 119, 6, 0.9)';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText('⚠', screenX + 4, screenY + 4);
+        }
+      }
+    }
+
     // Draw current drawing in progress
     if (isDrawing && currentPoints.length > 0) {
       ctx.save();
@@ -873,7 +963,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2724,6 +2814,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     {showAnnotations ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </Button>
+                  <button
+                    onClick={() => setShowRoomOverlay(!showRoomOverlay)}
+                    className={`p-1.5 rounded transition-colors ${
+                      showRoomOverlay
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={showRoomOverlay ? 'Hide room overlays' : 'Show room overlays'}
+                  >
+                    <Layers className={`w-4 h-4 ${showRoomOverlay ? '' : 'opacity-40'}`} />
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -3463,6 +3564,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   )}
                 </div>
               </div>
+
+              {/* Room detection status bar */}
+              {detectedRoomsData.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 rounded-b-lg -mt-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                  {detectedRoomsData.length} room(s) detected
+                  {detectedRoomsData.filter((r: any) => r.flaggedForReview).length > 0 && (
+                    <span className="text-amber-600">
+                      · {detectedRoomsData.filter((r: any) => r.flaggedForReview).length} flagged for review
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* AI Analysis Results — full width below canvas */}
               {showAiResults && aiResults && (
