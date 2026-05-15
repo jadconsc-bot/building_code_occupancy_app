@@ -41,6 +41,21 @@ import { detectRoomsFromPage } from "../engine/spatial/roomDetectionService";
 import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
 
+/**
+ * Drizzle returns MySQL JSON columns as already-parsed objects.
+ * Calling JSON.parse() on an object coerces it to "[object Object]" then fails.
+ * This helper handles all three cases: object (pass through), string (parse),
+ * falsy (return null).
+ */
+function safeJsonParse(value: unknown): unknown {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+  return null;
+}
+
 /** Feature flag: enables multi-page PDF preprocessing. Off by default to protect prod. */
 const MULTI_PAGE_ENABLED = process.env.MULTI_PAGE_PDF === 'true';
 
@@ -920,23 +935,18 @@ export const drawingAnalysisRouter = router({
 
           rooms.push({
             ...room,
-            boundingBox: room.boundingBoxJson
-              ? JSON.parse(room.boundingBoxJson as string)
-              : null,
-            flags: room.flagsJson ? JSON.parse(room.flagsJson as string) : [],
+            boundingBox: safeJsonParse(room.boundingBoxJson),
+            flags: (safeJsonParse(room.flagsJson) as any[]) ?? [],
             features: features.map(f => ({
               ...f,
-              position: f.positionJson
-                ? JSON.parse(f.positionJson as string)
-                : null,
-              metadata: f.metadataJson
-                ? JSON.parse(f.metadataJson as string)
-                : null,
+              position: safeJsonParse(f.positionJson),
+              metadata: safeJsonParse(f.metadataJson),
             })),
           });
         }
       }
 
+      console.log('[RoomQuery] returning', rooms.length, 'rooms for drawingId', input.drawingId);
       return { pages, rooms };
     }),
 
@@ -967,9 +977,9 @@ export const drawingAnalysisRouter = router({
         results.push({
           room: {
             ...room,
-            boundingBox: JSON.parse(room.boundingBoxJson as string)
+            boundingBox: safeJsonParse(room.boundingBoxJson),
           },
-          compliance
+          compliance,
         });
       }
 
