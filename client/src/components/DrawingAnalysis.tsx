@@ -453,7 +453,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
-      refetchInterval: detectedRoomsData.length === 0 && roomPollCount < 20 ? 3000 : false,
+      refetchInterval: detectedRoomsData.length === 0 && roomPollCount < 10 ? 3000 : false,
     }
   );
 

@@ -66,52 +66,43 @@ export async function detectRoomsFromPage(
     ? `Project context: Occupancy ${projectContext.occupancyCode ?? 'unknown'}, Province ${projectContext.province ?? 'unknown'}, Building type ${projectContext.buildingType ?? 'unknown'}. Use this to focus classification.`
     : '';
 
-  // Convert first so we can read the exact pixel dimensions before building the prompt.
-  // Claude Vision internally downscales large images; injecting the true dimensions
-  // forces it to return bounding box coordinates in the original pixel space.
+  // Convert to JPEG so we can read exact pixel dimensions before building the prompt.
   const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
     .jpeg({ quality: 85 })
     .toBuffer();
-  const jpegBase64 = jpegBuffer.toString('base64');
 
   const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
-  console.log('[RoomDetection] Image sent to Claude:', imgW, 'x', imgH, 'px');
+  console.log('[RoomDetection] Full image:', imgW, 'x', imgH, 'px');
+
+  // Crop the top 20% to eliminate the key plan thumbnail area.
+  // Architectural drawings almost always place the key plan in the top-left corner;
+  // the main floor plan occupies the lower portion of the page.
+  const cropOffsetY = Math.floor(imgH * 0.20);
+  const croppedH = imgH - cropOffsetY;
+  const croppedBuffer = await sharp(jpegBuffer)
+    .extract({ left: 0, top: cropOffsetY, width: imgW, height: croppedH })
+    .toBuffer();
+  const croppedBase64 = croppedBuffer.toString('base64');
+  console.log('[RoomDetection] Sending cropped image to Claude:', imgW, 'x', croppedH, 'px (offset y=', cropOffsetY, ')');
 
   const userPrompt = `Analyze this architectural floor plan drawing.
 ${contextStr}
 
-CRITICAL INSTRUCTION — FLOOR PLAN SELECTION:
-This drawing page contains multiple drawings at different scales.
-You MUST identify and analyze ONLY the PRIMARY floor plan:
-- The PRIMARY floor plan is the LARGEST drawing on the page
-- It typically occupies the CENTER or BOTTOM portion of the page
-- It has detailed room labels, dimensions, and annotations
-- It has a scale bar or title block
-
-IGNORE completely:
-- Key plans (small schematic diagrams, usually top-left corner)
-- North arrows diagrams
-- Legends and schedules
-- Title blocks
-- Any drawing smaller than 30% of the total page area
-
-If you detect rooms from a small key plan instead of the main floor plan, your bounding boxes will be in the wrong location. Only return rooms from the single largest, most detailed floor plan drawing visible on this page.
-
-Detect ALL rooms, spaces, and architectural features in the primary floor plan.
+Detect ALL rooms, spaces, and architectural features visible in this floor plan.
 Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
 
 Critical rules:
 1. Use confidence < 0.7 for uncertain detections
 2. Default to MORE RESTRICTIVE occupancy when ambiguous
-3. Include ALL visible rooms in the main floor plan — do not skip small spaces
-4. IMPORTANT: This image is exactly ${imgW}×${imgH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${imgW}, y values 0–${imgH}. Do NOT use a scaled-down coordinate system.
+3. Include ALL visible rooms — do not skip small spaces
+4. IMPORTANT: This image is exactly ${imgW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${imgW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
 6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
 
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 
   const { rawText, modelVersion } = await callAnthropicVision({
-    imageBase64: jpegBase64,
+    imageBase64: croppedBase64,
     mimeType: 'image/jpeg',
     systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
     userPrompt,
@@ -133,9 +124,20 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
     flags: r.flags ?? [],
   }));
 
-  const filteredRooms = rejectKeyPlanRooms(rooms, imgW, imgH);
+  // Envelope check against cropped dimensions (Claude's coordinate space).
+  const filteredRooms = rejectKeyPlanRooms(rooms, imgW, croppedH);
+
+  // Restore Y coordinates from cropped-image space to full-image space.
+  for (const room of filteredRooms) {
+    room.boundingBox.y += cropOffsetY;
+    for (const feature of room.features) {
+      if (feature.position) feature.position.y += cropOffsetY;
+    }
+  }
+
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
+  // Save with full image dimensions so the client scale factor is correct.
   await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
@@ -150,11 +152,10 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
 }
 
 /**
- * Discard rooms that are clearly from a small key plan rather than the main
- * floor plan. Strategy: compute the envelope (bounding box) of all detected
- * rooms combined. If it covers less than 20 % of the page area the model
- * fixated on a small inset diagram — those coordinates are useless for
- * overlay rendering.
+ * Safety net: discard detections whose combined envelope covers < 3% of the
+ * image area — a signal that Claude fixated on a tiny inset rather than the
+ * main floor plan. The image is already pre-cropped to remove the top 20%
+ * (where key plans live), so this threshold can be low.
  */
 function rejectKeyPlanRooms(
   rooms: DetectedRoom[],
@@ -174,20 +175,13 @@ function rejectKeyPlanRooms(
     ` coverage=${Math.round(coverage * 100)}% on ${imgW}x${imgH} page`
   );
 
-  if (coverage < 0.05) {
+  if (coverage < 0.03) {
     console.warn(
-      `[RoomDetection] Rooms envelope covers only ${Math.round(coverage * 100)}% of page` +
-      ` — likely a key plan. Discarding ${rooms.length} room(s).` +
+      `[RoomDetection] Rooms envelope covers only ${Math.round(coverage * 100)}% of image` +
+      ` — discarding ${rooms.length} room(s) as likely noise.` +
       ` First room bbox: ${JSON.stringify(rooms[0]?.boundingBox)}`
     );
     return [];
-  }
-
-  if (coverage < 0.20) {
-    console.warn(
-      `[RoomDetection] Low coverage (${Math.round(coverage * 100)}%) — rooms accepted but may be key-plan.` +
-      ` First room bbox: ${JSON.stringify(rooms[0]?.boundingBox)}`
-    );
   }
 
   console.log(`[RoomDetection] Room envelope coverage: ${Math.round(coverage * 100)}% — accepted ${rooms.length} room(s).`);
