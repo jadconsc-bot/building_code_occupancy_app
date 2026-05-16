@@ -459,9 +459,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   );
 
-  // Reset poll counter when a new analysis is selected
+  // Reset poll counter and clear stale overlay when a new analysis begins
   useEffect(() => {
     setRoomPollCount(0);
+    setDetectedRoomsData([]);
+    setAnalyzedPageDims(null);
   }, [analysisId]);
 
   useEffect(() => {
@@ -859,9 +861,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // ===== ROOM OVERLAY LAYER =====
-    if (detectedRoomsData.length > 0) {
-      console.log('[RoomOverlay] Rendering', detectedRoomsData.length, 'rooms');
-    }
     if (showRoomOverlay && detectedRoomsData?.length) {
       // Compute scale factor: Claude Vision may process images at a lower internal
       // resolution. If we stored the analyzed dimensions (widthPx/heightPx) and the
@@ -875,8 +874,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
       for (const room of detectedRoomsData) {
         const geometry = room.boundingBox;
-        // Future: if room.polygon, use polygon renderer instead
         if (!geometry) continue;
+
+        if (detectedRoomsData.indexOf(room) === 0) {
+          console.log('[RoomOverlay] First room bbox:', room.boundingBox,
+            'scaleX:', scaleX, 'scaleY:', scaleY,
+            'naturalW:', imageRef.current?.naturalWidth,
+            'naturalH:', imageRef.current?.naturalHeight,
+            'analyzedPageDims:', analyzedPageDims);
+        }
 
         const screenX = geometry.x * scaleX * zoom + pan.x;
         const screenY = geometry.y * scaleY * zoom + pan.y;
