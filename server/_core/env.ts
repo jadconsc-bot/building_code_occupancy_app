@@ -79,4 +79,9 @@ export function logEnvStatus(): void {
   console.log(`[Env] NODE_ENV: ${validatedEnv.NODE_ENV}`);
   console.log(`[Env] Clerk: Configured`);
   console.log(`[Env] Database: ${validatedEnv.DATABASE_URL.substring(0, 20)}...`);
+  const azureEndpoint = validatedEnv.AZURE_DOC_INTELLIGENCE_ENDPOINT;
+  const azureKey = validatedEnv.AZURE_DOC_INTELLIGENCE_KEY;
+  console.log(`[Env] Azure Doc Intelligence: ${azureEndpoint ? `Configured (${azureEndpoint.substring(0, 30)}...)` : 'NOT CONFIGURED — set AZURE_DOC_INTELLIGENCE_ENDPOINT and AZURE_DOC_INTELLIGENCE_KEY'}`);
+  if (azureEndpoint && !azureKey) console.warn('[Env] Azure endpoint set but key is missing');
+  if (!azureEndpoint && azureKey) console.warn('[Env] Azure key set but endpoint is missing');
 }
