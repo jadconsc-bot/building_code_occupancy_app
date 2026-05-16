@@ -3,7 +3,9 @@ import sharp from 'sharp';
 import {
   ROOM_DETECTION_SYSTEM_PROMPT,
   ROOM_DETECTION_FEATURES,
+  buildRoomDetectionPrompt,
 } from './roomDetectionPrompt';
+import { extractLabelsFromImage, filterRoomLabels } from './azureOcrService';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
@@ -91,21 +93,27 @@ export async function detectRoomsFromPage(
     ` (offset x=${cropOffsetX}, y=${cropOffsetY})`
   );
 
-  const userPrompt = `Analyze this architectural floor plan drawing.
-${contextStr}
+  // Pass 1: Azure OCR — extract room labels with precise pixel coordinates
+  let labelContext = '';
+  try {
+    const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
+    const roomLabels = filterRoomLabels(ocrResult.labels);
+    console.log(`[RoomDetection] Azure OCR found ${roomLabels.length} room labels`);
+    if (roomLabels.length > 0) {
+      labelContext =
+        `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
+        roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${l.x}, ${l.y})`).join('\n') +
+        `\n\nFor EACH label above, identify the room space it refers to.\n` +
+        `If the label has a leader line/arrow, follow it to the room.\n` +
+        `Place the bounding box around the WALLS of that room, not the label.\n` +
+        `Use the label coordinates as anchor points to find the correct room.\n`;
+    }
+  } catch (err) {
+    console.warn('[RoomDetection] Azure OCR failed, proceeding without labels:', err);
+  }
 
-Detect ALL rooms, spaces, and architectural features visible in this floor plan.
-Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
-
-Critical rules:
-1. Use confidence < 0.7 for uncertain detections
-2. Default to MORE RESTRICTIVE occupancy when ambiguous
-3. Include ALL visible rooms — do not skip small spaces
-4. IMPORTANT: This image is exactly ${croppedW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${croppedW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
-5. Area in square metres based on visible dimensions or scale bar
-6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
-
-Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
+  // Pass 2: Claude Vision — use label positions to anchor bounding boxes
+  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, contextStr, labelContext);
 
   const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: croppedBase64,

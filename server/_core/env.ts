@@ -17,6 +17,8 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_S3_BUCKET: z.string().optional(),
+  AZURE_DOC_INTELLIGENCE_ENDPOINT: z.string().optional(),
+  AZURE_DOC_INTELLIGENCE_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -65,6 +67,8 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? '',
   appId: process.env.APP_ID ?? '',
   ownerOpenId: process.env.OWNER_OPEN_ID ?? '',
+  azureDocIntelligenceEndpoint: validatedEnv.AZURE_DOC_INTELLIGENCE_ENDPOINT ?? '',
+  azureDocIntelligenceKey: validatedEnv.AZURE_DOC_INTELLIGENCE_KEY ?? '',
 };
 
 /**
