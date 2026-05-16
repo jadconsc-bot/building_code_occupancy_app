@@ -74,16 +74,22 @@ export async function detectRoomsFromPage(
   const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
   console.log('[RoomDetection] Full image:', imgW, 'x', imgH, 'px');
 
-  // Crop the top 20% to eliminate the key plan thumbnail area.
-  // Architectural drawings almost always place the key plan in the top-left corner;
-  // the main floor plan occupies the lower portion of the page.
-  const cropOffsetY = Math.floor(imgH * 0.20);
+  // Crop the top 15% and left 25% to eliminate the key plan.
+  // Key plans are almost always in the top-left column of the sheet;
+  // the main floor plan occupies the lower-center/right area.
+  // Both offsets are restored after detection so saved coords are in full-image space.
+  const cropOffsetY = Math.floor(imgH * 0.15);
+  const cropOffsetX = Math.floor(imgW * 0.25);
   const croppedH = imgH - cropOffsetY;
+  const croppedW = imgW - cropOffsetX;
   const croppedBuffer = await sharp(jpegBuffer)
-    .extract({ left: 0, top: cropOffsetY, width: imgW, height: croppedH })
+    .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
     .toBuffer();
   const croppedBase64 = croppedBuffer.toString('base64');
-  console.log('[RoomDetection] Sending cropped image to Claude:', imgW, 'x', croppedH, 'px (offset y=', cropOffsetY, ')');
+  console.log(
+    `[RoomDetection] Sending cropped image to Claude: ${croppedW}x${croppedH} px` +
+    ` (offset x=${cropOffsetX}, y=${cropOffsetY})`
+  );
 
   const userPrompt = `Analyze this architectural floor plan drawing.
 ${contextStr}
@@ -95,7 +101,7 @@ Critical rules:
 1. Use confidence < 0.7 for uncertain detections
 2. Default to MORE RESTRICTIVE occupancy when ambiguous
 3. Include ALL visible rooms — do not skip small spaces
-4. IMPORTANT: This image is exactly ${imgW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${imgW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
+4. IMPORTANT: This image is exactly ${croppedW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${croppedW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
 6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
 
@@ -125,13 +131,17 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
   }));
 
   // Envelope check against cropped dimensions (Claude's coordinate space).
-  const filteredRooms = rejectKeyPlanRooms(rooms, imgW, croppedH);
+  const filteredRooms = rejectKeyPlanRooms(rooms, croppedW, croppedH);
 
-  // Restore Y coordinates from cropped-image space to full-image space.
+  // Restore X and Y coordinates from cropped-image space to full-image space.
   for (const room of filteredRooms) {
+    room.boundingBox.x += cropOffsetX;
     room.boundingBox.y += cropOffsetY;
     for (const feature of room.features) {
-      if (feature.position) feature.position.y += cropOffsetY;
+      if (feature.position) {
+        feature.position.x += cropOffsetX;
+        feature.position.y += cropOffsetY;
+      }
     }
   }
 
