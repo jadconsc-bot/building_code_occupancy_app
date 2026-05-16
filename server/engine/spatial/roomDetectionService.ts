@@ -138,8 +138,12 @@ export async function detectRoomsFromPage(
 
     const CLAUDE_MAX_DIMENSION = 1568;
     const claudeScale = Math.min(CLAUDE_MAX_DIMENSION / croppedW, CLAUDE_MAX_DIMENSION / croppedH);
-    const coordScale = claudeScale < 1 ? 1 / claudeScale : 1.0;
-    console.log(`[RoomDetection] Claude internal scale: ${claudeScale.toFixed(3)}, coord correction: ${coordScale.toFixed(2)}x`);
+    // Claude sometimes returns coords in its internal downscaled space (~1568px max),
+    // and sometimes in full pixel space (when OCR label anchors calibrate it).
+    // If maxX is above 1800 it's already in full-image space — skip correction.
+    const needsCorrection = maxX <= 1800;
+    const coordScale = (claudeScale < 1 && needsCorrection) ? 1 / claudeScale : 1.0;
+    console.log(`[RoomDetection] Claude internal scale: ${claudeScale.toFixed(3)}, coord correction: ${coordScale.toFixed(2)}x (maxX=${maxX}, needsCorrection=${needsCorrection})`);
 
     if (coordScale > 1.0) {
       for (const r of rawRooms) {

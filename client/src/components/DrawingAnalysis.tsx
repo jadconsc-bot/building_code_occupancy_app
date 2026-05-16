@@ -876,14 +876,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const geometry = room.boundingBox;
         if (!geometry) continue;
 
-        if (detectedRoomsData.indexOf(room) === 0) {
-          console.log('[RoomOverlay] First room bbox:', room.boundingBox,
-            'scaleX:', scaleX, 'scaleY:', scaleY,
-            'naturalW:', imageRef.current?.naturalWidth,
-            'naturalH:', imageRef.current?.naturalHeight,
-            'analyzedPageDims:', analyzedPageDims);
-        }
-
         const screenX = geometry.x * scaleX * zoom + pan.x;
         const screenY = geometry.y * scaleY * zoom + pan.y;
         const screenW = geometry.width * scaleX * zoom;
