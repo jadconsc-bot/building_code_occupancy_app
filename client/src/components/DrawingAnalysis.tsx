@@ -453,7 +453,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
-      refetchInterval: detectedRoomsData.length === 0 && roomPollCount < 10 ? 3000 : false,
+      refetchInterval: roomPollCount < 40 && detectedRoomsData.length === 0
+        ? (roomPollCount < 5 ? 2000 : 5000)
+        : false,
     }
   );
 
@@ -469,6 +471,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     } else if (roomsData !== undefined) {
       // Got a response but rooms still empty — count this poll
       setRoomPollCount(c => c + 1);
+      if (roomPollCount >= 39) {
+        console.log('[RoomOverlay] Polling stopped after 40 attempts — no rooms detected');
+      }
     }
     if (roomsData?.pages && roomsData.pages.length > 0) {
       const p = roomsData.pages[0];
