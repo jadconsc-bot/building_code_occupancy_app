@@ -133,19 +133,52 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
     flags: r.flags ?? [],
   }));
 
-  const flaggedForReview = rooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
+  const filteredRooms = rejectKeyPlanRooms(rooms, imgW, imgH);
+  const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(rooms, pageId, projectId, province, imgW, imgH);
-  console.log('[RoomDetection] Saved', rooms.length, 'rooms to DB for page', pageId);
+  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH);
+  console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
   return {
-    rooms,
+    rooms: filteredRooms,
     metadata: (raw.metadata ?? {}) as RoomDetectionResult['metadata'],
     pageNumber,
     modelVersion,
     processingTimeMs: Date.now() - startTime,
     flaggedForReview,
   };
+}
+
+/**
+ * Discard rooms that are clearly from a small key plan rather than the main
+ * floor plan. Strategy: compute the envelope (bounding box) of all detected
+ * rooms combined. If it covers less than 20 % of the page area the model
+ * fixated on a small inset diagram — those coordinates are useless for
+ * overlay rendering.
+ */
+function rejectKeyPlanRooms(
+  rooms: DetectedRoom[],
+  imgW: number,
+  imgH: number,
+): DetectedRoom[] {
+  if (rooms.length === 0 || imgW === 0 || imgH === 0) return rooms;
+
+  const xs = rooms.flatMap(r => [r.boundingBox.x, r.boundingBox.x + r.boundingBox.width]);
+  const ys = rooms.flatMap(r => [r.boundingBox.y, r.boundingBox.y + r.boundingBox.height]);
+  const envelopeArea =
+    (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+  const coverage = envelopeArea / (imgW * imgH);
+
+  if (coverage < 0.20) {
+    console.warn(
+      `[RoomDetection] Rooms envelope covers only ${Math.round(coverage * 100)}% of page` +
+      ` — likely a key plan. Discarding ${rooms.length} room(s).`
+    );
+    return [];
+  }
+
+  console.log(`[RoomDetection] Room envelope coverage: ${Math.round(coverage * 100)}% — accepted.`);
+  return rooms;
 }
 
 async function saveRoomsToDb(
