@@ -79,7 +79,7 @@ export async function detectRoomsFromPage(
   // the main floor plan occupies the lower-center/right area.
   // Both offsets are restored after detection so saved coords are in full-image space.
   const cropOffsetY = Math.floor(imgH * 0.15);
-  const cropOffsetX = Math.floor(imgW * 0.25);
+  const cropOffsetX = Math.floor(imgW * 0.35);
   const croppedH = imgH - cropOffsetY;
   const croppedW = imgW - cropOffsetX;
   const croppedBuffer = await sharp(jpegBuffer)
