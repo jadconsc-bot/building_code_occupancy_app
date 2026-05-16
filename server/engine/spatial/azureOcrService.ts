@@ -35,7 +35,7 @@ export async function extractLabelsFromImage(
   }
 
   const submitUrl =
-    `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-02-29-preview`;
+    `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30`;
 
   const submitResponse = await axios.post(
     submitUrl,
