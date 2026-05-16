@@ -173,6 +173,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
+  const [roomPollCount, setRoomPollCount] = useState(0);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -452,14 +453,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
-      refetchInterval: detectedRoomsData.length === 0 ? 3000 : false,
+      refetchInterval: detectedRoomsData.length === 0 && roomPollCount < 20 ? 3000 : false,
     }
   );
 
+  // Reset poll counter when a new analysis is selected
   useEffect(() => {
-    console.log('[RoomOverlay] analysisId:', analysisId, 'roomsData:', roomsData);
+    setRoomPollCount(0);
+  }, [analysisId]);
+
+  useEffect(() => {
+    console.log('[RoomOverlay] analysisId:', analysisId, 'roomsData:', roomsData, 'pollCount:', roomPollCount);
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
+    } else if (roomsData !== undefined) {
+      // Got a response but rooms still empty — count this poll
+      setRoomPollCount(c => c + 1);
     }
     if (roomsData?.pages && roomsData.pages.length > 0) {
       const p = roomsData.pages[0];

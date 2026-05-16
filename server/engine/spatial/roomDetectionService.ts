@@ -169,15 +169,28 @@ function rejectKeyPlanRooms(
     (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
   const coverage = envelopeArea / (imgW * imgH);
 
-  if (coverage < 0.20) {
+  console.log(
+    `[RoomDetection] Envelope: x=[${Math.min(...xs)},${Math.max(...xs)}] y=[${Math.min(...ys)},${Math.max(...ys)}]` +
+    ` coverage=${Math.round(coverage * 100)}% on ${imgW}x${imgH} page`
+  );
+
+  if (coverage < 0.05) {
     console.warn(
       `[RoomDetection] Rooms envelope covers only ${Math.round(coverage * 100)}% of page` +
-      ` — likely a key plan. Discarding ${rooms.length} room(s).`
+      ` — likely a key plan. Discarding ${rooms.length} room(s).` +
+      ` First room bbox: ${JSON.stringify(rooms[0]?.boundingBox)}`
     );
     return [];
   }
 
-  console.log(`[RoomDetection] Room envelope coverage: ${Math.round(coverage * 100)}% — accepted.`);
+  if (coverage < 0.20) {
+    console.warn(
+      `[RoomDetection] Low coverage (${Math.round(coverage * 100)}%) — rooms accepted but may be key-plan.` +
+      ` First room bbox: ${JSON.stringify(rooms[0]?.boundingBox)}`
+    );
+  }
+
+  console.log(`[RoomDetection] Room envelope coverage: ${Math.round(coverage * 100)}% — accepted ${rooms.length} room(s).`);
   return rooms;
 }
 
