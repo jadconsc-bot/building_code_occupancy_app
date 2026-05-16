@@ -106,15 +106,20 @@ const ROOM_KEYWORDS = [
   'mechanical', 'electrical', 'janitor', 'lounge',
 ];
 
-export function filterRoomLabels(labels: OcrLabel[]): OcrLabel[] {
+export function filterRoomLabels(labels: OcrLabel[], imageHeight: number = 0): OcrLabel[] {
+  // Exclude labels in the top 20% of the image — likely title block / schedule table
+  const yMin = imageHeight > 0 ? imageHeight * 0.20 : 0;
+
   return labels.filter(label => {
+    if (label.y < yMin) return false;
+
     const lower = label.text.toLowerCase();
     const text = label.text;
 
     if (ROOM_KEYWORDS.some(kw => lower.includes(kw))) return true;
-    if (/^[A-Z]{0,4}[-.]?\d+$/i.test(text)) return true;  // AR-103, A-12, 53, B.12
+    // Room codes with explicit prefix: AR-103, A-12, B.12 (prefix required to avoid matching bare numbers)
+    if (/^[A-Z]{1,4}[-.]?\d+$/i.test(text)) return true;
     if (/^unit\s*\d+/i.test(text)) return true;
-    if (/^\d{1,4}$/.test(text)) return true;               // pure room numbers: 53, 101
 
     return false;
   });

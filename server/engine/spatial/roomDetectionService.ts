@@ -97,7 +97,7 @@ export async function detectRoomsFromPage(
   let labelContext = '';
   try {
     const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
-    const roomLabels = filterRoomLabels(ocrResult.labels);
+    const roomLabels = filterRoomLabels(ocrResult.labels, croppedH);
     console.log(`[RoomDetection] Azure OCR found ${roomLabels.length} room labels`);
     if (roomLabels.length > 0) {
       labelContext =
@@ -124,7 +124,7 @@ export async function detectRoomsFromPage(
     systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
     userPrompt,
     jsonSchema: {},
-    maxTokens: 8000,
+    maxTokens: 16000,
   });
 
   const raw = await safeParseRoomJSON(rawText);
