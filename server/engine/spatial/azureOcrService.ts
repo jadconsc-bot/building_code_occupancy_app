@@ -109,8 +109,13 @@ const ROOM_KEYWORDS = [
 export function filterRoomLabels(labels: OcrLabel[]): OcrLabel[] {
   return labels.filter(label => {
     const lower = label.text.toLowerCase();
-    return ROOM_KEYWORDS.some(kw => lower.includes(kw)) ||
-      /^[A-Z]{1,4}-\d+$/.test(label.text) ||
-      /^unit\s*\d+/i.test(label.text);
+    const text = label.text;
+
+    if (ROOM_KEYWORDS.some(kw => lower.includes(kw))) return true;
+    if (/^[A-Z]{0,4}[-.]?\d+$/i.test(text)) return true;  // AR-103, A-12, 53, B.12
+    if (/^unit\s*\d+/i.test(text)) return true;
+    if (/^\d{1,4}$/.test(text)) return true;               // pure room numbers: 53, 101
+
+    return false;
   });
 }

@@ -103,10 +103,13 @@ export async function detectRoomsFromPage(
       labelContext =
         `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
         roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${l.x}, ${l.y})`).join('\n') +
-        `\n\nFor EACH label above, identify the room space it refers to.\n` +
+        `\n\nYou MUST return a bounding box for EVERY label listed above. Do not skip any labels.\n` +
+        `For every single label provided, return a bounding box entry.\n` +
         `If the label has a leader line/arrow, follow it to the room.\n` +
         `Place the bounding box around the WALLS of that room, not the label.\n` +
-        `Use the label coordinates as anchor points to find the correct room.\n`;
+        `Use the label coordinates as anchor points to find the correct room.\n` +
+        `If you cannot determine exact walls, use your best estimate with confidence < 0.7.\n` +
+        `Skipping a labeled room is not acceptable — return ALL rooms.\n`;
     }
   } catch (err) {
     console.warn('[RoomDetection] Azure OCR failed, proceeding without labels:', err);
@@ -163,6 +166,8 @@ export async function detectRoomsFromPage(
     }
   }
 
+  reduceOverlap(rawRooms);
+
   const rooms: DetectedRoom[] = rawRooms.map((r: any) => ({
     label: r.label ?? 'Unknown Room',
     boundingBox: r.boundingBox ?? { x: 0, y: 0, width: 0, height: 0 },
@@ -204,6 +209,33 @@ export async function detectRoomsFromPage(
     processingTimeMs: Date.now() - startTime,
     flaggedForReview,
   };
+}
+
+function reduceOverlap(rooms: any[]): void {
+  for (let i = 0; i < rooms.length; i++) {
+    for (let j = i + 1; j < rooms.length; j++) {
+      const a = rooms[i].boundingBox;
+      const b = rooms[j].boundingBox;
+      if (!a || !b) continue;
+
+      const overlapX = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+      const overlapY = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+      const overlapArea = overlapX * overlapY;
+      const aArea = a.width * a.height;
+      const bArea = b.width * b.height;
+      const smallerArea = Math.min(aArea, bArea);
+
+      if (overlapArea > smallerArea * 0.20) {
+        if (aArea >= bArea) {
+          if (a.x < b.x) a.width = b.x - a.x;
+          else a.x = b.x + b.width;
+        } else {
+          if (b.x < a.x) b.width = a.x - b.x;
+          else b.x = a.x + a.width;
+        }
+      }
+    }
+  }
 }
 
 /**
