@@ -192,6 +192,22 @@ async function saveRoomsToDb(
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
 
+  // Delete stale results for this page before inserting fresh ones.
+  // Features must go first (FK constraint), then rooms, then compliance rows.
+  const existingRooms = await db
+    .select({ id: detectedRooms.id })
+    .from(detectedRooms)
+    .where(eq(detectedRooms.pageId, pageId));
+
+  if (existingRooms.length > 0) {
+    const roomIds = existingRooms.map(r => r.id);
+    for (const roomId of roomIds) {
+      await db.delete(detectedFeatures).where(eq(detectedFeatures.roomId, roomId));
+    }
+    await db.delete(detectedRooms).where(eq(detectedRooms.pageId, pageId));
+    console.log('[RoomDetection] Cleared', existingRooms.length, 'stale room(s) for page', pageId);
+  }
+
   // Backfill the page dimensions so the client can compute a scale factor
   if (imgW > 0 && imgH > 0) {
     await db.update(drawingPages)
