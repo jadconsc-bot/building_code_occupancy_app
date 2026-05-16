@@ -118,7 +118,40 @@ Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"h
 
   const raw = await safeParseRoomJSON(rawText);
 
-  const rooms: DetectedRoom[] = (raw.rooms ?? []).map((r: any) => ({
+  // Claude Vision internally downscales images to max 1568px on the longest side.
+  // Coordinates come back in that downscaled space even when the prompt specifies
+  // full pixel dimensions.  Scale them back to cropped-image pixel space before
+  // any further processing.
+  const rawRooms: any[] = raw.rooms ?? [];
+  if (rawRooms.length > 0) {
+    const maxX = Math.max(...rawRooms.map((r: any) => (r.boundingBox?.x ?? 0) + (r.boundingBox?.width ?? 0)));
+    const maxY = Math.max(...rawRooms.map((r: any) => (r.boundingBox?.y ?? 0) + (r.boundingBox?.height ?? 0)));
+    console.log(`[RoomDetection] Raw coord range: maxX=${maxX} maxY=${maxY} vs cropped ${croppedW}x${croppedH}`);
+
+    const CLAUDE_MAX_DIMENSION = 1568;
+    const claudeScale = Math.min(CLAUDE_MAX_DIMENSION / croppedW, CLAUDE_MAX_DIMENSION / croppedH);
+    const coordScale = claudeScale < 1 ? 1 / claudeScale : 1.0;
+    console.log(`[RoomDetection] Claude internal scale: ${claudeScale.toFixed(3)}, coord correction: ${coordScale.toFixed(2)}x`);
+
+    if (coordScale > 1.0) {
+      for (const r of rawRooms) {
+        if (r.boundingBox) {
+          r.boundingBox.x = Math.round(r.boundingBox.x * coordScale);
+          r.boundingBox.y = Math.round(r.boundingBox.y * coordScale);
+          r.boundingBox.width = Math.round(r.boundingBox.width * coordScale);
+          r.boundingBox.height = Math.round(r.boundingBox.height * coordScale);
+        }
+        for (const f of r.features ?? []) {
+          if (f.position) {
+            f.position.x = Math.round(f.position.x * coordScale);
+            f.position.y = Math.round(f.position.y * coordScale);
+          }
+        }
+      }
+    }
+  }
+
+  const rooms: DetectedRoom[] = rawRooms.map((r: any) => ({
     label: r.label ?? 'Unknown Room',
     boundingBox: r.boundingBox ?? { x: 0, y: 0, width: 0, height: 0 },
     areaSqm: r.areaSqm ?? 0,
