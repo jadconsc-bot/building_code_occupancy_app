@@ -20,8 +20,14 @@ export async function extractLabelsFromImage(
   imageWidth: number,
   imageHeight: number,
 ): Promise<OcrResult> {
-  const endpoint = ENV.azureDocIntelligenceEndpoint;
-  const key = ENV.azureDocIntelligenceKey;
+  const endpoint = ENV.azureDocIntelligenceEndpoint
+    || process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT
+    || '';
+  const key = ENV.azureDocIntelligenceKey
+    || process.env.AZURE_DOC_INTELLIGENCE_KEY
+    || '';
+
+  console.log(`[AzureOCR] Config check — endpoint: ${endpoint ? endpoint.substring(0, 40) + '...' : 'MISSING'}, key: ${key ? 'present' : 'MISSING'}`);
 
   if (!endpoint || !key) {
     console.warn('[AzureOCR] Not configured — skipping label extraction');
