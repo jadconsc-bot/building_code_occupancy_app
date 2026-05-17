@@ -1,4 +1,5 @@
 import type { OcrLabel } from './azureOcrService';
+import { sanitiseLegendEntries, sanitiseLegendText, detectCanaryEcho } from './legendSanitiser';
 
 export interface DrawingLegend {
   rawText: string;
@@ -83,7 +84,8 @@ export function extractLegend(
   // Reading order: top-to-bottom, left-to-right
   legendLabels.sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
 
-  const rawText = legendLabels.map(l => l.text).join(' ');
+  // Sanitise each OCR entry before joining — prevents injection via drawing text
+  const { cleanText: rawText } = sanitiseLegendEntries(legendLabels.map(l => l.text));
 
   // Start from known abbreviations and add anything parsed from legend text
   const abbreviations = { ...KNOWN_ABBREVIATIONS };
@@ -173,5 +175,10 @@ export function formatLegendForPrompt(legend: DrawingLegend): string {
   lines.push('END OF DRAWING LEGEND — Now detect rooms from the floor plan geometry below.');
   lines.push('');
 
-  return lines.join('\n');
+  const result = lines.join('\n');
+
+  // Canary check: catch accidental double-injection before reaching the model
+  detectCanaryEcho(result);
+
+  return result;
 }

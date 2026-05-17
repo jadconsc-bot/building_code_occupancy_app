@@ -7,6 +7,7 @@ import {
 } from './roomDetectionPrompt';
 import { extractLabelsFromImage, filterRoomLabels } from './azureOcrService';
 import { extractLegend, formatLegendForPrompt } from './legendExtractor';
+import { evaluateDetectionAccuracy } from './roomDetectionEvaluator';
 import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { eq } from 'drizzle-orm';
@@ -212,6 +213,10 @@ export async function detectRoomsFromPage(
   // Save with full image dimensions so the client scale factor is correct.
   await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
+
+  // Non-blocking LLM-judge accuracy eval — logs results, does not block response
+  evaluateDetectionAccuracy(filteredRooms, pageId, croppedBase64, croppedW, croppedH)
+    .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
 
   return {
     rooms: filteredRooms,
