@@ -83,12 +83,12 @@ export async function detectRoomsFromPage(
   const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
   console.log('[RoomDetection] Full image:', imgW, 'x', imgH, 'px');
 
-  // Crop the top 15% and left 25% to eliminate the key plan.
+  // Crop the top 15% and left 20% to eliminate the key plan.
   // Key plans are almost always in the top-left column of the sheet;
   // the main floor plan occupies the lower-center/right area.
   // Both offsets are restored after detection so saved coords are in full-image space.
   const cropOffsetY = Math.floor(imgH * 0.15);
-  const cropOffsetX = Math.floor(imgW * 0.35);
+  const cropOffsetX = Math.floor(imgW * 0.20);
   const croppedH = imgH - cropOffsetY;
   const croppedW = imgW - cropOffsetX;
   const croppedBuffer = await sharp(jpegBuffer)

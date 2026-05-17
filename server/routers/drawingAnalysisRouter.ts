@@ -944,6 +944,11 @@ export const drawingAnalysisRouter = router({
             .from(detectedFeatures)
             .where(eq(detectedFeatures.roomId, room.id));
 
+          const compliance = await db
+            .select()
+            .from(complianceResults)
+            .where(eq(complianceResults.roomId, room.id));
+
           rooms.push({
             ...room,
             boundingBox: safeJsonParse(room.boundingBoxJson),
@@ -953,6 +958,7 @@ export const drawingAnalysisRouter = router({
               position: safeJsonParse(f.positionJson),
               metadata: safeJsonParse(f.metadataJson),
             })),
+            compliance,
           });
         }
       }

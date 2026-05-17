@@ -1928,8 +1928,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Handle mouse wheel for zoom (centered on cursor)
   const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -2588,6 +2586,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [drawCanvas]);
+
+  // Register wheel and touch events directly with { passive: false } so that
+  // e.preventDefault() inside the handlers is allowed by the browser.
+  // React 17+ attaches synthetic events at the root with passive:true, so any
+  // preventDefault() call inside onWheel/onTouch* silently fails and generates
+  // "Unable to preventDefault inside passive event listener" console errors.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const preventWheel = (e: WheelEvent) => e.preventDefault();
+    canvas.addEventListener('wheel', preventWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', preventWheel);
+  }, []);
 
   // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
   if (!disclaimerAcknowledged) {
