@@ -99,11 +99,27 @@ export async function extractLabelsFromImage(
 }
 
 const ROOM_KEYWORDS = [
+  // Core room types
   'bedroom', 'bathroom', 'kitchen', 'living', 'dining',
   'corridor', 'hallway', 'vestibule', 'storage', 'closet',
   'laundry', 'utility', 'office', 'lobby', 'stair', 'elevator',
   'unit', 'suite', 'room', 'wc', 'ensuite', 'garage',
   'mechanical', 'electrical', 'janitor', 'lounge',
+  // Additional room types common in Canadian drawings
+  'greatroom', 'great room', 'great-room',
+  'den', 'study', 'library',
+  'en-suite', 'en suite',
+  'washroom', 'w/r', 'wr',
+  'powder', 'powder room',
+  'pantry', 'walk-in', 'wic', 'w.i.c',
+  'foyer', 'entry', 'entrance', 'mudroom', 'mud room',
+  'family', 'family room',
+  'rec', 'recreation', 'media', 'theatre',
+  'gym', 'exercise',
+  'balcony', 'terrace', 'patio', 'deck',
+  'mech', 'mec', 'elec',
+  'common', 'amenity',
+  'ar',
 ];
 
 export function filterRoomLabels(
@@ -130,6 +146,8 @@ export function filterRoomLabels(
     // Room codes require an explicit separator: AR-103, A-12, B.12
     if (/^[A-Z]{1,4}[-.]\d+$/i.test(text)) return true;
     if (/^unit\s*\d+/i.test(text)) return true;
+    // Short Canadian drawing abbreviations
+    if (/^(W\/R|WC|WR|MEC|MECH|ELEC|DEN|FAM|REC|GYM|ENS)$/i.test(text)) return true;
 
     return false;
   });
