@@ -171,6 +171,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
+  const [evalData, setEvalData] = useState<{
+    accuracy: number;
+    passingRooms: number;
+    totalRooms: number;
+    missedRooms: string[];
+  } | null>(null);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
   const [roomPollCount, setRoomPollCount] = useState(0);
@@ -451,11 +457,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   }, [recentAnalyses, analysisId]);
 
+  const waitingForRooms = detectedRoomsData.length === 0 && roomPollCount < 40;
+  const waitingForEval = detectedRoomsData.length > 0 && evalData === null && roomPollCount < 50;
   const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
-      refetchInterval: roomPollCount < 40 && detectedRoomsData.length === 0
+      refetchInterval: (waitingForRooms || waitingForEval)
         ? (roomPollCount < 5 ? 2000 : 5000)
         : false,
     }
@@ -466,6 +474,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setRoomPollCount(0);
     setDetectedRoomsData([]);
     setAnalyzedPageDims(null);
+    setEvalData(null);
   }, [analysisId]);
 
   useEffect(() => {
@@ -484,6 +493,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       if (p.widthPx > 0 && p.heightPx > 0) {
         setAnalyzedPageDims({ width: p.widthPx, height: p.heightPx });
         console.log('[RoomOverlay] Analyzed page dims:', p.widthPx, 'x', p.heightPx);
+      }
+      if (p.evalAccuracy != null && p.evalTotalRooms != null) {
+        setEvalData({
+          accuracy: p.evalAccuracy,
+          passingRooms: p.evalPassingRooms ?? 0,
+          totalRooms: p.evalTotalRooms,
+          missedRooms: p.evalMissedRoomsJson
+            ? JSON.parse(p.evalMissedRoomsJson as string)
+            : [],
+        });
       }
     }
   }, [roomsData]);
@@ -3654,16 +3673,68 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
               </div>
 
-              {/* Room detection status bar */}
+              {/* Room detection status + quality panel */}
               {detectedRoomsData.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 rounded-b-lg -mt-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                  {detectedRoomsData.length} room(s) detected
-                  {detectedRoomsData.filter((r: any) => r.flaggedForReview).length > 0 && (
-                    <span className="text-amber-600">
-                      · {detectedRoomsData.filter((r: any) => r.flaggedForReview).length} flagged for review
-                    </span>
-                  )}
+                <div className="border-t bg-muted/30 rounded-b-lg -mt-1 text-xs">
+                  {/* Basic count row */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                    <span>{detectedRoomsData.length} room(s) detected</span>
+                    {detectedRoomsData.filter((r: any) => r.flaggedForReview).length > 0 && (
+                      <span className="text-amber-600">
+                        · {detectedRoomsData.filter((r: any) => r.flaggedForReview).length} flagged for review
+                      </span>
+                    )}
+                    {!evalData && (
+                      <span className="ml-auto text-muted-foreground/60 italic">evaluating accuracy…</span>
+                    )}
+                  </div>
+
+                  {/* Quality panel — shown once eval data arrives */}
+                  {evalData && (() => {
+                    const pct = Math.round(evalData.accuracy * 100);
+                    const color = pct >= 90 ? 'text-green-600' : pct >= 70 ? 'text-amber-500' : 'text-red-500';
+                    const barColor = pct >= 90 ? 'bg-green-500' : pct >= 70 ? 'bg-amber-400' : 'bg-red-500';
+                    const lowAccuracy = pct < 80;
+                    return (
+                      <div className="px-3 pb-2.5 space-y-1.5 border-t border-dashed border-border/50 pt-2">
+                        {/* Accuracy bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground shrink-0">Detection quality</span>
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className={`font-semibold tabular-nums shrink-0 ${color}`}>{pct}%</span>
+                          <span className="text-muted-foreground shrink-0">{evalData.passingRooms}/{evalData.totalRooms} verified</span>
+                        </div>
+
+                        {/* Missed rooms */}
+                        {evalData.missedRooms.length > 0 && (
+                          <div className="text-amber-600">
+                            <span className="font-medium">Possibly missed: </span>
+                            {evalData.missedRooms.slice(0, 4).join(', ')}
+                            {evalData.missedRooms.length > 4 && ` +${evalData.missedRooms.length - 4} more`}
+                          </div>
+                        )}
+
+                        {/* Re-run suggestion */}
+                        {lowAccuracy && (
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <span className="text-muted-foreground">
+                              ⚠ Some rooms may be missing. Re-running may improve accuracy.
+                            </span>
+                            <button
+                              onClick={runAiAnalysis}
+                              disabled={isAnalyzing}
+                              className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              Re-run
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

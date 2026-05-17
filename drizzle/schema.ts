@@ -807,6 +807,11 @@ export const drawingPages = mysqlTable("drawingPages", {
   heightPx: int("heightPx").notNull(),
   preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  // LLM-judge eval results written asynchronously after detection
+  evalAccuracy: float("evalAccuracy"),
+  evalPassingRooms: int("evalPassingRooms"),
+  evalTotalRooms: int("evalTotalRooms"),
+  evalMissedRoomsJson: text("evalMissedRoomsJson"),
 });
 
 export type DrawingPage = typeof drawingPages.$inferSelect;

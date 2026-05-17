@@ -11,6 +11,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { ENV } from '../../_core/env';
+import { getDb } from '../../db';
+import { drawingPages } from '../../../drizzle/schema';
+import { eq } from 'drizzle-orm';
 import type { DetectedRoom } from './types';
 
 // Use the fastest/cheapest vision model for judging — not generating.
@@ -142,7 +145,6 @@ export async function evaluateDetectionAccuracy(
     modelVersion: response.model,
   };
 
-  // Log summary — store to DB once an eval_results table is added
   const passing = roomScores.filter(r => r.score >= 0.7).length;
   console.log(
     `[DetectionEval] page=${pageId} accuracy=${(overallAccuracy * 100).toFixed(1)}% ` +
@@ -158,6 +160,25 @@ export async function evaluateDetectionAccuracy(
       `[DetectionEval] Low score "${f.roomLabel}": ` +
       `label=${f.labelAccuracy} box=${f.boxPlausibility} occupancy=${f.occupancyCorrect} — ${f.notes}`,
     );
+  }
+
+  // Persist eval summary to drawingPages so the client can display quality info
+  try {
+    const db = await getDb();
+    if (db) {
+      await db.update(drawingPages)
+        .set({
+          evalAccuracy: overallAccuracy,
+          evalPassingRooms: passing,
+          evalTotalRooms: roomScores.length,
+          evalMissedRoomsJson: result.missedRooms.length > 0
+            ? JSON.stringify(result.missedRooms)
+            : null,
+        })
+        .where(eq(drawingPages.id, pageId));
+    }
+  } catch (err) {
+    console.error('[DetectionEval] Failed to persist eval to DB:', err);
   }
 
   return result;
