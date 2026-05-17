@@ -235,20 +235,55 @@ function reduceOverlap(rooms: any[]): void {
       const b = rooms[j].boundingBox;
       if (!a || !b) continue;
 
-      const overlapX = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
-      const overlapY = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-      const overlapArea = overlapX * overlapY;
-      const aArea = a.width * a.height;
-      const bArea = b.width * b.height;
+      const overlapLeft  = Math.max(a.x, b.x);
+      const overlapRight = Math.min(a.x + a.width, b.x + b.width);
+      const overlapTop   = Math.max(a.y, b.y);
+      const overlapBot   = Math.min(a.y + a.height, b.y + b.height);
+      const overlapX     = Math.max(0, overlapRight - overlapLeft);
+      const overlapY     = Math.max(0, overlapBot   - overlapTop);
+      const overlapArea  = overlapX * overlapY;
+
+      const aArea       = a.width * a.height;
+      const bArea       = b.width * b.height;
       const smallerArea = Math.min(aArea, bArea);
 
-      if (overlapArea > smallerArea * 0.20) {
-        if (aArea >= bArea) {
-          if (a.x < b.x) a.width = b.x - a.x;
-          else a.x = b.x + b.width;
+      // Ignore tiny wall-thickness overlaps (< 8% of smaller room).
+      // These are adjacent rooms sharing a wall — no adjustment needed.
+      if (overlapArea <= smallerArea * 0.08) continue;
+
+      // Determine dominant axis of overlap
+      const dominantX = overlapX >= overlapY;
+
+      // Adjacent rooms: overlap is real but both boxes are reasonable.
+      // Snap both to the midpoint of the overlap seam — each room gives up
+      // half the contested pixels rather than the larger room losing all of them.
+      if (dominantX) {
+        const mid = Math.round((overlapLeft + overlapRight) / 2);
+        if (a.x < b.x) {
+          // A is to the left — trim A's right edge, push B's left edge
+          a.width = mid - a.x;
+          const bRight = b.x + b.width;
+          b.x = mid;
+          b.width = bRight - mid;
         } else {
-          if (b.x < a.x) b.width = a.x - b.x;
-          else b.x = a.x + a.width;
+          // B is to the left — trim B's right edge, push A's left edge
+          b.width = mid - b.x;
+          const aRight = a.x + a.width;
+          a.x = mid;
+          a.width = aRight - mid;
+        }
+      } else {
+        const mid = Math.round((overlapTop + overlapBot) / 2);
+        if (a.y < b.y) {
+          a.height = mid - a.y;
+          const bBot = b.y + b.height;
+          b.y = mid;
+          b.height = bBot - mid;
+        } else {
+          b.height = mid - b.y;
+          const aBot = a.y + a.height;
+          a.y = mid;
+          a.height = aBot - mid;
         }
       }
     }

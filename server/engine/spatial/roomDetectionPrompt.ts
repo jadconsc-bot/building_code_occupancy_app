@@ -42,6 +42,7 @@ Critical rules:
 4. IMPORTANT: This image is exactly ${croppedW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${croppedW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
 6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
+7. ADJACENT ROOMS share walls — draw each room's bounding box to its own interior wall face. Adjacent boxes must TOUCH but not overlap. If room A is to the left of room B, A's right edge must equal B's left edge. Never let two separate rooms have overlapping bounding boxes.
 ${labelContext}
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 }
