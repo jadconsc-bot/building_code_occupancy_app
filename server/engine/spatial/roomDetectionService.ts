@@ -217,8 +217,21 @@ export async function detectRoomsFromPage(
     console.log(`[RoomDetection] Rejected ${rejectedOob} out-of-bounds room(s)`);
   }
 
+  // Reject implausibly small room boxes. A box narrower than 1.5% of the cropped
+  // image width or shorter than 1% of the height is almost certainly a misdetection
+  // (e.g. a thin sliver label artifact, wall line, or annotation bbox).
+  const MIN_W = croppedW * 0.015;
+  const MIN_H = croppedH * 0.010;
+  const sizedRooms = inBoundsRooms.filter(r => {
+    if (r.boundingBox.width < MIN_W || r.boundingBox.height < MIN_H) {
+      console.log(`[RoomDetection] Rejected undersized room "${r.label}" (${r.boundingBox.width}×${r.boundingBox.height}px vs min ${Math.round(MIN_W)}×${Math.round(MIN_H)})`);
+      return false;
+    }
+    return true;
+  });
+
   // Envelope check against cropped dimensions (Claude's coordinate space).
-  const filteredRooms = rejectKeyPlanRooms(inBoundsRooms, croppedW, croppedH);
+  const filteredRooms = rejectKeyPlanRooms(sizedRooms, croppedW, croppedH);
 
   // Restore X and Y coordinates from cropped-image space to full-image space.
   for (const room of filteredRooms) {
