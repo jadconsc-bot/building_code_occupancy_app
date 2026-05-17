@@ -26,13 +26,12 @@ export const ROOM_DETECTION_FEATURES = [
 export function buildRoomDetectionPrompt(
   croppedW: number,
   croppedH: number,
-  contextStr: string = '',
   labelContext: string = '',
+  legendContext: string = '',
   templateContext: string = '',
 ): string {
-  return `Analyze this architectural floor plan drawing.
-${contextStr}
-${templateContext}
+  return `${legendContext}${templateContext}
+Analyze this architectural floor plan drawing.
 Detect ALL rooms, spaces, and architectural features visible in this floor plan.
 Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
 

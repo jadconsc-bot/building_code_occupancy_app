@@ -6,6 +6,7 @@ import {
   buildRoomDetectionPrompt,
 } from './roomDetectionPrompt';
 import { extractLabelsFromImage, filterRoomLabels } from './azureOcrService';
+import { extractLegend, formatLegendForPrompt } from './legendExtractor';
 import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { eq } from 'drizzle-orm';
@@ -66,10 +67,6 @@ export async function detectRoomsFromPage(
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
-  const contextStr = projectContext
-    ? `Project context: Occupancy ${projectContext.occupancyCode ?? 'unknown'}, Province ${projectContext.province ?? 'unknown'}, Building type ${projectContext.buildingType ?? 'unknown'}. Use this to focus classification.`
-    : '';
-
   const template = getPromptTemplate(projectContext?.drawingType ?? 'auto');
   const templateContext = template.id !== 'auto'
     ? `\nBUILDING TYPE: ${template.label}\n${template.systemHints}\n\nFEW-SHOT EXAMPLES:\n${template.fewShotExamples}\n`
@@ -100,11 +97,19 @@ export async function detectRoomsFromPage(
     ` (offset x=${cropOffsetX}, y=${cropOffsetY})`
   );
 
-  // Pass 1: Azure OCR — extract room labels with precise pixel coordinates
+  // Pass 1: Azure OCR — extract legend + room labels with precise pixel coordinates
   let labelContext = '';
+  let legendContext = '';
   try {
     const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
-    const roomLabels = filterRoomLabels(ocrResult.labels, croppedH, croppedW);
+
+    // Pass 1a: extract drawing legend from ALL labels before room filtering
+    const legend = extractLegend(ocrResult.allLabels, croppedW, croppedH);
+    legendContext = formatLegendForPrompt(legend);
+    console.log(`[RoomDetection] Legend extracted: hasLegend=${legend.hasLegend}, abbreviations=${Object.keys(legend.abbreviations).length}`);
+
+    // Pass 1b: filter to room labels only
+    const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
     console.log(`[RoomDetection] Azure OCR found ${roomLabels.length} room labels`);
     if (roomLabels.length > 0) {
       labelContext =
@@ -122,8 +127,8 @@ export async function detectRoomsFromPage(
     console.warn('[RoomDetection] Azure OCR failed, proceeding without labels:', err);
   }
 
-  // Pass 2: Claude Vision — use label positions to anchor bounding boxes
-  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, contextStr, labelContext, templateContext);
+  // Pass 2: Claude Vision — legend context first, then label anchors
+  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext);
 
   const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: croppedBase64,

@@ -11,7 +11,8 @@ export interface OcrLabel {
 }
 
 export interface OcrResult {
-  labels: OcrLabel[];
+  labels: OcrLabel[];       // filtered room labels
+  allLabels: OcrLabel[];    // all words, including legend/notes blocks
   rawResponse: unknown;
 }
 
@@ -31,7 +32,7 @@ export async function extractLabelsFromImage(
 
   if (!endpoint || !key) {
     console.warn('[AzureOCR] Not configured — skipping label extraction');
-    return { labels: [], rawResponse: null };
+    return { labels: [], allLabels: [], rawResponse: null };
   }
 
   const submitUrl =
@@ -95,7 +96,7 @@ export async function extractLabelsFromImage(
   }
 
   console.log(`[AzureOCR] Extracted ${labels.length} text labels`);
-  return { labels, rawResponse: result };
+  return { labels, allLabels: labels, rawResponse: result };
 }
 
 const ROOM_KEYWORDS = [
