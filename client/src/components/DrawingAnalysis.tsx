@@ -193,6 +193,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       fail: 'rgba(220,38,38,0.9)',
       warning: 'rgba(217,119,6,0.9)',
       flagged: 'rgba(217,119,6,0.6)',
+      flaggedFill: 'rgba(234,179,8,0.18)',
     },
   } as const;
 
@@ -896,6 +897,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
         ctx.fillStyle = colors.fill;
         ctx.fillRect(screenX, screenY, screenW, screenH);
+        if (room.flaggedForReview) {
+          ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
+          ctx.fillRect(screenX, screenY, screenW, screenH);
+        }
 
         ctx.strokeStyle = statusBorder;
         ctx.lineWidth = hasFailure ? 2.5 : 1.5;

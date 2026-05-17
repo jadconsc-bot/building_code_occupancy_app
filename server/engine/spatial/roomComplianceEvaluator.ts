@@ -499,6 +499,31 @@ export async function evaluateRoomCompliance(
     }));
   }
 
+  // 13. Exit stair enclosure check (NBC 3.4.3.1)
+  const isStair = /stair|stairwell|stairway/i.test(room.label);
+  if (isStair) {
+    const hasFireRatedDoor = room.features.some(f => f.type === 'door_fire_rated');
+    traces.push(buildFederalTrace({
+      result: hasFireRatedDoor ? 'pass' : 'warning',
+      rule: 'NBC 3.4.3.1.(1)',
+      reasoning: hasFireRatedDoor
+        ? `Fire-rated door detected at stair enclosure — exit stair shaft fire separation indicated`
+        : `Exit stair "${room.label}" must be enclosed in a fire-rated shaft. Verify fire-rated walls (min 45 min for ≤3 storeys, 1 hr for >3 storeys) and self-closing fire doors at every floor opening`,
+      evaluatedInputs: {
+        actual: hasFireRatedDoor ? 'fire-rated door detected' : 'fire separation not confirmed',
+        required: 'fire-rated enclosure required',
+        unit: 'boolean'
+      },
+      severity: hasFireRatedDoor ? 'info' : 'high',
+      constraintId: 'egress.stair_enclosure',
+      recommendations: hasFireRatedDoor ? [] : [
+        'Enclose exit stair in fire-rated shaft — min 45 min FRR (≤3 storeys) or 1 hr FRR (>3 storeys)',
+        'Provide self-closing fire doors at every floor-level opening into the stair shaft',
+        'Verify continuity of fire separation from floor slab to underside of floor above'
+      ]
+    }));
+  }
+
   // Save all traces to complianceResults table
   await saveTracesToDb(traces, roomDbId, projectId);
 
