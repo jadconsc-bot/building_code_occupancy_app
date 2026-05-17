@@ -370,10 +370,9 @@ function calculateScore(evaluations: RuleEvaluation[]): number {
   if (evaluations.length === 0) return 0;
 
   const weights = { critical: 3, major: 2, minor: 1, info: 0.5 };
-  const resultScores: Record<EvaluationResult, number> = {
+  const resultScores: Record<Exclude<EvaluationResult, 'UNABLE_TO_EVALUATE'>, number> = {
     PASS: 1.0,
     CONDITIONAL: 0.6,
-    UNABLE_TO_EVALUATE: 0.4,
     FAIL: 0.0,
   };
 
@@ -381,6 +380,10 @@ function calculateScore(evaluations: RuleEvaluation[]): number {
   let weightedScore = 0;
 
   for (const ev of evaluations) {
+    // UNABLE_TO_EVALUATE means the rule cannot be checked from this drawing type
+    // (e.g. stud sizes on a floor plan). Exclude it from scoring entirely — it is
+    // neither a pass nor a failure and should not penalise the compliance score.
+    if (ev.result === 'UNABLE_TO_EVALUATE') continue;
     const w = weights[ev.severity];
     totalWeight += w;
     weightedScore += w * resultScores[ev.result];
