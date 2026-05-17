@@ -168,7 +168,7 @@ export async function evaluateDetectionAccuracy(
     if (db) {
       await db.update(drawingPages)
         .set({
-          evalAccuracy: overallAccuracy,
+          evalAccuracy: overallAccuracy.toFixed(3),
           evalPassingRooms: passing,
           evalTotalRooms: roomScores.length,
           evalMissedRoomsJson: result.missedRooms.length > 0

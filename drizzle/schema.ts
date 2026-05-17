@@ -808,7 +808,7 @@ export const drawingPages = mysqlTable("drawingPages", {
   preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   // LLM-judge eval results written asynchronously after detection
-  evalAccuracy: float("evalAccuracy"),
+  evalAccuracy: decimal("evalAccuracy", { precision: 4, scale: 3 }),
   evalPassingRooms: int("evalPassingRooms"),
   evalTotalRooms: int("evalTotalRooms"),
   evalMissedRoomsJson: text("evalMissedRoomsJson"),

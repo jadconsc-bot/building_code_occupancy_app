@@ -496,7 +496,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       if (p.evalAccuracy != null && p.evalTotalRooms != null) {
         setEvalData({
-          accuracy: p.evalAccuracy,
+          accuracy: parseFloat(p.evalAccuracy as unknown as string),
           passingRooms: p.evalPassingRooms ?? 0,
           totalRooms: p.evalTotalRooms,
           missedRooms: p.evalMissedRoomsJson
