@@ -44,7 +44,14 @@ export const Constraints = {
         ref: 'NBC 3.4.2.2.(3)',
         description: 'Occupant load above 600 requiring minimum 3 exits'
       }
-    }
+    },
+    stair_width: {
+      minimum: {
+        value: 900, unit: 'mm',
+        ref: 'NBC 3.4.6.3.(1)',
+        description: 'Minimum clear width of exit stairway'
+      }
+    },
   },
   fire: {
     separation: {
@@ -62,6 +69,11 @@ export const Constraints = {
         value: 0.75, unit: 'hr',
         ref: 'NBC 3.3.4.2.(3)',
         description: 'Fire separation between Group D and Group E'
+      },
+      residential_commercial: {
+        value: 1.0, unit: 'hr',
+        ref: 'NBC 3.3.4.2',
+        description: 'Fire separation between Group C (residential) and Group D (business/personal services) occupancies'
       },
       assembly_any: {
         value: 2.0, unit: 'hr',
@@ -151,8 +163,29 @@ export const Constraints = {
     },
     door_width: {
       minimum: { value: 850, unit: 'mm', ref: 'NBC 3.8.3.8.(1)', description: 'Minimum accessible door clear width' }
+    },
+    units: {
+      minimum_percent: {
+        value: 0.15, unit: 'fraction',
+        ref: 'NBC 3.8.3.3',
+        description: 'Minimum fraction of residential units required to be accessible'
+      }
+    },
+  },
+  residential: {
+    bedroom_area: {
+      minimum_1_person: {
+        value: 7.0, unit: 'm2',
+        ref: 'NBC 9.5.2.3',
+        description: 'Minimum bedroom area for 1 sleeping person'
+      },
+      minimum_2_person: {
+        value: 9.8, unit: 'm2',
+        ref: 'NBC 9.5.2.3',
+        description: 'Minimum bedroom area for 2 sleeping persons'
+      }
     }
-  }
+  },
 } as const;
 
 /**

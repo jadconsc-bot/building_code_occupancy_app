@@ -4,7 +4,7 @@ import type { ComplianceTrace } from '../types/trace';
 import type { DetectedRoom } from './types';
 import { getDb } from '../../db';
 import { complianceResults, detectedRooms, projects } from '../../../drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // Feature-to-occupancy scoring rules from the detection spec
 const FEATURE_OCCUPANCY_RULES = [
@@ -271,6 +271,12 @@ export async function evaluateRoomCompliance(
         ) {
           separationHr = Constraints.fire.separation.office_mercantile.value;
           separationRef = Constraints.fire.separation.office_mercantile.ref;
+        } else if (
+          (group === 'C' && otherGroups.includes('D')) ||
+          (group === 'D' && otherGroups.includes('C'))
+        ) {
+          separationHr = Constraints.fire.separation.residential_commercial.value;
+          separationRef = Constraints.fire.separation.residential_commercial.ref;
         }
 
         if (separationHr > 0) {
@@ -522,6 +528,135 @@ export async function evaluateRoomCompliance(
         'Verify continuity of fire separation from floor slab to underside of floor above'
       ]
     }));
+  }
+
+  // 14. Minimum bedroom area (NBC 9.5.2.3)
+  const isBedroom = /bedroom|chambre|sleeping room/i.test(room.label);
+  if (isBedroom && group === 'C') {
+    const minArea = Constraints.residential.bedroom_area.minimum_1_person.value;
+    traces.push(buildFederalTrace({
+      result: room.areaSqm <= 0 ? 'not_applicable'
+        : room.areaSqm >= minArea ? 'pass' : 'fail',
+      rule: Constraints.residential.bedroom_area.minimum_1_person.ref,
+      reasoning: room.areaSqm <= 0
+        ? `Bedroom "${room.label}" — area unavailable, verify minimum ${minArea}m²`
+        : room.areaSqm >= minArea
+          ? `Bedroom area ${room.areaSqm}m² meets minimum ${minArea}m² (NBC 9.5.2.3)`
+          : `Bedroom "${room.label}" area ${room.areaSqm}m² is below minimum ${minArea}m²`,
+      evaluatedInputs: {
+        actual: room.areaSqm,
+        required: minArea,
+        unit: 'm²',
+        ...computeMargin(room.areaSqm, minArea)
+      },
+      severity: room.areaSqm > 0 && room.areaSqm < minArea ? 'high' : 'info',
+      constraintId: 'residential.bedroom_area',
+      recommendations: room.areaSqm > 0 && room.areaSqm < minArea ? [
+        `Enlarge bedroom "${room.label}" to minimum ${minArea}m² (current: ${room.areaSqm}m²)`,
+        'No dimension in a bedroom may be less than 2000mm (NBC 9.5.2.3)'
+      ] : []
+    }));
+  }
+
+  // 15. Suite-to-suite fire separation requirement (NBC 3.3.3.4)
+  // Fires on Group C bedroom rooms to flag the 1-hour inter-suite separation requirement.
+  if (isBedroom && group === 'C') {
+    try {
+      const dbB4 = await getDb();
+      if (dbB4) {
+        const groupCCount = await dbB4
+          .select({ id: detectedRooms.id })
+          .from(detectedRooms)
+          .where(and(
+            eq(detectedRooms.projectId, projectId),
+            eq(detectedRooms.occupancyGroup, 'C')
+          ));
+        if (groupCCount.length > 1) {
+          traces.push(buildFederalTrace({
+            result: 'warning',
+            rule: Constraints.fire.separation.residential_suite.ref,
+            reasoning: `Group C multi-suite residential building — 1-hour fire separation required between all dwelling units (NBC 3.3.3.4). Verify fire-rated wall assemblies between suites from architectural details`,
+            evaluatedInputs: {
+              actual: 'see architectural details',
+              required: `${Constraints.fire.separation.residential_suite.value}hr FRR between suites`,
+              unit: 'hr'
+            },
+            severity: 'high',
+            constraintId: 'fire.separation.residential_suite',
+            recommendations: [
+              'Verify 1-hour fire-rated assemblies between all residential suites (NBC 3.3.3.4)',
+              'Fire separation must extend from floor slab to underside of floor above',
+              'Fire-rated doors required at any openings in suite separation walls'
+            ]
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('[RoomCompliance] Rule 15 suite separation query failed:', err);
+    }
+  }
+
+  // 16. Accessible unit count requirement (NBC 3.8.3.3)
+  // Fires on Group C vestibule/corridor rooms — these represent building access points
+  // where the accessibility requirement is verified.
+  const isAccessPoint = group === 'C' && /vestibule|entrance|lobby|corridor|hallway/i.test(room.label);
+  if (isAccessPoint) {
+    const accessiblePercent = Constraints.accessibility.units.minimum_percent.value;
+    traces.push(buildFederalTrace({
+      result: 'warning',
+      rule: Constraints.accessibility.units.minimum_percent.ref,
+      reasoning: `Group C residential building: minimum ${Math.round(accessiblePercent * 100)}% of dwelling units must be accessible (NBC 3.8.3.3). Verify accessible unit count and barrier-free path from building entrance`,
+      evaluatedInputs: {
+        actual: 'see architectural drawings',
+        required: `≥${Math.round(accessiblePercent * 100)}% of units or ≥1 unit`,
+        unit: 'fraction'
+      },
+      severity: 'medium',
+      constraintId: 'accessibility.units',
+      recommendations: [
+        `Ensure ≥${Math.round(accessiblePercent * 100)}% of residential units meet NBC 3.8.3.3 accessible suite requirements`,
+        'Provide unobstructed barrier-free path from building entrance to each accessible unit',
+        'Each accessible unit requires: accessible washroom, 850mm door widths, 1500mm turning radius clearances'
+      ]
+    }));
+  }
+
+  // 17. Storage room occupancy group check — accessory residential storage should be Group C
+  const isStorageGroupF = /storage|stor\b|locker|utility room/i.test(room.label) && group === 'F';
+  if (isStorageGroupF) {
+    try {
+      const dbStor = await getDb();
+      if (dbStor) {
+        const groupCRooms = await dbStor
+          .select({ id: detectedRooms.id })
+          .from(detectedRooms)
+          .where(and(
+            eq(detectedRooms.projectId, projectId),
+            eq(detectedRooms.occupancyGroup, 'C')
+          ));
+        if (groupCRooms.length > 0) {
+          traces.push(buildFederalTrace({
+            result: 'warning',
+            rule: 'NBC 3.1.2',
+            reasoning: `Storage room "${room.label}" is classified as Group F, but Group C (residential) occupancies exist in this project. Accessory storage serving residential units is Group C under NBC 3.1.2 — not Group F`,
+            evaluatedInputs: {
+              actual: 'Group F',
+              required: 'Verify — likely Group C for residential accessory storage',
+              unit: 'occupancy group'
+            },
+            severity: 'medium',
+            constraintId: 'occupancy.storage_group_c',
+            recommendations: [
+              `Reclassify "${room.label}" as Group C if it exclusively serves residential units`,
+              'Accessory storage (lockers, cold storage, bicycle rooms) in residential buildings = Group C (NBC 3.1.2)',
+              'Group F applies to industrial storage involving hazardous materials or manufacturing'
+            ]
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('[RoomCompliance] Rule 17 storage group check failed:', err);
+    }
   }
 
   // Save all traces to complianceResults table

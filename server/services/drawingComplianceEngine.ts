@@ -51,39 +51,6 @@ export interface ComplianceEngineOutput {
 // NBC Rule Definitions (deterministic thresholds)
 // ============================================================================
 
-/** NBC 9.5.5.2 — Minimum stud size for bearing walls */
-const RULE_STUD_MIN_SIZE: RuleEvaluation = {
-  ruleId: "NBC-9.5.5.2",
-  clause: "9.5.5.2",
-  description: "Minimum stud size for bearing walls",
-  category: "structural",
-  result: "UNABLE_TO_EVALUATE",
-  details: "",
-  severity: "major",
-};
-
-/** NBC 9.5.5.3 — Stud spacing */
-const RULE_STUD_SPACING: RuleEvaluation = {
-  ruleId: "NBC-9.5.5.3",
-  clause: "9.5.5.3",
-  description: "Stud spacing maximum 600mm o.c. for bearing walls",
-  category: "structural",
-  result: "UNABLE_TO_EVALUATE",
-  details: "",
-  severity: "major",
-};
-
-/** NBC 9.23.3.2 — Joist size and span */
-const RULE_JOIST_SIZE: RuleEvaluation = {
-  ruleId: "NBC-9.23.3.2",
-  clause: "9.23.3.2",
-  description: "Floor joist size and span compliance",
-  category: "structural",
-  result: "UNABLE_TO_EVALUATE",
-  details: "",
-  severity: "major",
-};
-
 /** NBC 3.4.3.4 — Exit door minimum width 860mm */
 const RULE_EXIT_WIDTH: RuleEvaluation = {
   ruleId: "NBC-3.4.3.4",
@@ -117,34 +84,12 @@ const RULE_FIRE_SEPARATION: RuleEvaluation = {
   severity: "critical",
 };
 
-/** NBC 9.23.9 — Fastener requirements */
-const RULE_FASTENERS: RuleEvaluation = {
-  ruleId: "NBC-9.23.9",
-  clause: "9.23.9",
-  description: "Fastener type and size requirements",
-  category: "connections",
-  result: "UNABLE_TO_EVALUATE",
-  details: "",
-  severity: "major",
-};
-
-/** CSA O86 — Engineered wood connections */
-const RULE_CSA_O86: RuleEvaluation = {
-  ruleId: "CSA-O86",
-  clause: "CSA O86",
-  description: "Engineered wood connection design per CSA O86",
-  category: "csa",
-  result: "UNABLE_TO_EVALUATE",
-  details: "",
-  severity: "major",
-};
-
 // ============================================================================
 // Dimension parsing helpers
 // ============================================================================
 
 /** Parse a dimension string to millimetres. Returns null if unparseable. */
-function parseDimensionToMm(dim: string): number | null {
+export function parseDimensionToMm(dim: string): number | null {
   if (!dim) return null;
   const s = dim.toLowerCase().trim();
 
@@ -183,71 +128,6 @@ function parseDimensionToMm(dim: string): number | null {
 // ============================================================================
 // Rule Evaluators
 // ============================================================================
-
-function evaluateStructuralRules(extraction: DrawingExtractionResult): RuleEvaluation[] {
-  const results: RuleEvaluation[] = [];
-  const structural = extraction.structural;
-
-  if (!structural) {
-    return [
-      { ...RULE_STUD_MIN_SIZE, result: "UNABLE_TO_EVALUATE", details: "No structural data extracted from drawing." },
-      { ...RULE_STUD_SPACING, result: "UNABLE_TO_EVALUATE", details: "No structural data extracted from drawing." },
-      { ...RULE_JOIST_SIZE, result: "UNABLE_TO_EVALUATE", details: "No structural data extracted from drawing." },
-    ];
-  }
-
-  // NBC 9.5.5.2 — Stud minimum size (38x89mm for bearing walls)
-  const studs = structural.memberSizes.filter(m =>
-    m.label.toLowerCase().includes("stud") ||
-    m.label.toLowerCase().includes("wall")
-  );
-  if (studs.length === 0) {
-    results.push({ ...RULE_STUD_MIN_SIZE, result: "UNABLE_TO_EVALUATE", details: "No stud members identified in drawing." });
-  } else {
-    const nonCompliant = studs.filter(s => {
-      const mm = parseDimensionToMm(s.dimension);
-      return mm !== null && mm < 89; // minimum 38x89mm (depth)
-    });
-    if (nonCompliant.length > 0) {
-      results.push({
-        ...RULE_STUD_MIN_SIZE,
-        result: "FAIL",
-        details: `Stud(s) appear smaller than minimum 38x89mm: ${nonCompliant.map(s => `${s.label} (${s.dimension})`).join(", ")}. Verify with engineer.`,
-      });
-    } else {
-      results.push({
-        ...RULE_STUD_MIN_SIZE,
-        result: "CONDITIONAL",
-        details: `${studs.length} stud member(s) identified. Dimensions appear adequate but require professional verification against span tables.`,
-      });
-    }
-  }
-
-  // NBC 9.23.3.2 — Joist size
-  const joists = structural.memberSizes.filter(m =>
-    m.label.toLowerCase().includes("joist") ||
-    m.label.toLowerCase().includes("rafter") ||
-    m.label.toLowerCase().includes("beam")
-  );
-  if (joists.length === 0) {
-    results.push({ ...RULE_JOIST_SIZE, result: "UNABLE_TO_EVALUATE", details: "No joist/rafter/beam members identified in drawing." });
-  } else {
-    results.push({
-      ...RULE_JOIST_SIZE,
-      result: "CONDITIONAL",
-      details: `${joists.length} joist/rafter/beam member(s) identified: ${joists.map(j => `${j.label} (${j.dimension})`).join(", ")}. Compliance with span tables requires professional verification.`,
-    });
-  }
-
-  // NBC 9.5.5.3 — Stud spacing (no spacing data from extraction, mark UNABLE)
-  results.push({
-    ...RULE_STUD_SPACING,
-    result: "UNABLE_TO_EVALUATE",
-    details: "Stud spacing cannot be reliably determined from drawing image extraction. Manual measurement required.",
-  });
-
-  return results;
-}
 
 function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvaluation[] {
   const results: RuleEvaluation[] = [];
@@ -323,45 +203,6 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
   return results;
 }
 
-function evaluateConnectionRules(extraction: DrawingExtractionResult): RuleEvaluation[] {
-  const results: RuleEvaluation[] = [];
-  const conn = extraction.connections;
-
-  if (!conn) {
-    return [
-      { ...RULE_FASTENERS, result: "UNABLE_TO_EVALUATE", details: "No connection data extracted from drawing." },
-      { ...RULE_CSA_O86, result: "UNABLE_TO_EVALUATE", details: "No connection data extracted from drawing." },
-    ];
-  }
-
-  // NBC 9.23.9 — Fasteners
-  if (conn.fastenerTypes.length === 0) {
-    results.push({ ...RULE_FASTENERS, result: "UNABLE_TO_EVALUATE", details: "No fasteners identified in drawing." });
-  } else {
-    results.push({
-      ...RULE_FASTENERS,
-      result: "CONDITIONAL",
-      details: `${conn.fastenerTypes.length} fastener type(s) identified: ${conn.fastenerTypes.map(f => f.type).join(", ")}. Compliance with NBC 9.23.9 fastener schedules requires professional verification.`,
-    });
-  }
-
-  // CSA O86
-  if (conn.csaStandards.length === 0) {
-    results.push({ ...RULE_CSA_O86, result: "UNABLE_TO_EVALUATE", details: "No CSA standards referenced in drawing." });
-  } else {
-    const hasO86 = conn.csaStandards.some(s => s.standard.includes("O86"));
-    results.push({
-      ...RULE_CSA_O86,
-      result: hasO86 ? "CONDITIONAL" : "UNABLE_TO_EVALUATE",
-      details: hasO86
-        ? "CSA O86 referenced in drawing. Compliance verification requires professional engineer review."
-        : `CSA standards referenced: ${conn.csaStandards.map(s => s.standard).join(", ")}. CSA O86 not explicitly referenced.`,
-    });
-  }
-
-  return results;
-}
-
 // ============================================================================
 // Score Calculator
 // ============================================================================
@@ -404,7 +245,13 @@ function scoreToLevel(score: number): "approved" | "conditional" | "revision" | 
 // ============================================================================
 
 /**
- * Stage 2: Evaluate compliance using deterministic rules.
+ * Stage 2: Evaluate fire-safety compliance using deterministic rules.
+ *
+ * NOTE: Structural rules (stud size, stud spacing, joist size, fasteners,
+ * CSA O86) have been moved to `structuralComplianceEngine.ts` and are gated
+ * on analysisType === "structural". They must NOT run during floor plan
+ * analysis — these rules require framing plans and detail sheets, not floor
+ * plans, and will always return UNABLE_TO_EVALUATE on architectural drawings.
  *
  * @param extraction - Zod-validated extraction result from Stage 1
  * @returns Compliance evaluation output with score, level, issues, and recommendations
@@ -414,14 +261,8 @@ export function evaluateCompliance(extraction: DrawingExtractionResult): Complia
 
   const type = extraction.analysisType;
 
-  if (type === "structural" || type === "comprehensive") {
-    allEvaluations.push(...evaluateStructuralRules(extraction));
-  }
   if (type === "fire-safety" || type === "comprehensive") {
     allEvaluations.push(...evaluateFireSafetyRules(extraction));
-  }
-  if (type === "connections" || type === "comprehensive") {
-    allEvaluations.push(...evaluateConnectionRules(extraction));
   }
 
   const score = calculateScore(allEvaluations);
