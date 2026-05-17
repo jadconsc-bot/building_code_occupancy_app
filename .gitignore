@@ -1,3 +1,6 @@
+# Claude Code internal artifacts
+.claude/
+
 # Dependencies
 **/node_modules
 .pnpm-store/
