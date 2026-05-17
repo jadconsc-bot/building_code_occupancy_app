@@ -353,6 +353,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
   const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
+  const [drawingType, setDrawingType] = useState<string>("auto");
   
   // Drawing Analysis Persistence (Phase 2)
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
@@ -709,6 +710,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             fileName: `${fileName || "drawing"}_page${pageNum}.png`,
             analysisType,
             analysisQuality,
+            drawingType: drawingType as any,
             disclaimerAcknowledged: true,
             disclaimerVersion,
           });
@@ -760,6 +762,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       fileName: fileName || "drawing.png",
       analysisType,
       analysisQuality,
+      drawingType: drawingType as any,
       disclaimerAcknowledged: true,
       disclaimerVersion,
     });
@@ -3417,6 +3420,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             </button>
                           ))}
                         </div>
+                      </div>
+
+                      {/* Drawing Type selector */}
+                      <div>
+                        <Label className="text-xs">Drawing Type</Label>
+                        <Select value={drawingType} onValueChange={setDrawingType}>
+                          <SelectTrigger className="h-8 text-xs mt-1">
+                            <SelectValue placeholder="Auto-detect" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto-detect</SelectItem>
+                            <SelectItem value="residential_multi_unit">Residential — Multi-Unit</SelectItem>
+                            <SelectItem value="residential_single_family">Residential — Single Family</SelectItem>
+                            <SelectItem value="commercial_office">Commercial — Office</SelectItem>
+                            <SelectItem value="institutional">Institutional</SelectItem>
+                            <SelectItem value="industrial">Industrial</SelectItem>
+                            <SelectItem value="mixed_use">Mixed Use</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </CardContent>
                   </Card>

@@ -6,6 +6,7 @@ import {
   buildRoomDetectionPrompt,
 } from './roomDetectionPrompt';
 import { extractLabelsFromImage, filterRoomLabels } from './azureOcrService';
+import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
@@ -59,6 +60,7 @@ export async function detectRoomsFromPage(
     occupancyCode?: string;
     province?: string;
     buildingType?: string;
+    drawingType?: DrawingType;
   },
   province: string = 'AB',
 ): Promise<RoomDetectionResult> {
@@ -66,6 +68,11 @@ export async function detectRoomsFromPage(
 
   const contextStr = projectContext
     ? `Project context: Occupancy ${projectContext.occupancyCode ?? 'unknown'}, Province ${projectContext.province ?? 'unknown'}, Building type ${projectContext.buildingType ?? 'unknown'}. Use this to focus classification.`
+    : '';
+
+  const template = getPromptTemplate(projectContext?.drawingType ?? 'auto');
+  const templateContext = template.id !== 'auto'
+    ? `\nBUILDING TYPE: ${template.label}\n${template.systemHints}\n\nFEW-SHOT EXAMPLES:\n${template.fewShotExamples}\n`
     : '';
 
   // Convert to JPEG so we can read exact pixel dimensions before building the prompt.
@@ -116,7 +123,7 @@ export async function detectRoomsFromPage(
   }
 
   // Pass 2: Claude Vision — use label positions to anchor bounding boxes
-  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, contextStr, labelContext);
+  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, contextStr, labelContext, templateContext);
 
   const { rawText, modelVersion } = await callAnthropicVision({
     imageBase64: croppedBase64,

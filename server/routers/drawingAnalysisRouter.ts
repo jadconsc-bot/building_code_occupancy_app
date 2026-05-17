@@ -38,6 +38,7 @@ import { storagePut } from "../storage";
 import { preprocessDocument } from "../services/documentPreprocessingService";
 import { queuePageAnalysis } from "../services/analysisQueue";
 import { detectRoomsFromPage } from "../engine/spatial/roomDetectionService";
+import type { DrawingType } from "../engine/spatial/promptLibrary";
 import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
 
@@ -219,6 +220,15 @@ export const drawingAnalysisRouter = router({
       fileName: z.string().min(1).max(255),
       analysisType: z.enum(["structural", "fire-safety", "connections", "comprehensive"]),
       analysisQuality: z.enum(["fast", "standard", "detailed"]).default("standard"),
+      drawingType: z.enum([
+        'residential_multi_unit',
+        'residential_single_family',
+        'commercial_office',
+        'institutional',
+        'industrial',
+        'mixed_use',
+        'auto',
+      ]).default('auto').optional(),
       // PD2.0 §6.3: Disclaimer must be acknowledged before analysis
       disclaimerAcknowledged: z.literal(true, {
         error: "You must acknowledge the disclaimer before proceeding.",
@@ -359,7 +369,7 @@ export const drawingAnalysisRouter = router({
       // ======================================================================
 
       // Fetch project context to enrich the extraction prompt
-      let projectContext: { occupancyCode?: string; province?: string; buildingType?: string } | undefined;
+      let projectContext: { occupancyCode?: string; province?: string; buildingType?: string; drawingType?: DrawingType } | undefined;
       try {
         const [proj] = await db
           .select({ occupancyCode: projects.occupancyCode, province: projects.province, buildingType: projects.buildingType })
@@ -371,6 +381,7 @@ export const drawingAnalysisRouter = router({
             occupancyCode: proj.occupancyCode ?? undefined,
             province: proj.province ?? undefined,
             buildingType: proj.buildingType ?? undefined,
+            drawingType: (input.drawingType ?? 'auto') as DrawingType,
           };
         }
       } catch {

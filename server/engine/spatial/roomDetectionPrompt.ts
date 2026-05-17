@@ -28,10 +28,11 @@ export function buildRoomDetectionPrompt(
   croppedH: number,
   contextStr: string = '',
   labelContext: string = '',
+  templateContext: string = '',
 ): string {
   return `Analyze this architectural floor plan drawing.
 ${contextStr}
-
+${templateContext}
 Detect ALL rooms, spaces, and architectural features visible in this floor plan.
 Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
 
