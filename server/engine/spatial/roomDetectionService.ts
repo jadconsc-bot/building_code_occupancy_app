@@ -97,7 +97,7 @@ export async function detectRoomsFromPage(
   let labelContext = '';
   try {
     const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
-    const roomLabels = filterRoomLabels(ocrResult.labels, croppedH);
+    const roomLabels = filterRoomLabels(ocrResult.labels, croppedH, croppedW);
     console.log(`[RoomDetection] Azure OCR found ${roomLabels.length} room labels`);
     if (roomLabels.length > 0) {
       labelContext =

@@ -106,19 +106,29 @@ const ROOM_KEYWORDS = [
   'mechanical', 'electrical', 'janitor', 'lounge',
 ];
 
-export function filterRoomLabels(labels: OcrLabel[], imageHeight: number = 0): OcrLabel[] {
-  // Exclude labels in the top 20% of the image — likely title block / schedule table
+export function filterRoomLabels(
+  labels: OcrLabel[],
+  imageHeight: number = 0,
+  imageWidth: number = 0,
+): OcrLabel[] {
+  // Exclude top 20% — title block schedule tables
   const yMin = imageHeight > 0 ? imageHeight * 0.20 : 0;
+  // Exclude rightmost 15% — title block / stamp column on the right
+  const xMax = imageWidth > 0 ? imageWidth * 0.85 : Infinity;
+  // Grid axis pattern: RC1, RS1, RB1, A1, B2 — letter(s) + digits, no separator
+  const gridAxisPattern = /^[A-Z]{1,2}\d{1,2}$/;
 
   return labels.filter(label => {
     if (label.y < yMin) return false;
+    if (label.x > xMax) return false;
+    if (gridAxisPattern.test(label.text)) return false;
 
     const lower = label.text.toLowerCase();
     const text = label.text;
 
     if (ROOM_KEYWORDS.some(kw => lower.includes(kw))) return true;
-    // Room codes with explicit prefix: AR-103, A-12, B.12 (prefix required to avoid matching bare numbers)
-    if (/^[A-Z]{1,4}[-.]?\d+$/i.test(text)) return true;
+    // Room codes require an explicit separator: AR-103, A-12, B.12
+    if (/^[A-Z]{1,4}[-.]\d+$/i.test(text)) return true;
     if (/^unit\s*\d+/i.test(text)) return true;
 
     return false;
