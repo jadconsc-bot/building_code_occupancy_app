@@ -193,8 +193,32 @@ export async function detectRoomsFromPage(
     flags: r.flags ?? [],
   }));
 
+  // Reject rooms whose bounding box lies substantially outside the cropped image.
+  // Claude occasionally returns coordinates beyond the image edges (e.g. title-block
+  // contact blocks at 105-111% of image width). Discard any room where the box
+  // centre is outside the image or where >50% of the box area falls outside.
+  const inBoundsRooms = rooms.filter(r => {
+    const b = r.boundingBox;
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    if (cx < 0 || cx > croppedW || cy < 0 || cy > croppedH) return false;
+    // Clamp box to image and check retained area
+    const clampedX = Math.max(0, b.x);
+    const clampedY = Math.max(0, b.y);
+    const clampedRight = Math.min(croppedW, b.x + b.width);
+    const clampedBottom = Math.min(croppedH, b.y + b.height);
+    const retainedArea = Math.max(0, clampedRight - clampedX) * Math.max(0, clampedBottom - clampedY);
+    const totalArea = b.width * b.height;
+    return totalArea > 0 && retainedArea / totalArea >= 0.5;
+  });
+
+  const rejectedOob = rooms.length - inBoundsRooms.length;
+  if (rejectedOob > 0) {
+    console.log(`[RoomDetection] Rejected ${rejectedOob} out-of-bounds room(s)`);
+  }
+
   // Envelope check against cropped dimensions (Claude's coordinate space).
-  const filteredRooms = rejectKeyPlanRooms(rooms, croppedW, croppedH);
+  const filteredRooms = rejectKeyPlanRooms(inBoundsRooms, croppedW, croppedH);
 
   // Restore X and Y coordinates from cropped-image space to full-image space.
   for (const room of filteredRooms) {
