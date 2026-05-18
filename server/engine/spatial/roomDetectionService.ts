@@ -233,6 +233,11 @@ export async function detectRoomsFromPage(
   // Envelope check against cropped dimensions (Claude's coordinate space).
   const filteredRooms = rejectKeyPlanRooms(sizedRooms, croppedW, croppedH);
 
+  // Non-blocking LLM-judge accuracy eval — must run BEFORE offset restoration so
+  // the room coords are still in cropped-image space, matching the croppedBase64 image.
+  evaluateDetectionAccuracy(filteredRooms, pageId, croppedBase64, croppedW, croppedH)
+    .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
+
   // Restore X and Y coordinates from cropped-image space to full-image space.
   for (const room of filteredRooms) {
     room.boundingBox.x += cropOffsetX;
@@ -250,10 +255,6 @@ export async function detectRoomsFromPage(
   // Save with full image dimensions so the client scale factor is correct.
   await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
-
-  // Non-blocking LLM-judge accuracy eval — logs results, does not block response
-  evaluateDetectionAccuracy(filteredRooms, pageId, croppedBase64, croppedW, croppedH)
-    .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
 
   return {
     rooms: filteredRooms,
