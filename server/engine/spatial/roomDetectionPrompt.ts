@@ -37,7 +37,7 @@ Detection classes: ${ROOM_DETECTION_FEATURES.join(', ')}
 
 Critical rules:
 1. Use confidence < 0.7 for uncertain detections
-2. Default to MORE RESTRICTIVE occupancy when ambiguous. EXCEPTION: storage rooms (lockers, cold storage, utility rooms, bicycle rooms) that serve residential units in a Group C building must be classified as Group C, NOT Group F. Group F applies only to storage with hazardous materials or industrial operations.
+2. Default to MORE RESTRICTIVE occupancy when ambiguous. EXCEPTIONS — classify as Group D (not Group F): mechanical rooms, boiler rooms, HVAC rooms, electrical rooms, janitor rooms, and utility/service rooms that support building operations in a residential or commercial building. Classify as Group C (not Group F): storage rooms (lockers, cold storage, bicycle rooms) that serve residential units. Group F applies ONLY to rooms with hazardous materials, industrial machinery, or manufacturing operations.
 3. Include ALL visible rooms — do not skip small spaces
 4. IMPORTANT: This image is exactly ${croppedW}×${croppedH} pixels. All boundingBox coordinates MUST be in this pixel space: x values 0–${croppedW}, y values 0–${croppedH}. Do NOT use a scaled-down coordinate system.
 5. Area in square metres based on visible dimensions or scale bar
