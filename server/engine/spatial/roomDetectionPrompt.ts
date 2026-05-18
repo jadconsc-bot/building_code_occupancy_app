@@ -43,6 +43,7 @@ Critical rules:
 5. Area in square metres based on visible dimensions or scale bar
 6. If the page has multiple floor plan drawings (e.g. Unit A and Unit B layouts), detect rooms in all of them
 7. ADJACENT ROOMS share walls — draw each room's bounding box to its own interior wall face. Adjacent boxes must TOUCH but not overlap. If room A is to the left of room B, A's right edge must equal B's left edge. Never let two separate rooms have overlapping bounding boxes.
+8. ALWAYS detect circulation spaces even when unlabeled: corridors (long narrow spaces connecting rooms), hallways, common areas between units, stairwells (typically shown with diagonal hatching lines or stair-tread symbols), landings, and lobbies. If a circulation space has no visible label, generate a descriptive label such as "Corridor", "Common Corridor", "Stairwell", "Stair Landing", or "Lobby". Classify corridors and common areas as Group C in residential buildings, Group D in office buildings. Classify stairwells as Group C or D matching the dominant building occupancy.
 ${labelContext}
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 }
