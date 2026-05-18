@@ -533,7 +533,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   }, [analysisId]);
 
   useEffect(() => {
-    console.log('[RoomOverlay] analysisId:', analysisId, 'roomsData:', roomsData, 'pollCount:', roomPollCount);
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
     } else if (roomsData !== undefined) {
