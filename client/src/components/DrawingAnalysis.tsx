@@ -356,6 +356,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [pdIssues, setPdIssues] = useState<Array<{ severity: string; category: string; description: string; clause: string; recommendation: string }>>([]);
   const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
+
+  // Room-level compliance results (Phase B)
+  const [roomComplianceData, setRoomComplianceData] = useState<Array<{
+    room: { id: number; roomLabel: string; occupancyGroup: string; areaSqm: string };
+    compliance: Array<{
+      ruleReference: string;
+      ruleCategory: string;
+      ruleText: string;
+      status: string;
+      actualValue: string | null;
+      requiredValue: string | null;
+      remediationSuggestion: string | null;
+      severity: string | null;
+    }>;
+  }>>([]);
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
@@ -469,12 +484,52 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   );
 
+  // Fetch room-level compliance results once rooms have loaded
+  const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
+    { drawingId: analysisId ?? 0, projectId: selectedProjectId },
+    { enabled: !!analysisId && !!selectedProjectId && detectedRoomsData.length > 0 }
+  );
+
+  useEffect(() => {
+    if (!roomComplianceResults || roomComplianceResults.length === 0) return;
+    setRoomComplianceData(roomComplianceResults as any);
+
+    // Merge room-level results into ruleEvaluations for display in the compliance panel
+    const roomRules: typeof ruleEvaluations = [];
+    for (const item of roomComplianceResults) {
+      for (const c of (item as any).compliance ?? []) {
+        if (c.status === 'not_applicable') continue;
+        if (roomRules.some(r => r.ruleId === c.ruleReference && r.details?.includes((item as any).room?.roomLabel))) continue;
+        roomRules.push({
+          ruleId: c.ruleReference,
+          clause: c.ruleReference,
+          description: (c.ruleText ?? '').substring(0, 120),
+          category: c.ruleCategory ?? 'compliance',
+          severity: c.severity ?? 'medium',
+          result: c.status === 'pass' ? 'PASS'
+            : c.status === 'fail' ? 'FAIL'
+            : 'CONDITIONAL',
+          details: `${(item as any).room?.roomLabel ?? 'Room'}: actual=${c.actualValue ?? '?'} required=${c.requiredValue ?? '?'}`,
+        });
+      }
+    }
+
+    if (roomRules.length > 0) {
+      setRuleEvaluations(prev => {
+        const existingIds = new Set(prev.map(r => r.ruleId));
+        const newRules = roomRules.filter(r => !existingIds.has(r.ruleId));
+        return [...prev, ...newRules];
+      });
+    }
+  }, [roomComplianceResults]);
+
   // Reset poll counter and clear stale overlay when a new analysis begins
   useEffect(() => {
     setRoomPollCount(0);
     setDetectedRoomsData([]);
     setAnalyzedPageDims(null);
     setEvalData(null);
+    setRoomComplianceData([]);
   }, [analysisId]);
 
   useEffect(() => {
