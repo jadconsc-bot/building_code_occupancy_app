@@ -2772,6 +2772,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, [drawCanvas]);
 
+  // Sync canvas pixel buffer when user drags the resize handle.
+  // Only updates canvas dimensions — never resets zoom or pan.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas && containerRef.current) {
+      canvas.width = containerRef.current.clientWidth;
+      canvas.height = containerRef.current.clientHeight;
+      drawCanvas();
+    }
+  }, [canvasHeight, drawCanvas]);
+
   // Register wheel and touch events directly with { passive: false } so that
   // e.preventDefault() inside the handlers is allowed by the browser.
   // React 17+ attaches synthetic events at the root with passive:true, so any
