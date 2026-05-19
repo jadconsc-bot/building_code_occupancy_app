@@ -17,6 +17,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Upload, 
   ZoomIn, 
@@ -409,6 +419,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [showNoProjectWarning, setShowNoProjectWarning] = useState(false);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
   const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
   const [drawingType, setDrawingType] = useState<string>("auto");
@@ -814,17 +825,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showProjectSelector]);
 
-  // Run AI analysis on the drawing (PD2.0 §4.1 — two-stage pipeline)
-  const runAiAnalysis = async () => {
+  // Core analysis logic — call this only after all guards have passed.
+  // effectiveProjectId: uses selectedProjectId if set, otherwise falls back to first
+  // available project so the server's positive-int constraint is always satisfied.
+  const triggerAnalysis = async () => {
     if (!drawingImage) return;
-    if (!disclaimerAcknowledged) {
-      toast.error("You must acknowledge the disclaimer before running analysis.");
-      return;
-    }
-    if (selectedProjectId === 0) {
-      toast.warning("Please select a project before analyzing.");
-      return;
-    }
+    const effectiveProjectId = selectedProjectId > 0
+      ? selectedProjectId
+      : (projectListQuery.data?.[0]?.id ?? 1);
 
     setIsAnalyzing(true);
 
@@ -841,7 +849,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const base64Data = pageImg.replace(/^data:[^;]+;base64,/, "");
         try {
           const data = await pdAnalyzeMutation.mutateAsync({
-            projectId: selectedProjectId > 0 ? selectedProjectId : 0,
+            projectId: effectiveProjectId,
             imageBase64: base64Data,
             mimeType: "image/png",
             fileName: `${fileName || "drawing"}_page${pageNum}.png`,
@@ -893,7 +901,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const mimeType = (mimeMatch?.[1] ?? "image/png") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
     pdAnalyzeMutation.mutate({
-      projectId: selectedProjectId > 0 ? selectedProjectId : 0,
+      projectId: effectiveProjectId,
       imageBase64: base64Data,
       mimeType,
       fileName: fileName || "drawing.png",
@@ -904,6 +912,23 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       disclaimerVersion,
     });
   };
+
+  // Guard function: shows confirmation dialog if no project is selected, otherwise
+  // fires immediately. Kept as runAiAnalysis so internal Re-run buttons still work.
+  const runAiAnalysis = async () => {
+    if (!drawingImage) return;
+    if (!disclaimerAcknowledged) {
+      toast.error("You must acknowledge the disclaimer before running analysis.");
+      return;
+    }
+    if (selectedProjectId === 0) {
+      setShowNoProjectWarning(true);
+      return;
+    }
+    await triggerAnalysis();
+  };
+
+  const handleAnalyzeClick = () => { runAiAnalysis(); };
 
   // Apply AI results to annotations
   const applyAiResults = () => {
@@ -3392,10 +3417,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={runAiAnalysis}
-                    disabled={isAnalyzing || !disclaimerAcknowledged || selectedProjectId === 0 || (pdfPages.length > 0 && selectedPages.length === 0)}
+                    onClick={handleAnalyzeClick}
+                    disabled={isAnalyzing || !disclaimerAcknowledged || (pdfPages.length > 0 && selectedPages.length === 0)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : selectedProjectId === 0 ? "Select a project first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
+                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
                   >
                     {isAnalyzing ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -4516,6 +4541,50 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* No-project confirmation dialog */}
+      <AlertDialog open={showNoProjectWarning} onOpenChange={setShowNoProjectWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-amber-500" />
+              No Project Selected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This analysis will not be linked to any project.
+                Results will be saved as a standalone scan and may
+                be harder to find later.
+              </p>
+              <p className="text-amber-600 font-medium">
+                We recommend linking analyses to a project for
+                organized compliance tracking and professional review.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowNoProjectWarning(false);
+                setShowProjectSelector(true);
+              }}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Select Project
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowNoProjectWarning(false);
+                triggerAnalysis();
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Continue Without Project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
