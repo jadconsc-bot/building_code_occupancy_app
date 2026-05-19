@@ -501,6 +501,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ? (roomPollCount < 5 ? 2000 : 5000)
         : false,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }
   );
 
