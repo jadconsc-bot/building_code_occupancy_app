@@ -691,7 +691,8 @@ export const drawingAnalysisRouter = router({
         .select()
         .from(complianceAuditTrail)
         .where(eq(complianceAuditTrail.analysisId, input.analysisId))
-        .orderBy(complianceAuditTrail.timestamp);
+        .orderBy(desc(complianceAuditTrail.timestamp))
+        .limit(200);
 
       return trail;
     }),
@@ -804,7 +805,8 @@ export const drawingAnalysisRouter = router({
         .select()
         .from(complianceAuditTrail)
         .where(eq(complianceAuditTrail.analysisId, input.analysisId))
-        .orderBy(complianceAuditTrail.timestamp);
+        .orderBy(desc(complianceAuditTrail.timestamp))
+        .limit(200);
 
       // PD2.0 §7.2: REPORT_EXPORTED audit event
       await insertAuditEvent({
@@ -980,10 +982,20 @@ export const drawingAnalysisRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
 
-      const rooms = await db
+      const pages = await db
         .select()
-        .from(detectedRooms)
-        .where(eq(detectedRooms.projectId, input.projectId));
+        .from(drawingPages)
+        .where(eq(drawingPages.drawingId, input.drawingId));
+
+      const rooms = [];
+      for (const page of pages) {
+        const pageRooms = await db
+          .select()
+          .from(detectedRooms)
+          .where(eq(detectedRooms.pageId, page.id))
+          .limit(100);
+        rooms.push(...pageRooms);
+      }
 
       const results = [];
       for (const room of rooms) {
