@@ -481,6 +481,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       refetchInterval: (waitingForRooms || waitingForEval)
         ? (roomPollCount < 5 ? 2000 : 5000)
         : false,
+      refetchOnWindowFocus: false,
     }
   );
 
