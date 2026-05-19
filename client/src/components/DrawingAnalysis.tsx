@@ -54,7 +54,12 @@ import {
   Unlock,
   Circle,
   Building,
-  Zap
+  Zap,
+  FolderOpen,
+  ChevronDown,
+  FileSearch,
+  Check,
+  Folder
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -403,6 +408,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   }>>([]);
   const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
   const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
   const [drawingType, setDrawingType] = useState<string>("auto");
@@ -419,6 +425,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { enabled: !!projectId }
   );
   const exportToComplianceMutation = trpc.exportFindingsToCompliance.useMutation();
+  const projectListQuery = trpc.projects.list.useQuery(undefined, { refetchOnWindowFocus: false });
 
   // New PD2.0-compliant mutation
   // tRPC utils for query invalidation (Phase 2)
@@ -787,11 +794,35 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     return tempCanvas.toDataURL('image/png');
   };
 
+  // Auto-select first project when list loads and no project is selected
+  useEffect(() => {
+    if (selectedProjectId === 0 && projectListQuery.data && projectListQuery.data.length > 0) {
+      setSelectedProjectId(projectListQuery.data[0].id);
+    }
+  }, [projectListQuery.data, selectedProjectId]);
+
+  // Close project selector dropdown on outside click
+  useEffect(() => {
+    if (!showProjectSelector) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-project-selector]')) {
+        setShowProjectSelector(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProjectSelector]);
+
   // Run AI analysis on the drawing (PD2.0 §4.1 — two-stage pipeline)
   const runAiAnalysis = async () => {
     if (!drawingImage) return;
     if (!disclaimerAcknowledged) {
       toast.error("You must acknowledge the disclaimer before running analysis.");
+      return;
+    }
+    if (selectedProjectId === 0) {
+      toast.warning("Please select a project before analyzing.");
       return;
     }
 
@@ -810,7 +841,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const base64Data = pageImg.replace(/^data:[^;]+;base64,/, "");
         try {
           const data = await pdAnalyzeMutation.mutateAsync({
-            projectId: selectedProjectId > 0 ? selectedProjectId : 1,
+            projectId: selectedProjectId > 0 ? selectedProjectId : 0,
             imageBase64: base64Data,
             mimeType: "image/png",
             fileName: `${fileName || "drawing"}_page${pageNum}.png`,
@@ -862,7 +893,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const mimeType = (mimeMatch?.[1] ?? "image/png") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
     pdAnalyzeMutation.mutate({
-      projectId: selectedProjectId > 0 ? selectedProjectId : 1,
+      projectId: selectedProjectId > 0 ? selectedProjectId : 0,
       imageBase64: base64Data,
       mimeType,
       fileName: fileName || "drawing.png",
@@ -3304,14 +3335,67 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </button>
                 </div>
 
+                {/* Project Selector */}
+                <div className="relative flex items-center gap-1 border-r border-border pr-2" data-project-selector>
+                  <button
+                    className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 min-w-[110px] max-w-[160px]"
+                    onClick={() => setShowProjectSelector(v => !v)}
+                    title="Select project to tie this scan to"
+                  >
+                    <Folder className="w-3.5 h-3.5 flex-shrink-0 text-purple-500" />
+                    <span className="truncate flex-1 text-left">
+                      {selectedProjectId > 0
+                        ? (projectListQuery.data?.find(p => p.id === selectedProjectId)?.name ?? `Project ${selectedProjectId}`)
+                        : 'Select project'}
+                    </span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                  </button>
+                  {showProjectSelector && (
+                    <div className="absolute top-full left-0 mt-1 z-50 w-64 bg-white dark:bg-slate-900 border border-border rounded-lg shadow-lg overflow-hidden" data-project-selector>
+                      <div className="p-2 border-b border-border">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <FileSearch className="w-3.5 h-3.5" />
+                          <span>Tie scan to project</span>
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {projectListQuery.isLoading ? (
+                          <div className="p-3 text-xs text-muted-foreground text-center">Loading projects…</div>
+                        ) : !projectListQuery.data || projectListQuery.data.length === 0 ? (
+                          <div className="p-3 text-xs text-muted-foreground text-center">No projects found. Create a project first.</div>
+                        ) : (
+                          projectListQuery.data.map(project => (
+                            <button
+                              key={project.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                              onClick={() => { setSelectedProjectId(project.id); setShowProjectSelector(false); }}
+                            >
+                              <FolderOpen className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{project.name}</div>
+                                {project.projectCode && (
+                                  <div className="text-muted-foreground truncate">{project.projectCode}</div>
+                                )}
+                              </div>
+                              {selectedProjectId === project.id && (
+                                <Check className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="default"
                     size="sm"
                     onClick={runAiAnalysis}
-                    disabled={isAnalyzing || !disclaimerAcknowledged || (pdfPages.length > 0 && selectedPages.length === 0)}
+                    disabled={isAnalyzing || !disclaimerAcknowledged || selectedProjectId === 0 || (pdfPages.length > 0 && selectedPages.length === 0)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
+                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : selectedProjectId === 0 ? "Select a project first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
                   >
                     {isAnalyzing ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -4322,9 +4406,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
                   <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
                     <CardTitle className="text-sm flex items-center justify-between">
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 flex-wrap">
                         <Sparkles className="w-4 h-4 text-purple-600" />
                         AI Analysis Results
+                        {selectedProjectId > 0 && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-normal">
+                            <Folder className="w-3 h-3" />
+                            {projectListQuery.data?.find(p => p.id === selectedProjectId)?.name ?? `Project ${selectedProjectId}`}
+                          </span>
+                        )}
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
                         <XCircle className="w-4 h-4" />
