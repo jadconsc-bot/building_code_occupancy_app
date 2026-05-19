@@ -135,10 +135,14 @@ export function filterRoomLabels(
   // Grid axis pattern: RC1, RS1, RB1, A1, B2 — letter(s) + digits, no separator
   const gridAxisPattern = /^[A-Z]{1,2}\d{1,2}$/;
 
+  // Procurement / equipment-label phrases that are never room labels
+  const equipmentPhrasePattern = /design.builder|contractor|provided.installed|by owner|by others|n\.i\.c\.|not in contract|owner supplied|owner furnished|legend|revision cloud|keynote/i;
+
   return labels.filter(label => {
     if (label.y < yMin) return false;
     if (label.x > xMax) return false;
     if (gridAxisPattern.test(label.text)) return false;
+    if (equipmentPhrasePattern.test(label.text)) return false;
 
     const lower = label.text.toLowerCase();
     const text = label.text;

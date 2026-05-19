@@ -659,7 +659,8 @@ export const drawingAnalysisRouter = router({
           eq(drawingAnalyses.projectId, input.projectId),
           eq(drawingAnalyses.userId, ctx.user.id)
         ))
-        .orderBy(desc(drawingAnalyses.createdAt));
+        .orderBy(desc(drawingAnalyses.createdAt))
+        .limit(20);
 
       return analyses;
     }),

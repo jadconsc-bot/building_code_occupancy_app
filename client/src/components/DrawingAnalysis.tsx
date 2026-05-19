@@ -3283,7 +3283,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   <button
                     onClick={() => {
                       if (pixelsPerDrawingUnit === 0) {
-                        alert('Please calibrate the drawing scale first before measuring windows.');
+                        toast.warning('Please calibrate the drawing scale first before measuring windows.');
                         return;
                       }
                       setWindowMeasureMode(!windowMeasureMode);
@@ -4243,6 +4243,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   )}
                 </div>
               </div>
+
+              {/* No-rooms polling exhausted banner */}
+              {detectedRoomsData.length === 0 && roomPollCount >= 40 && analysisId !== null && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-t">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  No rooms detected — try re-running with a different drawing type selected
+                </div>
+              )}
 
               {/* Room detection status + quality panel */}
               {detectedRoomsData.length > 0 && (
