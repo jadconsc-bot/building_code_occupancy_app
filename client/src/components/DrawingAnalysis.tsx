@@ -266,6 +266,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [wallLengthInputs, setWallLengthInputs] = useState<Partial<Record<'N' | 'S' | 'E' | 'W', number>>>({});
   // Canvas vertical resize
   const [canvasHeight, setCanvasHeight] = useState(600);
+  const [wwrPanelHeight, setWwrPanelHeight] = useState(400);
   const [isDraggingDimension, setIsDraggingDimension] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
   const [dragCurrentPoint, setDragCurrentPoint] = useState<Point | null>(null);
@@ -367,6 +368,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const isDrawingRef = useRef(false); // Track drawing state without re-renders
   const isMultiPageAnalysisRef = useRef(false); // Prevent premature setIsAnalyzing(false) during multi-page analysis
   const canvasResizeStartRef = useRef<{ y: number; h: number } | null>(null);
+  const wwrPanelResizeRef = useRef<{ y: number; h: number } | null>(null);
   
   // Auth state (PD2.0 §6.1 — authentication required)
   const { isAuthenticated } = useAuth();
@@ -2167,6 +2169,24 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     document.addEventListener('mouseup', onUp);
   };
 
+  // WWR panel vertical resize drag
+  const startWwrPanelResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    wwrPanelResizeRef.current = { y: e.clientY, h: wwrPanelHeight };
+    const onMove = (ev: MouseEvent) => {
+      if (!wwrPanelResizeRef.current) return;
+      const delta = ev.clientY - wwrPanelResizeRef.current.y;
+      setWwrPanelHeight(Math.min(900, Math.max(200, wwrPanelResizeRef.current.h + delta)));
+    };
+    const onUp = () => {
+      wwrPanelResizeRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   // Handle mouse wheel for zoom (centered on cursor)
   const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -3653,309 +3673,334 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
               {/* WWR Summary panel — multi-storey + Step Code */}
               {measuredWindows.length > 0 && (
-                <div className="p-3 bg-slate-50 border rounded-lg space-y-2">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-700">
-                      Window Inventory ({measuredWindows.length} window{measuredWindows.length !== 1 ? 's' : ''})
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-xs h-6"
-                      onClick={() => { setMeasuredWindows([]); setWallLengthInputs({}); setWallAreaInputs({}); }}
-                    >
-                      Clear all
-                    </Button>
-                  </div>
+                <div className="p-3 bg-slate-50 border rounded-lg">
+                  <div className="grid grid-cols-5 gap-4">
 
-                  {/* Window inventory table */}
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-muted-foreground border-b">
-                        <th className="text-left pb-1">Face</th>
-                        <th className="text-right pb-1">Width</th>
-                        <th className="text-right pb-1">Height</th>
-                        <th className="text-right pb-1">Area</th>
-                        <th className="text-right pb-1"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {measuredWindows.map((w) => (
-                        <tr key={w.id} className="border-b border-slate-100">
-                          <td className="py-1">
-                            <span className={`font-bold ${
-                              w.face === 'S' ? 'text-amber-600' :
-                              w.face === 'W' ? 'text-red-600' :
-                              w.face === 'N' ? 'text-blue-600' :
-                              w.face === 'E' ? 'text-green-600' :
-                              'text-slate-400'
-                            }`}>{w.face}</span>
-                          </td>
-                          <td className="text-right py-1">{w.widthMm}mm</td>
-                          <td className="text-right py-1">{w.heightMm}mm</td>
-                          <td className="text-right py-1 font-medium">{w.areaM2}m²</td>
-                          <td className="text-right py-1">
-                            <button
-                              onClick={() => setMeasuredWindows(prev => prev.filter(x => x.id !== w.id))}
-                              className="text-red-400 hover:text-red-600 text-xs"
-                            >✕</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    {/* LEFT — measurements (col-span-3) */}
+                    <div className="col-span-3 space-y-2 overflow-y-auto" style={{ maxHeight: wwrPanelHeight }}>
 
-                  {/* Building Configuration */}
-                  <div className="pt-2 pb-2 border-b border-slate-200 space-y-2">
-                    <p className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                      <Building className="w-3.5 h-3.5" />
-                      Building Configuration
-                    </p>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Above-grade storeys:</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={storeyCount}
-                          onChange={(e) => setStoreyCount(parseInt(e.target.value) || 1)}
-                          className="w-14 h-6 text-xs"
-                        />
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700">
+                          Window Inventory ({measuredWindows.length} window{measuredWindows.length !== 1 ? 's' : ''})
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-6"
+                          onClick={() => { setMeasuredWindows([]); setWallLengthInputs({}); setWallAreaInputs({}); }}
+                        >
+                          Clear all
+                        </Button>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Storey height:</label>
-                        <Input
-                          type="number"
-                          step={0.1}
-                          value={storeyHeightM}
-                          onChange={(e) => setStoreyHeightM(parseFloat(e.target.value) || 2.7)}
-                          className="w-16 h-6 text-xs"
-                        />
-                        <span className="text-xs text-muted-foreground">m</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
-                      <input
-                        type="checkbox"
-                        id="floorMultiplier"
-                        checked={useFloorMultiplier}
-                        onChange={(e) => setUseFloorMultiplier(e.target.checked)}
-                        className="w-3.5 h-3.5"
-                      />
-                      <label htmlFor="floorMultiplier" className="text-xs text-blue-700 cursor-pointer">
-                        All floors have identical window layout — multiply current measurements × {storeyCount} storey{storeyCount !== 1 ? 's' : ''}
-                      </label>
-                    </div>
-                    {useFloorMultiplier && storeyCount > 1 && (
-                      <p className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
-                        ✓ Glazing totals multiplied by {storeyCount}×. Measure windows on ONE floor only.
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground italic">
-                      Measure windows on ALL floor plans before calculating WWR.
-                      Enter total gross wall area for all above-grade storeys combined.
-                    </p>
-                  </div>
 
-                  {/* Per-face glazing + wall length inputs */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-slate-600">
-                      Glazing by Orientation — enter wall length for WWR:
-                    </p>
-                    {(['N', 'S', 'E', 'W'] as const).map(face => {
-                      const faceWindows = measuredWindows.filter(w => w.face === face);
-                      const totalGlazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
-                        * (useFloorMultiplier ? storeyCount : 1);
-                      if (faceWindows.length === 0) return null;
-                      const wallArea = wallAreaInputs[face] ?? 0;
-                      const wwr = wallArea > 0 ? Math.round(totalGlazing / wallArea * 1000) / 10 : null;
-                      return (
-                        <div key={face} className="space-y-0.5">
-                          <div className="flex items-center gap-2 text-xs flex-wrap">
-                            <span className={`font-bold w-4 ${
-                              face === 'S' ? 'text-amber-600' :
-                              face === 'W' ? 'text-red-600' :
-                              face === 'N' ? 'text-blue-600' : 'text-green-600'
-                            }`}>{face}</span>
-                            <span>{faceWindows.length} win</span>
-                            <span className="font-medium">{Math.round(totalGlazing * 100) / 100}m² glazing</span>
-                            {/* Wall length → auto-compute gross wall area */}
-                            <div className="flex items-center gap-1 ml-auto">
-                              <Input
-                                type="number"
-                                placeholder="wall m"
-                                className="w-16 h-6 text-xs"
-                                value={wallLengthInputs[face] ?? ''}
-                                onChange={(e) => {
-                                  const len = parseFloat(e.target.value) || 0;
-                                  setWallLengthInputs(prev => ({ ...prev, [face]: len || undefined }));
-                                  const gross = Math.round(len * storeyHeightM * storeyCount * 100) / 100;
-                                  setWallAreaInputs(prev => ({ ...prev, [face]: gross || undefined }));
-                                }}
-                              />
-                              <span className="text-xs text-muted-foreground">m ×</span>
-                              <span className="text-xs font-medium text-slate-600">
-                                {storeyHeightM}×{storeyCount}=
-                              </span>
-                              <span className="text-xs font-bold text-slate-700">
-                                {wallArea ? `${wallArea}m²` : '—'}
-                              </span>
-                            </div>
-                            {wwr !== null && (
-                              <span className={`font-bold text-xs px-1 rounded ${
-                                wwr > 40 ? 'text-red-700 bg-red-50' :
-                                wwr > 35 ? 'text-amber-700 bg-amber-50' :
-                                'text-green-700 bg-green-50'
-                              }`}>
-                                WWR {wwr}%
-                              </span>
-                            )}
+                      {/* Window inventory table */}
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b">
+                            <th className="text-left pb-1">Face</th>
+                            <th className="text-right pb-1">Width</th>
+                            <th className="text-right pb-1">Height</th>
+                            <th className="text-right pb-1">Area</th>
+                            <th className="text-right pb-1"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {measuredWindows.map((w) => (
+                            <tr key={w.id} className="border-b border-slate-100">
+                              <td className="py-1">
+                                <span className={`font-bold ${
+                                  w.face === 'S' ? 'text-amber-600' :
+                                  w.face === 'W' ? 'text-red-600' :
+                                  w.face === 'N' ? 'text-blue-600' :
+                                  w.face === 'E' ? 'text-green-600' :
+                                  'text-slate-400'
+                                }`}>{w.face}</span>
+                              </td>
+                              <td className="text-right py-1">{w.widthMm}mm</td>
+                              <td className="text-right py-1">{w.heightMm}mm</td>
+                              <td className="text-right py-1 font-medium">{w.areaM2}m²</td>
+                              <td className="text-right py-1">
+                                <button
+                                  onClick={() => setMeasuredWindows(prev => prev.filter(x => x.id !== w.id))}
+                                  className="text-red-400 hover:text-red-600 text-xs"
+                                >✕</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Building Configuration */}
+                      <div className="pt-2 pb-2 border-b border-slate-200 space-y-2">
+                        <p className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                          <Building className="w-3.5 h-3.5" />
+                          Building Configuration
+                        </p>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">Above-grade storeys:</label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={storeyCount}
+                              onChange={(e) => setStoreyCount(parseInt(e.target.value) || 1)}
+                              className="w-14 h-6 text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">Storey height:</label>
+                            <Input
+                              type="number"
+                              step={0.1}
+                              value={storeyHeightM}
+                              onChange={(e) => setStoreyHeightM(parseFloat(e.target.value) || 2.7)}
+                              className="w-16 h-6 text-xs"
+                            />
+                            <span className="text-xs text-muted-foreground">m</span>
                           </div>
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
+                          <input
+                            type="checkbox"
+                            id="floorMultiplier"
+                            checked={useFloorMultiplier}
+                            onChange={(e) => setUseFloorMultiplier(e.target.checked)}
+                            className="w-3.5 h-3.5"
+                          />
+                          <label htmlFor="floorMultiplier" className="text-xs text-blue-700 cursor-pointer">
+                            All floors have identical window layout — multiply current measurements × {storeyCount} storey{storeyCount !== 1 ? 's' : ''}
+                          </label>
+                        </div>
+                        {useFloorMultiplier && storeyCount > 1 && (
+                          <p className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                            ✓ Glazing totals multiplied by {storeyCount}×. Measure windows on ONE floor only.
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground italic">
+                          Measure windows on ALL floor plans before calculating WWR.
+                          Enter total gross wall area for all above-grade storeys combined.
+                        </p>
+                      </div>
 
-                    {/* Total row */}
-                    <div className="flex items-center gap-2 text-xs pt-1 border-t">
-                      <span className="font-bold text-slate-600">TOTAL</span>
-                      <span className="font-medium">
-                        {Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0)
-                          * (useFloorMultiplier ? storeyCount : 1) * 100) / 100}m² total glazing
-                      </span>
-                      {useFloorMultiplier && storeyCount > 1 && (
-                        <span className="text-xs text-blue-600 ml-1">
-                          ({Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0) * 100) / 100}m² × {storeyCount} floors)
-                        </span>
+                      {/* Per-face glazing + wall length inputs */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-600">
+                          Glazing by Orientation — enter wall length for WWR:
+                        </p>
+                        {(['N', 'S', 'E', 'W'] as const).map(face => {
+                          const faceWindows = measuredWindows.filter(w => w.face === face);
+                          const totalGlazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
+                            * (useFloorMultiplier ? storeyCount : 1);
+                          if (faceWindows.length === 0) return null;
+                          const wallArea = wallAreaInputs[face] ?? 0;
+                          const wwr = wallArea > 0 ? Math.round(totalGlazing / wallArea * 1000) / 10 : null;
+                          return (
+                            <div key={face} className="space-y-0.5">
+                              <div className="flex items-center gap-2 text-xs flex-wrap">
+                                <span className={`font-bold w-4 ${
+                                  face === 'S' ? 'text-amber-600' :
+                                  face === 'W' ? 'text-red-600' :
+                                  face === 'N' ? 'text-blue-600' : 'text-green-600'
+                                }`}>{face}</span>
+                                <span>{faceWindows.length} win</span>
+                                <span className="font-medium">{Math.round(totalGlazing * 100) / 100}m² glazing</span>
+                                {/* Wall length → auto-compute gross wall area */}
+                                <div className="flex items-center gap-1 ml-auto">
+                                  <Input
+                                    type="number"
+                                    placeholder="wall m"
+                                    className="w-16 h-6 text-xs"
+                                    value={wallLengthInputs[face] ?? ''}
+                                    onChange={(e) => {
+                                      const len = parseFloat(e.target.value) || 0;
+                                      setWallLengthInputs(prev => ({ ...prev, [face]: len || undefined }));
+                                      const gross = Math.round(len * storeyHeightM * storeyCount * 100) / 100;
+                                      setWallAreaInputs(prev => ({ ...prev, [face]: gross || undefined }));
+                                    }}
+                                  />
+                                  <span className="text-xs text-muted-foreground">m ×</span>
+                                  <span className="text-xs font-medium text-slate-600">
+                                    {storeyHeightM}×{storeyCount}=
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-700">
+                                    {wallArea ? `${wallArea}m²` : '—'}
+                                  </span>
+                                </div>
+                                {wwr !== null && (
+                                  <span className={`font-bold text-xs px-1 rounded ${
+                                    wwr > 40 ? 'text-red-700 bg-red-50' :
+                                    wwr > 35 ? 'text-amber-700 bg-amber-50' :
+                                    'text-green-700 bg-green-50'
+                                  }`}>
+                                    WWR {wwr}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Total row */}
+                        <div className="flex items-center gap-2 text-xs pt-1 border-t">
+                          <span className="font-bold text-slate-600">TOTAL</span>
+                          <span className="font-medium">
+                            {Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0)
+                              * (useFloorMultiplier ? storeyCount : 1) * 100) / 100}m² total glazing
+                          </span>
+                          {useFloorMultiplier && storeyCount > 1 && (
+                            <span className="text-xs text-blue-600 ml-1">
+                              ({Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0) * 100) / 100}m² × {storeyCount} floors)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vertical divider */}
+                    <div className="border-l border-slate-200" />
+
+                    {/* RIGHT — Step Code results (col-span-2) */}
+                    <div className="col-span-2 space-y-2 overflow-y-auto" style={{ maxHeight: wwrPanelHeight }}>
+                      {(['N', 'S', 'E', 'W'] as const).some(f => (wallAreaInputs[f] ?? 0) > 0) ? (
+                        <>
+                          <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            BC Energy Step Code — WWR Compliance
+                          </p>
+
+                          {[3, 4, 5].map(step => {
+                            const limit = step === 3 ? 40 : step === 4 ? 35 : 30;
+                            const ref = `BC Building Code 2024 Table 9.36.2.3.A — Step ${step}`;
+
+                            const faceResults = (['N', 'S', 'E', 'W'] as const).map(face => {
+                              const faceWindows = measuredWindows.filter(w => w.face === face);
+                              if (faceWindows.length === 0) return null;
+                              const wallArea = wallAreaInputs[face] ?? 0;
+                              if (wallArea === 0) return null;
+                              const glazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
+                                * (useFloorMultiplier ? storeyCount : 1);
+                              const wwr = (glazing / wallArea) * 100;
+                              const passes = wwr <= limit;
+                              const leeway = limit - wwr;
+                              const maxAdditionalGlazingM2 = passes
+                                ? Math.round((leeway / 100 * wallArea) * 100) / 100
+                                : null;
+                              const reductionNeededM2 = !passes
+                                ? Math.round((glazing - (limit / 100 * wallArea)) * 100) / 100
+                                : null;
+                              const utilizationPct = Math.round(wwr / limit * 100);
+                              return { face, wwr, passes, leeway, glazing, wallArea,
+                                maxAdditionalGlazingM2, reductionNeededM2, utilizationPct, limit };
+                            }).filter(Boolean) as NonNullable<{
+                              face: 'N'|'S'|'E'|'W'; wwr: number; passes: boolean; leeway: number;
+                              glazing: number; wallArea: number; maxAdditionalGlazingM2: number | null;
+                              reductionNeededM2: number | null; utilizationPct: number; limit: number;
+                            }>[];
+
+                            if (faceResults.length === 0) return null;
+                            const failingFaces = faceResults.filter(f => !f.passes);
+                            const passingFaces = faceResults.filter(f => f.passes);
+                            const allPass = failingFaces.length === 0;
+
+                            return (
+                              <div key={step} className={`rounded border p-2 space-y-1.5 ${
+                                allPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                              }`}>
+                                <div className="flex items-center justify-between flex-wrap gap-1">
+                                  <span className={`text-xs font-bold ${allPass ? 'text-green-700' : 'text-red-700'}`}>
+                                    Step {step} — {allPass ? '✅ PASS' : '❌ FAIL'}
+                                    <span className="font-normal text-muted-foreground ml-1">(max {limit}% WWR any face)</span>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground italic">{ref}</span>
+                                </div>
+
+                                {failingFaces.map(f => (
+                                  <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-red-100 space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`font-bold w-4 ${
+                                        f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
+                                        f.face==='E' ? 'text-green-700' : 'text-blue-600'
+                                      }`}>{f.face}</span>
+                                      <span className="font-bold text-red-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
+                                      <span className="text-red-600">exceeds {limit}% by {Math.round((f.wwr - limit) * 10) / 10}%</span>
+                                    </div>
+                                    <p className="text-slate-500 pl-5">
+                                      <span className="font-medium">Rule: </span>
+                                      {ref} — No single above-grade wall face shall exceed {limit}% WWR for Step {step}.
+                                    </p>
+                                    <p className="text-red-700 pl-5">
+                                      <span className="font-medium">To pass Step {step}: </span>
+                                      Reduce {f.face}-facing glazing by{' '}
+                                      <span className="font-bold">{f.reductionNeededM2}m²</span>
+                                      {' '}(from {Math.round(f.glazing * 100) / 100}m² to{' '}
+                                      {Math.round((f.glazing - f.reductionNeededM2!) * 100) / 100}m²).
+                                    </p>
+                                    <p className="text-slate-500 pl-5">
+                                      <span className="font-medium">Alternatives: </span>
+                                      Eliminate ~{Math.ceil(f.reductionNeededM2! / 1.5)} standard window(s) (~1.5m² each)
+                                      or add opaque wall area on the {f.face} face.
+                                    </p>
+                                  </div>
+                                ))}
+
+                                {passingFaces.map(f => (
+                                  <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-green-100 space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`font-bold w-4 ${
+                                        f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
+                                        f.face==='E' ? 'text-green-700' : 'text-blue-600'
+                                      }`}>{f.face}</span>
+                                      <span className="font-bold text-green-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
+                                      <span className="text-green-600">✓ {Math.round(f.leeway * 10) / 10}% below Step {step} limit</span>
+                                      <div className="flex-1 max-w-20 bg-slate-200 rounded-full h-1.5">
+                                        <div
+                                          className={`h-1.5 rounded-full ${
+                                            f.utilizationPct > 85 ? 'bg-amber-400' :
+                                            f.utilizationPct > 60 ? 'bg-green-400' : 'bg-green-300'
+                                          }`}
+                                          style={{ width: `${Math.min(f.utilizationPct, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-muted-foreground">{f.utilizationPct}% of limit used</span>
+                                    </div>
+                                    <p className="text-green-700 pl-5">
+                                      <span className="font-medium">Leeway: </span>
+                                      Up to <span className="font-bold">{f.maxAdditionalGlazingM2}m²</span> additional
+                                      {f.face}-facing glazing still permitted.
+                                      {f.utilizationPct > 85 && (
+                                        <span className="text-amber-600 ml-1">⚠ Approaching limit — verify with energy model.</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+
+                          <p className="text-xs text-muted-foreground italic pt-1 border-t">
+                            Disclaimer: WWR calculated from measured glazing and entered wall dimensions.
+                            Window heights estimated unless elevation drawings used.
+                            Final Step Code compliance requires a HOT2000 energy model.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center text-xs text-muted-foreground py-8 space-y-2">
+                          <Zap className="w-6 h-6 text-slate-300" />
+                          <p>Enter wall lengths on the left to see Step Code compliance results.</p>
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  {/* BC Energy Step Code result */}
-                  {(['N', 'S', 'E', 'W'] as const).some(f => (wallAreaInputs[f] ?? 0) > 0) && (
-                    <div className="mt-2 p-2 rounded border space-y-2">
-                      <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                        <Zap className="w-3.5 h-3.5 text-amber-500" />
-                        BC Energy Step Code — WWR Compliance
-                      </p>
-
-                      {[3, 4, 5].map(step => {
-                        const limit = step === 3 ? 40 : step === 4 ? 35 : 30;
-                        const ref = `BC Building Code 2024 Table 9.36.2.3.A — Step ${step}`;
-
-                        const faceResults = (['N', 'S', 'E', 'W'] as const).map(face => {
-                          const faceWindows = measuredWindows.filter(w => w.face === face);
-                          if (faceWindows.length === 0) return null;
-                          const wallArea = wallAreaInputs[face] ?? 0;
-                          if (wallArea === 0) return null;
-                          const glazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
-                            * (useFloorMultiplier ? storeyCount : 1);
-                          const wwr = (glazing / wallArea) * 100;
-                          const passes = wwr <= limit;
-                          const leeway = limit - wwr;
-                          const maxAdditionalGlazingM2 = passes
-                            ? Math.round((leeway / 100 * wallArea) * 100) / 100
-                            : null;
-                          const reductionNeededM2 = !passes
-                            ? Math.round((glazing - (limit / 100 * wallArea)) * 100) / 100
-                            : null;
-                          const utilizationPct = Math.round(wwr / limit * 100);
-                          return { face, wwr, passes, leeway, glazing, wallArea,
-                            maxAdditionalGlazingM2, reductionNeededM2, utilizationPct, limit };
-                        }).filter(Boolean) as NonNullable<{
-                          face: 'N'|'S'|'E'|'W'; wwr: number; passes: boolean; leeway: number;
-                          glazing: number; wallArea: number; maxAdditionalGlazingM2: number | null;
-                          reductionNeededM2: number | null; utilizationPct: number; limit: number;
-                        }>[];
-
-                        if (faceResults.length === 0) return null;
-                        const failingFaces = faceResults.filter(f => !f.passes);
-                        const passingFaces = faceResults.filter(f => f.passes);
-                        const allPass = failingFaces.length === 0;
-
-                        return (
-                          <div key={step} className={`rounded border p-2 space-y-1.5 ${
-                            allPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                          }`}>
-                            <div className="flex items-center justify-between flex-wrap gap-1">
-                              <span className={`text-xs font-bold ${allPass ? 'text-green-700' : 'text-red-700'}`}>
-                                Step {step} — {allPass ? '✅ PASS' : '❌ FAIL'}
-                                <span className="font-normal text-muted-foreground ml-1">(max {limit}% WWR any face)</span>
-                              </span>
-                              <span className="text-xs text-muted-foreground italic">{ref}</span>
-                            </div>
-
-                            {failingFaces.map(f => (
-                              <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-red-100 space-y-0.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`font-bold w-4 ${
-                                    f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
-                                    f.face==='E' ? 'text-green-700' : 'text-blue-600'
-                                  }`}>{f.face}</span>
-                                  <span className="font-bold text-red-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
-                                  <span className="text-red-600">exceeds {limit}% by {Math.round((f.wwr - limit) * 10) / 10}%</span>
-                                </div>
-                                <p className="text-slate-500 pl-5">
-                                  <span className="font-medium">Rule: </span>
-                                  {ref} — No single above-grade wall face shall exceed {limit}% WWR for Step {step}.
-                                </p>
-                                <p className="text-red-700 pl-5">
-                                  <span className="font-medium">To pass Step {step}: </span>
-                                  Reduce {f.face}-facing glazing by{' '}
-                                  <span className="font-bold">{f.reductionNeededM2}m²</span>
-                                  {' '}(from {Math.round(f.glazing * 100) / 100}m² to{' '}
-                                  {Math.round((f.glazing - f.reductionNeededM2!) * 100) / 100}m²).
-                                </p>
-                                <p className="text-slate-500 pl-5">
-                                  <span className="font-medium">Alternatives: </span>
-                                  Eliminate ~{Math.ceil(f.reductionNeededM2! / 1.5)} standard window(s) (~1.5m² each)
-                                  or add opaque wall area on the {f.face} face.
-                                </p>
-                              </div>
-                            ))}
-
-                            {passingFaces.map(f => (
-                              <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-green-100 space-y-0.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`font-bold w-4 ${
-                                    f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
-                                    f.face==='E' ? 'text-green-700' : 'text-blue-600'
-                                  }`}>{f.face}</span>
-                                  <span className="font-bold text-green-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
-                                  <span className="text-green-600">✓ {Math.round(f.leeway * 10) / 10}% below Step {step} limit</span>
-                                  <div className="flex-1 max-w-20 bg-slate-200 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full ${
-                                        f.utilizationPct > 85 ? 'bg-amber-400' :
-                                        f.utilizationPct > 60 ? 'bg-green-400' : 'bg-green-300'
-                                      }`}
-                                      style={{ width: `${Math.min(f.utilizationPct, 100)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-muted-foreground">{f.utilizationPct}% of limit used</span>
-                                </div>
-                                <p className="text-green-700 pl-5">
-                                  <span className="font-medium">Leeway: </span>
-                                  Up to <span className="font-bold">{f.maxAdditionalGlazingM2}m²</span> additional
-                                  {f.face}-facing glazing still permitted.
-                                  {f.utilizationPct > 85 && (
-                                    <span className="text-amber-600 ml-1">⚠ Approaching limit — verify with energy model.</span>
-                                  )}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-
-                      <p className="text-xs text-muted-foreground italic pt-1 border-t">
-                        Disclaimer: WWR calculated from measured glazing and entered wall dimensions.
-                        Window heights estimated unless elevation drawings used.
-                        Final Step Code compliance requires a HOT2000 energy model.
-                      </p>
-                    </div>
-                  )}
+                  {/* WWR panel resize handle */}
+                  <div
+                    className="mt-2 h-2 cursor-ns-resize bg-slate-100 hover:bg-purple-100 border-t border-slate-200 flex items-center justify-center transition-colors group rounded-b"
+                    onMouseDown={startWwrPanelResize}
+                  >
+                    <div className="w-8 h-0.5 bg-slate-300 group-hover:bg-purple-400 rounded-full" />
+                  </div>
                 </div>
               )}
 
