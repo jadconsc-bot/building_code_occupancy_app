@@ -222,6 +222,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [calibrationLine, setCalibrationLine] = useState<{ start: Point; end: Point } | null>(null);
   const [referenceValue, setReferenceValue] = useState<string>(""); // User-editable reference measurement
   const [isEditingReference, setIsEditingReference] = useState(false);
+
+  // State for window measurement tool (BC Step Code WWR)
+  const [windowMeasureMode, setWindowMeasureMode] = useState(false);
+  const [measuredWindows, setMeasuredWindows] = useState<Array<{
+    id: string;
+    face: 'N' | 'S' | 'E' | 'W' | 'unknown';
+    widthMm: number;
+    heightMm: number;
+    areaM2: number;
+    position: { x: number; y: number };
+    pixelWidth: number;
+  }>>([]);
+  const [windowHeightInput, setWindowHeightInput] = useState<string>('1200');
+  const [pendingWindowMeasure, setPendingWindowMeasure] = useState<{
+    widthMm: number;
+    position: { x: number; y: number };
+    pixelWidth: number;
+  } | null>(null);
+  const [windowFaceInput, setWindowFaceInput] = useState<'N' | 'S' | 'E' | 'W' | 'unknown'>('unknown');
   const [isDraggingDimension, setIsDraggingDimension] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
   const [dragCurrentPoint, setDragCurrentPoint] = useState<Point | null>(null);
@@ -1010,6 +1029,38 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     // ===== END ROOM OVERLAY LAYER =====
 
+    // ===== WINDOW MEASUREMENT LAYER =====
+    if (measuredWindows.length > 0) {
+      for (const win of measuredWindows) {
+        const sx = win.position.x * zoom + pan.x;
+        const sy = win.position.y * zoom + pan.y;
+        const sw = win.pixelWidth * zoom;
+
+        ctx.save();
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + sw, sy);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6);
+        ctx.moveTo(sx + sw, sy - 6); ctx.lineTo(sx + sw, sy + 6);
+        ctx.stroke();
+
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${win.widthMm}×${win.heightMm}mm (${win.face})`, sx + sw / 2, sy - 10);
+        ctx.restore();
+      }
+    }
+    // ===== END WINDOW MEASUREMENT LAYER =====
+
     // Draw current drawing in progress
     if (isDrawing && currentPoints.length > 0) {
       ctx.save();
@@ -1061,7 +1112,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Draw drag preview line (for calibration or dimension)
     if (isDraggingDimension && dragStartPoint && dragCurrentPoint) {
       ctx.save();
-      ctx.strokeStyle = isCalibrating ? "#10B981" : "#3B82F6";
+      ctx.strokeStyle = isCalibrating ? "#10B981" : windowMeasureMode ? "#7c3aed" : "#3B82F6";
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -1096,7 +1147,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -1955,7 +2006,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
-    if (isDraggingDimension && dragStartPoint) {
+    if (windowMeasureMode && isDraggingDimension && dragStartPoint) {
+      const pixelDistance = Math.sqrt(
+        Math.pow(x - dragStartPoint.x, 2) +
+        Math.pow(y - dragStartPoint.y, 2)
+      );
+
+      if (pixelDistance > 5 && pixelsPerDrawingUnit > 0) {
+        const drawingUnits = pixelDistance / pixelsPerDrawingUnit;
+        let widthMm: number;
+        if (scaleSystem === 'imperial') {
+          const realInches = drawingUnits * selectedScale.ratio;
+          widthMm = Math.round(realInches * 25.4);
+        } else {
+          widthMm = Math.round(drawingUnits * selectedScale.ratio);
+        }
+        setPendingWindowMeasure({
+          widthMm,
+          position: { x: dragStartPoint.x, y: dragStartPoint.y },
+          pixelWidth: pixelDistance,
+        });
+        setWindowMeasureMode(false);
+      }
+      setIsDraggingDimension(false);
+      setDragStartPoint(null);
+      setDragCurrentPoint(null);
+    } else if (isDraggingDimension && dragStartPoint) {
       const endPoint = { x, y };
       const pixelDistance = Math.sqrt(
         Math.pow(endPoint.x - dragStartPoint.x, 2) +
@@ -3163,6 +3239,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <Ruler className="w-4 h-4 mr-1" />
                     {pixelsPerDrawingUnit > 0 ? "Recalibrate" : "Calibrate"}
                   </Button>
+                  <button
+                    onClick={() => {
+                      if (pixelsPerDrawingUnit === 0) {
+                        alert('Please calibrate the drawing scale first before measuring windows.');
+                        return;
+                      }
+                      setWindowMeasureMode(!windowMeasureMode);
+                      setIsCalibrating(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                      windowMeasureMode
+                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                        : pixelsPerDrawingUnit > 0
+                          ? 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                          : 'bg-white text-slate-300 border border-slate-200 cursor-not-allowed'
+                    }`}
+                    title={pixelsPerDrawingUnit === 0 ? 'Calibrate scale first' : 'Measure window widths for WWR calculation'}
+                    disabled={pixelsPerDrawingUnit === 0}
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    {windowMeasureMode ? 'Cancel Window' : 'Measure Window'}
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
@@ -3341,6 +3439,148 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   <span>{selectedScale.label}</span>
                   <span className="text-muted-foreground">•</span>
                   <span className="text-muted-foreground">{selectedScale.drawingType}</span>
+                </div>
+              )}
+
+              {/* Part 4: Window height + face input after width is dragged */}
+              {pendingWindowMeasure && (
+                <div className="flex items-center gap-3 p-2 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-200">
+                  <Square className="w-4 h-4 text-purple-600" />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-purple-700">Window measured:</span>
+                    <span className="font-bold">{pendingWindowMeasure.widthMm}mm wide</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">Height:</span>
+                  <Input
+                    type="number"
+                    value={windowHeightInput}
+                    onChange={(e) => setWindowHeightInput(e.target.value)}
+                    placeholder="1200"
+                    className="w-20 h-8 text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">mm</span>
+                  <span className="text-sm text-muted-foreground">Face:</span>
+                  <select
+                    value={windowFaceInput}
+                    onChange={(e) => setWindowFaceInput(e.target.value as 'N' | 'S' | 'E' | 'W' | 'unknown')}
+                    className="h-8 text-xs border rounded px-2"
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="N">North</option>
+                    <option value="S">South</option>
+                    <option value="E">East</option>
+                    <option value="W">West</option>
+                  </select>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const heightMm = parseFloat(windowHeightInput);
+                      if (heightMm > 0 && pendingWindowMeasure) {
+                        const areaM2 = Math.round(
+                          (pendingWindowMeasure.widthMm / 1000) * (heightMm / 1000) * 100
+                        ) / 100;
+                        setMeasuredWindows(prev => [...prev, {
+                          id: `win-${Date.now()}`,
+                          face: windowFaceInput,
+                          widthMm: pendingWindowMeasure.widthMm,
+                          heightMm: Math.round(heightMm),
+                          areaM2,
+                          position: pendingWindowMeasure.position,
+                          pixelWidth: pendingWindowMeasure.pixelWidth,
+                        }]);
+                        setPendingWindowMeasure(null);
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Add Window
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPendingWindowMeasure(null)}>
+                    Discard
+                  </Button>
+                </div>
+              )}
+
+              {/* Part 5: WWR Summary panel */}
+              {measuredWindows.length > 0 && (
+                <div className="p-3 bg-slate-50 border rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-700">
+                      Window Inventory ({measuredWindows.length} window{measuredWindows.length !== 1 ? 's' : ''})
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-6"
+                      onClick={() => setMeasuredWindows([])}
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-muted-foreground border-b">
+                        <th className="text-left pb-1">Face</th>
+                        <th className="text-right pb-1">Width</th>
+                        <th className="text-right pb-1">Height</th>
+                        <th className="text-right pb-1">Area</th>
+                        <th className="text-right pb-1"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {measuredWindows.map((w) => (
+                        <tr key={w.id} className="border-b border-slate-100">
+                          <td className="py-1">
+                            <span className={`font-bold ${
+                              w.face === 'S' ? 'text-amber-600' :
+                              w.face === 'W' ? 'text-red-600' :
+                              w.face === 'N' ? 'text-blue-600' :
+                              w.face === 'E' ? 'text-green-600' :
+                              'text-slate-400'
+                            }`}>{w.face}</span>
+                          </td>
+                          <td className="text-right py-1">{w.widthMm}mm</td>
+                          <td className="text-right py-1">{w.heightMm}mm</td>
+                          <td className="text-right py-1 font-medium">{w.areaM2}m²</td>
+                          <td className="text-right py-1">
+                            <button
+                              onClick={() => setMeasuredWindows(prev => prev.filter(x => x.id !== w.id))}
+                              className="text-red-400 hover:text-red-600 text-xs"
+                            >✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="pt-1 space-y-1">
+                    <p className="text-xs font-semibold text-slate-600">
+                      Glazing by Orientation (enter wall areas for WWR):
+                    </p>
+                    {(['N', 'S', 'E', 'W'] as const).map(face => {
+                      const faceWindows = measuredWindows.filter(w => w.face === face);
+                      const totalGlazing = faceWindows.reduce((s, w) => s + w.areaM2, 0);
+                      if (faceWindows.length === 0) return null;
+                      return (
+                        <div key={face} className="flex items-center gap-2 text-xs">
+                          <span className={`font-bold w-4 ${
+                            face === 'S' ? 'text-amber-600' :
+                            face === 'W' ? 'text-red-600' :
+                            face === 'N' ? 'text-blue-600' : 'text-green-600'
+                          }`}>{face}</span>
+                          <span>{faceWindows.length} window{faceWindows.length !== 1 ? 's' : ''}</span>
+                          <span className="font-medium">{Math.round(totalGlazing * 100) / 100}m² glazing</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center gap-2 text-xs pt-1 border-t">
+                      <span className="font-bold text-slate-600">TOTAL</span>
+                      <span className="font-medium">
+                        {Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0) * 100) / 100}m² total glazing
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
