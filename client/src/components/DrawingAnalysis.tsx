@@ -253,6 +253,12 @@ export function DrawingAnalysis() {
   const [isErasing, setIsErasing] = useState(false);
   const [eraserSize, setEraserSize] = useState(20); // Eraser radius in pixels
   
+  // State for WWR panel layout
+  const [wwrPanelHeight, setWwrPanelHeight] = useState(500);
+  const isResizingWwr = useRef(false);
+  const wwrResizeStartY = useRef(0);
+  const wwrResizeStartHeight = useRef(0);
+
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -2024,6 +2030,26 @@ export function DrawingAnalysis() {
     URL.revokeObjectURL(url);
   };
 
+  const handleWwrResizeMouseDown = (e: React.MouseEvent) => {
+    isResizingWwr.current = true;
+    wwrResizeStartY.current = e.clientY;
+    wwrResizeStartHeight.current = wwrPanelHeight;
+    e.preventDefault();
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizingWwr.current) return;
+      const delta = ev.clientY - wwrResizeStartY.current;
+      setWwrPanelHeight(Math.max(200, wwrResizeStartHeight.current + delta));
+    };
+    const onMouseUp = () => {
+      isResizingWwr.current = false;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
   // Load image when drawing changes
   useEffect(() => {
     if (drawingImage) {
@@ -2749,12 +2775,15 @@ export function DrawingAnalysis() {
               )}
 
               {/* Canvas and side panel */}
-              <div className="flex gap-4">
-                {/* Canvas */}
-                <div 
+              <div
+                className="grid gap-4"
+                style={{ gridTemplateColumns: "3fr 2fr" }}
+              >
+                {/* Canvas — col-span-3 equivalent (left) */}
+                <div
                   ref={containerRef}
-                  className="flex-1 border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
-                  style={{ height: "500px" }}
+                  className="border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 overflow-y-auto"
+                  style={{ height: `${wwrPanelHeight}px` }}
                 >
                   <canvas
                     ref={canvasRef}
@@ -2771,8 +2800,11 @@ export function DrawingAnalysis() {
                   />
                 </div>
 
-                {/* Side panel */}
-                <div className="w-80 space-y-4">
+                {/* Side panel — col-span-2 equivalent (right), independently scrollable */}
+                <div
+                  className="space-y-4 overflow-y-auto"
+                  style={{ height: `${wwrPanelHeight}px` }}
+                >
                   {/* Municipality/Zone selection */}
                   <Card>
                     <CardHeader className="py-3">
@@ -3034,6 +3066,13 @@ export function DrawingAnalysis() {
                     </Card>
                   )}
                 </div>
+              </div>
+              {/* Resize handle */}
+              <div
+                className="h-2 mt-1 cursor-row-resize flex items-center justify-center group"
+                onMouseDown={handleWwrResizeMouseDown}
+              >
+                <div className="w-16 h-1 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
               </div>
             </div>
           )}
