@@ -1,24 +1,73 @@
 import { eq, and, or, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { InsertUser, users, bookmarks, notes, InsertBookmark, InsertNote, clients, InsertClient, Client, projectMembers, InsertProjectMember, ProjectMember, teamRoles, InsertTeamRole, TeamRole, subscriptionPlans, InsertSubscriptionPlan, SubscriptionPlan, userSubscriptions, InsertUserSubscription, UserSubscription, usageMetrics, InsertUsageMetric, UsageMetric, shareLinks, InsertShareLink, ShareLink, verificationTokens, InsertVerificationToken, VerificationToken, calculationVersions, InsertCalculationVersion, CalculationVersion } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql.Pool | null = null;
 
 // Singleton db instance for server-side use
 export let db: ReturnType<typeof drizzle> | null = null;
+
+function createPool(): mysql.Pool {
+  const pool = mysql.createPool({
+    uri: process.env.DATABASE_URL,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    connectTimeout: 60000,
+  });
+
+  pool.on('connection', (connection) => {
+    connection.on('error', (err: NodeJS.ErrnoException & { code?: string; fatal?: boolean }) => {
+      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.fatal) {
+        console.error('[DB] Connection lost — pool will reconnect:', err.code);
+        // Force pool recreation on next getDb() call
+        _db = null;
+        _pool = null;
+      }
+    });
+  });
+
+  return pool;
+}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _pool = createPool();
+      _db = drizzle(_pool as any);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
+      _pool = null;
     }
   }
   return _db;
+}
+
+export async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const code = err?.code ?? err?.cause?.code;
+      const isConnectionLost = code === 'PROTOCOL_CONNECTION_LOST' || code === 'ECONNRESET' || err?.fatal;
+      if (isConnectionLost && i < retries - 1) {
+        console.warn(`[DB] Retrying after connection loss (attempt ${i + 1}/${retries}):`, code);
+        _db = null;
+        _pool = null;
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Max retries exceeded');
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
