@@ -5,26 +5,15 @@
  * Handles plan analysis, drawing analysis, and code interpretation.
  */
 
-import { analyzeCompliance } from '../llm';
 import { invokeLLM } from '../_core/llm';
 import { TRPCError } from '@trpc/server';
 import { checkRateLimit, rateLimiters, requestDeduplicator } from '../_core/security';
-import { RuleService } from '../ruleService';
-import { logger } from '../logger';
 
 export interface AnalyzePlanInput {
   planDescription: string;
   occupancyType: string;
   buildingType?: string;
   province?: string;
-  analysisId?: string;
-}
-
-export interface AnalyzePlanMetadata {
-  analysis: string;
-  source: 'claude' | 'manus';
-  usedFallback: boolean;
-  confidence: number;
 }
 
 export interface AnalyzePlanOutput {
@@ -62,9 +51,8 @@ export interface AnalyzeDrawingOutput {
 export class ComplianceAnalysisService {
   /**
    * Analyze building plan for code compliance
-   * Returns metadata about which LLM was used
    */
-  async analyzePlan(input: AnalyzePlanInput, userId: number): Promise<AnalyzePlanOutput & AnalyzePlanMetadata> {
+  async analyzePlan(input: AnalyzePlanInput, userId: number): Promise<AnalyzePlanOutput> {
     // Check rate limit (10 per hour per user)
     checkRateLimit(rateLimiters.llm, `user:${userId}:plan`);
 
@@ -73,35 +61,18 @@ export class ComplianceAnalysisService {
 
     return requestDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        // Use Claude with Manus fallback for compliance analysis
-        const result = await analyzeCompliance(
-          input.planDescription,
-          input.occupancyType,
-          input.province || 'Ontario',
-          {
-            analysisId: `plan-${userId}-${Date.now()}`,
-            userId: String(userId),
-          }
-        );
+        const prompt = this.buildPlanAnalysisPrompt(input);
 
-        logger.info('✅ [Compliance Analysis] Analysis complete', {
-          source: result.source,
-          usedFallback: result.usedFallback,
-          confidence: result.confidence,
-          userId,
-        });
-
-        // Parse the analysis result
         const response = await Promise.race([
           invokeLLM({
             messages: [
               {
                 role: 'system',
-                content: 'You are a building code compliance expert. Parse the provided analysis and extract infractions. Return a JSON object with infractions array.',
+                content: 'You are a building code compliance expert. Analyze the provided plan description and identify any code violations. Return a JSON object with infractions array.',
               },
               {
                 role: 'user',
-                content: `Analysis Result:\n${result.analysis}\n\nExtract infractions from this analysis.`,
+                content: prompt,
               },
             ],
             response_format: {
@@ -140,16 +111,12 @@ export class ComplianceAnalysisService {
 
         const content = (response as any).choices[0].message.content;
         if (!content) {
-        return {
-          success: false,
-          infractions: [],
-          summary: 'No response from analysis',
-          error: 'Empty response from LLM',
-          analysis: '',
-          source: 'manus' as const,
-          usedFallback: true,
-          confidence: 0,
-        };
+          return {
+            success: false,
+            infractions: [],
+            summary: 'No response from analysis',
+            error: 'Empty response from LLM',
+          };
         }
 
         const parsed = JSON.parse(content as string);
@@ -158,10 +125,6 @@ export class ComplianceAnalysisService {
           success: true,
           infractions: parsed.infractions || [],
           summary: parsed.summary || '',
-          analysis: typeof result.analysis === 'string' ? result.analysis : JSON.stringify(result.analysis),
-          source: (result.source as 'claude' | 'manus'),
-          usedFallback: result.usedFallback,
-          confidence: result.confidence,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -173,10 +136,6 @@ export class ComplianceAnalysisService {
           infractions: [],
           summary: '',
           error: `Analysis failed: ${message}`,
-          analysis: '',
-          source: 'manus' as const,
-          usedFallback: true,
-          confidence: 0,
         };
       }
     });
@@ -197,7 +156,7 @@ export class ComplianceAnalysisService {
 
     return requestDeduplicator.deduplicate(deduplicationKey, async () => {
       try {
-        const prompt = await this.buildDrawingAnalysisPrompt(input);
+        const prompt = this.buildDrawingAnalysisPrompt(input);
 
         const response = await Promise.race([
           invokeLLM({
@@ -290,36 +249,9 @@ export class ComplianceAnalysisService {
   }
 
   /**
-   * Build prompt for plan analysis with dynamic rules from database
+   * Build prompt for plan analysis
    */
-  private async buildPlanAnalysisPrompt(input: AnalyzePlanInput): Promise<string> {
-    // Load relevant rules from database
-    const codeVersion = 'NBC_2025'; // Default to latest code version
-    const jurisdiction = input.province || 'Canada'; // Default to Canada if province not specified
-    const rules = await RuleService.getRulesForVersion(codeVersion, jurisdiction);
-    
-    // Filter rules by occupancy type and building type
-    const relevantRules = (rules || []).filter(rule => {
-      if (!rule || !rule.ruleData) return false;
-      const ruleData = rule.ruleData as any;
-      const applicableOccupancies = ruleData?.applicableOccupancies || [];
-      const applicableTypes = ruleData?.applicableBuildingTypes || [];
-      
-      const occupancyMatch = applicableOccupancies.length === 0 || 
-        applicableOccupancies.includes(input.occupancyType);
-      const typeMatch = applicableTypes.length === 0 || 
-        !input.buildingType || 
-        applicableTypes.includes(input.buildingType);
-      
-      return occupancyMatch && typeMatch;
-    });
-    
-    // Format rules for inclusion in prompt
-    const rulesText = (relevantRules || []).slice(0, 20).map(rule => {
-      if (!rule) return '';
-      return `- ${rule.ruleCode || 'UNKNOWN'}: ${rule.title || 'No title'}\n  Reference: ${rule.nbcReference || 'N/A'}`;
-    }).filter(text => text).join('\n');
-    
+  private buildPlanAnalysisPrompt(input: AnalyzePlanInput): string {
     return `
 Analyze the following building plan for code compliance:
 
@@ -330,10 +262,7 @@ Province: ${input.province || 'Alberta'}
 Plan Description:
 ${input.planDescription}
 
-Applicable Building Code Rules:
-${rulesText || 'National Building Code of Canada 2025'}
-
-Please identify all code violations according to the rules listed above and the National Building Code.
+Please identify all code violations according to the National Building Code and provincial amendments.
 For each violation, provide:
 1. The specific code section violated
 2. Severity level (critical/major/minor)
@@ -346,9 +275,9 @@ Return a JSON object with an infractions array and a summary.
   }
 
   /**
-   * Build prompt for drawing analysis with dynamic rules from database
+   * Build prompt for drawing analysis
    */
-  private async buildDrawingAnalysisPrompt(input: AnalyzeDrawingInput): Promise<string> {
+  private buildDrawingAnalysisPrompt(input: AnalyzeDrawingInput): string {
     const analysisTypeDescriptions = {
       structural: 'structural integrity, load paths, and support systems',
       egress: 'emergency egress routes, exit widths, and travel distances',

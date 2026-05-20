@@ -1,0 +1,393 @@
+
+> building_code_occupancy_app@1.0.0 test /home/ubuntu/building_code_occupancy_app
+> vitest run
+
+[dotenv@17.3.1] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+[1m[46m RUN [49m[22m [36mv4.1.2 [39m[90m/home/ubuntu/building_code_occupancy_app[39m
+
+[90mstdout[2m | server/phase2to5.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/stepCode.compliance.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/stepCode.critical-tests.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/__tests__/integration.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | tests/api/security.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [31m❯[39m tests/api/security.test.ts [2m([22m[2m20 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 19[2mms[22m[39m
+       [32m✓[39m TC-13-01: stepCode.check() without cookie → 401/UNAUTHORIZED[32m 2[2mms[22m[39m
+       [32m✓[39m TC-13-02: jurisdiction.detect() without cookie → allowed (public procedure)[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-03: energyFeatures.update() without cookie → 401[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-04: professionalSeal.upsert() without cookie → 401[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-05: auth.me without cookie → 401[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-06: audit.logCorrection() without cookie → 401[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-07: stepCode.check() with negative TEDI → Zod validation error[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-08: stepCode.check() with string TEDI (not number) → Zod error[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-09: energyFeatures.update() with SQL injection attempt → sanitized/rejected[32m 1[2mms[22m[39m
+       [32m✓[39m TC-13-10: POST /api/auth/session with oversized payload → 413 or rejected[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-11: app_session_id cookie has httpOnly flag[32m 1[2mms[22m[39m
+       [32m✓[39m TC-13-12: app_session_id cookie has secure flag (on HTTPS)[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-13: app_session_id cookie has sameSite attribute[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-14: Manually crafted JWT with wrong secret → 401[32m 0[2mms[22m[39m
+[31m       [31m×[31m TC-13-15: Manually crafted JWT with correct secret → accepted[39m[32m 7[2mms[22m[39m
+       [32m✓[39m TC-13-16: User A cannot access User B's projects via projectId[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-17: User A cannot access User B's professional seal[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-18: User A cannot retrieve User B's stepCode analyses[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-19: 100 rapid requests to /api/auth/session do not crash the server[32m 0[2mms[22m[39m
+       [32m✓[39m TC-13-20: stepCode.check() called 50x in 10 seconds does not cause data corruption[32m 1[2mms[22m[39m
+ [31m❯[39m server/phase2to5.test.ts [2m([22m[2m30 tests[22m[2m | [22m[31m19 failed[39m[2m | [22m[33m11 skipped[39m[2m)[22m[32m 17[2mms[22m[39m
+[31m       [31m×[31m should create a client[39m[32m 6[2mms[22m[39m
+[31m       [31m×[31m should retrieve clients by user ID[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should update a client[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should delete a client[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should add a project member[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should retrieve project members[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should update member role[39m[32m 0[2mms[22m[39m
+       [2m[90m↓[39m[22m should remove a project member - Phase 4 feature
+[31m       [31m×[31m should retrieve active subscription plans[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should retrieve a specific plan by ID[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should create a user subscription[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should retrieve user subscription[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should update user subscription[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m should create or update usage metrics[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m should retrieve usage metrics[39m[32m 0[2mms[22m[39m
+     [2m[90m↓[39m[22m should track ROI metrics - Phase 4 feature
+       [2m[90m↓[39m[22m should create a share link - Phase 4 feature
+       [2m[90m↓[39m[22m should retrieve share links by token - Phase 4 feature
+       [2m[90m↓[39m[22m should list share links for a project - Phase 4 feature
+       [2m[90m↓[39m[22m should increment access count - Phase 4 feature
+       [2m[90m↓[39m[22m should deactivate a share link - Phase 4 feature
+       [2m[90m↓[39m[22m should create a verification token - Phase 4 feature
+[31m       [31m×[31m should retrieve verification token by token string[39m[32m 0[2mms[22m[39m
+       [2m[90m↓[39m[22m should increment view count - Phase 4 feature
+[31m     [31m×[31m should create a calculation version[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m should retrieve calculation versions[39m[32m 0[2mms[22m[39m
+     [2m[90m↓[39m[22m should create version with parent reference - Phase 4 feature
+[31m     [31m×[31m should retrieve a specific version[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m should support complete professional workflow[39m[32m 0[2mms[22m[39m
+     [2m[90m↓[39m[22m should enforce access control for shared projects - Phase 4 feature
+[90mstdout[2m | tests/auth/clerk-credentials.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [31m❯[39m tests/auth/clerk-credentials.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m server/stepCode.compliance.test.ts [2m([22m[2m52 tests[22m[2m | [22m[31m14 failed[39m[2m)[22m[32m 34[2mms[22m[39m
+[31m     [31m×[31m DB-001: Verify all Step Code tiers seeded correctly[39m[32m 9[2mms[22m[39m
+[31m     [31m×[31m DB-002: Verify jurisdiction profiles for major cities[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m DB-003: Test foreign key constraints[39m[32m 1[2mms[22m[39m
+     [32m✓[39m DB-004: Verify immutable audit records[32m 0[2mms[22m[39m
+[31m     [31m×[31m DB-005: Test French translation completeness[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m API-JD-001: Vancouver jurisdiction detection[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m API-JD-002: Calgary jurisdiction detection[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m API-JD-003: Edmonton cold climate detection[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m API-JD-004: Victoria lower tier than Vancouver[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m API-JD-005: Kelowna interior BC profile[39m[32m 1[2mms[22m[39m
+     [32m✓[39m SC-P9-001: Single Family Tier 3 - PASS both metrics[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-002: Single Family Tier 3 - FAIL TEDI[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-003: Single Family Tier 3 - FAIL MEUI[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-004: Single Family Tier 5 - PASS both[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-005: Single Family Tier 5 - FAIL TEDI[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-006: Multiplex Tier 4 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-007: Single Family Tier 3 Zone 5 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-008: Single Family Tier 3 Zone 5 - FAIL[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-009: Single Family Tier 4 Zone 5 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-010: Single Family Tier 3 Zone 7a - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-011: Single Family Tier 4 Zone 7a - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P9-012: Single Family Tier 4 Zone 7a - FAIL[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P3-001: MURB Tier 3 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P3-002: Office Tier 4 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P3-003: Retail Tier 3 - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SC-P3-004: Retail Tier 3 - PASS both[32m 0[2mms[22m[39m
+     [32m✓[39m CD-001: Calgary Zone 7 insulation - FAIL[32m 0[2mms[22m[39m
+     [32m✓[39m CD-002: Calgary Zone 7 insulation - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m CD-003: Vancouver Zone 4 insulation - PASS[32m 0[2mms[22m[39m
+     [32m✓[39m CD-004: Edmonton design temperature[32m 0[2mms[22m[39m
+     [32m✓[39m CD-005: Victoria design temperature[32m 0[2mms[22m[39m
+     [32m✓[39m SE-001: Vancouver High Seismic - Regular shape PASS[32m 0[2mms[22m[39m
+     [32m✓[39m SE-002: Vancouver High Seismic - Soft story CONDITIONAL[32m 0[2mms[22m[39m
+     [32m✓[39m SE-003: Vancouver High Seismic - Irregular shape CONDITIONAL[32m 0[2mms[22m[39m
+     [32m✓[39m SE-004: Kelowna Low Seismic - NOT_APPLICABLE[32m 0[2mms[22m[39m
+     [32m✓[39m SE-005: Calgary Low Seismic - NOT_APPLICABLE[32m 0[2mms[22m[39m
+     [32m✓[39m SE-006: Victoria Intermediate Seismic - PASS[32m 0[2mms[22m[39m
+[31m     [31m×[31m BI-001: French calculator title[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m BI-002: French report header[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m BI-003: French occupancy label[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m BI-005: French error message[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m BI-006: All calculator translations have both EN and FR[39m[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-001: Lloydminster (BC/AB border) - assign to Alberta[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-002: Negative TEDI validation error[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-003: Zero airtightness validation error[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-004: Duplicate project name allowed with unique ID[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-005: Missing required fields validation[32m 0[2mms[22m[39m
+     [32m✓[39m Should validate TEDI within acceptable range[32m 0[2mms[22m[39m
+     [32m✓[39m Should validate airtightness within acceptable range[32m 0[2mms[22m[39m
+     [32m✓[39m Should reject invalid climate zone[32m 0[2mms[22m[39m
+     [32m✓[39m Should reject invalid seismic zone[32m 0[2mms[22m[39m
+     [32m✓[39m Should validate Step Code tier 1-5[32m 0[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/comprehensiveSearch.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [31m❯[39m server/stepCode.critical-tests.test.ts [2m([22m[2m28 tests[22m[2m | [22m[31m12 failed[39m[2m)[22m[32m 33[2mms[22m[39m
+     [32m✓[39m VAL-009: TEDI exactly at target (30.00) - boundary pass[32m 2[2mms[22m[39m
+     [32m✓[39m VAL-009b: TEDI just above target (30.01) - boundary fail[32m 0[2mms[22m[39m
+     [32m✓[39m VAL-010: MEUI exactly at target (50.00) - boundary pass[32m 0[2mms[22m[39m
+     [32m✓[39m VAL-010b: MEUI just above target (50.01) - boundary fail[32m 0[2mms[22m[39m
+[31m     [31m×[31m EDGE-009: Rural BC project with no municipality[39m[32m 7[2mms[22m[39m
+     [32m✓[39m EDGE-010: Step Code Tier 5 with airtightness exactly 1.0[32m 0[2mms[22m[39m
+     [32m✓[39m EDGE-010b: Step Code Tier 5 with airtightness 1.01 - exceeds max[32m 0[2mms[22m[39m
+     [32m✓[39m PREC-001: TEDI with decimal precision (29.99 vs 30.00)[32m 0[2mms[22m[39m
+     [32m✓[39m PREC-002: MEUI with decimal precision (49.99 vs 50.00)[32m 0[2mms[22m[39m
+     [32m✓[39m PREC-003: Airtightness with decimal precision (2.49 vs 2.50)[32m 0[2mms[22m[39m
+     [32m✓[39m PREC-004: Climate zone boundary - HDD exactly 3000[32m 0[2mms[22m[39m
+     [32m✓[39m PREC-005: Climate zone boundary - HDD 2999 vs 3000[32m 0[2mms[22m[39m
+     [32m✓[39m AUDIT-011: Calculation signature verification - tampered data fails[32m 9[2mms[22m[39m
+     [32m✓[39m AUDIT-012: Immutable record - cannot modify calculation result[32m 0[2mms[22m[39m
+     [32m✓[39m AUDIT-013: Audit trail - all actions logged with timestamp[32m 0[2mms[22m[39m
+     [32m✓[39m AUDIT-014: SQL injection prevention - special characters escaped[32m 0[2mms[22m[39m
+[31m     [31m×[31m PERF-005: Jurisdiction API response time < 500ms[39m[32m 3[2mms[22m[39m
+     [32m✓[39m PERF-006: Compliance calculation < 100ms[32m 0[2mms[22m[39m
+[31m     [31m×[31m PERF-007: Batch jurisdiction lookup - 100 cities[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m PERF-008: Step Code tier lookup by climate zone[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m CONS-001: All Step Code tiers have consistent structure[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m CONS-002: All jurisdictions have required fields[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m CONS-003: TEDI targets increase from Tier 1 to 5 (less stringent)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m CONS-004: Airtightness requirements tighten with higher tiers[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m JURIS-001: Vancouver has Step Code requirements[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m JURIS-002: Calgary has no Step Code requirements[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m JURIS-003: Calgary has high HDD (cold climate)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m JURIS-004: Vancouver has seismic requirements[39m[32m 0[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/comprehensiveSearch.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [31m❯[39m server/__tests__/integration.test.ts [2m([22m[2m16 tests[22m[2m | [22m[31m14 failed[39m[2m)[22m[32m 37[2mms[22m[39m
+[31m       [31m×[31m should create user and retrieve it[39m[32m 11[2mms[22m[39m
+[31m       [31m×[31m should get user by openId[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should update user profile[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should create project for user[39m[32m 4[2mms[22m[39m
+[31m       [31m×[31m should get user projects[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should update project[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should delete project[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should get default free subscription[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should create subscription[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should upgrade subscription[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should cancel subscription[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should track usage operation[39m[32m 3[2mms[22m[39m
+       [32m✓[39m should calculate monthly spending[32m 1[2mms[22m[39m
+       [32m✓[39m should get usage breakdown[32m 0[2mms[22m[39m
+[31m       [31m×[31m should prevent unauthorized project access[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should prevent unauthorized project update[39m[32m 3[2mms[22m[39m
+[90mstdout[2m | server/__tests__/drawingAnalysisPersistence.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/searchKeywords.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/municipalBylawsData.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/__tests__/drawingAnalysisPersistence.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/searchKeywords.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/municipalBylawsData.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/safetyCodesData.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/ruleManagement.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/safetyCodesData.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/ruleManagement.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+[90mstdout[2m | server/auth.me.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/buttons.functionality.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/prelaunch.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/auth.me.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m server/buttons.functionality.test.ts [2m([22m[2m61 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m server/prelaunch.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/newFeatures.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/architecturalScales.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/newFeatures.test.ts [2m([22m[2m47 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/architecturalScales.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+[90mstdout[2m | tests/db/seedVerification.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/immediate-mobile-drawing.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m tests/db/seedVerification.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+[90mstdout[2m | server/phase2Calculators.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/immediate-mobile-drawing.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+[90mstdout[2m | server/__tests__/drawingAnalysis.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/buttons.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/phase2Calculators.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m server/buttons.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/fiveCsComponents.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/featureRouters.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/fiveCsComponents.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m server/__tests__/drawingAnalysis.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/featureRouters.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/broken-buttons-audit.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/all-buttons.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/broken-buttons-audit.test.ts [2m([22m[2m62 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/all-buttons.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/freehandDrawing.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/calculators.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/drawingAnalysisEnhancements.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/freehandDrawing.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/calculators.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/drawingAnalysisEnhancements.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/plumbingAndFireSafety.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/occupantLoadFactors.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/plumbingAndFireSafety.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/occupantLoadFactors.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/enhancement-features.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/tests/stepCode.engine.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/enhancement-features.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/mobile-enhancements.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/tests/stepCode.engine.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/mobile-enhancements.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/mobile-touch-eraser.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/advanced-enhancements.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/mobile-touch-eraser.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/advanced-enhancements.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[90mstdout[2m | tests/e2e/auth.spec.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m tests/e2e/auth.spec.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+[90mstdout[2m | tests/e2e/user-journey.spec.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/waterClosetCalculator.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m tests/e2e/user-journey.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/waterClosetCalculator.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/mobile-drawing-disabled.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/mobile-drawing-disabled.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[90mstdout[2m | tests/e2e/oauth.spec.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/tests/auditIntegrity.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m tests/e2e/oauth.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m server/tests/auditIntegrity.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/e2e.featureRouters.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/plumbingFixtureCalculators.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/e2e.featureRouters.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/plumbingFixtureCalculators.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/oauth-redirect-uri.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/tests/pdfReports.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/oauth-redirect-uri.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/ref-based-drawing.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/tests/pdfReports.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/ref-based-drawing.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/ProjectTabView.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | client/src/__tests__/checklistIntegration.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/ProjectTabView.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m client/src/__tests__/checklistIntegration.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | client/src/__tests__/checklistStatusIndicators.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m client/src/__tests__/checklistStatusIndicators.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+[90mstdout[2m | server/tests/alberta.engine.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/__tests__/auth.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/tests/alberta.engine.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | server/tests/database.integrity.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+[90mstdout[2m | server/tests/drawingAnalysis.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/tests/database.integrity.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m server/tests/drawingAnalysis.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+[90mstdout[2m | server/tests/jurisdiction.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/tests/jurisdiction.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+[90mstdout[2m | server/auth.logout.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/__tests__/auth.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+[90mstdout[2m | tests/performance/performance.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m tests/performance/performance.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[90mstdout[2m | server/planAnalyzer.test.ts
+[22m[39m[Vitest Setup] Database mocking initialized with BC Housing 2017 metrics
+
+ [32m✓[39m server/planAnalyzer.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m server/auth.logout.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m52 passed[39m[22m[90m (58)[39m
+[2m      Tests [22m [1m[31m60 failed[39m[22m[2m | [22m[1m[32m1335 passed[39m[22m[2m | [22m[33m11 skipped[39m[90m (1406)[39m
+[2m   Start at [22m 17:14:55
+[2m   Duration [22m 4.21s[2m (transform 1.70s, setup 1.10s, import 4.49s, tests 951ms, environment 7ms)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.

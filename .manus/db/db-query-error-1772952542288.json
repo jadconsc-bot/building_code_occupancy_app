@@ -1,8 +1,0 @@
-{
-  "query": "SELECT id, userId, action, details, createdAt FROM auditLog WHERE action = 'legal_disclaimer_acknowledged' ORDER BY createdAt DESC LIMIT 5;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, userId, action, details, createdAt FROM auditLog WHERE action = 'legal_disclaimer_acknowledged' ORDER BY createdAt DESC LIMIT 5;",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1146 (42S02) at line 1: Table '9f4j2cdosthngtzbintbln.auditLog' doesn't exist"
-  ]
-}

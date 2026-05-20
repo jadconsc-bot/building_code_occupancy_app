@@ -297,14 +297,13 @@ export class PersistenceManager {
   private async logAuditEvent(userId: string, action: string, details: any) {
     try {
       // TODO: Implement once calculationAuditLog table is migrated
-      // When implementing, extract ipAddress from request context, not hardcoded
       /*
       await db.insert(calculationAuditLog).values({
         userId,
         action,
         details: JSON.stringify(details),
-        ipAddress: requestContext.ipAddress, // From request context
-        userAgent: requestContext.userAgent, // From request context
+        ipAddress: '0.0.0.0', // Would be set from request context
+        userAgent: 'CodeComply Client',
         timestamp: new Date(),
         hash: this.generateHash(details),
         previousHash: '',

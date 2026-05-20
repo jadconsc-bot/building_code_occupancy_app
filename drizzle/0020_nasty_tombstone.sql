@@ -1,0 +1,1 @@
+ALTER TABLE `disclaimerAcknowledgments` ADD `is_immutable` tinyint DEFAULT 1 NOT NULL;

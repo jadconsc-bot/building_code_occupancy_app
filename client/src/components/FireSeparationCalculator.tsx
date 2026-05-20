@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SaveButton } from "@/components/CalculatorWithSave";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -380,9 +381,14 @@ export function FireSeparationCalculator() {
             </ul>
           </div>
 
-          {/* Export Button */}
+          {/* Export + Save Buttons */}
           {occupancy1 && occupancy2 && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <SaveButton
+                calculatorType="fireSeparation"
+                inputs={{ occupancy1, occupancy2, sprinklered }}
+                results={{ rating: result.rating, severity: result.severity, description: result.description }}
+              />
               <Button
                 variant="outline"
                 size="sm"

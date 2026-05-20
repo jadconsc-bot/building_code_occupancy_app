@@ -1,9 +1,28 @@
 /**
  * Deterministic Compliance Engine
- * 
+ *
  * Evaluates building code compliance based on versioned, immutable rulesets.
  * Produces reproducible results with full traceability for legal defensibility.
+ *
+ * This file is an ORCHESTRATOR. Compliance logic lives in server/engine/rules/.
  */
+
+import { Constraints } from './engine/constraints';
+import { ComplianceTrace, buildFederalTrace, computeMargin } from './engine/types/trace';
+import { evaluateTravelDistance, evaluateExitCount, evaluateExitWidth } from './engine/rules/egress';
+import { evaluateSprinklerRequirement, evaluateFireAlarm } from './engine/rules/fire';
+import { evaluateOccupantLoad } from './engine/rules/occupancy';
+import { ruleResolver } from './engine/RuleResolver';
+import {
+  EvaluationResult,
+  calculateComplianceScore,
+  buildSummary,
+  deriveStatus,
+} from './engine/EvaluationContract';
+
+export type { ComplianceInput, EvaluationContext } from './engine/types/context';
+export type { EvaluationResult } from './engine/EvaluationContract';
+import type { ComplianceInput } from './engine/types/context';
 
 export interface Rule {
   rule_id: string;
@@ -26,19 +45,6 @@ export interface Action {
   value: any;
 }
 
-export interface ComplianceInput {
-  occupancy_major: string;
-  occupancy_division?: string;
-  area_m2?: number;
-  storeys?: number;
-  sprinklers?: boolean;
-  fire_alarm?: boolean;
-  exits?: number;
-  travel_distance_m?: number;
-  construction_type?: string;
-  [key: string]: any;
-}
-
 export interface ComplianceOutput {
   [key: string]: any;
 }
@@ -54,6 +60,7 @@ export interface ComplianceResult {
   outputs: ComplianceOutput;
   rule_trace: RuleTrace[];
   compliance_flags: { [key: string]: boolean };
+  traces: ComplianceTrace[];
   mode: "strict" | "soft";
   timestamp: string;
 }
@@ -75,15 +82,15 @@ export class ComplianceEvaluator {
    * Evaluate compliance for given inputs
    * Returns deterministic results with full rule trace
    */
-  evaluate(inputs: ComplianceInput): ComplianceResult {
+  async evaluate(inputs: ComplianceInput): Promise<EvaluationResult> {
     const outputs: ComplianceOutput = {};
     const ruleTrace: RuleTrace[] = [];
     const complianceFlags: { [key: string]: boolean } = {};
 
-    // Apply each rule in order (deterministic)
+    // Apply JSON-defined rules in order (deterministic, backward-compatible)
     for (const rule of this.rules) {
       const conditionsMet = this.evaluateConditions(rule.conditions, inputs, outputs);
-      
+
       ruleTrace.push({
         rule_id: rule.rule_id,
         clause: rule.clause,
@@ -92,89 +99,166 @@ export class ComplianceEvaluator {
       });
 
       if (conditionsMet) {
-        // Apply actions from this rule
         for (const action of rule.actions) {
           this.applyAction(action, outputs);
         }
       }
     }
 
-    // Generate compliance flags based on outputs
-    complianceFlags["area_ok"] = !(outputs.area_exceeds_limit === true);
-    complianceFlags["sprinklers_ok"] = !(outputs.sprinklers_required === true) || inputs.sprinklers === true;
-    complianceFlags["fire_alarm_ok"] = !(outputs.fire_alarm_required === true) || inputs.fire_alarm === true;
-    complianceFlags["exits_ok"] = !(outputs.exits_required === true) || (inputs.exits && inputs.exits >= (typeof outputs.exits_required === 'number' ? outputs.exits_required : 0)) || false;
-    complianceFlags["travel_distance_ok"] = !(outputs.travel_distance_exceeded === true);
+    // ── Derived outputs ──────────────────────────────────────────────────
+
+    // Occupant load
+    const { occupantLoad, trace: occupantLoadTrace } = evaluateOccupantLoad(inputs);
+    if (inputs.area_m2 && inputs.occupancy_major) {
+      outputs.occupant_load = occupantLoad;
+    }
+
+    // Exit count
+    const exitCountTrace = evaluateExitCount(inputs, occupantLoad);
+    outputs.exits_required = exitCountTrace.evaluatedInputs.required;
+
+    // Travel distance max (for backward-compat consumers of outputs)
+    outputs.travel_distance_max = inputs.sprinklers
+      ? Constraints.egress.travel_distance.sprinklered.value
+      : Constraints.egress.travel_distance.unsprinklered.value;
+
+    // Fire resistance rating (no dedicated rule function — inline derivation)
+    if (inputs.occupancy_major && inputs.construction_type) {
+      const nonCombustibleValues = ["non_combustible", "Non-Combustible", "fire_resistant", "Fire-Resistant"];
+      const isNonCombustible = nonCombustibleValues.includes(inputs.construction_type);
+      const isHighRisk = ["A", "B"].includes(inputs.occupancy_major);
+      outputs.fire_resistance_rating = isHighRisk
+        ? (isNonCombustible ? "2hr" : "1hr")
+        : (isNonCombustible ? "1hr" : "45min");
+    }
+
+    // ── Rule evaluations ─────────────────────────────────────────────────────
+
+    const travelDistanceRule = await ruleResolver.resolveConstraint(
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.ref
+        : Constraints.egress.travel_distance.unsprinklered.ref,
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.value as number
+        : Constraints.egress.travel_distance.unsprinklered.value as number,
+      'm',
+      inputs.sprinklers
+        ? Constraints.egress.travel_distance.sprinklered.ref
+        : Constraints.egress.travel_distance.unsprinklered.ref,
+      {
+        inputs,
+        jurisdiction: {
+          province: inputs.province ?? 'AB',
+          codeEdition: 'NBC 2020',
+        },
+        mode: this.mode,
+      },
+    );
+    const travelDistanceTrace = evaluateTravelDistance(inputs, travelDistanceRule);
+    const sprinklersTrace     = evaluateSprinklerRequirement(inputs);
+    const fireAlarmTrace      = evaluateFireAlarm(inputs);
+    const exitWidthTrace      = evaluateExitWidth(inputs);
+
+    // Area check (no dedicated rule file — uses building_limits constraint)
+    const areaLimit  = Constraints.building_limits.part9_threshold.max_area.value as number;
+    const areaActual = inputs.area_m2 ?? 0;
+    const areaPass   = !(outputs.area_exceeds_limit === true) && areaActual <= areaLimit;
+    const { margin: areaMargin, marginPercent: areaMarginPct } = computeMargin(areaActual, areaLimit);
+    const areaTrace = buildFederalTrace({
+      result: areaPass ? 'pass' : 'fail',
+      rule: Constraints.building_limits.part9_threshold.max_area.ref,
+      constraintId: 'building_limits.part9_threshold.max_area',
+      severity: areaPass ? 'info' : 'high',
+      evaluatedInputs: {
+        actual: areaActual,
+        required: areaLimit,
+        unit: 'm²',
+        margin: areaMargin,
+        marginPercent: areaMarginPct,
+      },
+      reasoning: areaPass
+        ? `Floor area of ${areaActual} m² is within the Part 9 limit of ${areaLimit} m².`
+        : `Floor area of ${areaActual} m² exceeds the Part 9 limit of ${areaLimit} m². Part 3 applies.`,
+      recommendations: areaPass ? [] : ['Review Part 3 requirements for this building.'],
+    });
+
+    // ── Compliance flags (derived from rule traces) ───────────────────────────
+
+    complianceFlags["area_ok"]            = areaTrace.result !== 'fail';
+    complianceFlags["sprinklers_ok"]      = sprinklersTrace.result !== 'fail';
+    complianceFlags["fire_alarm_ok"]      = fireAlarmTrace.result !== 'fail';
+    complianceFlags["exits_ok"]           = exitCountTrace.result !== 'fail';
+    complianceFlags["travel_distance_ok"] = travelDistanceTrace.result !== 'fail';
+
+    const allPass = Object.values(complianceFlags).every((f) => f === true);
+    const anyFail = Object.values(complianceFlags).some((f) => f === false);
+    outputs.compliance_status = allPass ? "pass" : anyFail ? "fail" : "conditional";
+
+    const traces: ComplianceTrace[] = [
+      occupantLoadTrace,
+      areaTrace,
+      sprinklersTrace,
+      fireAlarmTrace,
+      exitCountTrace,
+      travelDistanceTrace,
+      exitWidthTrace,
+    ];
 
     return {
-      outputs,
-      rule_trace: ruleTrace,
-      compliance_flags: complianceFlags,
-      mode: this.mode,
-      timestamp: new Date().toISOString(),
+      complianceStatus: deriveStatus(traces, this.mode),
+      overallScore: calculateComplianceScore(traces),
+      traces,
+      outputs: {
+        occupant_load:           (outputs.occupant_load          as number)  ?? 0,
+        exits_required:          (outputs.exits_required         as number)  ?? 0,
+        travel_distance_max:     (outputs.travel_distance_max    as number)  ?? 0,
+        fire_resistance_rating:  (outputs.fire_resistance_rating as string)  ?? '',
+        compliance_status:       (outputs.compliance_status      as string)  ?? 'conditional',
+        sprinklers_required:     (outputs.sprinklers_required    as boolean) ?? false,
+      },
+      summary: buildSummary(traces),
+      evaluatedAt: new Date().toISOString(),
+      engineVersion: '1.0',
+      jurisdictionApplied: travelDistanceRule.source,
     };
   }
 
-  /**
-   * Evaluate all conditions for a rule
-   * All conditions must be true (AND logic)
-   */
   private evaluateConditions(
     conditions: Condition[],
     inputs: ComplianceInput,
-    outputs: ComplianceOutput
+    outputs: ComplianceOutput,
   ): boolean {
     if (conditions.length === 0) return true;
 
     for (const condition of conditions) {
       const value = inputs[condition.field] ?? outputs[condition.field];
-
-      if (!this.evaluateCondition(condition, value)) {
-        return false;
-      }
+      if (!this.evaluateCondition(condition, value)) return false;
     }
 
     return true;
   }
 
-  /**
-   * Evaluate a single condition
-   */
   private evaluateCondition(condition: Condition, value: any): boolean {
     switch (condition.op) {
-      case "==":
-        return value === condition.value;
-      case "!=":
-        return value !== condition.value;
-      case ">":
-        return value > condition.value;
-      case "<":
-        return value < condition.value;
-      case ">=":
-        return value >= condition.value;
-      case "<=":
-        return value <= condition.value;
-      case "in":
-        return Array.isArray(condition.value) && condition.value.includes(value);
-      case "contains":
-        return String(value).includes(String(condition.value));
-      default:
-        return false;
+      case "==":      return value === condition.value;
+      case "!=":      return value !== condition.value;
+      case ">":       return value > condition.value;
+      case "<":       return value < condition.value;
+      case ">=":      return value >= condition.value;
+      case "<=":      return value <= condition.value;
+      case "in":      return Array.isArray(condition.value) && condition.value.includes(value);
+      case "contains": return String(value).includes(String(condition.value));
+      default:        return false;
     }
   }
 
-  /**
-   * Apply an action to the outputs
-   */
   private applyAction(action: Action, outputs: ComplianceOutput): void {
     switch (action.op) {
       case "SET":
         outputs[action.field] = action.value;
         break;
       case "APPEND":
-        if (!Array.isArray(outputs[action.field])) {
-          outputs[action.field] = [];
-        }
+        if (!Array.isArray(outputs[action.field])) outputs[action.field] = [];
         outputs[action.field].push(action.value);
         break;
       case "INCREMENT":
@@ -189,7 +273,7 @@ export class ComplianceEvaluator {
  */
 export function createEvaluator(
   rulesetData: string,
-  mode: "strict" | "soft" = "soft"
+  mode: "strict" | "soft" = "soft",
 ): ComplianceEvaluator {
   const ruleset = JSON.parse(rulesetData);
   return new ComplianceEvaluator(ruleset.rules || [], mode);
@@ -200,11 +284,10 @@ export function createEvaluator(
  */
 export function validateInputsForStrictMode(
   inputs: ComplianceInput,
-  requiredFields: string[]
+  requiredFields: string[],
 ): { valid: boolean; missingFields: string[] } {
-  const missingFields = requiredFields.filter((field) => inputs[field] === undefined || inputs[field] === null);
-  return {
-    valid: missingFields.length === 0,
-    missingFields,
-  };
+  const missingFields = requiredFields.filter(
+    (field) => inputs[field] === undefined || inputs[field] === null,
+  );
+  return { valid: missingFields.length === 0, missingFields };
 }

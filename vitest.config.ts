@@ -1,5 +1,8 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
+import { config } from "dotenv";
+
+config({ path: ".env.test" });
 
 const templateRoot = path.resolve(import.meta.dirname);
 
@@ -14,14 +17,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/__tests__/**/*.test.ts"],
+    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/__tests__/**/*.test.ts", "tests/**/*.test.ts", "tests/**/*.spec.ts"],
     globals: true,
-    testTimeout: 30000, // 30 seconds for LLM-based tests
-    env: {
-      NODE_ENV: 'test',
-      MOCK_TSA_SERVICE: 'true',
-      DISABLE_RATE_LIMITING: 'true',
-      VERIFY_CERTIFICATES: 'true',
-    },
+    setupFiles: ["./vitest.setup.ts"],
   },
 });

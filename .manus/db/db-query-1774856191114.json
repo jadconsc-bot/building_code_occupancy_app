@@ -1,0 +1,34 @@
+{
+  "query": "SELECT id, drawingUrl, drawingHash, analysisType, structuralStatus, issues FROM drawingAnalyses ORDER BY id DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, drawingUrl, drawingHash, analysisType, structuralStatus, issues FROM drawingAnalyses ORDER BY id DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "210023",
+      "drawingUrl": "https://test-bucket.s3.amazonaws.com/test-drawing.pdf",
+      "drawingHash": "abc123def456yizleibfoi",
+      "analysisType": "NULL",
+      "structuralStatus": "NULL",
+      "issues": "NULL"
+    },
+    {
+      "id": "210019",
+      "drawingUrl": "https://test-bucket.s3.amazonaws.com/test-drawing.pdf",
+      "drawingHash": "abc123def456hobe604pa4b",
+      "analysisType": "NULL",
+      "structuralStatus": "NULL",
+      "issues": "NULL"
+    },
+    {
+      "id": "210012",
+      "drawingUrl": "https://test-bucket.s3.amazonaws.com/test-drawing.pdf",
+      "drawingHash": "abc123def456v9wpwsprcug",
+      "analysisType": "NULL",
+      "structuralStatus": "NULL",
+      "issues": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tdrawingUrl\tdrawingHash\tanalysisType\tstructuralStatus\tissues\n210023\thttps://test-bucket.s3.amazonaws.com/test-drawing.pdf\tabc123def456yizleibfoi\tNULL\tNULL\tNULL\n210019\thttps://test-bucket.s3.amazonaws.com/test-drawing.pdf\tabc123def456hobe604pa4b\tNULL\tNULL\tNULL\n210012\thttps://test-bucket.s3.amazonaws.com/test-drawing.pdf\tabc123def456v9wpwsprcug\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

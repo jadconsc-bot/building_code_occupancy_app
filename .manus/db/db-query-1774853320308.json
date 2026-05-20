@@ -1,0 +1,28 @@
+{
+  "query": "SELECT name, email, companyName, COUNT(*) as cnt FROM clients GROUP BY name, email, companyName HAVING cnt > 1 ORDER BY cnt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT name, email, companyName, COUNT(*) as cnt FROM clients GROUP BY name, email, companyName HAVING cnt > 1 ORDER BY cnt DESC LIMIT 10;",
+  "rows": [
+    {
+      "name": "Acme Construction Ltd",
+      "email": "contact@acme.com",
+      "companyName": "Acme Construction",
+      "cnt": "450"
+    },
+    {
+      "name": "Test Client",
+      "email": "client@test.com",
+      "companyName": "NULL",
+      "cnt": "203"
+    },
+    {
+      "name": "Acme Construction Ltd - Updated",
+      "email": "contact@acme.com",
+      "companyName": "Acme Construction",
+      "cnt": "187"
+    }
+  ],
+  "messages": [],
+  "stdout": "name\temail\tcompanyName\tcnt\nAcme Construction Ltd\tcontact@acme.com\tAcme Construction\t450\nTest Client\tclient@test.com\tNULL\t203\nAcme Construction Ltd - Updated\tcontact@acme.com\tAcme Construction\t187\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

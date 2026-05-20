@@ -1,57 +1,49 @@
 import { z } from 'zod';
 
 /**
- * Environment variable schema with validation
+ * AUTH-MIGRATE-001: Environment schema for Clerk + Railway
+ * Replaces Manus OAuth with Clerk, removes Manus-specific variables
  */
 const envSchema = z.object({
-  OAUTH_SERVER_URL: z.string().url('OAUTH_SERVER_URL must be a valid URL'),
+  CLERK_SECRET_KEY: z.string().min(1, 'CLERK_SECRET_KEY is required'),
   JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters'),
   DATABASE_URL: z.string().refine(
     (url) => url.startsWith('mysql://') || url.startsWith('postgres://'),
     'DATABASE_URL must be a valid MySQL or PostgreSQL connection string'
   ),
-  OWNER_OPEN_ID: z.string().optional(),
-  OWNER_NAME: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  BUILT_IN_FORGE_API_URL: z.string().url().optional(),
-  BUILT_IN_FORGE_API_KEY: z.string().optional(),
-  VITE_APP_ID: z.string().optional(),
-  VITE_OAUTH_PORTAL_URL: z.string().url().optional(),
-  // ⚠️ DEVELOPMENT ONLY - Remove for production
-  DEV_AUTH_MODE: z.string().default('false'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_S3_BUCKET: z.string().optional(),
+  AZURE_DOC_INTELLIGENCE_ENDPOINT: z.string().optional(),
+  AZURE_DOC_INTELLIGENCE_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+// Extended ENV object type (includes non-validated vars)
+export type ExtendedEnv = Env & {
+  forgeApiUrl?: string;
+  forgeApiKey?: string;
+};
 
 /**
  * Validate environment variables at startup
  */
 function validateEnv(): Env {
   try {
-    const result = envSchema.parse(process.env);
-
-    const isProductionEnv =
-      result.NODE_ENV === 'production' ||
-      process.env.MANUS_ENVIRONMENT === 'production';
-
-    if (isProductionEnv && result.DEV_AUTH_MODE === 'true') {
-      throw new Error(
-        '[SECURITY VIOLATION] DEV_AUTH_MODE cannot be enabled in production. ' +
-        'This bypasses all OAuth authentication. ' +
-        'Remove DEV_AUTH_MODE from your production environment variables.'
-      );
-    }
-
-    return result;
+    return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.issues
         .map((err: any) => `${err.path.join('.')}: ${err.message}`)
         .join('\n');
-
+      
       throw new Error(
         `Environment variable validation failed:\n${issues}\n\n` +
-        'Required variables: OAUTH_SERVER_URL, JWT_SECRET, DATABASE_URL'
+        'Required variables: CLERK_SECRET_KEY, JWT_SECRET, DATABASE_URL'
       );
     }
     throw error;
@@ -62,16 +54,21 @@ function validateEnv(): Env {
 const validatedEnv = validateEnv();
 
 export const ENV = {
-  appId: validatedEnv.VITE_APP_ID ?? "",
+  clerkSecretKey: validatedEnv.CLERK_SECRET_KEY,
   cookieSecret: validatedEnv.JWT_SECRET,
   databaseUrl: validatedEnv.DATABASE_URL,
-  oAuthServerUrl: validatedEnv.OAUTH_SERVER_URL,
-  ownerOpenId: validatedEnv.OWNER_OPEN_ID ?? "",
-  isProduction: validatedEnv.NODE_ENV === "production",
-  forgeApiUrl: validatedEnv.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: validatedEnv.BUILT_IN_FORGE_API_KEY ?? "",
-  // ⚠️ DEVELOPMENT ONLY - Remove for production
-  devAuthMode: validatedEnv.DEV_AUTH_MODE === 'true',
+  isProduction: validatedEnv.NODE_ENV === 'production',
+  anthropicApiKey: validatedEnv.ANTHROPIC_API_KEY ?? '',
+  googleMapsApiKey: validatedEnv.GOOGLE_MAPS_API_KEY ?? '',
+  awsAccessKeyId: validatedEnv.AWS_ACCESS_KEY_ID ?? '',
+  awsSecretAccessKey: validatedEnv.AWS_SECRET_ACCESS_KEY ?? '',
+  awsS3Bucket: validatedEnv.AWS_S3_BUCKET ?? '',
+  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? '',
+  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? '',
+  appId: process.env.APP_ID ?? '',
+  ownerOpenId: process.env.OWNER_OPEN_ID ?? '',
+  azureDocIntelligenceEndpoint: validatedEnv.AZURE_DOC_INTELLIGENCE_ENDPOINT ?? '',
+  azureDocIntelligenceKey: validatedEnv.AZURE_DOC_INTELLIGENCE_KEY ?? '',
 };
 
 /**
@@ -80,9 +77,11 @@ export const ENV = {
 export function logEnvStatus(): void {
   console.log('[Env] Environment validation passed');
   console.log(`[Env] NODE_ENV: ${validatedEnv.NODE_ENV}`);
-  console.log(`[Env] OAuth Server: ${validatedEnv.OAUTH_SERVER_URL}`);
+  console.log(`[Env] Clerk: Configured`);
   console.log(`[Env] Database: ${validatedEnv.DATABASE_URL.substring(0, 20)}...`);
-  if (validatedEnv.OWNER_OPEN_ID) {
-    console.log(`[Env] Owner: ${validatedEnv.OWNER_NAME || validatedEnv.OWNER_OPEN_ID}`);
-  }
+  const azureEndpoint = validatedEnv.AZURE_DOC_INTELLIGENCE_ENDPOINT;
+  const azureKey = validatedEnv.AZURE_DOC_INTELLIGENCE_KEY;
+  console.log(`[Env] Azure Doc Intelligence: ${azureEndpoint ? `Configured (${azureEndpoint.substring(0, 30)}...)` : 'NOT CONFIGURED — set AZURE_DOC_INTELLIGENCE_ENDPOINT and AZURE_DOC_INTELLIGENCE_KEY'}`);
+  if (azureEndpoint && !azureKey) console.warn('[Env] Azure endpoint set but key is missing');
+  if (!azureEndpoint && azureKey) console.warn('[Env] Azure key set but endpoint is missing');
 }

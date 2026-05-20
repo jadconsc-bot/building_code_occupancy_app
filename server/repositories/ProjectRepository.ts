@@ -1,6 +1,6 @@
 /**
  * Project Repository
- * 
+ *
  * Encapsulates all database queries related to projects.
  * Provides a clean interface for project operations.
  */
@@ -15,7 +15,24 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   occupancyCode?: string;
+  address?: string;
+  template?: string;
   buildingType?: string;
+  province?: string;
+  climateZone?: string;
+  seismicZone?: string;
+  stepCodeTier?: string;
+  jurisdictionDetected?: boolean;
+  projectCode?: string;
+  grossFloorArea?: number;
+  zoningCategory?: string;
+  siteConstraints?: string;
+  storeys?: number;
+  buildingHeight?: number;
+  constructionType?: string;
+  sprinklersRequired?: boolean;
+  part3Determination?: string;
+  codeEdition?: string;
 }
 
 export interface UpdateProjectInput {
@@ -24,7 +41,24 @@ export interface UpdateProjectInput {
   name?: string;
   description?: string;
   occupancyCode?: string;
+  address?: string;
+  template?: string;
   buildingType?: string;
+  province?: string;
+  climateZone?: string;
+  seismicZone?: string;
+  stepCodeTier?: string;
+  jurisdictionDetected?: boolean;
+  projectCode?: string;
+  grossFloorArea?: number;
+  zoningCategory?: string;
+  siteConstraints?: string;
+  storeys?: number;
+  buildingHeight?: number;
+  constructionType?: string;
+  sprinklersRequired?: boolean;
+  part3Determination?: string;
+  codeEdition?: string;
 }
 
 export class ProjectRepository {
@@ -97,19 +131,43 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      const result = await db
-        .insert(projects)
-        .values({
-          userId: input.userId,
-          name: input.name,
-          occupancyCode: input.occupancyCode || 'A-1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      
-      // userId field now properly included in insert
+      // Count existing user projects to generate a sequential number
+      const existingProjects = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.userId, input.userId));
+      const seq = existingProjects.length + 1;
+      const year = new Date().getFullYear();
+      const projectNumber = `CC-${year}-${String(seq).padStart(3, '0')}`;
 
-      // Fetch the created project
+      await db.insert(projects).values({
+        userId: input.userId,
+        name: input.name,
+        occupancyCode: input.occupancyCode || 'A-1',
+        notes: input.description || null,
+        address: input.address || null,
+        template: input.template || null,
+        buildingType: input.buildingType || null,
+        province: input.province || null,
+        climateZone: input.climateZone || null,
+        seismicZone: input.seismicZone || null,
+        stepCodeTier: input.stepCodeTier || null,
+        jurisdictionDetected: input.jurisdictionDetected ?? false,
+        projectCode: input.projectCode || null,
+        grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
+        projectNumber,
+        zoningCategory: input.zoningCategory || null,
+        siteConstraints: input.siteConstraints || null,
+        storeys: input.storeys || null,
+        buildingHeight: input.buildingHeight ? String(input.buildingHeight) : null,
+        constructionType: input.constructionType || null,
+        sprinklersRequired: input.sprinklersRequired !== undefined ? (input.sprinklersRequired ? 1 : 0) : null,
+        part3Determination: input.part3Determination || null,
+        codeEdition: input.codeEdition || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
       const [created] = await db
         .select()
         .from(projects)
@@ -137,30 +195,37 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
-      const existing = await this.getProject(input.id, input.userId);
-      if (!existing) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized to update this project',
-        });
-      }
+      await this.getProject(input.id, input.userId);
 
-      const updateData: Record<string, any> = {
-        updatedAt: new Date(),
-      };
+      const updateData: Record<string, any> = { updatedAt: new Date() };
 
       if (input.name !== undefined) updateData.name = input.name;
-      if (input.description !== undefined) updateData.description = input.description;
+      if (input.description !== undefined) updateData.notes = input.description;
       if (input.occupancyCode !== undefined) updateData.occupancyCode = input.occupancyCode;
+      if (input.address !== undefined) updateData.address = input.address;
+      if (input.template !== undefined) updateData.template = input.template;
       if (input.buildingType !== undefined) updateData.buildingType = input.buildingType;
+      if (input.province !== undefined) updateData.province = input.province;
+      if (input.climateZone !== undefined) updateData.climateZone = input.climateZone;
+      if (input.seismicZone !== undefined) updateData.seismicZone = input.seismicZone;
+      if (input.stepCodeTier !== undefined) updateData.stepCodeTier = input.stepCodeTier;
+      if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
+      if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
+      if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
+      if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;
+      if (input.siteConstraints !== undefined) updateData.siteConstraints = input.siteConstraints;
+      if (input.storeys !== undefined) updateData.storeys = input.storeys;
+      if (input.buildingHeight !== undefined) updateData.buildingHeight = String(input.buildingHeight);
+      if (input.constructionType !== undefined) updateData.constructionType = input.constructionType;
+      if (input.sprinklersRequired !== undefined) updateData.sprinklersRequired = input.sprinklersRequired ? 1 : 0;
+      if (input.part3Determination !== undefined) updateData.part3Determination = input.part3Determination;
+      if (input.codeEdition !== undefined) updateData.codeEdition = input.codeEdition;
 
       await db
         .update(projects)
         .set(updateData)
         .where(and(eq(projects.id, input.id), eq(projects.userId, input.userId)));
 
-      // Fetch updated project
       const [result] = await db
         .select()
         .from(projects)
@@ -189,20 +254,10 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
-      const existing = await this.getProject(id, userId);
-      if (!existing) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized to delete this project',
-        });
-      }
+      await this.getProject(id, userId);
 
-      // Delete related records first
       await db.delete(projectCalculatorResults).where(eq(projectCalculatorResults.projectId, id));
       await db.delete(projectChecklistItems).where(eq(projectChecklistItems.projectId, id));
-
-      // Delete the project
       await db.delete(projects).where(and(eq(projects.id, id), eq(projects.userId, userId)));
 
       return { success: true };
@@ -218,10 +273,6 @@ export class ProjectRepository {
   }
 
   /**
-   * Get project statistics
-   */
-  
-  /**
    * Get calculation results for a project
    */
   async getProjectCalculations(projectId: number, userId: number) {
@@ -231,7 +282,6 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
       await this.getProject(projectId, userId);
 
       return await db
@@ -249,6 +299,7 @@ export class ProjectRepository {
       });
     }
   }
+
   async getProjectStats(id: number, userId: number) {
     try {
       const db = await getDb();
@@ -256,7 +307,6 @@ export class ProjectRepository {
         throw new Error('Database connection failed');
       }
 
-      // Verify ownership
       await this.getProject(id, userId);
 
       const results = await db
@@ -275,7 +325,7 @@ export class ProjectRepository {
         totalResults: results.length,
         totalChecklistItems: checklistItems.length,
         completedChecklistItems: completedItems,
-        completionPercentage: checklistItems.length > 0 
+        completionPercentage: checklistItems.length > 0
           ? Math.round((completedItems / checklistItems.length) * 100)
           : 0,
       };

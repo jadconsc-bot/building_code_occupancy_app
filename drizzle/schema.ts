@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, json, longtext, unique } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -16,7 +16,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["free", "basic", "professional", "rule_editor", "admin"]).notNull().default("free"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -90,6 +90,15 @@ export const projects = mysqlTable("projects", {
   notes: text("notes"),
   status: mysqlEnum("status", ["active", "completed", "archived"]).default("active").notNull(),
   overallProgress: int("overallProgress").default(0).notNull(), // 0-100 percentage
+  province: varchar("province", { length: 5 }), // "AB" | "BC" | "ON" | etc.
+  climateZone: varchar("climateZone", { length: 10 }), // "4", "5", "6", "7A", "7B", "8"
+  seismicZone: varchar("seismicZone", { length: 20 }), // "Low" | "Intermediate" | "High" | "Very High"
+  buildingType: varchar("buildingType", { length: 50 }), // "part9_single_family" | "part9_multiplex" | etc.
+  stepCodeTier: varchar("stepCodeTier", { length: 5 }), // "1"-"5", BC only
+  jurisdictionDetected: boolean("jurisdictionDetected").default(false),
+  projectCode: varchar("projectCode", { length: 50 }), // user-entered code e.g. "CCC21", "ABC-2024"
+  grossFloorArea: decimal("grossFloorArea", { precision: 10, scale: 2 }),
+  projectNumber: varchar("projectNumber", { length: 20 }), // auto-generated e.g. "CC-2025-001"
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -708,7 +717,7 @@ export const signatureLogs = mysqlTable("signatureLogs", {
   id: varchar("id", { length: 36 }).primaryKey(), // UUID
   calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
   operation: varchar("operation", { length: 50 }).notNull(), // "sign", "verify"
-  status: mysqlEnum("status", ["success", "failure", "rejected"]).notNull(),
+  status: mysqlEnum("status", ["success", "failure"]).notNull(),
   keyId: varchar("keyId", { length: 100 }),
   signatureAlgorithm: varchar("signatureAlgorithm", { length: 50 }), // "RSA-2048", "SHA-256"
   details: text("details"), // JSON with additional context
@@ -738,492 +747,48 @@ export type InsertCalculationLog = typeof calculationLogs.$inferInsert;
 
 /**
  * ============================================================================
- * WEEK 1: AUDIT TRAIL TABLES (SaaS UPGRADE)
- * For compliance audit trails, digital signatures, and modification tracking
+ * DRAWING ANALYSIS TABLES (Drizzle ORM definitions)
+ * Maps to existing DB tables created by 0002_drawing_analysis_tables.sql
+ * Per Prime Directive 2.0 §4.1: LLM = data extractor, ComplianceEngine = judge
  * ============================================================================
  */
 
 /**
- * Compliance Audit Log - Complete immutable audit trail of all compliance analyses
- * Tracks every compliance evaluation for regulatory compliance and legal defensibility
- */
-export const complianceAuditLog = mysqlTable("complianceAuditLog", {
-  id: varchar("id", { length: 50 }).primaryKey(), // UUID
-  projectId: int("projectId").notNull(),
-  projectName: varchar("projectName", { length: 255 }),
-  
-  // Engineer info - links to users table
-  engineerId: int("engineerId").notNull(),
-  engineerName: varchar("engineerName", { length: 100 }),
-  engineerLicense: varchar("engineerLicense", { length: 50 }),
-  engineerEmail: varchar("engineerEmail", { length: 255 }),
-  
-  // Timing
-  timestamp: timestamp("timestamp").defaultNow(),
-  dateCompleted: timestamp("dateCompleted"),
-  
-  // Code compliance
-  codeVersion: varchar("codeVersion", { length: 20 }).notNull().default("NBC_2025"),
-  jurisdiction: varchar("jurisdiction", { length: 50 }).default("Canada"),
-  
-  // Rules that were evaluated (JSON from complianceEngine)
-  rulesEvaluated: text("rulesEvaluated").notNull(), // JSON array as string
-  projectData: text("projectData").notNull(), // JSON as string
-  
-  // Results from complianceEngine
-  totalRulesEvaluated: int("totalRulesEvaluated"),
-  totalRulesPassed: int("totalRulesPassed"),
-  totalRulesFailed: int("totalRulesFailed"),
-  compliancePercentage: decimal("compliancePercentage", { precision: 5, scale: 2 }),
-  overallStatus: varchar("overallStatus", { length: 20 }), // COMPLIANT, NON_COMPLIANT, CONDITIONAL
-  
-  // Digital signature
-  signatureImage: text("signatureImage"), // Base64 PNG
-  signatureTimestamp: timestamp("signatureTimestamp"),
-  signatureHash: varchar("signatureHash", { length: 500 }), // SHA256 for tamper-detection
-  
-  // Legal defensibility
-  isDefendable: boolean("isDefendable").default(true),
-  hasAllRules: boolean("hasAllRules").default(true),
-  isComprehensive: boolean("isComprehensive").default(true),
-  
-  // Standard assumptions/limitations
-  assumptions: text("assumptions"), // JSON string array
-  limitations: text("limitations"), // JSON string array
-  notes: text("notes"),
-  
-  // Security metadata
-  ipAddress: varchar("ipAddress", { length: 45 }),
-  userAgent: text("userAgent"),
-  status: varchar("status", { length: 20 }).default("COMPLETED"), // DRAFT, COMPLETED, SIGNED
-  isArchived: boolean("isArchived").default(false),
-  
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").onUpdateNow(),
-});
-
-export type ComplianceAuditLog = typeof complianceAuditLog.$inferSelect;
-export type InsertComplianceAuditLog = typeof complianceAuditLog.$inferInsert;
-
-/**
- * Audit Modification History - Track all changes to compliance data
- * Complete history of modifications for traceability and compliance
- */
-export const auditModificationHistory = mysqlTable("auditModificationHistory", {
-  id: int("id").autoincrement().primaryKey(),
-  auditId: varchar("auditId", { length: 50 }).notNull(),
-  modifiedAt: timestamp("modifiedAt").defaultNow(),
-  modifiedBy: int("modifiedBy").notNull(), // Foreign key to users
-  changeDescription: text("changeDescription"),
-});
-
-export type AuditModificationHistory = typeof auditModificationHistory.$inferSelect;
-export type InsertAuditModificationHistory = typeof auditModificationHistory.$inferInsert;
-
-/**
- * Audit Signatures - Digital signatures for compliance decisions
- * Cryptographic signatures for legal defensibility and non-repudiation
- */
-export const auditSignatures = mysqlTable("auditSignatures", {
-  id: int("id").autoincrement().primaryKey(),
-  auditId: varchar("auditId", { length: 50 }).notNull(),
-  signedBy: int("signedBy").notNull(), // Foreign key to users
-  signatureImage: text("signatureImage"), // Base64
-  signatureDate: timestamp("signatureDate").defaultNow(),
-  signatureType: varchar("signatureType", { length: 20 }), // ENGINEER, ARCHITECT, AHJ
-  signatureValid: boolean("signatureValid").default(true),
-});
-
-export type AuditSignature = typeof auditSignatures.$inferSelect;
-export type InsertAuditSignature = typeof auditSignatures.$inferInsert;
-
-
-/**
- * ============================================================================
- * WEEK 2: RULE DATABASE FOUNDATION (SaaS UPGRADE)
- * For managing building code rules with versioning and updates
- * ============================================================================
- */
-
-/**
- * Rules Database - Centralized repository of building code rules
- * Enables rule versioning, updates without code changes, and rule management
- */
-export const rulesDatabase = mysqlTable("rulesDatabase", {
-  id: int("id").autoincrement().primaryKey(),
-  
-  // Rule identification
-  ruleCode: varchar("ruleCode", { length: 50 }).notNull().unique(), // e.g., "OCC-B1-001"
-  
-  // Code version and jurisdiction
-  codeVersion: varchar("codeVersion", { length: 20 }).notNull(), // e.g., "NBC_2025"
-  jurisdiction: varchar("jurisdiction", { length: 50 }).default("Canada").notNull(),
-  
-  // Rule metadata
-  title: varchar("title", { length: 255 }).notNull(), // Rule title
-  description: text("description"), // Detailed description
-  category: varchar("category", { length: 100 }), // e.g., "OCCUPANCY", "EGRESS", "FIRE_SAFETY"
-  
-  // NBC reference
-  nbcReference: varchar("nbcReference", { length: 255 }), // e.g., "NBC 3.2.1"
-  
-  // Rule definition (JSON)
-  ruleData: json("ruleData").notNull(), // Contains conditions, triggers, exceptions
-  
-  // Rule status
-  isActive: boolean("isActive").default(true).notNull(),
-  effectiveDate: timestamp("effectiveDate").notNull(),
-  deprecatedDate: timestamp("deprecatedDate"), // When rule was deprecated
-  
-  // Audit trail
-  createdBy: int("createdBy").notNull(), // Foreign key to users
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedBy: int("updatedBy"), // Foreign key to users
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  
-  // Versioning
-  version: int("version").default(1).notNull(), // Rule version number
-  previousVersionId: int("previousVersionId"), // Link to previous version
-});
-
-export type RuleDatabase = typeof rulesDatabase.$inferSelect;
-export type InsertRuleDatabase = typeof rulesDatabase.$inferInsert;
-
-
-/**
- * Reports table for storing generated compliance and calculation reports
- */
-export const reports = mysqlTable("reports", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  projectId: int("projectId"), // Optional: link to project
-  name: varchar("name", { length: 255 }).notNull(),
-  type: mysqlEnum("type", ["compliance", "calculation", "pathway", "batch"]).notNull(),
-  content: json("content").notNull(), // Stores report data as JSON
-  metadata: json("metadata"), // Additional metadata (filters, parameters, etc.)
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type Report = typeof reports.$inferSelect;
-export type InsertReport = typeof reports.$inferInsert;
-
-/**
- * Scenarios table for storing what-if scenario configurations
- */
-export const scenarios = mysqlTable("scenarios", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  projectId: int("projectId"), // Optional: link to project
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  type: mysqlEnum("type", ["fire_resistance", "compliance", "custom"]).notNull(),
-  inputData: json("inputData").notNull(), // Stores scenario parameters
-  resultData: json("resultData"), // Stores calculation results
-  status: mysqlEnum("status", ["draft", "calculated", "archived"]).default("draft").notNull(),
-  version: int("version").default(1).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type Scenario = typeof scenarios.$inferSelect;
-export type InsertScenario = typeof scenarios.$inferInsert;
-
-/**
- * Scenario history table for tracking version changes
- */
-export const scenarioHistory = mysqlTable("scenarioHistory", {
-  id: int("id").autoincrement().primaryKey(),
-  scenarioId: int("scenarioId").notNull(),
-  userId: int("userId").notNull(),
-  version: int("version").notNull(),
-  changes: json("changes"), // Stores what changed
-  previousData: json("previousData"), // Stores previous version data
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type ScenarioHistory = typeof scenarioHistory.$inferSelect;
-export type InsertScenarioHistory = typeof scenarioHistory.$inferInsert;
-
-/**
- * Batch comparisons table for storing multi-scenario comparisons
- */
-export const batchComparisons = mysqlTable("batchComparisons", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  projectId: int("projectId"), // Optional: link to project
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  scenarioIds: json("scenarioIds").notNull(), // Array of scenario IDs being compared
-  comparisonData: json("comparisonData"), // Stores comparison results
-  analysisType: varchar("analysisType", { length: 100 }), // Type of analysis (e.g., "fire_resistance", "compliance")
-  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type BatchComparison = typeof batchComparisons.$inferSelect;
-export type InsertBatchComparison = typeof batchComparisons.$inferInsert;
-
-
-/**
- * Project Shares - Tracks user-to-user project sharing
- * Immutable record: once created, can only be soft-deleted via revokedAt
- */
-export const projectShares = mysqlTable(
-  "projectShares",
-  {
-    id: int("id").autoincrement().primaryKey(),
-    projectId: int("projectId").notNull(), // Project being shared
-    sharedByUserId: int("sharedByUserId").notNull(), // User who initiated the share
-    sharedWithUserId: int("sharedWithUserId").notNull(), // User receiving access
-    createdAt: timestamp("createdAt").defaultNow().notNull(), // When share was granted
-    revokedAt: timestamp("revokedAt"), // When share was revoked (NULL = active)
-  },
-  (table) => ({
-    // Prevent duplicate active shares of same project with same user
-    uniqueActiveShare: unique("unique_active_share").on(table.projectId, table.sharedWithUserId),
-  })
-);
-
-export type ProjectShare = typeof projectShares.$inferSelect;
-export type InsertProjectShare = typeof projectShares.$inferInsert;
-
-/**
- * Collaboration Audit Log - Immutable audit trail of all collaboration actions
- * Records: SHARED, UNSHARED, VIEWED, MODIFIED
- * Never updated, only inserted
- */
-export const collaborationAuditLog = mysqlTable("collaborationAuditLog", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(), // Project involved in action
-  action: mysqlEnum("action", ["SHARED", "UNSHARED", "VIEWED", "MODIFIED"]).notNull(), // Type of collaboration action
-  sharedByUserId: int("sharedByUserId"), // User who performed the action
-  sharedWithUserId: int("sharedWithUserId"), // User affected by the action
-  details: json("details"), // Additional context (e.g., {reason: "...", ipAddress: "..."})
-  createdAt: timestamp("createdAt").defaultNow().notNull(), // Immutable timestamp
-  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
-  userAgent: text("userAgent"), // Browser/client info for audit trail
-});
-
-export type CollaborationAuditLog = typeof collaborationAuditLog.$inferSelect;
-export type InsertCollaborationAuditLog = typeof collaborationAuditLog.$inferInsert;
-
-
-/**
- * ============================================================================
- * RULES MANAGEMENT SYSTEM
- * For jurisdiction-specific building code rules with search and application
- * ============================================================================
- */
-
-/**
- * Rules Library - Pre-built rules for different jurisdictions
- * Searchable by keyword, jurisdiction, category
- * Supports NBC and provincial/municipal variations
- */
-export const rulesLibrary = mysqlTable("rulesLibrary", {
-  id: int("id").autoincrement().primaryKey(),
-  
-  // Rule identification
-  ruleCode: varchar("ruleCode", { length: 100 }).notNull().unique(), // e.g., "NBC-2023-OCC-001"
-  
-  // Rule content
-  name: varchar("name", { length: 255 }).notNull(), // Short title
-  description: text("description").notNull(), // Full description
-  category: varchar("category", { length: 100 }).notNull(), // e.g., "occupancy", "egress", "fire", "structural"
-  
-  // Jurisdiction and code reference
-  jurisdiction: varchar("jurisdiction", { length: 100 }).notNull(), // "NBC", "Alberta", "BC", "Ontario", "Calgary", "Edmonton", "Toronto", "Lethbridge", "Airdrie"
-  municipality: varchar("municipality", { length: 100 }), // Optional: specific municipality
-  codeEdition: varchar("codeEdition", { length: 50 }).notNull(), // e.g., "NBC-2023", "AE-2023"
-  nbcReference: varchar("nbcReference", { length: 255 }), // e.g., "NBC 3.2.2.47"
-  
-  // Keywords for search
-  keywords: text("keywords"), // Comma-separated: "loads,span,fire,egress,area,adjacency,height"
-  
-  // Rule metadata
-  applicableOccupancies: text("applicableOccupancies"), // JSON array of occupancy codes
-  applicableConstructionTypes: text("applicableConstructionTypes"), // JSON array
-  
-  // Status
-  isActive: boolean("isActive").default(true).notNull(),
-  isCustom: boolean("isCustom").default(false).notNull(), // true if user-created
-  
-  // Audit trail
-  createdBy: int("createdBy").notNull(), // User ID who created/imported
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedBy: int("updatedBy"), // User ID who last updated
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type RuleLibrary = typeof rulesLibrary.$inferSelect;
-export type InsertRuleLibrary = typeof rulesLibrary.$inferInsert;
-
-/**
- * Rule Applications - Link rules to projects
- * Tracks which rules are applied to which projects
- * Can be project-specific or organization-wide (global)
- */
-export const ruleApplications = mysqlTable(
-  "ruleApplications",
-  {
-    id: int("id").autoincrement().primaryKey(),
-    
-    // Rule being applied
-    ruleId: int("ruleId").notNull(), // FK to rulesLibrary
-    
-    // Applied to project or globally
-    projectId: int("projectId"), // NULL = organization-wide (global)
-    userId: int("userId").notNull(), // User who applied the rule
-    
-    // Application metadata
-    appliedAt: timestamp("appliedAt").defaultNow().notNull(),
-    status: mysqlEnum("status", ["active", "inactive", "archived"]).default("active").notNull(),
-    
-    // Compliance tracking
-    isCompliant: int("isCompliant"), // 0 = no, 1 = yes, NULL = not yet assessed
-    complianceNotes: text("complianceNotes"), // Why compliant/non-compliant
-    
-    // Audit trail
-    createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  },
-  (table) => ({
-    // Prevent duplicate active applications of same rule to same project
-    uniqueProjectRule: unique("unique_project_rule").on(table.ruleId, table.projectId),
-  })
-);
-
-export type RuleApplication = typeof ruleApplications.$inferSelect;
-export type InsertRuleApplication = typeof ruleApplications.$inferInsert;
-
-/**
- * Custom Rules - User-created rules with full audit trail
- * For organization-specific or project-specific compliance requirements
- * Includes creator credentials and authorization tracking
- */
-export const customRules = mysqlTable("customRules", {
-  id: int("id").autoincrement().primaryKey(),
-  
-  // Rule identification
-  ruleCode: varchar("ruleCode", { length: 100 }).notNull().unique(), // e.g., "CUSTOM-2024-001"
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description").notNull(),
-  
-  // Rule content
-  category: varchar("category", { length: 100 }).notNull(),
-  jurisdiction: varchar("jurisdiction", { length: 100 }), // Optional: specific jurisdiction
-  keywords: text("keywords"), // Comma-separated for search
-  
-  // Creator information (audit trail)
-  creatorId: int("creatorId").notNull(), // User who created
-  creatorName: varchar("creatorName", { length: 255 }).notNull(),
-  creatorCredentials: text("creatorCredentials"), // JSON: profession, license, credentials
-  
-  // Authorization tracking
-  authorizedBy: int("authorizedBy"), // Admin/manager who approved
-  authorizedAt: timestamp("authorizedAt"), // When authorized
-  
-  // Status
-  isActive: boolean("isActive").default(true).notNull(),
-  
-  // Audit trail
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type CustomRule = typeof customRules.$inferSelect;
-export type InsertCustomRule = typeof customRules.$inferInsert;
-
-/**
- * Rule Audit Trail - Immutable audit log for all rule operations
- * Tracks: creation, application, modification, deletion
- * Never updated, only inserted
- */
-export const ruleAuditTrail = mysqlTable("ruleAuditTrail", {
-  id: int("id").autoincrement().primaryKey(),
-  
-  // What happened
-  action: mysqlEnum("action", ["CREATED", "APPLIED", "MODIFIED", "DEACTIVATED", "DELETED"]).notNull(),
-  
-  // Which rule
-  ruleId: int("ruleId"), // FK to rulesLibrary or customRules
-  ruleCode: varchar("ruleCode", { length: 100 }).notNull(),
-  ruleType: mysqlEnum("ruleType", ["library", "custom"]).notNull(),
-  
-  // Which project (if applicable)
-  projectId: int("projectId"), // NULL if organization-wide
-  
-  // Who did it
-  userId: int("userId").notNull(),
-  userName: varchar("userName", { length: 255 }).notNull(),
-  userCredentials: text("userCredentials"), // JSON snapshot of credentials at time of action
-  
-  // Details
-  details: json("details"), // Additional context
-  
-  // Security metadata
-  ipAddress: varchar("ipAddress", { length: 45 }),
-  userAgent: text("userAgent"),
-  
-  // Immutable timestamp
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type RuleAuditTrail = typeof ruleAuditTrail.$inferSelect;
-export type InsertRuleAuditTrail = typeof ruleAuditTrail.$inferInsert;
-
-
-/**
- * Drawing Analysis - Main analysis records
- * Tracks drawing uploads, analysis status, compliance scores, and professional validation
+ * Drawing Analyses - Core analysis records
+ * Status workflow: DRAFT → UNDER_REVIEW → VALID | REJECTED
+ * Per PD2.0 §4.3: Only VALID records may be exported as compliance reports
  */
 export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
   userId: int("userId").notNull(),
-  
-  // Drawing file references
   drawingUrl: text("drawingUrl").notNull(),
-  drawingHash: varchar("drawingHash", { length: 64 }).notNull(), // SHA-256 hash
-  drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }), // S3 key for immutable snapshot
-  drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }), // MIME type
-  drawingSnapshotSize: int("drawingSnapshotSize"), // File size in bytes
-  
-  // Analysis metadata
+  drawingHash: varchar("drawingHash", { length: 64 }).notNull(), // SHA-256, computed at upload time (PD2.0 §4.2)
+  drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }),
+  drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }),
+  drawingSnapshotSize: int("drawingSnapshotSize"),
   analysisType: mysqlEnum("analysisType", ["structural", "fire-safety", "connections", "comprehensive"]),
-  analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"])
-    .notNull()
-    .default("DRAFT"),
-  
-  // Compliance results
-  complianceScore: int("complianceScore"), // 0-100
+  analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"]).notNull().default("DRAFT"),
+  complianceScore: int("complianceScore"),
   complianceLevel: mysqlEnum("complianceLevel", ["approved", "conditional", "revision", "rejected"]),
-  
-  // Detailed analysis results (JSON)
   structuralStatus: text("structuralStatus"), // JSON
   fireSafetyStatus: text("fireSafetyStatus"), // JSON
   connectionStatus: text("connectionStatus"), // JSON
-  issues: text("issues"), // JSON array of issues
-  recommendations: text("recommendations"), // JSON array of recommendations
-  
-  // Disclaimer tracking
+  issues: text("issues"), // JSON array
+  recommendations: text("recommendations"), // JSON array
   disclaimerAcknowledged: boolean("disclaimerAcknowledged").notNull().default(false),
   disclaimerAcknowledgedAt: timestamp("disclaimerAcknowledgedAt"),
   disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
-  
-  // Versioning
-  llmModelVersion: varchar("llmModelVersion", { length: 50 }), // e.g., "claude-vision-4"
-  ruleEngineVersion: varchar("ruleEngineVersion", { length: 20 }), // e.g., "1.0"
-  
-  // Professional validation
+  llmModelVersion: varchar("llmModelVersion", { length: 50 }), // From response.model (PD2.0 §3.2)
+  ruleEngineVersion: varchar("ruleEngineVersion", { length: 20 }),
   validatedAt: timestamp("validatedAt"),
   validatedByUserId: int("validatedByUserId"),
   validatedByLicenseNumber: varchar("validatedByLicenseNumber", { length: 100 }),
-  validatedByAssociation: varchar("validatedByAssociation", { length: 100 }), // e.g., "APEGA", "AIBC"
-  
-  // Timestamps
+  validatedByAssociation: varchar("validatedByAssociation", { length: 100 }),
+  // PDF / multi-page support
+  fileType: mysqlEnum("fileType", ["pdf", "dwg", "png", "jpeg"]),
+  pageCount: int("pageCount").default(1),
+  uploadStatus: mysqlEnum("uploadStatus", ["pending", "processing", "complete", "error"]).default("complete"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1232,22 +797,38 @@ export type DrawingAnalysis = typeof drawingAnalyses.$inferSelect;
 export type InsertDrawingAnalysis = typeof drawingAnalyses.$inferInsert;
 
 /**
- * Drawing Data Extractions - LLM extraction results
- * Stores structured drawing data extracted by Claude Vision
+ * Drawing Pages - one row per rasterized PDF page (or single image page)
+ */
+export const drawingPages = mysqlTable("drawingPages", {
+  id: int("id").autoincrement().primaryKey(),
+  drawingId: int("drawingId").notNull(),
+  pageNumber: int("pageNumber").notNull(),
+  widthPx: int("widthPx").notNull(),
+  heightPx: int("heightPx").notNull(),
+  preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  // LLM-judge eval results written asynchronously after detection
+  evalAccuracy: decimal("evalAccuracy", { precision: 4, scale: 3 }),
+  evalPassingRooms: int("evalPassingRooms"),
+  evalTotalRooms: int("evalTotalRooms"),
+  evalMissedRoomsJson: text("evalMissedRoomsJson"),
+});
+
+export type DrawingPage = typeof drawingPages.$inferSelect;
+export type InsertDrawingPage = typeof drawingPages.$inferInsert;
+
+/**
+ * Drawing Data Extractions - Stage 1 output (LLM extraction only)
+ * Per PD2.0 §4.1: This is the ONLY place LLM output is stored
+ * LLM output is Zod-validated structured data, NOT compliance decisions
  */
 export const drawingDataExtractions = mysqlTable("drawingDataExtractions", {
   id: int("id").autoincrement().primaryKey(),
   analysisId: int("analysisId").notNull(),
-  
-  // Extracted data (JSON)
-  extractedData: text("extractedData").notNull(), // JSON - structured DrawingData
-  
-  // Extraction metadata
-  extractionModel: varchar("extractionModel", { length: 50 }).notNull(), // e.g., "claude-vision-4"
+  extractedData: text("extractedData").notNull(), // JSON - Zod-validated DrawingData
+  extractionModel: varchar("extractionModel", { length: 50 }).notNull(), // From response.model
   extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }).notNull(),
-  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }), // 0.0-1.0
-  
-  // Timestamps
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }),
   extractedAt: timestamp("extractedAt").defaultNow().notNull(),
 });
 
@@ -1255,58 +836,41 @@ export type DrawingDataExtraction = typeof drawingDataExtractions.$inferSelect;
 export type InsertDrawingDataExtraction = typeof drawingDataExtractions.$inferInsert;
 
 /**
- * NBC Rules - Versioned compliance rules
- * Stores NBC 2020 rules for deterministic compliance evaluation
+ * NBC Rules - Deterministic rule definitions for compliance engine
+ * Per PD2.0 §4.1: Rules are evaluated by the ComplianceEngine, NOT the LLM
  */
 export const nbcRules = mysqlTable("nbcRules", {
   id: int("id").autoincrement().primaryKey(),
-  
-  // Rule identification
-  ruleId: varchar("ruleId", { length: 50 }).notNull().unique(), // e.g., "NBC-3.1.5.1"
-  section: varchar("section", { length: 20 }).notNull(), // e.g., "3.1.5.1"
+  ruleId: varchar("ruleId", { length: 50 }).notNull().unique(),
+  section: varchar("section", { length: 20 }).notNull(),
   clause: varchar("clause", { length: 100 }).notNull(),
   description: text("description").notNull(),
-  
-  // Categorization
-  category: mysqlEnum("category", ["structural", "fire-safety", "connections", "materials", "csa"])
-    .notNull(),
-  jurisdiction: varchar("jurisdiction", { length: 50 }), // e.g., "national", "AB", "BC", "ON"
-  
-  // Versioning
+  category: mysqlEnum("category", ["structural", "fire-safety", "connections", "materials", "csa"]).notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 50 }),
   ruleVersion: int("ruleVersion").notNull().default(1),
   isActive: boolean("isActive").notNull().default(true),
-  
-  // Evaluation metadata
-  requiredFields: text("requiredFields"), // JSON array of required DrawingData fields
-  evaluationLogic: varchar("evaluationLogic", { length: 500 }), // Description of evaluation logic
-  
-  // Audit trail
+  requiredFields: text("requiredFields"), // JSON array
+  evaluationLogic: varchar("evaluationLogic", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   createdByUserId: int("createdByUserId"),
 });
 
-export type NBCRule = typeof nbcRules.$inferSelect;
-export type InsertNBCRule = typeof nbcRules.$inferInsert;
+export type NbcRule = typeof nbcRules.$inferSelect;
+export type InsertNbcRule = typeof nbcRules.$inferInsert;
 
 /**
- * Compliance Evaluation Results - Rule evaluation results
- * Stores results of evaluating each rule against drawing data
+ * Compliance Evaluation Results - Stage 2 output (deterministic rule engine)
+ * Per PD2.0 §4.1: These are the compliance decisions made by the rule engine
+ * The rule engine NEVER receives raw LLM output — only validated structured data
  */
 export const complianceEvaluationResults = mysqlTable("complianceEvaluationResults", {
   id: int("id").autoincrement().primaryKey(),
   analysisId: int("analysisId").notNull(),
   ruleId: int("ruleId").notNull(),
   ruleVersion: int("ruleVersion").notNull(),
-  
-  // Evaluation result
-  evaluationResult: mysqlEnum("evaluationResult", ["PASS", "FAIL", "CONDITIONAL", "UNABLE_TO_EVALUATE"])
-    .notNull(),
-  
-  // Detailed results (JSON)
-  evaluationDetails: text("evaluationDetails"), // JSON with evaluation details
-  
-  // Timestamp
+  evaluationResult: mysqlEnum("evaluationResult", ["PASS", "FAIL", "CONDITIONAL", "UNABLE_TO_EVALUATE"]).notNull(),
+  evaluationDetails: text("evaluationDetails"), // JSON
   evaluatedAt: timestamp("evaluatedAt").defaultNow().notNull(),
 });
 
@@ -1314,88 +878,372 @@ export type ComplianceEvaluationResult = typeof complianceEvaluationResults.$inf
 export type InsertComplianceEvaluationResult = typeof complianceEvaluationResults.$inferInsert;
 
 /**
- * Compliance Audit Trail - Immutable audit log
- * Records all actions taken on analyses with full credential capture
- * CRITICAL: This table must be immutable (no UPDATE/DELETE at DB layer)
+ * Compliance Audit Trail - IMMUTABLE, APPEND-ONLY
+ * Per PD2.0 §4.2: NO UPDATE or DELETE. Insert-only.
+ * Per PD2.0 §7.1: All required fields must be populated
  */
 export const complianceAuditTrail = mysqlTable("complianceAuditTrail", {
   id: int("id").autoincrement().primaryKey(),
   analysisId: int("analysisId").notNull(),
   userId: int("userId").notNull(),
-  
-  // Action details
-  action: varchar("action", { length: 100 }).notNull(), // e.g., "DRAWING_UPLOADED", "EXTRACTION_COMPLETED"
-  details: text("details").notNull(), // JSON with action-specific details
-  
-  // User credentials
+  action: varchar("action", { length: 100 }).notNull(), // PD2.0 §7.2 action codes
+  details: text("details").notNull(), // JSON
   userEmail: varchar("userEmail", { length: 255 }).notNull(),
   userFullName: varchar("userFullName", { length: 255 }),
-  
-  // Professional credentials (for professional review events)
   professionalLicenseNumber: varchar("professionalLicenseNumber", { length: 100 }),
-  professionalAssociation: varchar("professionalAssociation", { length: 100 }), // e.g., "APEGA"
-  jurisdiction: varchar("jurisdiction", { length: 100 }), // Province/territory
-  
-  // Request context (forensic traceability)
-  ipAddress: varchar("ipAddress", { length: 45 }), // IPv4 or IPv6
-  userAgent: text("userAgent"), // Browser/device fingerprint
-  sessionId: varchar("sessionId", { length: 255 }), // Session identifier
-  
-  // Server-side timestamp (NEVER client-side)
+  professionalAssociation: varchar("professionalAssociation", { length: 100 }),
+  jurisdiction: varchar("jurisdiction", { length: 100 }),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  sessionId: varchar("sessionId", { length: 255 }),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  
-  // Immutability flag - prevents modification of audit records
-  isImmutable: boolean("is_immutable").notNull().default(true),
 });
 
-export type ComplianceAuditTrail = typeof complianceAuditTrail.$inferSelect;
-export type InsertComplianceAuditTrail = typeof complianceAuditTrail.$inferInsert;
+export type ComplianceAuditTrailEntry = typeof complianceAuditTrail.$inferSelect;
+export type InsertComplianceAuditTrailEntry = typeof complianceAuditTrail.$inferInsert;
 
 /**
- * Disclaimer Acknowledgments - Disclaimer tracking
- * Records all disclaimer acknowledgments for legal proof of informed consent
+ * Disclaimer Acknowledgments - Records of user disclaimer acceptance
+ * Per PD2.0 §6.3: Disclaimer enforced at API layer
+ * Per PD2.0 §8.1: DISCLAIMER_ACKNOWLEDGED audit event fired immediately
  */
 export const disclaimerAcknowledgments = mysqlTable("disclaimerAcknowledgments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  
-  // Disclaimer details
   disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
-  disclaimerText: text("disclaimerText").notNull(), // Full text of disclaimer
-  
-  // Request context
+  disclaimerText: text("disclaimerText").notNull(),
   ipAddress: varchar("ipAddress", { length: 45 }),
   userAgent: text("userAgent"),
-  
-  // Server-side timestamp
-  acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
-  
-  // Immutability flag - prevents modification of disclaimer records
-  isImmutable: boolean("is_immutable").notNull().default(true),
+  acknowledgedAt:     timestamp("acknowledgedAt").defaultNow().notNull(),
+  isImmutable:        tinyint("is_immutable").notNull().default(1),
 });
 
 export type DisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferSelect;
 export type InsertDisclaimerAcknowledgment = typeof disclaimerAcknowledgments.$inferInsert;
 
-/**
- * Indexes for query performance
- */
-// Drawing Analyses indexes
-export const drawingAnalysesIndexes = {
-  analysisStatus: true, // Query by status
-  disclaimerAcknowledged: true, // Query by disclaimer status
-  validatedAt: true, // Query by validation date
-  drawingHash: true, // Query by hash (integrity verification)
-  projectId: true, // Query by project
-  userId: true, // Query by user
-};
 
-// Compliance Audit Trail indexes
-export const complianceAuditTrailIndexes = {
-  userEmail: true, // Query by email
-  professionalLicenseNumber: true, // Query by professional
-  jurisdiction: true, // Query by jurisdiction
-  sessionId: true, // Query by session
-  action: true, // Query by action type
-  analysisId: true, // Query by analysis
-};
+/**
+ * ============================================================================
+ * BC ENERGY STEP CODE & MULTI-JURISDICTION TABLES
+ * For BC Step Code compliance, jurisdiction-specific requirements, and bilingual support
+ * ============================================================================
+ */
+
+/**
+ * Jurisdiction Profiles - Climate, seismic, and code adoption data by province/municipality
+ * Enables jurisdiction-specific compliance rules and requirements
+ */
+export const jurisdictionProfiles = mysqlTable("jurisdictionProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  province: mysqlEnum("province", ["AB", "BC", "ON", "SK", "MB"]).notNull(),
+  municipality: varchar("municipality", { length: 100 }), // null for provincial defaults
+  
+  // Climate data
+  climateZone: varchar("climateZone", { length: 10 }).notNull(), // "4A", "4B", "5A", "5B", "6A", "6B", "7A", "7B"
+  heatingDegreeDays: int("heatingDegreeDays"), // Annual HDD for insulation requirements
+  designTemperatureWinter: int("designTemperatureWinter"), // Celsius, for mechanical sizing
+  designTemperatureSummer: int("designTemperatureSummer"), // Celsius, for cooling
+  
+  // Seismic data (primarily BC)
+  seismicZone: varchar("seismicZone", { length: 20 }), // "Low", "Intermediate", "High", "Very High"
+  spectralAccelerationSa02: decimal("spectralAccelerationSa02", { precision: 4, scale: 3 }), // 0.2s period
+  spectralAccelerationSa05: decimal("spectralAccelerationSa05", { precision: 4, scale: 3 }), // 0.5s period
+  spectralAccelerationSa10: decimal("spectralAccelerationSa10", { precision: 4, scale: 3 }), // 1.0s period
+  
+  // Step Code adoption (BC only)
+  stepCodeAdopted: boolean("stepCodeAdopted").default(false),
+  currentStepCodeTier: mysqlEnum("currentStepCodeTier", ["1", "2", "3", "4", "5"]),
+  stepCodeEffectiveDate: date("stepCodeEffectiveDate"),
+  
+  // NBC adoption
+  nbcEdition: varchar("nbcEdition", { length: 20 }).notNull(), // "2020", "2023", "2024", "2025"
+  localAmendments: text("localAmendments"), // JSON array of amendment references
+  
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type JurisdictionProfile = typeof jurisdictionProfiles.$inferSelect;
+export type InsertJurisdictionProfile = typeof jurisdictionProfiles.$inferInsert;
+
+/**
+ * Step Code Tiers - TEDI/TEUI targets for BC Energy Step Code compliance
+ * Immutable reference data for each tier, building type, and climate zone
+ */
+export const stepCodeTiers = mysqlTable("stepCodeTiers", {
+  id: int("id").autoincrement().primaryKey(),
+  tier: mysqlEnum("tier", ["1", "2", "3", "4", "5"]).notNull(),
+  buildingType: varchar("buildingType", { length: 50 }).notNull(), // "part9_single_family", "part9_multi_family", "part3_commercial"
+  climateZone: varchar("climateZone", { length: 10 }).notNull(), // "4", "5", "6", "7"
+  
+  // Performance targets
+  tediTarget: decimal("tediTarget", { precision: 6, scale: 2 }).notNull(), // kWh/m²/year (Thermal Energy Demand Intensity)
+  teuiTarget: decimal("teuiTarget", { precision: 6, scale: 2 }).notNull(), // kWh/m²/year (Thermal Energy Use Intensity)
+  
+  // Mechanical and envelope requirements
+  mechEfficiencyMin: decimal("mechEfficiencyMin", { precision: 4, scale: 2 }), // 0.85, 0.90, 0.95 (AHRI rating)
+  airtightnessMax: decimal("airtightnessMax", { precision: 4, scale: 2 }), // ACH50 maximum (air changes per hour at 50 Pa)
+  
+  // Regulatory reference
+  codeReference: varchar("codeReference", { length: 255 }), // e.g., "BC Energy Step Code 2024, Tier 3"
+  effectiveDate: date("effectiveDate").notNull(),
+  retiredDate: date("retiredDate"), // null if still active
+  
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StepCodeTier = typeof stepCodeTiers.$inferSelect;
+export type InsertStepCodeTier = typeof stepCodeTiers.$inferInsert;
+
+/**
+ * Energy Features - Extracted envelope and mechanical system data from drawings
+ * Stores LLM-extracted and manually-verified energy model inputs
+ */
+export const energyFeatures = mysqlTable("energyFeatures", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId"), // Reference to drawing analysis if extracted from drawing
+  
+  // Building envelope
+  envelopeArea: decimal("envelopeArea", { precision: 10, scale: 2 }), // m²
+  
+  // Windows
+  windowAreas: text("windowAreas").notNull(), // JSON: [{orientation: "South", area: 50, uValue: 1.8}, ...]
+  
+  // Walls
+  wallAreas: text("wallAreas").notNull(), // JSON: [{type: "above_grade", rValue: 3.5, area: 200}, ...]
+  
+  // Roof
+  roofArea: decimal("roofArea", { precision: 10, scale: 2 }), // m²
+  roofRValue: decimal("roofRValue", { precision: 6, scale: 2 }), // RSI value
+  
+  // Foundation
+  foundationType: varchar("foundationType", { length: 50 }), // "basement", "crawl", "slab"
+  foundationRValue: decimal("foundationRValue", { precision: 6, scale: 2 }), // RSI value
+  
+  // Mechanical systems
+  mechanicalRoomLocation: varchar("mechanicalRoomLocation", { length: 100 }),
+  proposedHeatingSystem: varchar("proposedHeatingSystem", { length: 100 }), // "gas_furnace", "heat_pump", "boiler"
+  proposedCoolingSystem: varchar("proposedCoolingSystem", { length: 100 }), // "ac_unit", "none"
+  proposedVentilationSystem: varchar("proposedVentilationSystem", { length: 100 }), // "erv", "hrv", "none"
+  
+  // Special features
+  solarReadyZone: boolean("solarReadyZone").default(false),
+  evReady: boolean("evReady").default(false),
+  
+  // Data quality
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }), // 0.0 to 1.0 (from LLM)
+  manuallyVerified: boolean("manuallyVerified").default(false),
+  verifiedBy: int("verifiedBy"), // User ID who verified
+  verifiedAt: timestamp("verifiedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EnergyFeature = typeof energyFeatures.$inferSelect;
+export type InsertEnergyFeature = typeof energyFeatures.$inferInsert;
+
+/**
+ * Step Code Analyses - Compliance gap analysis results with cryptographic signature
+ * Immutable record of Step Code compliance determination
+ */
+export const stepCodeAnalyses = mysqlTable("stepCodeAnalyses", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  energyFeaturesId: int("energyFeaturesId").notNull(),
+  jurisdictionProfileId: int("jurisdictionProfileId").notNull(),
+  stepCodeTierId: int("stepCodeTierId").notNull(),
+  
+  // Performance results
+  tierTarget: varchar("tierTarget", { length: 10 }).notNull(), // "3", "4", "5"
+  tierAchieved: varchar("tierAchieved", { length: 10 }), // "3", "4", "5", or null if non-compliant
+  
+  // TEDI/TEUI analysis
+  tediTarget: decimal("tediTarget", { precision: 6, scale: 2 }).notNull(),
+  tediModelled: decimal("tediModelled", { precision: 6, scale: 2 }).notNull(),
+  tediCompliant: boolean("tediCompliant").notNull(),
+  tediGap: decimal("tediGap", { precision: 6, scale: 2 }), // Difference (modelled - target)
+  
+  teuiTarget: decimal("teuiTarget", { precision: 6, scale: 2 }).notNull(),
+  teuiModelled: decimal("teuiModelled", { precision: 6, scale: 2 }).notNull(),
+  teuiCompliant: boolean("teuiCompliant").notNull(),
+  teuiGap: decimal("teuiGap", { precision: 6, scale: 2 }), // Difference (modelled - target)
+  
+  // Mechanical and envelope compliance
+  airtightnessTarget: decimal("airtightnessTarget", { precision: 4, scale: 2 }),
+  airtightnessModelled: decimal("airtightnessModelled", { precision: 4, scale: 2 }),
+  airtightnessCompliant: boolean("airtightnessCompliant"),
+  
+  mechEfficiencyTarget: decimal("mechEfficiencyTarget", { precision: 4, scale: 2 }),
+  mechEfficiencyModelled: decimal("mechEfficiencyModelled", { precision: 4, scale: 2 }),
+  mechEfficiencyCompliant: boolean("mechEfficiencyCompliant"),
+  
+  // Overall compliance
+  overallCompliant: boolean("overallCompliant").notNull(),
+  complianceStatus: mysqlEnum("complianceStatus", ["pass", "fail", "conditional"]).notNull(),
+  
+  // Prescriptive alternative (if performance fails)
+  prescriptiveApplicable: boolean("prescriptiveApplicable").default(false),
+  prescriptiveDescription: text("prescriptiveDescription"),
+  prescriptiveRequirements: text("prescriptiveRequirements"), // JSON array
+  
+  // Recommendations
+  recommendations: text("recommendations"), // JSON array of improvement suggestions
+  
+  // Cryptographic integrity
+  cryptographicSignature: text("cryptographicSignature").notNull(), // SHA-256 HMAC
+  signatureVerified: boolean("signatureVerified").default(false).notNull(),
+  
+  // Audit trail
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  immutable: boolean("immutable").default(true).notNull(),
+});
+
+export type StepCodeAnalysis = typeof stepCodeAnalyses.$inferSelect;
+export type InsertStepCodeAnalysis = typeof stepCodeAnalyses.$inferInsert;
+
+/**
+ * UI Translations - Bilingual support for BC (EN/FR)
+ * Enables language toggle for all UI labels, descriptions, and error messages
+ */
+export const uiTranslations = mysqlTable("uiTranslations", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 255 }).notNull().unique(), // e.g., "occupancy.assembly", "calculator.tedi.label"
+  en: text("en").notNull(), // English translation
+  fr: text("fr"), // French translation
+  context: varchar("context", { length: 100 }), // e.g., "occupancy", "calculator", "report"
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UITranslation = typeof uiTranslations.$inferSelect;
+export type InsertUITranslation = typeof uiTranslations.$inferInsert;
+
+/**
+ * Energy Data Extractions - LLM-extracted energy model data from architectural drawings
+ * Stage 1 of PD2.0: LLM extraction only (no compliance decisions)
+ * Separate from drawingDataExtractions to avoid duplication
+ */
+export const energyDataExtractions = mysqlTable("energyDataExtractions", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  
+  // Extracted data
+  energyFeatures: text("energyFeatures").notNull(), // JSON: window areas, wall R-values, roof specs, etc.
+  structuralFeatures: text("structuralFeatures"), // JSON: beam sizes, column spacing, etc.
+  
+  // Extraction metadata
+  modelUsed: varchar("modelUsed", { length: 100 }).notNull(), // e.g., "claude-3-vision-20240314"
+  modelVersion: varchar("modelVersion", { length: 50 }),
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }).notNull(), // 0.0 to 1.0
+  
+  // Audit trail
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type EnergyDataExtraction = typeof energyDataExtractions.$inferSelect;
+export type InsertEnergyDataExtraction = typeof energyDataExtractions.$inferInsert;
+
+/**
+ * Professional Seals - Engineer/Architect credentials for report signing
+ * Stores professional information for report seal blocks
+ */
+export const professionalSeals = mysqlTable("professionalSeals", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Professional info
+  engineerName: varchar("engineerName", { length: 255 }).notNull(),
+  licenseNumber: varchar("licenseNumber", { length: 100 }).notNull(),
+  association: varchar("association", { length: 100 }).notNull(), // "EGBC", "AIBC", "APEGA", "AAA"
+  associationProvince: varchar("associationProvince", { length: 50 }), // "BC", "AB", "ON"
+  
+  // Seal image (for PDF reports)
+  sealImageUrl: varchar("sealImageUrl", { length: 500 }), // S3 URL
+  
+  // Validity
+  licenseExpiry: date("licenseExpiry"),
+  isActive: boolean("isActive").default(true).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProfessionalSeal = typeof professionalSeals.$inferSelect;
+export type InsertProfessionalSeal = typeof professionalSeals.$inferInsert;
+
+/**
+ * Detected Rooms — AI-extracted room/space data from drawing pages
+ */
+export const detectedRooms = mysqlTable("detectedRooms", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),        // FK → drawingPages.id
+  projectId: int("projectId").notNull(),
+
+  roomLabel: varchar("roomLabel", { length: 255 }).notNull(),
+  boundingBoxJson: text("boundingBoxJson").notNull(),    // { x, y, width, height }
+  areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }).notNull(),
+  floorLevel: varchar("floorLevel", { length: 100 }),
+  occupancyGroup: varchar("occupancyGroup", { length: 10 }),
+  occupancyDivision: int("occupancyDivision"),
+  confidence: decimal("confidence", { precision: 4, scale: 3 }).notNull(),
+  flagsJson: text("flagsJson"),                          // JSON string[]
+  flaggedForReview: tinyint("flaggedForReview").default(0).notNull(),
+  manualOverride: tinyint("manualOverride").default(0).notNull(),
+
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DetectedRoom = typeof detectedRooms.$inferSelect;
+export type InsertDetectedRoom = typeof detectedRooms.$inferInsert;
+
+/**
+ * Detected Features — architectural features within detected rooms
+ */
+export const detectedFeatures = mysqlTable("detectedFeatures", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),        // FK → detectedRooms.id
+
+  featureType: varchar("featureType", { length: 100 }).notNull(),
+  positionJson: text("positionJson").notNull(),          // { x, y }
+  confidence: decimal("confidence", { precision: 4, scale: 3 }).notNull(),
+  metadataJson: text("metadataJson"),                    // { count, ...extra }
+
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DetectedFeature = typeof detectedFeatures.$inferSelect;
+export type InsertDetectedFeature = typeof detectedFeatures.$inferInsert;
+
+export const complianceResults = mysqlTable('complianceResults', {
+  id: int('id').autoincrement().primaryKey(),
+  projectId: int('projectId').notNull(),
+  roomId: int('roomId'),
+  ruleReference: varchar('ruleReference', { length: 50 }).notNull(),
+  ruleCategory: varchar('ruleCategory', { length: 50 }).notNull(),
+  ruleText: text('ruleText').notNull(),
+  status: mysqlEnum('status', ['pass', 'fail', 'warning', 'not_applicable']).notNull(),
+  actualValue: varchar('actualValue', { length: 100 }),
+  requiredValue: varchar('requiredValue', { length: 100 }),
+  remediationSuggestion: text('remediationSuggestion'),
+  confidence: decimal('confidence', { precision: 3, scale: 2 }),
+  severity: varchar('severity', { length: 20 }),
+  constraintId: varchar('constraintId', { length: 100 }),
+  overrideChain: json('overrideChain'),
+  checkedAt: timestamp('checkedAt').defaultNow(),
+});
+
+export type ComplianceResult = typeof complianceResults.$inferSelect;
+export type InsertComplianceResult = typeof complianceResults.$inferInsert;

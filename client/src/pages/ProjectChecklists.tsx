@@ -1,52 +1,82 @@
 import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { useProject } from '@/contexts/ProjectContext';
+import { trpc } from '@/lib/trpc';
 import { ProjectChecklistDashboard } from '@/components/ProjectChecklistDashboard';
-import { ProjectManager } from '@/components/ProjectManager';
+import { ProjectWizard } from '@/components/ProjectWizard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { trpc } from '@/lib/trpc';
-import { toast } from 'sonner';
+
+const BUILDING_TYPE_LABELS: Record<string, string> = {
+  part9_single_family: 'Part 9 - Single Family',
+  part9_multiplex: 'Part 9 - Multi-Family',
+  part3_residential: 'Part 3 - Residential',
+  part3_commercial: 'Part 3 - Commercial',
+  part3_industrial: 'Part 3 - Industrial',
+};
+
+const CONSTRUCTION_TYPE: Record<string, string> = {
+  part9_single_family: 'Combustible',
+  part9_multiplex: 'Combustible',
+  part3_residential: 'Non-Combustible',
+  part3_commercial: 'Non-Combustible',
+  part3_industrial: 'Non-Combustible',
+};
+
+const CODE_EDITION: Record<string, string> = {
+  AB: 'NBC(AE) 2023',
+  BC: 'BCBC 2024',
+};
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-baseline gap-2 text-xs">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right truncate">{value}</span>
+    </div>
+  );
+}
 
 export default function ProjectChecklistsPage() {
   const { user, loading } = useAuth();
-  const { activeProjectId, setActiveProjectId, getAllProjects, isLoading: projectsLoading } = useProject();
+  const { activeProjectId, setActiveProjectId, getAllProjects } = useProject();
   const [, setLocation] = useLocation();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    occupancyCode: '',
-  });
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const projects = getAllProjects();
 
-  // Create project mutation
-  const createProjectMutation = trpc.projects.create.useMutation({
-    onSuccess: (newProject) => {
-      toast.success('Project created successfully');
-      setIsCreateOpen(false);
-      setFormData({ name: '', occupancyCode: '' });
-      setActiveProjectId(newProject.id);
-    },
-    onError: (error) => {
-      toast.error('Failed to create project: ' + error.message);
-    },
-  });
+  // Fetch full project row (includes buildingType, province, climateZone, projectCode, projectNumber)
+  const { data: activeProjectData } = trpc.projects.get.useQuery(
+    { id: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
 
-  const handleCreateProject = async () => {
-    if (!formData.name.trim() || !formData.occupancyCode.trim()) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    await createProjectMutation.mutateAsync({
-      name: formData.name,
-      occupancyCode: formData.occupancyCode,
-    });
-  };
+  // Health check queries — only run when a project is selected
+  const snapshotsQuery = trpc.compliance.getProjectSnapshots.useQuery(
+    { projectId: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
+
+  const checklistQuery = trpc.projectsLegacy.checklistItems.list.useQuery(
+    { projectId: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
+
+  const reportsQuery = trpc.projectsLegacy.calculatorResults.list.useQuery(
+    { projectId: activeProjectId! },
+    { enabled: !!activeProjectId }
+  );
+
+  // Derived health values
+  const hasSnapshots = (snapshotsQuery.data?.length ?? 0) > 0;
+  const checklistItems = checklistQuery.data ?? [];
+  const hasChecklist = checklistItems.length > 0;
+  const completedCount = checklistItems.filter((i: any) => i.isCompleted === 1).length;
+  const completionPct = hasChecklist
+    ? Math.round((completedCount / checklistItems.length) * 100)
+    : 0;
+  const hasReport = (reportsQuery.data?.length ?? 0) > 0;
 
   if (loading) {
     return (
@@ -106,8 +136,10 @@ export default function ProjectChecklistsPage() {
       {/* Main Content */}
       <div className="container max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Project Selection */}
-          <div className="lg:col-span-1">
+          {/* Sidebar */}
+          <div className="lg:col-span-1 space-y-4">
+
+            {/* Project list */}
             <Card className="sticky top-24">
               <CardHeader>
                 <CardTitle className="text-lg">Projects</CardTitle>
@@ -121,14 +153,12 @@ export default function ProjectChecklistsPage() {
                         key={project.id}
                         variant={activeProjectId === parseInt(project.id) ? 'default' : 'outline'}
                         className="w-full justify-start text-left h-auto py-2 px-3"
-                        onClick={() => {
-                          setActiveProjectId(parseInt(project.id));
-                        }}
+                        onClick={() => setActiveProjectId(parseInt(project.id))}
                       >
                         <div className="truncate">
                           <p className="font-medium text-sm truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {project.description || 'No description'}
+                            {project.description || [project.projectNumber, project.occupancyCode ? `Occupancy ${project.occupancyCode}` : null].filter(Boolean).join(' · ') || 'No description'}
                           </p>
                         </div>
                       </Button>
@@ -137,59 +167,133 @@ export default function ProjectChecklistsPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">No projects yet</p>
                 )}
-
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full gap-2 mt-4"
-                  onClick={() => setIsCreateOpen(true)}
+                  onClick={() => setIsWizardOpen(true)}
                 >
                   <Plus size={16} />
                   New Project
                 </Button>
-
-                {/* Create Project Dialog */}
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Create New Project</DialogTitle>
-                      <DialogDescription>Add a new building code compliance project</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="project-name">Project Name *</Label>
-                        <Input
-                          id="project-name"
-                          placeholder="e.g., Downtown Office Tower"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="occupancy-code">Occupancy Code *</Label>
-                        <Input
-                          id="occupancy-code"
-                          placeholder="e.g., A, B, C, D, E, F"
-                          value={formData.occupancyCode}
-                          onChange={(e) => setFormData({ ...formData, occupancyCode: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={handleCreateProject}
-                          disabled={createProjectMutation.isPending}
-                        >
-                          {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               </CardContent>
             </Card>
+
+            {/* Project details + health panel */}
+            {activeProjectData && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Project Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1.5">
+                  <InfoRow
+                    label="Project #"
+                    value={(activeProjectData as any).projectNumber ?? (activeProjectData as any).projectCode ?? '—'}
+                  />
+                  <InfoRow
+                    label="Occupancy"
+                    value={activeProjectData.occupancyCode ?? '—'}
+                  />
+                  <InfoRow
+                    label="Building Type"
+                    value={
+                      (activeProjectData as any).buildingType
+                        ? (BUILDING_TYPE_LABELS[(activeProjectData as any).buildingType] ?? (activeProjectData as any).buildingType)
+                        : '—'
+                    }
+                  />
+                  <InfoRow
+                    label="Construction"
+                    value={
+                      (activeProjectData as any).buildingType
+                        ? (CONSTRUCTION_TYPE[(activeProjectData as any).buildingType] ?? '—')
+                        : '—'
+                    }
+                  />
+                  <InfoRow
+                    label="Province"
+                    value={(activeProjectData as any).province ?? '—'}
+                  />
+                  <InfoRow
+                    label="Climate Zone"
+                    value={
+                      (activeProjectData as any).climateZone
+                        ? `Zone ${(activeProjectData as any).climateZone}`
+                        : '—'
+                    }
+                  />
+                  <InfoRow
+                    label="Code Edition"
+                    value={
+                      (activeProjectData as any).province
+                        ? (CODE_EDITION[(activeProjectData as any).province] ?? 'NBC 2020')
+                        : '—'
+                    }
+                  />
+
+                  {/* Health Check */}
+                  <div className="pt-3 mt-1 border-t space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Project Health
+                    </p>
+
+                    {/* Compliance Analysis */}
+                    <div className="flex items-start gap-2 text-xs">
+                      {hasSnapshots ? (
+                        <>
+                          <span className="text-green-600 font-bold shrink-0">✓</span>
+                          <span className="text-green-700">
+                            Analysis complete —{' '}
+                            <button
+                              className="underline hover:no-underline"
+                              onClick={() => setLocation(`/compliance/${activeProjectId}`)}
+                            >
+                              view
+                            </button>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-red-500 font-bold shrink-0">✗</span>
+                          <span className="text-red-700">No analysis run</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Inspection Checklist */}
+                    <div className="flex items-start gap-2 text-xs">
+                      {hasChecklist ? (
+                        <>
+                          <span className="text-green-600 font-bold shrink-0">✓</span>
+                          <span className="text-green-700">
+                            {checklistItems.length} items, {completionPct}% complete
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-red-500 font-bold shrink-0">✗</span>
+                          <span className="text-red-700">No checklist generated</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Compliance Report */}
+                    <div className="flex items-start gap-2 text-xs">
+                      {hasReport ? (
+                        <>
+                          <span className="text-green-600 font-bold shrink-0">✓</span>
+                          <span className="text-green-700">{reportsQuery.data!.length} calculation{reportsQuery.data!.length !== 1 ? 's' : ''} saved</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-muted-foreground shrink-0">—</span>
+                          <span className="text-muted-foreground">No calculations saved</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Main Content - Checklist Dashboard */}
@@ -212,6 +316,7 @@ export default function ProjectChecklistsPage() {
           </div>
         </div>
       </div>
+      <ProjectWizard open={isWizardOpen} onOpenChange={setIsWizardOpen} />
     </div>
   );
 }

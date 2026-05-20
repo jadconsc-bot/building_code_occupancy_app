@@ -13,7 +13,7 @@
  * This provides complete legal defensibility for compliance decisions
  */
 
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 
 interface CalculationBundle {
   id: string;

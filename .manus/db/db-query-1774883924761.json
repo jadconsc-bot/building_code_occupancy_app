@@ -1,0 +1,234 @@
+{
+  "query": "DESCRIBE drawingAnalyses;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute DESCRIBE drawingAnalyses;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "projectId",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "userId",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "drawingUrl",
+      "Type": "text",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "drawingHash",
+      "Type": "varchar(64)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "drawingSnapshotKey",
+      "Type": "varchar(500)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "drawingSnapshotMimeType",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "drawingSnapshotSize",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "analysisType",
+      "Type": "enum('structural','fire-safety','connections','comprehensive')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "analysisStatus",
+      "Type": "enum('DRAFT','UNDER_REVIEW','VALID','REJECTED')",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "DRAFT",
+      "Extra": ""
+    },
+    {
+      "Field": "complianceScore",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "complianceLevel",
+      "Type": "enum('approved','conditional','revision','rejected')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "structuralStatus",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "fireSafetyStatus",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "connectionStatus",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "issues",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "recommendations",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "disclaimerAcknowledged",
+      "Type": "tinyint(1)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "disclaimerAcknowledgedAt",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "disclaimerVersion",
+      "Type": "varchar(20)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "llmModelVersion",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "ruleEngineVersion",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "validatedAt",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "validatedByUserId",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "validatedByLicenseNumber",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "validatedByAssociation",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nprojectId\tint\tNO\tMUL\tNULL\t\nuserId\tint\tNO\tMUL\tNULL\t\ndrawingUrl\ttext\tNO\t\tNULL\t\ndrawingHash\tvarchar(64)\tNO\tMUL\tNULL\t\ndrawingSnapshotKey\tvarchar(500)\tYES\t\tNULL\t\ndrawingSnapshotMimeType\tvarchar(50)\tYES\t\tNULL\t\ndrawingSnapshotSize\tint\tYES\t\tNULL\t\nanalysisType\tenum('structural','fire-safety','connections','comprehensive')\tYES\t\tNULL\t\nanalysisStatus\tenum('DRAFT','UNDER_REVIEW','VALID','REJECTED')\tNO\tMUL\tDRAFT\t\ncomplianceScore\tint\tYES\t\tNULL\t\ncomplianceLevel\tenum('approved','conditional','revision','rejected')\tYES\t\tNULL\t\nstructuralStatus\ttext\tYES\t\tNULL\t\nfireSafetyStatus\ttext\tYES\t\tNULL\t\nconnectionStatus\ttext\tYES\t\tNULL\t\nissues\ttext\tYES\t\tNULL\t\nrecommendations\ttext\tYES\t\tNULL\t\ndisclaimerAcknowledged\ttinyint(1)\tNO\tMUL\t0\t\ndisclaimerAcknowledgedAt\ttimestamp\tYES\t\tNULL\t\ndisclaimerVersion\tvarchar(20)\tNO\t\tNULL\t\nllmModelVersion\tvarchar(50)\tYES\t\tNULL\t\nruleEngineVersion\tvarchar(20)\tYES\t\tNULL\t\nvalidatedAt\ttimestamp\tYES\tMUL\tNULL\t\nvalidatedByUserId\tint\tYES\t\tNULL\t\nvalidatedByLicenseNumber\tvarchar(100)\tYES\t\tNULL\t\nvalidatedByAssociation\tvarchar(100)\tYES\t\tNULL\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\n",
+  "stderr": "",
+  "execution_time_ms": 49
+}

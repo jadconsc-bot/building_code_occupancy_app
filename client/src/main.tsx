@@ -5,12 +5,14 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { getLoginUrl } from "./const";
+// AUTH-MIGRATE-001: Clerk authentication - no OAuth imports needed
 import "./index.css";
 import { register as registerServiceWorker } from "./lib/serviceWorkerRegistration";
+import { ClerkProvider } from '@clerk/clerk-react';
 
 const queryClient = new QueryClient();
 
+// AUTH-MIGRATE-001: Updated redirect logic to use Clerk
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
@@ -19,7 +21,9 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
-  window.location.href = getLoginUrl();
+  // Clerk will handle redirect to sign-in page
+  // The ClerkProvider will automatically show the sign-in component
+  console.log("[Auth] Unauthorized - Clerk will handle redirect");
 };
 
 queryClient.getQueryCache().subscribe(event => {
@@ -38,6 +42,11 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set');
+}
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
@@ -54,11 +63,13 @@ const trpcClient = trpc.createClient({
 });
 
 createRoot(document.getElementById("root")!).render(
-  <trpc.Provider client={trpcClient} queryClient={queryClient}>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </trpc.Provider>
+  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </trpc.Provider>
+  </ClerkProvider>
 );
 
 // Register service worker for offline support

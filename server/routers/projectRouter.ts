@@ -1,23 +1,19 @@
 /**
  * Project Router
- * 
+ *
  * tRPC procedures for project management.
  */
 
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { projectRepository } from '../repositories/ProjectRepository';
-import { quotaMiddleware } from '../_core/middleware';
 
 export const projectRouter = router({
   /**
    * Get all projects for current user
    */
   list: protectedProcedure.query(async ({ ctx }) => {
-    console.log('[projectRouter.list] Fetching projects for user:', ctx.user.id);
-    const projects = await projectRepository.getUserProjects(ctx.user.id);
-    console.log('[projectRouter.list] Found projects:', projects.length, 'projects');
-    return projects;
+    return projectRepository.getUserProjects(ctx.user.id);
   }),
 
   /**
@@ -33,14 +29,29 @@ export const projectRouter = router({
    * Create a new project
    */
   create: protectedProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).max(255),
-        description: z.string().optional(),
-        occupancyCode: z.string().optional(),
-        buildingType: z.string().optional(),
-      })
-    )
+    .input(z.object({
+      name: z.string().min(1).max(255),
+      description: z.string().optional(),
+      occupancyCode: z.string().optional(),
+      address: z.string().optional(),
+      template: z.string().optional(),
+      buildingType: z.string().optional(),
+      province: z.string().max(5).optional(),
+      climateZone: z.string().max(10).optional(),
+      seismicZone: z.string().max(20).optional(),
+      stepCodeTier: z.string().max(5).optional(),
+      jurisdictionDetected: z.boolean().optional(),
+      projectCode: z.string().max(50).optional(),
+      grossFloorArea: z.number().positive().optional(),
+      zoningCategory: z.string().max(50).optional(),
+      siteConstraints: z.string().optional(),
+      storeys: z.number().int().positive().optional(),
+      buildingHeight: z.number().positive().optional(),
+      constructionType: z.string().max(50).optional(),
+      sprinklersRequired: z.boolean().optional(),
+      part3Determination: z.string().max(20).optional(),
+      codeEdition: z.string().max(20).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       return projectRepository.createProject({
         userId: ctx.user.id,
@@ -55,10 +66,27 @@ export const projectRouter = router({
     .input(
       z.object({
         id: z.number(),
-        name: z.string().optional(),
+        name: z.string().min(1).max(255).optional(),
         description: z.string().optional(),
         occupancyCode: z.string().optional(),
+        address: z.string().optional(),
+        template: z.string().optional(),
         buildingType: z.string().optional(),
+        province: z.string().max(5).optional(),
+        climateZone: z.string().max(10).optional(),
+        seismicZone: z.string().max(20).optional(),
+        stepCodeTier: z.string().max(5).optional(),
+        jurisdictionDetected: z.boolean().optional(),
+        projectCode: z.string().max(50).optional(),
+        grossFloorArea: z.number().positive().optional(),
+        zoningCategory: z.string().max(50).optional(),
+        siteConstraints: z.string().optional(),
+        storeys: z.number().int().positive().optional(),
+        buildingHeight: z.number().positive().optional(),
+        constructionType: z.string().max(50).optional(),
+        sprinklersRequired: z.boolean().optional(),
+        part3Determination: z.string().max(20).optional(),
+        codeEdition: z.string().max(20).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

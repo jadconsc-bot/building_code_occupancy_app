@@ -247,7 +247,7 @@ export default function TermsOfService() {
               <Button onClick={() => navigate('/')} variant="outline">
                 Back
               </Button>
-              <Button onClick={() => navigate('/')}>Accept Terms</Button>
+              <Button>Accept Terms</Button>
             </div>
           </CardContent>
         </Card>

@@ -1,15 +1,16 @@
+import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
+import { callAnthropicVision } from './services/anthropicVisionService';
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
-import { feedbacks, projects, projectCalculatorResults, projectChecklistItems } from "../drizzle/schema";
+import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog } from "../drizzle/schema";
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
-import { COOKIE_NAME } from "../shared/const";
-import { complianceRouter } from "./routers/complianceRouter";
+import { complianceRouter } from "./complianceRouter";
 import { projectRouter } from "./routers/projectRouter";
 import { subscriptionRouter } from "./routers/subscriptionRouter";
 import { ruleManagementRouter } from "./ruleManagementRouter";
@@ -18,21 +19,11 @@ import { consultantRouter } from "./consultantRouter";
 import { monetizationRouter } from "./monetizationRouter";
 import { clientsRouter, projectMembersRouter, subscriptionsRouter, usageMetricsRouter, sharingRouter, verificationRouter, calculationVersioningRouter } from "./routers/phase2to5";
 import { compliancePathwayRouter } from "./compliancePathwayRouter";
-import { auditRouter } from "./auditRouter";
-import { ruleRouter } from "./ruleRouter";
-import { phase2Router } from "./phase2Router";
-import { professionalReviewRouter } from "./professionalReviewRouter";
-import { encryptedClientsRouter } from "./routers/encryptedClientsRouter";
-import { encryptedProjectsRouter } from "./routers/encryptedProjectsRouter";
-import { certificationRouter } from "./routers/certificationRouter";
-import { analyticsRouter } from "./routers/analyticsRouter";
-import { collaborationRouter } from "./routers/collaborationRouter";
-import { rulesRouter } from "./routers/rulesRouter";
-import { disclaimerRouter } from "./routers/authRouter";
-import { aiRouter } from "./routers/aiRouter";
-import { adminRouter } from "./routers/adminRouter";
-import { billingRouter } from "./routers/billingRouter";
-
+import { drawingAnalysisRouter } from "./routers/drawingAnalysisRouter";
+import { stepCodeRouter } from "./routers/stepCodeRouter";
+import { jurisdictionRouter } from "./routers/jurisdictionRouter";
+import { reportRouter } from "./routers/reportRouter";
+import { occupancyAdvisorRouter } from "./routers/occupancyAdvisorRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -52,19 +43,21 @@ export const appRouter = router({
   verification: verificationRouter,
   calculationVersioning: calculationVersioningRouter,
   compliancePathway: compliancePathwayRouter,
-  audit: auditRouter,
-  rules: rulesRouter,
-  phase2: phase2Router,
-  professionalReview: professionalReviewRouter,
-  encryptedClients: encryptedClientsRouter,
-  encryptedProjects: encryptedProjectsRouter,
-  certification: certificationRouter,
-  analytics: analyticsRouter,
-  collaboration: collaborationRouter,
-  auth: disclaimerRouter,
-  ai: aiRouter,
-  admin: adminRouter,
-  billing: billingRouter,
+  drawingAnalysis: drawingAnalysisRouter,
+  stepCode: stepCodeRouter,
+  jurisdiction: jurisdictionRouter,
+  report: reportRouter,
+  occupancyAdvisor: occupancyAdvisorRouter,
+  auth: router({
+    me: protectedProcedure.query(opts => opts.ctx.user),
+    logout: protectedProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return {
+        success: true,
+      } as const;
+    }),
+  }),
 
   // Plan Analysis
   analyzePlan: publicProcedure
@@ -161,6 +154,84 @@ If no infractions are found, return an empty array: []`;
           infractions: [],
           error: "Failed to analyze plan. Please try again.",
         };
+      }
+    }),
+
+  analyzeSpace: publicProcedure
+    .input(z.object({
+      imageBase64: z.string(),
+      mimeType: z.string(),
+      climateZone: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { imageBase64, mimeType, climateZone } = input;
+      const systemPrompt = `You are an expert architectural consultant and sustainable design advisor specializing in Canadian building performance, space optimization, and LEED certification pathways.
+
+Analyze the provided architectural drawing and deliver a structured assessment across six dimensions. Base all climate-specific recommendations on the provided climate zone. Do not make pass/fail compliance decisions — provide advisory recommendations only.
+
+1. SPACE DISTRIBUTION EFFICIENCY: Identify wasted areas, flag circulation > 20% GFA, note multi-use opportunities, assess room proportions.
+2. NATURAL LIGHT OPTIMIZATION: Identify rooms with no windows, assess WFA ratio (target >10%), note sun path opportunities, flag deep plan conditions (depth > 2.5x window height).
+3. ROOM LAYOUT EFFICIENCY: Evaluate functional adjacencies, identify awkward circulation or dead-end corridors, note poor aspect ratios (>3:1), flag structural grid conflicts.
+4. WIND AND VENTILATION STRATEGY: Recommend natural ventilation, identify cross-ventilation potential, note stack ventilation opportunities, flag rooms needing operable windows.
+5. SUSTAINABLE MATERIALS (climate zone specific): Recommend envelope insulation strategy, suggest glazing specs (U-value, SHGC), identify thermal mass opportunities, note vapour barrier placement.
+6. LEED GAP ANALYSIS (LEED v4): Evaluate SS (site, heat island, stormwater), WE (water efficiency, rainwater), EA (energy, renewables), MR (recycled content, local materials), IEQ (daylight, ventilation, low-VOC), IN (innovation). For each: current status, gap, action, estimated points.
+
+Return ONLY valid JSON, no markdown:
+{
+  "overallScore": number,
+  "climateZone": string,
+  "drawingType": string,
+  "spaceDistribution": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "naturalLight": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "roomLayout": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "ventilation": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "sustainableMaterials": { "score": number, "findings": ["string"], "recommendations": ["string"] },
+  "leedGapAnalysis": {
+    "estimatedPoints": number,
+    "maxPossiblePoints": number,
+    "categories": [{ "category": string, "status": string, "gap": string, "action": string, "estimatedPoints": number }]
+  },
+  "priorityActions": ["string"],
+  "confidence": number
+}`;
+
+      try {
+        const response = await callAnthropicVision({
+          imageBase64,
+          mimeType: mimeType as any,
+          systemPrompt,
+          userPrompt: `Analyze this architectural drawing. Climate zone: ${climateZone ?? 'not specified'} (Canadian NBC climate zones). Return only the JSON object.`,
+          jsonSchema: {
+            type: "object",
+            properties: {
+              overallScore: { type: "number" },
+              climateZone: { type: "string" },
+              drawingType: { type: "string" },
+              spaceDistribution: { type: "object" },
+              naturalLight: { type: "object" },
+              roomLayout: { type: "object" },
+              ventilation: { type: "object" },
+              sustainableMaterials: { type: "object" },
+              leedGapAnalysis: { type: "object" },
+              priorityActions: { type: "array", items: { type: "string" } },
+              confidence: { type: "number" },
+            },
+            required: ["overallScore", "drawingType", "priorityActions"],
+          },
+          maxTokens: 8000,
+        });
+        // Safety: extract just the JSON object if extra text was returned
+        let parsed = response.parsed;
+        if (typeof parsed === 'string') {
+          const match = (parsed as string).match(/\{[\s\S]*\}/);
+          if (match) {
+            try { parsed = JSON.parse(match[0]); } catch { /* use as-is */ }
+          }
+        }
+        return { success: true, result: parsed };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Analysis failed';
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message });
       }
     }),
 
@@ -792,6 +863,156 @@ Return ONLY a valid JSON object in this exact format:
         }
       }),
   }),
+
+  // Drawing Analysis Procedures
+  saveDrawingAnalysis: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        fileName: z.string(),
+        imageUrl: z.string(),
+        occupancyType: z.string(),
+        infractions: z.array(
+          z.object({
+            id: z.string(),
+            severity: z.enum(["critical", "warning", "info"]),
+            code: z.string(),
+            title: z.string(),
+            description: z.string(),
+            location: z.string(),
+            recommendation: z.string(),
+            x: z.number(),
+            y: z.number(),
+          })
+        ),
+        drawingType: z.string().optional(),
+        scale: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const id = `drawing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      await db.insert(projectCalculatorResults).values({
+        projectId: input.projectId,
+        calculatorType: "drawingAnalysis",
+        inputData: JSON.stringify({
+          fileName: input.fileName,
+          occupancyType: input.occupancyType,
+          drawingType: input.drawingType,
+          scale: input.scale,
+          imageUrl: input.imageUrl,
+        }),
+        resultData: JSON.stringify({
+          infractions: input.infractions,
+          totalInfractions: input.infractions.length,
+          criticalCount: input.infractions.filter((i) => i.severity === "critical").length,
+          warningCount: input.infractions.filter((i) => i.severity === "warning").length,
+          infoCount: input.infractions.filter((i) => i.severity === "info").length,
+        }),
+      });
+
+      return { success: true, id };
+    }),
+
+  getDrawingAnalyses: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const results = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(
+          and(
+            eq(projectCalculatorResults.projectId, input.projectId),
+            eq(projectCalculatorResults.calculatorType, "drawingAnalysis")
+          )
+        )
+        .orderBy(desc(projectCalculatorResults.createdAt))
+        .limit(20);
+
+      return results.map((r) => ({
+        id: r.id,
+        projectId: r.projectId,
+        inputData: JSON.parse(r.inputData || "{}"),
+        resultData: JSON.parse(r.resultData || "{}"),
+        createdAt: r.createdAt,
+      }));
+    }),
+
+  exportFindingsToCompliance: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        drawingAnalysisId: z.string(),
+        rulesetId: z.string().default("nbc_2023_v1"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Get the drawing analysis
+      const [analysis] = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.id, parseInt(input.drawingAnalysisId, 10)))
+        .limit(1);
+
+      if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const resultData = JSON.parse(analysis.resultData || "{}");
+      const infractions = resultData.infractions ?? [];
+
+      const hasNonCompliant = infractions.some((i: any) => i.severity === "critical");
+      const complianceStatus = infractions.length === 0 ? "compliant" : hasNonCompliant ? "non_compliant" : "conditional";
+
+      const snapshotId = `snap_drawing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      await db.insert(complianceSnapshots).values({
+        snapshotId,
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        rulesetId: input.rulesetId,
+        mode: "soft",
+        inputs: analysis.inputData,
+        outputs: JSON.stringify({
+          infractions,
+          source: "drawingAnalysis",
+        }),
+        ruleTrace: JSON.stringify(
+          infractions.map((i: any) => ({
+            rule_id: i.code,
+            clause: i.code,
+            fired: true,
+            conditions_met: true,
+          }))
+        ),
+        complianceStatus,
+      });
+
+      await db.insert(auditLog).values({
+        userId: ctx.user.id,
+        projectId: input.projectId,
+        snapshotId,
+        action: "drawing_analysis_exported",
+        details: JSON.stringify({
+          drawingAnalysisId: input.drawingAnalysisId,
+          infractionCount: infractions.length,
+          complianceStatus,
+        }),
+      });
+
+      return { success: true, snapshotId, complianceStatus };
+    }),
 
 });
 

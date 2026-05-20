@@ -1,4 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import {
+  C, TABLE_STYLES,
+  drawHeader, drawStatusBanner, drawSectionBar, drawFooters, contentHeight,
+} from "@/lib/pdfStyles";
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +17,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Upload, 
   ZoomIn, 
@@ -44,9 +62,21 @@ import {
   PaintBucket,
   Lock,
   Unlock,
-  Circle
+  Circle,
+  Building,
+  Zap,
+  FolderOpen,
+  ChevronDown,
+  FileSearch,
+  Check,
+  Folder
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
+import { DisclaimerGate } from "@/components/DisclaimerGate";
+import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
+import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
 import { 
   ScaleSystem, 
@@ -58,6 +88,9 @@ import {
   calculateRealDistance,
   formatDistance 
 } from "@/lib/architecturalScales";
+
+// Worker must be assigned after all imports (ES module parse order requirement)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // Types for annotations
 interface Point {
@@ -124,11 +157,22 @@ interface DrawingProject {
   updatedAt: Date;
 }
 
-export function DrawingAnalysis() {
+interface DrawingAnalysisProps {
+  projectId?: number;
+}
+
+export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Multi-page PDF state
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+  const [currentPreviewPage, setCurrentPreviewPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [analyzeProgress, setAnalyzeProgress] = useState<string>("");
   
   // State for canvas interaction
   const [zoom, setZoom] = useState(1);
@@ -143,7 +187,39 @@ export function DrawingAnalysis() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [showAnnotations, setShowAnnotations] = useState(true);
-  
+  const [showRoomOverlay, setShowRoomOverlay] = useState(true);
+  const [evalData, setEvalData] = useState<{
+    accuracy: number;
+    passingRooms: number;
+    totalRooms: number;
+    missedRooms: string[];
+  } | null>(null);
+  const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
+  const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
+  const [roomPollCount, setRoomPollCount] = useState(0);
+
+  const ROOM_OVERLAY_COLORS = {
+    occupancy: {
+      A: { fill: 'rgba(83,74,183,0.25)', stroke: 'rgba(83,74,183,0.8)' },
+      B: { fill: 'rgba(153,53,86,0.25)', stroke: 'rgba(153,53,86,0.8)' },
+      C: { fill: 'rgba(15,110,86,0.25)', stroke: 'rgba(15,110,86,0.8)' },
+      D: { fill: 'rgba(24,95,165,0.25)', stroke: 'rgba(24,95,165,0.8)' },
+      E: { fill: 'rgba(186,117,23,0.25)', stroke: 'rgba(186,117,23,0.8)' },
+      F: { fill: 'rgba(163,45,45,0.25)', stroke: 'rgba(163,45,45,0.8)' },
+    },
+    confidence: {
+      high: 'rgba(34,197,94,0.25)',
+      medium: 'rgba(251,191,36,0.25)',
+      low: 'rgba(239,68,68,0.25)',
+    },
+    status: {
+      fail: 'rgba(220,38,38,0.9)',
+      warning: 'rgba(217,119,6,0.9)',
+      flagged: 'rgba(217,119,6,0.6)',
+      flaggedFill: 'rgba(234,179,8,0.18)',
+    },
+  } as const;
+
   // State for dimension input
   const [dimensionValue, setDimensionValue] = useState<string>("");
   const [dimensionCategory, setDimensionCategory] = useState<DimensionAnnotation["category"]>("other");
@@ -163,6 +239,34 @@ export function DrawingAnalysis() {
   const [calibrationLine, setCalibrationLine] = useState<{ start: Point; end: Point } | null>(null);
   const [referenceValue, setReferenceValue] = useState<string>(""); // User-editable reference measurement
   const [isEditingReference, setIsEditingReference] = useState(false);
+
+  // State for window measurement tool (BC Step Code WWR)
+  const [windowMeasureMode, setWindowMeasureMode] = useState(false);
+  const [measuredWindows, setMeasuredWindows] = useState<Array<{
+    id: string;
+    face: 'N' | 'S' | 'E' | 'W' | 'unknown';
+    widthMm: number;
+    heightMm: number;
+    areaM2: number;
+    position: { x: number; y: number };
+    pixelWidth: number;
+  }>>([]);
+  const [windowHeightInput, setWindowHeightInput] = useState<string>('1200');
+  const [pendingWindowMeasure, setPendingWindowMeasure] = useState<{
+    widthMm: number;
+    position: { x: number; y: number };
+    pixelWidth: number;
+  } | null>(null);
+  const [windowFaceInput, setWindowFaceInput] = useState<'N' | 'S' | 'E' | 'W' | 'unknown'>('unknown');
+  // WWR multi-storey + wall area state
+  const [storeyCount, setStoreyCount] = useState<number>(1);
+  const [storeyHeightM, setStoreyHeightM] = useState<number>(2.7);
+  const [useFloorMultiplier, setUseFloorMultiplier] = useState<boolean>(false);
+  const [wallAreaInputs, setWallAreaInputs] = useState<Partial<Record<'N' | 'S' | 'E' | 'W', number>>>({});
+  const [wallLengthInputs, setWallLengthInputs] = useState<Partial<Record<'N' | 'S' | 'E' | 'W', number>>>({});
+  // Canvas vertical resize
+  const [canvasHeight, setCanvasHeight] = useState(600);
+  const [wwrPanelHeight, setWwrPanelHeight] = useState(400);
   const [isDraggingDimension, setIsDraggingDimension] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
   const [dragCurrentPoint, setDragCurrentPoint] = useState<Point | null>(null);
@@ -220,7 +324,7 @@ export function DrawingAnalysis() {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
       const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      const isSmallScreen = window.innerWidth < 1024; // Consider tablets as mobile for drawing
+      const isSmallScreen = window.innerWidth < 640;
       setIsMobile(mobileRegex.test(userAgent.toLowerCase()) || (isTouchDevice && isSmallScreen));
     };
     
@@ -253,12 +357,6 @@ export function DrawingAnalysis() {
   const [isErasing, setIsErasing] = useState(false);
   const [eraserSize, setEraserSize] = useState(20); // Eraser radius in pixels
   
-  // State for WWR panel layout
-  const [wwrPanelHeight, setWwrPanelHeight] = useState(500);
-  const isResizingWwr = useRef(false);
-  const wwrResizeStartY = useRef(0);
-  const wwrResizeStartHeight = useRef(0);
-
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -268,8 +366,254 @@ export function DrawingAnalysis() {
   const lastTouchPointRef = useRef<Point | null>(null); // For immediate drawing on mobile
   const currentStrokeRef = useRef<DrawingStroke | null>(null); // Ref for current stroke to avoid re-renders during drawing
   const isDrawingRef = useRef(false); // Track drawing state without re-renders
+  const isMultiPageAnalysisRef = useRef(false); // Prevent premature setIsAnalyzing(false) during multi-page analysis
+  const canvasResizeStartRef = useRef<{ y: number; h: number } | null>(null);
+  const wwrPanelResizeRef = useRef<{ y: number; h: number } | null>(null);
   
-  // tRPC mutation for AI analysis
+  // Auth state (PD2.0 §6.1 — authentication required)
+  const { isAuthenticated } = useAuth();
+
+  // PD2.0 §6.3 — disclaimer state
+  const [disclaimerAcknowledged, setDisclaimerAcknowledged] = useState(false);
+  const [disclaimerVersion, setDisclaimerVersion] = useState("");
+
+  // Check if user has already acknowledged the current disclaimer version (persists across sessions)
+  const { data: disclaimerStatus } = trpc.drawingAnalysis.checkDisclaimerStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  useEffect(() => {
+    if (disclaimerStatus?.hasAcknowledged) {
+      setDisclaimerAcknowledged(true);
+      setDisclaimerVersion(disclaimerStatus.version);
+    }
+  }, [disclaimerStatus]);
+
+  // PD2.0 §4.3 — analysis status tracking
+  const [analysisId, setAnalysisId] = useState<number | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<"DRAFT" | "UNDER_REVIEW" | "VALID" | "REJECTED" | null>(null);
+  const [ruleEvaluations, setRuleEvaluations] = useState<Array<{
+    ruleId: string;
+    clause: string;
+    description: string;
+    category: string;
+    severity: string;
+    result: string;
+    details: string;
+  }>>([]);
+  const [pdIssues, setPdIssues] = useState<Array<{ severity: string; category: string; description: string; clause: string; recommendation: string }>>([]);
+  const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
+  const [complianceScore, setComplianceScore] = useState<number | null>(null);
+
+  // Room-level compliance results (Phase B)
+  const [roomComplianceData, setRoomComplianceData] = useState<Array<{
+    room: { id: number; roomLabel: string; occupancyGroup: string; areaSqm: string };
+    compliance: Array<{
+      ruleReference: string;
+      ruleCategory: string;
+      ruleText: string;
+      status: string;
+      actualValue: string | null;
+      requiredValue: string | null;
+      remediationSuggestion: string | null;
+      severity: string | null;
+    }>;
+  }>>([]);
+  const [complianceLevel, setComplianceLevel] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [showNoProjectWarning, setShowNoProjectWarning] = useState(false);
+  const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
+  const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
+  const [drawingType, setDrawingType] = useState<string>("auto");
+  
+  // Drawing Analysis Persistence (Phase 2)
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
+  const [drawingAnalysisHistory, setDrawingAnalysisHistory] = useState<any[]>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  
+  // tRPC mutations for persistence
+  const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
+  const getDrawingAnalysesQuery = trpc.getDrawingAnalyses.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
+  const exportToComplianceMutation = trpc.exportFindingsToCompliance.useMutation();
+  const projectListQuery = trpc.projects.list.useQuery(undefined, { refetchOnWindowFocus: false });
+
+  // New PD2.0-compliant mutation
+  // tRPC utils for query invalidation (Phase 2)
+  const utils = trpc.useUtils();
+
+  const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
+    onSuccess: async (data) => {
+      console.log('[DrawingAnalysis] Analysis completed successfully:', { analysisId: data.analysisId, status: data.analysisStatus });
+      setAnalysisId(data.analysisId);
+      setAnalysisStatus(data.analysisStatus);
+      setRuleEvaluations(data.ruleEvaluations as any);
+      setPdIssues(data.issues as any);
+      setPdRecommendations(
+        (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+          .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`)
+      );
+      setComplianceScore(data.complianceScore);
+      setComplianceLevel(data.complianceLevel);
+      setAiResults({
+        drawingType: data.extractedData.drawingType,
+        scale: null,
+        measurements: [],
+        rooms: [],
+        notes: (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+          .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`),
+      });
+      setShowAiResults(true);
+      if (!isMultiPageAnalysisRef.current) {
+        setIsAnalyzing(false);
+      }
+
+
+      // Auto-save if projectId provided (Phase 2)
+      if (!isMultiPageAnalysisRef.current && projectId && drawingImage && fileName) {
+        try {
+          const infractions = data.issues.map((issue: any, idx: number) => ({
+            id: issue.id || `infraction-${idx}`,
+            severity: (issue.severity === "critical" ? "critical" : issue.severity === "warning" ? "warning" : "info") as "critical" | "warning" | "info",
+            code: issue.clause || issue.category || "NBC",
+            title: issue.category || issue.description.slice(0, 50),
+            description: issue.description,
+            location: issue.location || "See drawing",
+            recommendation: issue.recommendation || "",
+            x: issue.x || 50,
+            y: issue.y || 50,
+          }));
+          
+          const result = await saveDrawingAnalysisMutation.mutateAsync({
+            projectId,
+            fileName,
+            imageUrl: drawingImage,
+            occupancyType: "Residential",
+            infractions,
+            drawingType: data.extractedData.drawingType,
+            scale: null,
+          });
+          
+          setSavedAnalysisId(result.id);
+        } catch (error) {
+          console.error("Failed to auto-save analysis:", error);
+        }
+      }
+    },
+    onError: (error) => {
+      console.error("PD2.0 analysis error:", error);
+      toast.error("Analysis failed: " + error.message);
+      if (!isMultiPageAnalysisRef.current) {
+        setIsAnalyzing(false);
+      }
+    },
+  });
+
+  const { data: recentAnalyses } = trpc.drawingAnalysis.listByProject.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId && !analysisId }
+  );
+
+  useEffect(() => {
+    if (!analysisId && recentAnalyses && recentAnalyses.length > 0) {
+      setAnalysisId(recentAnalyses[0].id);
+    }
+  }, [recentAnalyses, analysisId]);
+
+  const waitingForRooms = detectedRoomsData.length === 0 && roomPollCount < 40;
+  const waitingForEval = detectedRoomsData.length > 0 && evalData === null && roomPollCount < 50;
+  const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
+    { drawingId: analysisId ?? 0 },
+    {
+      enabled: !!analysisId,
+      refetchInterval: (waitingForRooms || waitingForEval)
+        ? (roomPollCount < 5 ? 2000 : 5000)
+        : false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
+  );
+
+  // Fetch room-level compliance results once rooms have loaded
+  const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
+    { drawingId: analysisId ?? 0, projectId: selectedProjectId },
+    { enabled: !!analysisId && !!selectedProjectId && detectedRoomsData.length > 0 }
+  );
+
+  useEffect(() => {
+    if (!roomComplianceResults || roomComplianceResults.length === 0) return;
+    setRoomComplianceData(roomComplianceResults as any);
+
+    // Merge room-level results into ruleEvaluations for display in the compliance panel
+    const roomRules: typeof ruleEvaluations = [];
+    for (const item of roomComplianceResults) {
+      for (const c of (item as any).compliance ?? []) {
+        if (c.status === 'not_applicable') continue;
+        if (roomRules.some(r => r.ruleId === c.ruleReference && r.details?.includes((item as any).room?.roomLabel))) continue;
+        roomRules.push({
+          ruleId: c.ruleReference,
+          clause: c.ruleReference,
+          description: (c.ruleText ?? '').substring(0, 120),
+          category: c.ruleCategory ?? 'compliance',
+          severity: c.severity ?? 'medium',
+          result: c.status === 'pass' ? 'PASS'
+            : c.status === 'fail' ? 'FAIL'
+            : 'CONDITIONAL',
+          details: `${(item as any).room?.roomLabel ?? 'Room'}: actual=${c.actualValue ?? '?'} required=${c.requiredValue ?? '?'}`,
+        });
+      }
+    }
+
+    if (roomRules.length > 0) {
+      setRuleEvaluations(prev => {
+        const existingIds = new Set(prev.map(r => r.ruleId));
+        const newRules = roomRules.filter(r => !existingIds.has(r.ruleId));
+        return [...prev, ...newRules];
+      });
+    }
+  }, [roomComplianceResults]);
+
+  // Reset poll counter and clear stale overlay when a new analysis begins
+  useEffect(() => {
+    setRoomPollCount(0);
+    setDetectedRoomsData([]);
+    setAnalyzedPageDims(null);
+    setEvalData(null);
+    setRoomComplianceData([]);
+  }, [analysisId]);
+
+  useEffect(() => {
+    if (roomsData?.rooms && roomsData.rooms.length > 0) {
+      setDetectedRoomsData(roomsData.rooms);
+    } else if (roomsData !== undefined) {
+      // Got a response but rooms still empty — count this poll
+      setRoomPollCount(c => c + 1);
+      if (roomPollCount >= 39) {
+        console.log('[RoomOverlay] Polling stopped after 40 attempts — no rooms detected');
+      }
+    }
+    if (roomsData?.pages && roomsData.pages.length > 0) {
+      const p = roomsData.pages[0];
+      if (p.widthPx > 0 && p.heightPx > 0) {
+        setAnalyzedPageDims({ width: p.widthPx, height: p.heightPx });
+        console.log('[RoomOverlay] Analyzed page dims:', p.widthPx, 'x', p.heightPx);
+      }
+      if (p.evalAccuracy != null && p.evalTotalRooms != null) {
+        setEvalData({
+          accuracy: parseFloat(p.evalAccuracy as unknown as string),
+          passingRooms: p.evalPassingRooms ?? 0,
+          totalRooms: p.evalTotalRooms,
+          missedRooms: p.evalMissedRoomsJson
+            ? JSON.parse(p.evalMissedRoomsJson as string)
+            : [],
+        });
+      }
+    }
+  }, [roomsData]);
+
+  // Legacy mutation (kept for backward compat, now unused)
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -282,44 +626,113 @@ export function DrawingAnalysis() {
         });
         setShowAiResults(true);
       } else {
-        alert(data.error || "Failed to analyze drawing");
+        toast.error(data.error || "Failed to analyze drawing");
       }
       setIsAnalyzing(false);
     },
     onError: (error) => {
       console.error("AI analysis error:", error);
-      alert("Failed to analyze drawing. Please try again.");
+      toast.error("Failed to analyze drawing. Please try again.");
       setIsAnalyzing(false);
     },
   });
+
+  // Handle export to compliance (Phase 2)
+  const handleExportToCompliance = async () => {
+    if (!projectId || !savedAnalysisId) {
+      toast.error("Please complete an analysis first");
+      return;
+    }
+    
+    try {
+      const result = await exportToComplianceMutation.mutateAsync({
+        projectId,
+        drawingAnalysisId: savedAnalysisId,
+        rulesetId: "nbc_2023_v1",
+      });
+      
+      // Show success notification
+      toast.success(`Findings exported to compliance report. Status: ${result.complianceStatus}`);
+      
+      // Invalidate queries to refresh ProjectTabView
+      await utils.compliance.getProjectSnapshots.invalidate({ projectId });
+      await utils.projects.get.invalidate({ id: projectId });
+    } catch (error) {
+      console.error("Failed to export findings:", error);
+      toast.error("Failed to export findings. Please try again.");
+    }
+  };
+  
+  // Update history when query data changes (Phase 2)
+  useEffect(() => {
+    if (getDrawingAnalysesQuery.data) {
+      setDrawingAnalysisHistory(getDrawingAnalysesQuery.data);
+    }
+  }, [getDrawingAnalysesQuery.data]);
 
   // Get zones for selected municipality
   const municipalityData = municipalities.find(m => m.id === selectedMunicipalityId);
   const availableZones: ZoneRegulation[] = municipalityData?.zones || [];
 
   // Handle file upload
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setDrawingImage(result);
-      setIsLoading(false);
+    // Reset PDF state on new upload
+    setPdfPages([]);
+    setSelectedPages([]);
+    setTotalPages(0);
+    setCurrentPreviewPage(1);
+
+    try {
+      if (file.type === 'application/pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pageCount = Math.min(pdf.numPages, 20);
+        setTotalPages(pdf.numPages);
+
+        const pages: string[] = [];
+        for (let i = 1; i <= pageCount; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d')!;
+          await page.render({ canvasContext: ctx, viewport } as any).promise;
+          pages.push(canvas.toDataURL('image/png'));
+        }
+
+        setPdfPages(pages);
+        setSelectedPages([1]);
+        setDrawingImage(pages[0]);
+        setCurrentPreviewPage(1);
+      } else {
+        // Existing image handling
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setDrawingImage(e.target?.result as string);
+        };
+        reader.onerror = () => {
+          toast.error("Error loading file. Please try again.");
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset shared state
       setAnnotations([]);
       setAiResults(null);
       setZoom(1);
       setPan({ x: 0, y: 0 });
-    };
-    reader.onerror = () => {
+    } catch (error) {
+      console.error('[Drawing] File upload error:', error);
+      toast.error('Failed to load file. Please try again.');
+    } finally {
       setIsLoading(false);
-      alert("Error loading file. Please try again.");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Handle camera capture
@@ -342,81 +755,182 @@ export function DrawingAnalysis() {
     };
     reader.onerror = () => {
       setIsLoading(false);
-      alert("Error capturing photo. Please try again.");
+      toast.error("Error capturing photo. Please try again.");
     };
     reader.readAsDataURL(file);
   };
 
-  // Run AI analysis on the drawing
-  const runAiAnalysis = () => {
+  // Compose the image to analyze (merges drawing strokes onto the base image)
+  const buildImageToAnalyze = (baseImage: string): string => {
+    if (drawingStrokes.length === 0) return baseImage;
+    const canvas = canvasRef.current;
+    if (!canvas) return baseImage;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx || !imageRef.current) return baseImage;
+    tempCtx.drawImage(imageRef.current, 0, 0, imageRef.current.width, imageRef.current.height);
+    drawingStrokes.forEach((stroke) => {
+      tempCtx.strokeStyle = stroke.color;
+      tempCtx.lineWidth = stroke.width;
+      tempCtx.lineCap = "round";
+      tempCtx.lineJoin = "round";
+      if (stroke.type === "freehand" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        tempCtx.stroke();
+      } else if (stroke.type === "line" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
+        tempCtx.stroke();
+      } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
+        const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
+        const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
+        const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
+        const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
+        tempCtx.strokeRect(rectX, rectY, rectW, rectH);
+      } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        if (stroke.points.length > 2) tempCtx.closePath();
+        tempCtx.stroke();
+      }
+    });
+    return tempCanvas.toDataURL('image/png');
+  };
+
+  // Auto-select first project when list loads and no project is selected
+  useEffect(() => {
+    if (selectedProjectId === 0 && projectListQuery.data && projectListQuery.data.length > 0) {
+      setSelectedProjectId(projectListQuery.data[0].id);
+    }
+  }, [projectListQuery.data, selectedProjectId]);
+
+  // Close project selector dropdown on outside click
+  useEffect(() => {
+    if (!showProjectSelector) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-project-selector]')) {
+        setShowProjectSelector(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProjectSelector]);
+
+  // Core analysis logic — call this only after all guards have passed.
+  // effectiveProjectId: uses selectedProjectId if set, otherwise falls back to first
+  // available project so the server's positive-int constraint is always satisfied.
+  const triggerAnalysis = async () => {
     if (!drawingImage) return;
-    
+    const effectiveProjectId = selectedProjectId > 0
+      ? selectedProjectId
+      : (projectListQuery.data?.[0]?.id ?? 1);
+
     setIsAnalyzing(true);
-    
-    // If there are drawing strokes, render them onto the image for analysis
-    let imageToAnalyze = drawingImage;
-    if (drawingStrokes.length > 0) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        // Create a temporary canvas to combine image and drawings
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        if (tempCtx && imageRef.current) {
-          // Draw the base image
-          tempCtx.drawImage(imageRef.current, 0, 0, imageRef.current.width, imageRef.current.height);
-          
-          // Draw all strokes onto the temp canvas
-          drawingStrokes.forEach((stroke) => {
-            tempCtx.strokeStyle = stroke.color;
-            tempCtx.lineWidth = stroke.width;
-            tempCtx.lineCap = "round";
-            tempCtx.lineJoin = "round";
-            
-            if (stroke.type === "freehand" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              for (let i = 1; i < stroke.points.length; i++) {
-                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-              }
-              tempCtx.stroke();
-            } else if (stroke.type === "line" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              tempCtx.lineTo(stroke.points[1].x, stroke.points[1].y);
-              tempCtx.stroke();
-            } else if (stroke.type === "rectangle" && stroke.points.length >= 2) {
-              const rectX = Math.min(stroke.points[0].x, stroke.points[1].x);
-              const rectY = Math.min(stroke.points[0].y, stroke.points[1].y);
-              const rectW = Math.abs(stroke.points[1].x - stroke.points[0].x);
-              const rectH = Math.abs(stroke.points[1].y - stroke.points[0].y);
-              tempCtx.strokeRect(rectX, rectY, rectW, rectH);
-            } else if (stroke.type === "polygon" && stroke.points.length >= 2) {
-              tempCtx.beginPath();
-              tempCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              for (let i = 1; i < stroke.points.length; i++) {
-                tempCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-              }
-              if (stroke.points.length > 2) tempCtx.closePath();
-              tempCtx.stroke();
-            }
+
+    // Multi-page PDF path
+    if (pdfPages.length > 0 && selectedPages.length > 0) {
+      isMultiPageAnalysisRef.current = true;
+      const allNotes: string[] = [];
+      let lastData: any = null;
+
+      for (let i = 0; i < selectedPages.length; i++) {
+        const pageNum = selectedPages[i];
+        setAnalyzeProgress(`Analyzing page ${pageNum} of ${selectedPages.length}...`);
+        const pageImg = pdfPages[pageNum - 1];
+        const base64Data = pageImg.replace(/^data:[^;]+;base64,/, "");
+        try {
+          const data = await pdAnalyzeMutation.mutateAsync({
+            projectId: effectiveProjectId,
+            imageBase64: base64Data,
+            mimeType: "image/png",
+            fileName: `${fileName || "drawing"}_page${pageNum}.png`,
+            analysisType,
+            analysisQuality,
+            drawingType: drawingType as any,
+            disclaimerAcknowledged: true,
+            disclaimerVersion,
           });
-          
-          imageToAnalyze = tempCanvas.toDataURL('image/png');
+          allNotes.push(`--- Page ${pageNum} ---`);
+          const mappedRecs = (data.recommendations as Array<{priority: string; clause: string; description: string}>)
+            .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`);
+          allNotes.push(...mappedRecs);
+          lastData = data;
+        } catch (error) {
+          toast.error(`Failed to analyze page ${pageNum}`);
         }
       }
+
+      isMultiPageAnalysisRef.current = false;
+
+      if (lastData) {
+        setAnalysisId(lastData.analysisId);
+        setAnalysisStatus(lastData.analysisStatus);
+        setRuleEvaluations(lastData.ruleEvaluations as any);
+        setPdIssues(lastData.issues as any);
+        setPdRecommendations(allNotes);
+        setComplianceScore(lastData.complianceScore);
+        setComplianceLevel(lastData.complianceLevel);
+        setAiResults({
+          drawingType: lastData.extractedData.drawingType,
+          scale: null,
+          measurements: [],
+          rooms: [],
+          notes: allNotes,
+        });
+        setShowAiResults(true);
+      }
+
+      setAnalyzeProgress("");
+      setIsAnalyzing(false);
+      return;
     }
-    
-    analyzeDrawingMutation.mutate({
-      imageData: imageToAnalyze,
-      fileName: fileName,
-      municipality: selectedMunicipalityId,
-      zoneType: selectedZone,
-      measurementUnit: measurementUnit,
-      isHandDrawn: drawingStrokes.length > 0,
+
+    // Single image path (PD2.0 §4.1 — two-stage pipeline)
+    const imageToAnalyze = buildImageToAnalyze(drawingImage);
+    const base64Data = imageToAnalyze.replace(/^data:[^;]+;base64,/, "");
+    const mimeMatch = imageToAnalyze.match(/^data:([^;]+);/);
+    const mimeType = (mimeMatch?.[1] ?? "image/png") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+    pdAnalyzeMutation.mutate({
+      projectId: effectiveProjectId,
+      imageBase64: base64Data,
+      mimeType,
+      fileName: fileName || "drawing.png",
+      analysisType,
+      analysisQuality,
+      drawingType: drawingType as any,
+      disclaimerAcknowledged: true,
+      disclaimerVersion,
     });
   };
+
+  // Guard function: shows confirmation dialog if no project is selected, otherwise
+  // fires immediately. Kept as runAiAnalysis so internal Re-run buttons still work.
+  const runAiAnalysis = async () => {
+    if (!drawingImage) return;
+    if (!disclaimerAcknowledged) {
+      toast.error("You must acknowledge the disclaimer before running analysis.");
+      return;
+    }
+    if (selectedProjectId === 0) {
+      setShowNoProjectWarning(true);
+      return;
+    }
+    await triggerAnalysis();
+  };
+
+  const handleAnalyzeClick = () => { runAiAnalysis(); };
 
   // Apply AI results to annotations
   const applyAiResults = () => {
@@ -513,6 +1027,110 @@ export function DrawingAnalysis() {
       });
     }
 
+    // ===== ROOM OVERLAY LAYER =====
+    if (showRoomOverlay && detectedRoomsData?.length) {
+      // Compute scale factor: Claude Vision may process images at a lower internal
+      // resolution. If we stored the analyzed dimensions (widthPx/heightPx) and the
+      // canvas image has different natural dimensions, scale bounding boxes accordingly.
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const scaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const scaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      for (const room of detectedRoomsData) {
+        const geometry = room.boundingBox;
+        if (!geometry) continue;
+
+        const screenX = geometry.x * scaleX * zoom + pan.x;
+        const screenY = geometry.y * scaleY * zoom + pan.y;
+        const screenW = geometry.width * scaleX * zoom;
+        const screenH = geometry.height * scaleY * zoom;
+
+        const group = room.occupancyGroup ?? 'D';
+        const colors = ROOM_OVERLAY_COLORS.occupancy[group as keyof typeof ROOM_OVERLAY_COLORS.occupancy]
+          ?? { fill: 'rgba(100,100,100,0.2)', stroke: 'rgba(100,100,100,0.6)' };
+
+        const hasFailure = room.compliance?.some((c: any) => c.status === 'fail');
+        const hasWarning = room.compliance?.some((c: any) => c.status === 'warning');
+        const statusBorder = hasFailure ? ROOM_OVERLAY_COLORS.status.fail
+          : hasWarning ? ROOM_OVERLAY_COLORS.status.warning
+          : colors.stroke;
+
+        ctx.fillStyle = colors.fill;
+        ctx.fillRect(screenX, screenY, screenW, screenH);
+        if (room.flaggedForReview) {
+          ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
+          ctx.fillRect(screenX, screenY, screenW, screenH);
+        }
+
+        ctx.strokeStyle = statusBorder;
+        ctx.lineWidth = hasFailure ? 2.5 : 1.5;
+        ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+        ctx.strokeRect(screenX, screenY, screenW, screenH);
+        ctx.setLineDash([]);
+
+        if (screenW > 40 && screenH > 20) {
+          const fontSize = Math.max(9, Math.min(13, screenW / 8));
+          ctx.font = `${fontSize}px Inter, sans-serif`;
+          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          const label = room.roomLabel ?? 'Unknown';
+          const shortLabel = label.length > 18 ? label.substring(0, 16) + '…' : label;
+          ctx.fillText(shortLabel, screenX + screenW / 2, screenY + screenH / 2 - fontSize / 2);
+
+          ctx.font = `bold ${fontSize - 1}px Inter, sans-serif`;
+          ctx.fillStyle = colors.stroke;
+          const badge = `Group ${group}${room.occupancyDivision ? '-' + room.occupancyDivision : ''}`;
+          ctx.fillText(badge, screenX + screenW / 2, screenY + screenH / 2 + fontSize / 2 + 2);
+        }
+
+        if (room.flaggedForReview) {
+          ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flagged;
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText('⚠', screenX + 4, screenY + 4);
+        }
+      }
+    }
+    // ===== END ROOM OVERLAY LAYER =====
+
+    // ===== WINDOW MEASUREMENT LAYER =====
+    if (measuredWindows.length > 0) {
+      for (const win of measuredWindows) {
+        const sx = win.position.x * zoom + pan.x;
+        const sy = win.position.y * zoom + pan.y;
+        const sw = win.pixelWidth * zoom;
+
+        ctx.save();
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + sw, sy);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6);
+        ctx.moveTo(sx + sw, sy - 6); ctx.lineTo(sx + sw, sy + 6);
+        ctx.stroke();
+
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${win.widthMm}×${win.heightMm}mm (${win.face})`, sx + sw / 2, sy - 10);
+        ctx.restore();
+      }
+    }
+    // ===== END WINDOW MEASUREMENT LAYER =====
+
     // Draw current drawing in progress
     if (isDrawing && currentPoints.length > 0) {
       ctx.save();
@@ -564,7 +1182,7 @@ export function DrawingAnalysis() {
     // Draw drag preview line (for calibration or dimension)
     if (isDraggingDimension && dragStartPoint && dragCurrentPoint) {
       ctx.save();
-      ctx.strokeStyle = isCalibrating ? "#10B981" : "#3B82F6";
+      ctx.strokeStyle = isCalibrating ? "#10B981" : windowMeasureMode ? "#7c3aed" : "#3B82F6";
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -599,7 +1217,7 @@ export function DrawingAnalysis() {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -1458,7 +2076,32 @@ export function DrawingAnalysis() {
       return;
     }
 
-    if (isDraggingDimension && dragStartPoint) {
+    if (windowMeasureMode && isDraggingDimension && dragStartPoint) {
+      const pixelDistance = Math.sqrt(
+        Math.pow(x - dragStartPoint.x, 2) +
+        Math.pow(y - dragStartPoint.y, 2)
+      );
+
+      if (pixelDistance > 5 && pixelsPerDrawingUnit > 0) {
+        const drawingUnits = pixelDistance / pixelsPerDrawingUnit;
+        let widthMm: number;
+        if (scaleSystem === 'imperial') {
+          const realInches = drawingUnits * selectedScale.ratio;
+          widthMm = Math.round(realInches * 25.4);
+        } else {
+          widthMm = Math.round(drawingUnits * selectedScale.ratio);
+        }
+        setPendingWindowMeasure({
+          widthMm,
+          position: { x: dragStartPoint.x, y: dragStartPoint.y },
+          pixelWidth: pixelDistance,
+        });
+        setWindowMeasureMode(false);
+      }
+      setIsDraggingDimension(false);
+      setDragStartPoint(null);
+      setDragCurrentPoint(null);
+    } else if (isDraggingDimension && dragStartPoint) {
       const endPoint = { x, y };
       const pixelDistance = Math.sqrt(
         Math.pow(endPoint.x - dragStartPoint.x, 2) +
@@ -1508,10 +2151,44 @@ export function DrawingAnalysis() {
     }
   };
 
+  // Canvas vertical resize drag
+  const startCanvasResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    canvasResizeStartRef.current = { y: e.clientY, h: canvasHeight };
+    const onMove = (ev: MouseEvent) => {
+      if (!canvasResizeStartRef.current) return;
+      const delta = ev.clientY - canvasResizeStartRef.current.y;
+      setCanvasHeight(h => Math.min(900, Math.max(300, canvasResizeStartRef.current!.h + delta)));
+    };
+    const onUp = () => {
+      canvasResizeStartRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  // WWR panel vertical resize drag
+  const startWwrPanelResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    wwrPanelResizeRef.current = { y: e.clientY, h: wwrPanelHeight };
+    const onMove = (ev: MouseEvent) => {
+      if (!wwrPanelResizeRef.current) return;
+      const delta = ev.clientY - wwrPanelResizeRef.current.y;
+      setWwrPanelHeight(Math.min(900, Math.max(200, wwrPanelResizeRef.current.h + delta)));
+    };
+    const onUp = () => {
+      wwrPanelResizeRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   // Handle mouse wheel for zoom (centered on cursor)
   const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1874,7 +2551,7 @@ export function DrawingAnalysis() {
   // Run compliance check
   const runComplianceCheck = () => {
     if (!selectedZone) {
-      alert("Please select a zone to check compliance against.");
+      toast.error("Please select a zone to check compliance against.");
       return;
     }
 
@@ -1978,76 +2655,133 @@ export function DrawingAnalysis() {
     setShowCompliancePanel(true);
   };
 
-  // Export compliance report
+  // Export compliance report as PDF
   const exportComplianceReport = () => {
-    const zone = availableZones.find(z => z.zoneCode === selectedZone);
-    
-    let report = `DRAWING COMPLIANCE REPORT\n`;
-    report += `========================\n\n`;
-    report += `File: ${fileName}\n`;
-    report += `Municipality: ${municipalityData?.name || "N/A"}\n`;
-    report += `Zone: ${zone?.zoneName || "N/A"} (${selectedZone})\n`;
-    report += `Date: ${new Date().toLocaleDateString()}\n\n`;
-    report += `COMPLIANCE RESULTS\n`;
-    report += `------------------\n\n`;
+    if (!complianceLevel && ruleEvaluations.length === 0 && pdIssues.length === 0) {
+      toast.error("Run an analysis first before exporting.");
+      return;
+    }
+    try {
+    const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
+    const maxY = contentHeight(doc);
+    const today = new Date().toLocaleDateString("en-CA");
+    const reportTitle = "Drawing Compliance Report";
 
-    complianceResults.forEach(result => {
-      const statusIcon = result.status === "pass" ? "✓" : result.status === "fail" ? "✗" : "?";
-      report += `${statusIcon} ${result.rule}\n`;
-      report += `  Required: ${result.required}\n`;
-      report += `  Actual: ${result.actual}\n`;
-      report += `  Status: ${result.status.toUpperCase()}\n`;
-      if (result.nbcReference) {
-        report += `  Reference: ${result.nbcReference}\n`;
-      }
-      report += `\n`;
+    let y = drawHeader(doc, reportTitle, today, analysisId ?? "Drawing Analysis");
+
+    if (complianceLevel) {
+      y = drawStatusBanner(
+        doc,
+        complianceLevel,
+        complianceScore !== null
+          ? `Score: ${complianceScore} / 100  \xB7  ${complianceLevel.toUpperCase()}`
+          : complianceLevel.toUpperCase(),
+        y
+      );
+    }
+
+    // Summary
+    y = drawSectionBar(doc, "Summary", y);
+    autoTable(doc, {
+      startY: y,
+      head: [["Field", "Value"]],
+      body: [
+        ["Drawing Type",     aiResults?.drawingType ?? "—"],
+        ["Analysis Status",  analysisStatus ?? "—"],
+        ["Compliance Level", complianceLevel ?? "—"],
+        ["Compliance Score", complianceScore !== null ? `${complianceScore} / 100` : "—"],
+        ["File",             fileName || "—"],
+        ["Analysis ID",      analysisId ?? "—"],
+      ],
+      ...TABLE_STYLES,
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+      margin: { left: 14, right: 14 },
     });
+    y = (doc as any).lastAutoTable.finalY + 8;
 
-    report += `\nANNOTATIONS SUMMARY\n`;
-    report += `-------------------\n\n`;
-    
-    annotations.forEach(annotation => {
-      if (annotation.type === "dimension") {
-        report += `Dimension (${annotation.category}): ${annotation.value.toFixed(2)}m\n`;
-      } else if (annotation.type === "area") {
-        report += `Area (${annotation.category}): ${annotation.value.toFixed(2)} m²\n`;
-      } else if (annotation.type === "label") {
-        report += `Label: ${annotation.text}\n`;
-      }
-    });
+    // Rule Evaluations
+    if (ruleEvaluations.length > 0) {
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      y = drawSectionBar(doc, "Rule Evaluations", y);
+      autoTable(doc, {
+        startY: y,
+        head: [["Rule ID", "Clause", "Result", "Description"]],
+        body: ruleEvaluations.map(r => [r.ruleId, r.clause, r.result, r.description]),
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, fontSize: 8, overflow: "linebreak" },
+        columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 22 }, 2: { cellWidth: 22, halign: "center", fontStyle: "bold" } },
+        didParseCell: (data) => {
+          if (data.column.index === 2 && data.section === "body") {
+            const val = String(data.cell.raw);
+            data.cell.styles.textColor = val === "PASS" ? C.green : val === "FAIL" ? C.red : C.amber;
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
 
-    report += `\n\nDISCLAIMER\n`;
-    report += `----------\n`;
-    report += `This report is generated based on manual annotations and should be verified by a qualified professional.\n`;
-    report += `Always consult the official municipal bylaws and building codes for authoritative requirements.\n`;
+    // Issues
+    if (pdIssues.length > 0) {
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      y = drawSectionBar(doc, "Issues", y);
+      autoTable(doc, {
+        startY: y,
+        head: [["Severity", "Clause", "Category", "Description", "Recommendation"]],
+        body: pdIssues.map(i => [i.severity, i.clause, i.category, i.description, i.recommendation]),
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, fontSize: 8, overflow: "linebreak" },
+        columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 18 }, 2: { cellWidth: 25 } },
+        didParseCell: (data) => {
+          if (data.column.index === 0 && data.section === "body") {
+            const val = String(data.cell.raw).toLowerCase();
+            data.cell.styles.textColor = val === "critical" ? C.red : val === "warning" ? C.amber : C.textMuted;
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
 
-    const blob = new Blob([report], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `compliance-report-${fileName.replace(/\.[^/.]+$/, "")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    // Recommendations
+    if (pdRecommendations.length > 0) {
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      y = drawSectionBar(doc, "Recommendations", y);
+      autoTable(doc, {
+        startY: y,
+        head: [["#", "Recommendation"]],
+        body: pdRecommendations.map((r, i) => [String(i + 1), typeof r === "string" ? r : JSON.stringify(r)]),
+        ...TABLE_STYLES,
+        styles: { ...TABLE_STYLES.styles, overflow: "linebreak" },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { overflow: "linebreak" } },
+        margin: { left: 14, right: 14 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
 
-  const handleWwrResizeMouseDown = (e: React.MouseEvent) => {
-    isResizingWwr.current = true;
-    wwrResizeStartY.current = e.clientY;
-    wwrResizeStartHeight.current = wwrPanelHeight;
-    e.preventDefault();
+    // Disclaimer section
+    if (y > maxY - 30) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+    y = drawSectionBar(doc, "Legal Disclaimer", y);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...C.textMuted);
+    doc.text(
+      "This report is generated by CodeComply and must be reviewed by a licensed professional before use in " +
+      "construction or permit applications. AI analysis is provided for informational purposes only and does not " +
+      "constitute professional engineering advice.",
+      14, y, { maxWidth: pw - 28 }
+    );
 
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!isResizingWwr.current) return;
-      const delta = ev.clientY - wwrResizeStartY.current;
-      setWwrPanelHeight(Math.max(200, wwrResizeStartHeight.current + delta));
-    };
-    const onMouseUp = () => {
-      isResizingWwr.current = false;
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    drawFooters(doc, "CodeComply \xB7 Drawing Analyzer PD2.0 \xB7 NBC(AE) 2023", analysisId ?? "");
+
+    const safeName = (fileName || "drawing").replace(/\.[^/.]+$/, "");
+    const idStr = analysisId ? `-${analysisId}` : "";
+    doc.save(`drawing-analysis${idStr}-${safeName}.pdf`);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("PDF export failed: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   // Load image when drawing changes
@@ -2114,8 +2848,32 @@ export function DrawingAnalysis() {
     return () => window.removeEventListener("resize", handleResize);
   }, [drawCanvas]);
 
-  // Show mobile-only message if on mobile device
-  if (isMobile) {
+  // Sync canvas pixel buffer when user drags the resize handle.
+  // Only updates canvas dimensions — never resets zoom or pan.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas && containerRef.current) {
+      canvas.width = containerRef.current.clientWidth;
+      canvas.height = containerRef.current.clientHeight;
+      drawCanvas();
+    }
+  }, [canvasHeight, drawCanvas]);
+
+  // Register wheel and touch events directly with { passive: false } so that
+  // e.preventDefault() inside the handlers is allowed by the browser.
+  // React 17+ attaches synthetic events at the root with passive:true, so any
+  // preventDefault() call inside onWheel/onTouch* silently fails and generates
+  // "Unable to preventDefault inside passive event listener" console errors.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const preventWheel = (e: WheelEvent) => e.preventDefault();
+    canvas.addEventListener('wheel', preventWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', preventWheel);
+  }, []);
+
+  // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
+  if (!disclaimerAcknowledged) {
     return (
       <div className="space-y-4">
         <Card>
@@ -2129,29 +2887,12 @@ export function DrawingAnalysis() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-3">Desktop Only Feature</h3>
-              <p className="text-muted-foreground max-w-md mb-6">
-                The Drawing Analysis tool requires a larger screen and precise mouse control for accurate annotations. 
-                Please access this feature from a desktop or laptop computer for the best experience.
-              </p>
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 max-w-md">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What you can do on desktop:</h4>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 text-left space-y-1">
-                  <li>• Upload and analyze architectural drawings</li>
-                  <li>• Add dimension annotations with calibration</li>
-                  <li>• Draw freehand sketches and shapes</li>
-                  <li>• Use AI to extract measurements automatically</li>
-                  <li>• Check compliance against municipal bylaws</li>
-                  <li>• Export annotated drawings and reports</li>
-                </ul>
-              </div>
-            </div>
+            <DisclaimerGate
+              onAcknowledged={(version) => {
+                setDisclaimerAcknowledged(true);
+                setDisclaimerVersion(version);
+              }}
+            />
           </CardContent>
         </Card>
       </div>
@@ -2174,109 +2915,116 @@ export function DrawingAnalysis() {
           {!drawingImage ? (
             // Upload area
             <div className="space-y-6">
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Drag and drop or click to upload PDF or image files
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Supported formats: PDF, PNG, JPG, JPEG
-                </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-              </div>
-              
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-sm text-muted-foreground">or</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
-              
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Take Photo</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Use your device camera to capture a drawing
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  AI will automatically extract dimensions and measurements
-                </p>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture}
-                />
-              </div>
-              
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px bg-border flex-1" />
-                <span className="text-sm text-muted-foreground">or</span>
-                <div className="h-px bg-border flex-1" />
-              </div>
+              {disclaimerAcknowledged ? (
+                <>
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Drag and drop or click to upload PDF or image files
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supported formats: PDF, PNG, JPG, JPEG
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </div>
 
-              <div 
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
-                onClick={() => {
-                  // Create a blank canvas for drawing
-                  const canvas = document.createElement('canvas');
-                  canvas.width = 1200;
-                  canvas.height = 900;
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    // White background with grid
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Draw light grid
-                    ctx.strokeStyle = '#E5E7EB';
-                    ctx.lineWidth = 1;
-                    const gridSize = 50;
-                    for (let x = 0; x <= canvas.width; x += gridSize) {
-                      ctx.beginPath();
-                      ctx.moveTo(x, 0);
-                      ctx.lineTo(x, canvas.height);
-                      ctx.stroke();
-                    }
-                    for (let y = 0; y <= canvas.height; y += gridSize) {
-                      ctx.beginPath();
-                      ctx.moveTo(0, y);
-                      ctx.lineTo(canvas.width, y);
-                      ctx.stroke();
-                    }
-                  }
-                  setDrawingImage(canvas.toDataURL('image/png'));
-                  setFileName('New Drawing');
-                  setIsDrawMode(true);
-                  setIsCanvasLocked(true); // Lock canvas for mobile drawing
-                  setDrawingStrokes([]);
-                  setDrawingHistory([[]]);
-                  setHistoryIndex(0);
-                }}
-              >
-                <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Create a new floor plan or sketch from scratch
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Use drawing tools to sketch walls, rooms, and features
-                </p>
-              </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Take Photo</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Use your device camera to capture a drawing
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      AI will automatically extract dimensions and measurements
+                    </p>
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleCameraCapture}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
+                    onClick={() => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = 1200;
+                      canvas.height = 900;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.strokeStyle = '#E5E7EB';
+                        ctx.lineWidth = 1;
+                        const gridSize = 50;
+                        for (let x = 0; x <= canvas.width; x += gridSize) {
+                          ctx.beginPath();
+                          ctx.moveTo(x, 0);
+                          ctx.lineTo(x, canvas.height);
+                          ctx.stroke();
+                        }
+                        for (let y = 0; y <= canvas.height; y += gridSize) {
+                          ctx.beginPath();
+                          ctx.moveTo(0, y);
+                          ctx.lineTo(canvas.width, y);
+                          ctx.stroke();
+                        }
+                      }
+                      setDrawingImage(canvas.toDataURL('image/png'));
+                      setFileName('New Drawing');
+                      setIsDrawMode(true);
+                      setIsCanvasLocked(true);
+                      setDrawingStrokes([]);
+                      setDrawingHistory([[]]);
+                      setHistoryIndex(0);
+                    }}
+                  >
+                    <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create a new floor plan or sketch from scratch
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Use drawing tools to sketch walls, rooms, and features
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg opacity-60">
+                  <Lock className="w-8 h-8 text-gray-400 mb-3" />
+                  <p className="text-sm text-gray-500 text-center">
+                    Please accept the disclaimer below to access drawing analysis
+                  </p>
+                </div>
+              )}
               
               <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary mt-0.5" />
@@ -2403,6 +3151,17 @@ export function DrawingAnalysis() {
                   >
                     {showAnnotations ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </Button>
+                  <button
+                    onClick={() => setShowRoomOverlay(!showRoomOverlay)}
+                    className={`p-1.5 rounded transition-colors ${
+                      showRoomOverlay
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={showRoomOverlay ? 'Hide room overlays' : 'Show room overlays'}
+                  >
+                    <Layers className={`w-4 h-4 ${showRoomOverlay ? '' : 'opacity-40'}`} />
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -2597,23 +3356,98 @@ export function DrawingAnalysis() {
                     <Ruler className="w-4 h-4 mr-1" />
                     {pixelsPerDrawingUnit > 0 ? "Recalibrate" : "Calibrate"}
                   </Button>
+                  <button
+                    onClick={() => {
+                      if (pixelsPerDrawingUnit === 0) {
+                        toast.warning('Please calibrate the drawing scale first before measuring windows.');
+                        return;
+                      }
+                      setWindowMeasureMode(!windowMeasureMode);
+                      setIsCalibrating(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                      windowMeasureMode
+                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                        : pixelsPerDrawingUnit > 0
+                          ? 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                          : 'bg-white text-slate-300 border border-slate-200 cursor-not-allowed'
+                    }`}
+                    title={pixelsPerDrawingUnit === 0 ? 'Calibrate scale first' : 'Measure window widths for WWR calculation'}
+                    disabled={pixelsPerDrawingUnit === 0}
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    {windowMeasureMode ? 'Cancel Window' : 'Measure Window'}
+                  </button>
+                </div>
+
+                {/* Project Selector */}
+                <div className="relative flex items-center gap-1 border-r border-border pr-2" data-project-selector>
+                  <button
+                    className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 min-w-[110px] max-w-[160px]"
+                    onClick={() => setShowProjectSelector(v => !v)}
+                    title="Select project to tie this scan to"
+                  >
+                    <Folder className="w-3.5 h-3.5 flex-shrink-0 text-purple-500" />
+                    <span className="truncate flex-1 text-left">
+                      {selectedProjectId > 0
+                        ? (projectListQuery.data?.find(p => p.id === selectedProjectId)?.name ?? `Project ${selectedProjectId}`)
+                        : 'Select project'}
+                    </span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                  </button>
+                  {showProjectSelector && (
+                    <div className="absolute top-full left-0 mt-1 z-50 w-64 bg-white dark:bg-slate-900 border border-border rounded-lg shadow-lg overflow-hidden" data-project-selector>
+                      <div className="p-2 border-b border-border">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <FileSearch className="w-3.5 h-3.5" />
+                          <span>Tie scan to project</span>
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {projectListQuery.isLoading ? (
+                          <div className="p-3 text-xs text-muted-foreground text-center">Loading projects…</div>
+                        ) : !projectListQuery.data || projectListQuery.data.length === 0 ? (
+                          <div className="p-3 text-xs text-muted-foreground text-center">No projects found. Create a project first.</div>
+                        ) : (
+                          projectListQuery.data.map(project => (
+                            <button
+                              key={project.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                              onClick={() => { setSelectedProjectId(project.id); setShowProjectSelector(false); }}
+                            >
+                              <FolderOpen className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{project.name}</div>
+                                {project.projectCode && (
+                                  <div className="text-muted-foreground truncate">{project.projectCode}</div>
+                                )}
+                              </div>
+                              {selectedProjectId === project.id && (
+                                <Check className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={runAiAnalysis}
-                    disabled={isAnalyzing}
+                    onClick={handleAnalyzeClick}
+                    disabled={isAnalyzing || !disclaimerAcknowledged || (pdfPages.length > 0 && selectedPages.length === 0)}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                    title="AI Analyze Drawing"
+                    title={!disclaimerAcknowledged ? "Please accept disclaimer first" : pdfPages.length > 0 && selectedPages.length === 0 ? "Select at least one page to analyze" : "AI Analyze Drawing"}
                   >
                     {isAnalyzing ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                     ) : (
                       <Sparkles className="w-4 h-4 mr-1" />
                     )}
-                    {isAnalyzing ? "Analyzing..." : "AI Analyze"}
+                    {isAnalyzing ? (analyzeProgress || "Analyzing...") : "AI Analyze"}
                   </Button>
                 </div>
 
@@ -2639,6 +3473,10 @@ export function DrawingAnalysis() {
                       setDrawingHistory([[]]);
                       setHistoryIndex(0);
                       setIsDrawMode(false);
+                      setPdfPages([]);
+                      setSelectedPages([]);
+                      setTotalPages(0);
+                      setCurrentPreviewPage(1);
                     }}
                   >
                     <RotateCcw className="w-4 h-4 mr-1" />
@@ -2774,37 +3612,498 @@ export function DrawingAnalysis() {
                 </div>
               )}
 
-              {/* Canvas and side panel */}
-              <div
-                className="grid gap-4"
-                style={{ gridTemplateColumns: "3fr 2fr" }}
-              >
-                {/* Canvas — col-span-3 equivalent (left) */}
-                <div
-                  ref={containerRef}
-                  className="border border-border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 overflow-y-auto"
-                  style={{ height: `${wwrPanelHeight}px` }}
-                >
-                  <canvas
-                    ref={canvasRef}
-                    className={`w-full h-full cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
-                    onMouseDown={handleCanvasMouseDown}
-                    onMouseMove={handleCanvasMouseMove}
-                    onMouseUp={handleCanvasMouseUp}
-                    onMouseLeave={handleCanvasMouseUp}
-                    onWheel={handleCanvasWheel}
-                    onTouchStart={handleCanvasTouchStart}
-                    onTouchMove={handleCanvasTouchMove}
-                    onTouchEnd={handleCanvasTouchEnd}
-                    onContextMenu={(e) => e.preventDefault()}
+              {/* Part 4: Window height + face input after width is dragged */}
+              {pendingWindowMeasure && (
+                <div className="flex items-center gap-3 p-2 bg-purple-50 dark:bg-purple-950 rounded-lg border border-purple-200">
+                  <Square className="w-4 h-4 text-purple-600" />
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-purple-700">Window measured:</span>
+                    <span className="font-bold">{pendingWindowMeasure.widthMm}mm wide</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">Height:</span>
+                  <Input
+                    type="number"
+                    value={windowHeightInput}
+                    onChange={(e) => setWindowHeightInput(e.target.value)}
+                    placeholder="1200"
+                    className="w-20 h-8 text-sm"
                   />
+                  <span className="text-xs text-muted-foreground">mm</span>
+                  <span className="text-sm text-muted-foreground">Face:</span>
+                  <select
+                    value={windowFaceInput}
+                    onChange={(e) => setWindowFaceInput(e.target.value as 'N' | 'S' | 'E' | 'W' | 'unknown')}
+                    className="h-8 text-xs border rounded px-2"
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="N">North</option>
+                    <option value="S">South</option>
+                    <option value="E">East</option>
+                    <option value="W">West</option>
+                  </select>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const heightMm = parseFloat(windowHeightInput);
+                      if (heightMm > 0 && pendingWindowMeasure) {
+                        const areaM2 = Math.round(
+                          (pendingWindowMeasure.widthMm / 1000) * (heightMm / 1000) * 100
+                        ) / 100;
+                        setMeasuredWindows(prev => [...prev, {
+                          id: `win-${Date.now()}`,
+                          face: windowFaceInput,
+                          widthMm: pendingWindowMeasure.widthMm,
+                          heightMm: Math.round(heightMm),
+                          areaM2,
+                          position: pendingWindowMeasure.position,
+                          pixelWidth: pendingWindowMeasure.pixelWidth,
+                        }]);
+                        setPendingWindowMeasure(null);
+                      }
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Add Window
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPendingWindowMeasure(null)}>
+                    Discard
+                  </Button>
+                </div>
+              )}
+
+              {/* WWR Summary panel — multi-storey + Step Code */}
+              {measuredWindows.length > 0 && (
+                <div className="p-3 bg-slate-50 border rounded-lg">
+                  <div className="grid grid-cols-5 gap-4">
+
+                    {/* LEFT — measurements (col-span-3) */}
+                    <div className="col-span-3 space-y-2 overflow-y-auto" style={{ maxHeight: wwrPanelHeight }}>
+
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700">
+                          Window Inventory ({measuredWindows.length} window{measuredWindows.length !== 1 ? 's' : ''})
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-6"
+                          onClick={() => { setMeasuredWindows([]); setWallLengthInputs({}); setWallAreaInputs({}); }}
+                        >
+                          Clear all
+                        </Button>
+                      </div>
+
+                      {/* Window inventory table */}
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b">
+                            <th className="text-left pb-1">Face</th>
+                            <th className="text-right pb-1">Width</th>
+                            <th className="text-right pb-1">Height</th>
+                            <th className="text-right pb-1">Area</th>
+                            <th className="text-right pb-1"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {measuredWindows.map((w) => (
+                            <tr key={w.id} className="border-b border-slate-100">
+                              <td className="py-1">
+                                <span className={`font-bold ${
+                                  w.face === 'S' ? 'text-amber-600' :
+                                  w.face === 'W' ? 'text-red-600' :
+                                  w.face === 'N' ? 'text-blue-600' :
+                                  w.face === 'E' ? 'text-green-600' :
+                                  'text-slate-400'
+                                }`}>{w.face}</span>
+                              </td>
+                              <td className="text-right py-1">{w.widthMm}mm</td>
+                              <td className="text-right py-1">{w.heightMm}mm</td>
+                              <td className="text-right py-1 font-medium">{w.areaM2}m²</td>
+                              <td className="text-right py-1">
+                                <button
+                                  onClick={() => setMeasuredWindows(prev => prev.filter(x => x.id !== w.id))}
+                                  className="text-red-400 hover:text-red-600 text-xs"
+                                >✕</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Building Configuration */}
+                      <div className="pt-2 pb-2 border-b border-slate-200 space-y-2">
+                        <p className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                          <Building className="w-3.5 h-3.5" />
+                          Building Configuration
+                        </p>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">Above-grade storeys:</label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={storeyCount}
+                              onChange={(e) => setStoreyCount(parseInt(e.target.value) || 1)}
+                              className="w-14 h-6 text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">Storey height:</label>
+                            <Input
+                              type="number"
+                              step={0.1}
+                              value={storeyHeightM}
+                              onChange={(e) => setStoreyHeightM(parseFloat(e.target.value) || 2.7)}
+                              className="w-16 h-6 text-xs"
+                            />
+                            <span className="text-xs text-muted-foreground">m</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-100">
+                          <input
+                            type="checkbox"
+                            id="floorMultiplier"
+                            checked={useFloorMultiplier}
+                            onChange={(e) => setUseFloorMultiplier(e.target.checked)}
+                            className="w-3.5 h-3.5"
+                          />
+                          <label htmlFor="floorMultiplier" className="text-xs text-blue-700 cursor-pointer">
+                            All floors have identical window layout — multiply current measurements × {storeyCount} storey{storeyCount !== 1 ? 's' : ''}
+                          </label>
+                        </div>
+                        {useFloorMultiplier && storeyCount > 1 && (
+                          <p className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                            ✓ Glazing totals multiplied by {storeyCount}×. Measure windows on ONE floor only.
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground italic">
+                          Measure windows on ALL floor plans before calculating WWR.
+                          Enter total gross wall area for all above-grade storeys combined.
+                        </p>
+                      </div>
+
+                      {/* Per-face glazing + wall length inputs */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-600">
+                          Glazing by Orientation — enter wall length for WWR:
+                        </p>
+                        {(['N', 'S', 'E', 'W'] as const).map(face => {
+                          const faceWindows = measuredWindows.filter(w => w.face === face);
+                          const totalGlazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
+                            * (useFloorMultiplier ? storeyCount : 1);
+                          if (faceWindows.length === 0) return null;
+                          const wallArea = wallAreaInputs[face] ?? 0;
+                          const wwr = wallArea > 0 ? Math.round(totalGlazing / wallArea * 1000) / 10 : null;
+                          return (
+                            <div key={face} className="space-y-0.5">
+                              <div className="flex items-center gap-2 text-xs flex-wrap">
+                                <span className={`font-bold w-4 ${
+                                  face === 'S' ? 'text-amber-600' :
+                                  face === 'W' ? 'text-red-600' :
+                                  face === 'N' ? 'text-blue-600' : 'text-green-600'
+                                }`}>{face}</span>
+                                <span>{faceWindows.length} win</span>
+                                <span className="font-medium">{Math.round(totalGlazing * 100) / 100}m² glazing</span>
+                                {/* Wall length → auto-compute gross wall area */}
+                                <div className="flex items-center gap-1 ml-auto">
+                                  <Input
+                                    type="number"
+                                    placeholder="wall m"
+                                    className="w-16 h-6 text-xs"
+                                    value={wallLengthInputs[face] ?? ''}
+                                    onChange={(e) => {
+                                      const len = parseFloat(e.target.value) || 0;
+                                      setWallLengthInputs(prev => ({ ...prev, [face]: len || undefined }));
+                                      const gross = Math.round(len * storeyHeightM * storeyCount * 100) / 100;
+                                      setWallAreaInputs(prev => ({ ...prev, [face]: gross || undefined }));
+                                    }}
+                                  />
+                                  <span className="text-xs text-muted-foreground">m ×</span>
+                                  <span className="text-xs font-medium text-slate-600">
+                                    {storeyHeightM}×{storeyCount}=
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-700">
+                                    {wallArea ? `${wallArea}m²` : '—'}
+                                  </span>
+                                </div>
+                                {wwr !== null && (
+                                  <span className={`font-bold text-xs px-1 rounded ${
+                                    wwr > 40 ? 'text-red-700 bg-red-50' :
+                                    wwr > 35 ? 'text-amber-700 bg-amber-50' :
+                                    'text-green-700 bg-green-50'
+                                  }`}>
+                                    WWR {wwr}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Total row */}
+                        <div className="flex items-center gap-2 text-xs pt-1 border-t">
+                          <span className="font-bold text-slate-600">TOTAL</span>
+                          <span className="font-medium">
+                            {Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0)
+                              * (useFloorMultiplier ? storeyCount : 1) * 100) / 100}m² total glazing
+                          </span>
+                          {useFloorMultiplier && storeyCount > 1 && (
+                            <span className="text-xs text-blue-600 ml-1">
+                              ({Math.round(measuredWindows.reduce((s, w) => s + w.areaM2, 0) * 100) / 100}m² × {storeyCount} floors)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vertical divider */}
+                    <div className="border-l border-slate-200" />
+
+                    {/* RIGHT — Step Code results (col-span-2) */}
+                    <div className="col-span-2 space-y-2 overflow-y-auto" style={{ maxHeight: wwrPanelHeight }}>
+                      {(['N', 'S', 'E', 'W'] as const).some(f => (wallAreaInputs[f] ?? 0) > 0) ? (
+                        <>
+                          <p className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            BC Energy Step Code — WWR Compliance
+                          </p>
+
+                          {[3, 4, 5].map(step => {
+                            const limit = step === 3 ? 40 : step === 4 ? 35 : 30;
+                            const ref = `BC Building Code 2024 Table 9.36.2.3.A — Step ${step}`;
+
+                            const faceResults = (['N', 'S', 'E', 'W'] as const).map(face => {
+                              const faceWindows = measuredWindows.filter(w => w.face === face);
+                              if (faceWindows.length === 0) return null;
+                              const wallArea = wallAreaInputs[face] ?? 0;
+                              if (wallArea === 0) return null;
+                              const glazing = faceWindows.reduce((s, w) => s + w.areaM2, 0)
+                                * (useFloorMultiplier ? storeyCount : 1);
+                              const wwr = (glazing / wallArea) * 100;
+                              const passes = wwr <= limit;
+                              const leeway = limit - wwr;
+                              const maxAdditionalGlazingM2 = passes
+                                ? Math.round((leeway / 100 * wallArea) * 100) / 100
+                                : null;
+                              const reductionNeededM2 = !passes
+                                ? Math.round((glazing - (limit / 100 * wallArea)) * 100) / 100
+                                : null;
+                              const utilizationPct = Math.round(wwr / limit * 100);
+                              return { face, wwr, passes, leeway, glazing, wallArea,
+                                maxAdditionalGlazingM2, reductionNeededM2, utilizationPct, limit };
+                            }).filter(Boolean) as NonNullable<{
+                              face: 'N'|'S'|'E'|'W'; wwr: number; passes: boolean; leeway: number;
+                              glazing: number; wallArea: number; maxAdditionalGlazingM2: number | null;
+                              reductionNeededM2: number | null; utilizationPct: number; limit: number;
+                            }>[];
+
+                            if (faceResults.length === 0) return null;
+                            const failingFaces = faceResults.filter(f => !f.passes);
+                            const passingFaces = faceResults.filter(f => f.passes);
+                            const allPass = failingFaces.length === 0;
+
+                            return (
+                              <div key={step} className={`rounded border p-2 space-y-1.5 ${
+                                allPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                              }`}>
+                                <div className="flex items-center justify-between flex-wrap gap-1">
+                                  <span className={`text-xs font-bold ${allPass ? 'text-green-700' : 'text-red-700'}`}>
+                                    Step {step} — {allPass ? '✅ PASS' : '❌ FAIL'}
+                                    <span className="font-normal text-muted-foreground ml-1">(max {limit}% WWR any face)</span>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground italic">{ref}</span>
+                                </div>
+
+                                {failingFaces.map(f => (
+                                  <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-red-100 space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`font-bold w-4 ${
+                                        f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
+                                        f.face==='E' ? 'text-green-700' : 'text-blue-600'
+                                      }`}>{f.face}</span>
+                                      <span className="font-bold text-red-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
+                                      <span className="text-red-600">exceeds {limit}% by {Math.round((f.wwr - limit) * 10) / 10}%</span>
+                                    </div>
+                                    <p className="text-slate-500 pl-5">
+                                      <span className="font-medium">Rule: </span>
+                                      {ref} — No single above-grade wall face shall exceed {limit}% WWR for Step {step}.
+                                    </p>
+                                    <p className="text-red-700 pl-5">
+                                      <span className="font-medium">To pass Step {step}: </span>
+                                      Reduce {f.face}-facing glazing by{' '}
+                                      <span className="font-bold">{f.reductionNeededM2}m²</span>
+                                      {' '}(from {Math.round(f.glazing * 100) / 100}m² to{' '}
+                                      {Math.round((f.glazing - f.reductionNeededM2!) * 100) / 100}m²).
+                                    </p>
+                                    <p className="text-slate-500 pl-5">
+                                      <span className="font-medium">Alternatives: </span>
+                                      Eliminate ~{Math.ceil(f.reductionNeededM2! / 1.5)} standard window(s) (~1.5m² each)
+                                      or add opaque wall area on the {f.face} face.
+                                    </p>
+                                  </div>
+                                ))}
+
+                                {passingFaces.map(f => (
+                                  <div key={f.face} className="text-xs bg-white rounded p-1.5 border border-green-100 space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`font-bold w-4 ${
+                                        f.face==='W' ? 'text-red-600' : f.face==='S' ? 'text-amber-600' :
+                                        f.face==='E' ? 'text-green-700' : 'text-blue-600'
+                                      }`}>{f.face}</span>
+                                      <span className="font-bold text-green-700">{Math.round(f.wwr * 10) / 10}% WWR</span>
+                                      <span className="text-green-600">✓ {Math.round(f.leeway * 10) / 10}% below Step {step} limit</span>
+                                      <div className="flex-1 max-w-20 bg-slate-200 rounded-full h-1.5">
+                                        <div
+                                          className={`h-1.5 rounded-full ${
+                                            f.utilizationPct > 85 ? 'bg-amber-400' :
+                                            f.utilizationPct > 60 ? 'bg-green-400' : 'bg-green-300'
+                                          }`}
+                                          style={{ width: `${Math.min(f.utilizationPct, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-muted-foreground">{f.utilizationPct}% of limit used</span>
+                                    </div>
+                                    <p className="text-green-700 pl-5">
+                                      <span className="font-medium">Leeway: </span>
+                                      Up to <span className="font-bold">{f.maxAdditionalGlazingM2}m²</span> additional
+                                      {f.face}-facing glazing still permitted.
+                                      {f.utilizationPct > 85 && (
+                                        <span className="text-amber-600 ml-1">⚠ Approaching limit — verify with energy model.</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+
+                          <p className="text-xs text-muted-foreground italic pt-1 border-t">
+                            Disclaimer: WWR calculated from measured glazing and entered wall dimensions.
+                            Window heights estimated unless elevation drawings used.
+                            Final Step Code compliance requires a HOT2000 energy model.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center text-xs text-muted-foreground py-8 space-y-2">
+                          <Zap className="w-6 h-6 text-slate-300" />
+                          <p>Enter wall lengths on the left to see Step Code compliance results.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* WWR panel resize handle */}
+                  <div
+                    className="mt-2 h-2 cursor-ns-resize bg-slate-100 hover:bg-purple-100 border-t border-slate-200 flex items-center justify-center transition-colors group rounded-b"
+                    onMouseDown={startWwrPanelResize}
+                  >
+                    <div className="w-8 h-0.5 bg-slate-300 group-hover:bg-purple-400 rounded-full" />
+                  </div>
+                </div>
+              )}
+
+              {/* PDF page thumbnail selector */}
+              {pdfPages.length > 0 && (
+                <div className="mt-2 p-3 border border-border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">
+                      Pages ({pdfPages.length}{totalPages > 20 ? ` of ${totalPages} — first 20 shown` : ''})
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedPages(pdfPages.map((_, i) => i + 1))}
+                        className="text-xs text-primary underline"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        onClick={() => setSelectedPages([])}
+                        className="text-xs text-muted-foreground underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {pdfPages.map((pageImg, idx) => {
+                      const pageNum = idx + 1;
+                      const isSelected = selectedPages.includes(pageNum);
+                      const isCurrent = currentPreviewPage === pageNum;
+                      return (
+                        <div
+                          key={idx}
+                          className={`relative flex-shrink-0 cursor-pointer border-2 rounded ${isCurrent ? 'border-primary' : 'border-transparent'}`}
+                          style={{ width: 80 }}
+                          onClick={() => {
+                            setDrawingImage(pageImg);
+                            setCurrentPreviewPage(pageNum);
+                          }}
+                        >
+                          <img src={pageImg} className="w-full rounded" alt={`Page ${pageNum}`} />
+                          <div className="absolute top-1 left-1">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedPages(prev =>
+                                  isSelected
+                                    ? prev.filter(p => p !== pageNum)
+                                    : [...prev, pageNum].sort((a, b) => a - b)
+                                );
+                              }}
+                            />
+                          </div>
+                          <div className="text-center text-xs mt-1 text-muted-foreground">p.{pageNum}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedPages.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedPages.length} page{selectedPages.length > 1 ? 's' : ''} selected for analysis: {selectedPages.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Canvas and side panel */}
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Canvas column — user-resizable */}
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div
+                    ref={containerRef}
+                    className="w-full border border-border rounded-t-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
+                    style={{ height: canvasHeight }}
+                  >
+                    <canvas
+                      ref={canvasRef}
+                      className={`w-full h-full cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onMouseLeave={handleCanvasMouseUp}
+                      onWheel={handleCanvasWheel}
+                      onTouchStart={handleCanvasTouchStart}
+                      onTouchMove={handleCanvasTouchMove}
+                      onTouchEnd={handleCanvasTouchEnd}
+                      onContextMenu={(e) => e.preventDefault()}
+                    />
+                  </div>
+                  {/* Drag handle — resize canvas height */}
+                  <div
+                    onMouseDown={startCanvasResize}
+                    className="h-2.5 rounded-b-lg border border-t-0 border-border bg-slate-100 hover:bg-purple-100 cursor-row-resize flex items-center justify-center group transition-colors select-none"
+                    title="Drag to resize canvas"
+                  >
+                    <div className="w-10 h-0.5 rounded-full bg-slate-300 group-hover:bg-purple-400 transition-colors" />
+                  </div>
                 </div>
 
-                {/* Side panel — col-span-2 equivalent (right), independently scrollable */}
-                <div
-                  className="space-y-4 overflow-y-auto"
-                  style={{ height: `${wwrPanelHeight}px` }}
-                >
+                {/* Side panel */}
+                <div className="w-full lg:w-80 space-y-4">
                   {/* Municipality/Zone selection */}
                   <Card>
                     <CardHeader className="py-3">
@@ -2844,14 +4143,63 @@ export function DrawingAnalysis() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button 
-                        className="w-full" 
+                      <Button
+                        className="w-full"
                         onClick={runComplianceCheck}
                         disabled={!selectedZone || annotations.length === 0}
                       >
                         <CheckCircle2 className="w-4 h-4 mr-2" />
                         Check Compliance
                       </Button>
+
+                      {/* Analysis Quality selector */}
+                      <div>
+                        <Label className="text-xs">Analysis Quality</Label>
+                        <div className="mt-1 space-y-1">
+                          {(
+                            [
+                              { value: "fast",     label: "Fast",     desc: "Quick overview — compressed images, faster results", time: "~10–15 sec" },
+                              { value: "standard", label: "Standard", desc: "Balanced — good for most floor plans",                time: "~20–30 sec" },
+                              { value: "detailed", label: "Detailed", desc: "Maximum detail — best for complex structural drawings", time: "~45–60 sec" },
+                            ] as const
+                          ).map(({ value, label, desc, time }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setAnalysisQuality(value)}
+                              className={`w-full text-left px-2 py-1.5 rounded border text-xs transition-colors ${
+                                analysisQuality === value
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "border-border hover:bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <span className="font-medium text-foreground">{label}</span>
+                              <span className="ml-1 text-[10px] text-muted-foreground">{time}</span>
+                              <br />
+                              <span className="text-[10px] leading-tight">{desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Drawing Type selector */}
+                      <div>
+                        <Label className="text-xs">Drawing Type</Label>
+                        <Select value={drawingType} onValueChange={setDrawingType}>
+                          <SelectTrigger className="h-8 text-xs mt-1">
+                            <SelectValue placeholder="Auto-detect" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto-detect</SelectItem>
+                            <SelectItem value="residential_multi_unit">Residential — Multi-Unit</SelectItem>
+                            <SelectItem value="residential_single_family">Residential — Single Family</SelectItem>
+                            <SelectItem value="commercial_office">Commercial — Office</SelectItem>
+                            <SelectItem value="institutional">Institutional</SelectItem>
+                            <SelectItem value="industrial">Industrial</SelectItem>
+                            <SelectItem value="mixed_use">Mixed Use</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -2917,99 +4265,81 @@ export function DrawingAnalysis() {
                     </CardContent>
                   </Card>
 
-                  {/* AI Analysis Results */}
-                  {showAiResults && aiResults && (
-                    <Card className="border-purple-200 dark:border-purple-800">
-                      <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+                  {/* Drawing Analysis History Panel (Phase 2) */}
+                  {projectId && drawingAnalysisHistory.length > 0 && (
+                    <Card className="border-blue-200 dark:border-blue-800">
+                      <CardHeader className="py-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 cursor-pointer" onClick={() => setShowHistoryPanel(!showHistoryPanel)}>
                         <CardTitle className="text-sm flex items-center justify-between">
                           <span className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-purple-600" />
-                            AI Analysis Results
+                            <FileText className="w-4 h-4 text-blue-600" />
+                            Analysis History ({drawingAnalysisHistory.length})
                           </span>
-                          <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
-                            <XCircle className="w-4 h-4" />
-                          </Button>
+                          <span className="text-xs text-muted-foreground">{showHistoryPanel ? "▼" : "▶"}</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="pt-3">
-                        <ScrollArea className="h-64">
-                          <div className="space-y-4">
-                            {/* Drawing Type */}
-                            <div className="p-2 rounded bg-muted">
-                              <div className="text-xs font-medium text-muted-foreground mb-1">Drawing Type</div>
-                              <Badge variant="outline">{aiResults.drawingType}</Badge>
-                              {aiResults.scale && (
-                                <Badge variant="outline" className="ml-2">Scale: {aiResults.scale}</Badge>
-                              )}
+                      {showHistoryPanel && (
+                        <CardContent className="pt-3">
+                          <ScrollArea className="h-48">
+                            <div className="space-y-2">
+                              {drawingAnalysisHistory.map((analysis: any) => {
+                                const resultData = analysis.resultData || {};
+                                const criticalCount = resultData.criticalCount || 0;
+                                const warningCount = resultData.warningCount || 0;
+                                const infoCount = resultData.infoCount || 0;
+                                return (
+                                  <div key={analysis.id} className="p-2 border border-border rounded hover:bg-muted cursor-pointer transition-colors">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium truncate">{analysis.inputData?.fileName || "Unknown"}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(analysis.createdAt).toLocaleDateString()}</p>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount} critical</Badge>}
+                                        {warningCount > 0 && <Badge variant="secondary" className="text-xs">{warningCount} warnings</Badge>}
+                                        {infoCount > 0 && <Badge variant="outline" className="text-xs">{infoCount} info</Badge>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            
-                            {/* Extracted Measurements */}
-                            {aiResults.measurements.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Extracted Measurements</div>
-                                <div className="space-y-1">
-                                  {aiResults.measurements.map((m, i) => (
-                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
-                                      <div>
-                                        <span className="font-medium">{m.label}</span>
-                                        <span className="text-muted-foreground ml-2">({m.category})</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">{m.value.toFixed(2)}m</Badge>
-                                        <Badge variant={m.confidence === "high" ? "default" : m.confidence === "medium" ? "secondary" : "outline"} className="text-[10px]">
-                                          {m.confidence}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Detected Rooms */}
-                            {aiResults.rooms.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Detected Rooms</div>
-                                <div className="space-y-1">
-                                  {aiResults.rooms.map((r, i) => (
-                                    <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
-                                      <span className="font-medium">{r.name}</span>
-                                      <Badge variant="secondary">{r.area.toFixed(1)}m²</Badge>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Notes */}
-                            {aiResults.notes.length > 0 && (
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-2">Notes</div>
-                                <ul className="text-xs text-muted-foreground space-y-1">
-                                  {aiResults.notes.map((note, i) => (
-                                    <li key={i} className="flex items-start gap-2">
-                                      <span className="text-primary">•</span>
-                                      {note}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            
-                            {/* Apply Button */}
-                            <Button 
-                              onClick={applyAiResults} 
-                              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Apply to Annotations
-                            </Button>
-                          </div>
-                        </ScrollArea>
-                      </CardContent>
+                          </ScrollArea>
+                        </CardContent>
+                      )}
                     </Card>
                   )}
 
+                  
+                  {/* Export to Compliance Report Button (Phase 2) */}
+                  {projectId && savedAnalysisId && analysisStatus === "VALID" && (
+                    <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Export to Compliance Report</p>
+                            <p className="text-xs text-muted-foreground mt-1">Save findings to project compliance snapshots</p>
+                          </div>
+                          <Button 
+                            onClick={handleExportToCompliance}
+                            disabled={exportToComplianceMutation.isPending}
+                            className="gap-2"
+                          >
+                            {exportToComplianceMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Exporting...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4" />
+                                Export Report
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                   {/* Compliance results */}
                   {showCompliancePanel && complianceResults.length > 0 && (
                     <Card>
@@ -3067,17 +4397,239 @@ export function DrawingAnalysis() {
                   )}
                 </div>
               </div>
-              {/* Resize handle */}
-              <div
-                className="h-2 mt-1 cursor-row-resize flex items-center justify-center group"
-                onMouseDown={handleWwrResizeMouseDown}
-              >
-                <div className="w-16 h-1 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
-              </div>
+
+              {/* No-rooms polling exhausted banner */}
+              {detectedRoomsData.length === 0 && roomPollCount >= 40 && analysisId !== null && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-t">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  No rooms detected — try re-running with a different drawing type selected
+                </div>
+              )}
+
+              {/* Room detection status + quality panel */}
+              {detectedRoomsData.length > 0 && (
+                <div className="border-t bg-muted/30 rounded-b-lg -mt-1 text-xs">
+                  {/* Basic count row */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                    <span>{detectedRoomsData.length} room(s) detected</span>
+                    {detectedRoomsData.filter((r: any) => r.flaggedForReview).length > 0 && (
+                      <span className="text-amber-600">
+                        · {detectedRoomsData.filter((r: any) => r.flaggedForReview).length} flagged for review
+                      </span>
+                    )}
+                    {!evalData && (
+                      <span className="ml-auto text-muted-foreground/60 italic">evaluating accuracy…</span>
+                    )}
+                  </div>
+
+                  {/* Quality panel — shown once eval data arrives */}
+                  {evalData && (() => {
+                    const pct = Math.round(evalData.accuracy * 100);
+                    const color = pct >= 90 ? 'text-green-600' : pct >= 70 ? 'text-amber-500' : 'text-red-500';
+                    const barColor = pct >= 90 ? 'bg-green-500' : pct >= 70 ? 'bg-amber-400' : 'bg-red-500';
+                    const lowAccuracy = pct < 80;
+                    return (
+                      <div className="px-3 pb-2.5 space-y-1.5 border-t border-dashed border-border/50 pt-2">
+                        {/* Accuracy bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground shrink-0">Detection quality</span>
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className={`font-semibold tabular-nums shrink-0 ${color}`}>{pct}%</span>
+                          <span className="text-muted-foreground shrink-0">{evalData.passingRooms}/{evalData.totalRooms} verified</span>
+                        </div>
+
+                        {/* Missed rooms */}
+                        {evalData.missedRooms.length > 0 && (
+                          <div className="text-amber-600">
+                            <span className="font-medium">Possibly missed: </span>
+                            {evalData.missedRooms.slice(0, 4).join(', ')}
+                            {evalData.missedRooms.length > 4 && ` +${evalData.missedRooms.length - 4} more`}
+                          </div>
+                        )}
+
+                        {/* Re-run suggestion */}
+                        {lowAccuracy && (
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <span className="text-muted-foreground">
+                              ⚠ Some rooms may be missing. Re-running may improve accuracy.
+                            </span>
+                            <button
+                              onClick={runAiAnalysis}
+                              disabled={isAnalyzing}
+                              className="shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              Re-run
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* AI Analysis Results — full width below canvas */}
+              {showAiResults && aiResults && (
+                <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
+                  <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        AI Analysis Results
+                        {selectedProjectId > 0 && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-normal">
+                            <Folder className="w-3 h-3" />
+                            {projectListQuery.data?.find(p => p.id === selectedProjectId)?.name ?? `Project ${selectedProjectId}`}
+                          </span>
+                        )}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => setShowAiResults(false)}>
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Drawing Type */}
+                      <div className="p-2 rounded bg-muted">
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Drawing Type</div>
+                        <Badge variant="outline">{aiResults.drawingType}</Badge>
+                        {aiResults.scale && (
+                          <Badge variant="outline" className="ml-2">Scale: {aiResults.scale}</Badge>
+                        )}
+                      </div>
+
+                      {/* Extracted Measurements */}
+                      {aiResults.measurements.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground mb-2">Extracted Measurements</div>
+                          <div className="space-y-1">
+                            {aiResults.measurements.map((m, i) => (
+                              <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">{m.label}</span>
+                                  <span className="text-muted-foreground ml-2">({m.category})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary">{m.value.toFixed(2)}m</Badge>
+                                  <Badge variant={m.confidence === "high" ? "default" : m.confidence === "medium" ? "secondary" : "outline"} className="text-[10px]">
+                                    {m.confidence}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Detected Rooms */}
+                      {aiResults.rooms.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground mb-2">Detected Rooms</div>
+                          <div className="space-y-1">
+                            {aiResults.rooms.map((r, i) => (
+                              <div key={i} className="p-2 rounded bg-muted text-xs flex items-center justify-between">
+                                <span className="font-medium">{r.name}</span>
+                                <Badge variant="secondary">{r.area.toFixed(1)}m²</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes — full width */}
+                    {aiResults.notes.length > 0 && (
+                      <div className="mt-4">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">Notes</div>
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-muted-foreground">
+                          {aiResults.notes.map((note, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="text-primary">•</span>
+                              {note}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={applyAiResults}
+                      className="mt-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Apply to Annotations
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* PD2.0 Professional Review Panel — full width below canvas */}
+              {analysisId !== null && analysisStatus !== null && (
+                <div className="mt-4">
+                  <ProfessionalReviewPanel
+                    analysisId={analysisId}
+                    analysisStatus={analysisStatus}
+                    complianceScore={complianceScore}
+                    complianceLevel={complianceLevel}
+                    ruleEvaluations={ruleEvaluations as any}
+                    issues={pdIssues}
+                    recommendations={pdRecommendations}
+                    onStatusChange={(newStatus) => setAnalysisStatus(newStatus)}
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* No-project confirmation dialog */}
+      <AlertDialog open={showNoProjectWarning} onOpenChange={setShowNoProjectWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-amber-500" />
+              No Project Selected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This analysis will not be linked to any project.
+                Results will be saved as a standalone scan and may
+                be harder to find later.
+              </p>
+              <p className="text-amber-600 font-medium">
+                We recommend linking analyses to a project for
+                organized compliance tracking and professional review.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowNoProjectWarning(false);
+                setShowProjectSelector(true);
+              }}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Select Project
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowNoProjectWarning(false);
+                triggerAnalysis();
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Continue Without Project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

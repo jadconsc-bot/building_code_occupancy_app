@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet, Ruler } from "lucide-react";
 import { PresetSelector } from "@/components/PresetSelector";
 import { exportBeamSpanToExcel } from "@/lib/excelExport";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 // NBC Table 9.23.4.3 - Beam Span Data
 // Maximum spans for beams supporting floors (1.9 kPa live load + 0.5 kPa dead load)
@@ -118,6 +119,7 @@ export function BeamSpanCalculator() {
   const [selectedGrade, setSelectedGrade] = useState("Select Structural");
   const [selectedSize, setSelectedSize] = useState("89 x 184 mm");
   const [selectedLoading, setSelectedLoading] = useState("One Floor");
+  const [savedSpan, setSavedSpan] = useState<{ maxSpan: number } | null>(null);
 
   const handleLoadPreset = (parameters: Record<string, string | number>) => {
     if (parameters.species) setSelectedSpecies(String(parameters.species));
@@ -163,6 +165,20 @@ export function BeamSpanCalculator() {
               }}
               onLoadPreset={handleLoadPreset}
             />
+            <Button
+              onClick={() => setSavedSpan({ maxSpan })}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              Calculate
+            </Button>
+            {savedSpan !== null && (
+              <SaveButton
+                calculatorType="beamSpan"
+                inputs={{ selectedSpecies, selectedGrade, selectedSize, selectedLoading }}
+                results={savedSpan}
+              />
+            )}
             <Button
               onClick={handleExport}
               variant="outline"

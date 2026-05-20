@@ -14,10 +14,6 @@ import {
 } from '@/components/ui/select';
 import { ChecklistStatusIcon, ChecklistStatus } from './ChecklistStatusIcon';
 import { ChecklistItemCompact } from './ChecklistItemWithStatus';
-import { Phase2ReportManager } from './Phase2ReportManager';
-import { Phase2ScenarioManager } from './Phase2ScenarioManager';
-import { Phase2BatchComparison } from './Phase2BatchComparison';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Search,
   Filter,
@@ -25,9 +21,6 @@ import {
   ChevronUp,
   Download,
   Trash2,
-  FileText,
-  GitBranch,
-  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,7 +41,6 @@ export function ProjectChecklistDashboard() {
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<string>('checklists');
 
   // Fetch projects list
   const { data: projects = [], isLoading } = trpc.projects.list.useQuery(
@@ -56,9 +48,22 @@ export function ProjectChecklistDashboard() {
     { enabled: !!activeProjectId }
   );
 
+  // Fetch checklist items from DB
+  const { data: checklistItems = [], isLoading: itemsLoading } =
+    trpc.projectsLegacy.checklistItems.list.useQuery(
+      { projectId: activeProjectId! },
+      { enabled: !!activeProjectId }
+    );
+
+  const utils = trpc.useUtils();
+  const toggleMutation = trpc.projectsLegacy.checklistItems.toggle.useMutation({
+    onSuccess: () => {
+      utils.projectsLegacy.checklistItems.list.invalidate({ projectId: activeProjectId! });
+    },
+  });
+
   // Get active project data
   const activeProject = projects.find(p => p.id === activeProjectId);
-  const checklistItems: any[] = [];
   const calculatorResults: any[] = [];
 
   // Filter and group checklist items
@@ -140,7 +145,14 @@ export function ProjectChecklistDashboard() {
     );
   }
 
-  // Render the main content with tabs
+  if (itemsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -190,161 +202,158 @@ export function ProjectChecklistDashboard() {
         </Card>
       </div>
 
-      {/* Tabs for different features */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="checklists" className="flex items-center gap-2">
-            <FileText size={16} />
-            <span className="hidden sm:inline">Checklists</span>
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText size={16} />
-            <span className="hidden sm:inline">Reports</span>
-          </TabsTrigger>
-          <TabsTrigger value="scenarios" className="flex items-center gap-2">
-            <GitBranch size={16} />
-            <span className="hidden sm:inline">Scenarios</span>
-          </TabsTrigger>
-          <TabsTrigger value="comparisons" className="flex items-center gap-2">
-            <BarChart3 size={16} />
-            <span className="hidden sm:inline">Comparisons</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items, phases, or notes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
 
-        {/* Checklists Tab */}
-        <TabsContent value="checklists" className="space-y-4">
-          {/* Filters */}
+            {/* Phase Filter */}
+            <Select value={selectedPhase} onValueChange={setSelectedPhase}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by phase..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Phases</SelectItem>
+                {phases.map((phase) => (
+                  <SelectItem key={phase} value={phase}>
+                    {phase.charAt(0).toUpperCase() + phase.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Status Filter */}
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by status..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Checklist Items by Phase */}
+      <div className="space-y-4">
+        {Object.entries(groupedByPhase).length === 0 ? (
           <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Search */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search items, phases, or notes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-
-                {/* Phase Filter */}
-                <Select value={selectedPhase} onValueChange={setSelectedPhase}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by phase..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Phases</SelectItem>
-                    {phases.map((phase) => (
-                      <SelectItem key={phase} value={phase}>
-                        {phase.charAt(0).toUpperCase() + phase.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Status Filter */}
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No checklist items found. {searchQuery && 'Try adjusting your search filters.'}
+              </p>
             </CardContent>
           </Card>
-
-          {/* Checklist Items by Phase */}
-          <div className="space-y-4">
-            {Object.entries(groupedByPhase).length === 0 ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No checklist items found. {searchQuery && 'Try adjusting your search filters.'}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              Object.entries(groupedByPhase).map(([phase, items]) => (
-                <Card key={phase}>
-                  <CardHeader
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => togglePhase(phase)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        {expandedPhases.has(phase) ? (
-                          <ChevronUp size={20} />
-                        ) : (
-                          <ChevronDown size={20} />
-                        )}
-                        <div>
-                          <CardTitle className="text-lg">
-                            {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase
-                          </CardTitle>
-                          <CardDescription>{items.length} items</CardDescription>
-                        </div>
-                      </div>
-                      <Badge variant="outline">{items.length}</Badge>
+        ) : (
+          Object.entries(groupedByPhase).map(([phase, items]) => (
+            <Card key={phase}>
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => togglePhase(phase)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    {expandedPhases.has(phase) ? (
+                      <ChevronUp size={20} />
+                    ) : (
+                      <ChevronDown size={20} />
+                    )}
+                    <div>
+                      <CardTitle className="text-lg">
+                        {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase
+                      </CardTitle>
+                      <CardDescription>{items.length} items</CardDescription>
                     </div>
-                  </CardHeader>
+                  </div>
+                  <Badge variant="outline">{items.length}</Badge>
+                </div>
+              </CardHeader>
 
-                  {expandedPhases.has(phase) && (
-                    <CardContent className="space-y-3 border-t pt-4">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg"
-                        >
-                          <ChecklistStatusIcon
-                            status={item.isCompleted === 1 ? 'pass' : 'pending'}
-                            size="md"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{item.itemText}</p>
-                            {item.notes && (
-                              <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-2">
-                              {new Date(item.updatedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toast('Delete functionality coming soon')}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                      ))}
-                    </CardContent>
-                  )}
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
+              {expandedPhases.has(phase) && (
+                <CardContent className="space-y-3 border-t pt-4">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg"
+                    >
+                      <button
+                        onClick={() => toggleMutation.mutate({
+                          id: item.id,
+                          projectId: activeProjectId,
+                          isCompleted: item.isCompleted !== 1,
+                        })}
+                        disabled={toggleMutation.isPending}
+                        className="cursor-pointer hover:opacity-70 transition-opacity mt-0.5"
+                      >
+                        <ChecklistStatusIcon
+                          status={item.isCompleted === 1 ? 'pass' : 'pending'}
+                          size="md"
+                        />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{item.itemText}</p>
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {new Date(item.updatedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              )}
+            </Card>
+          ))
+        )}
+      </div>
 
-        {/* Reports Tab */}
-        <TabsContent value="reports" className="space-y-4">
-          {activeProjectId && <Phase2ReportManager projectId={activeProjectId as number} />}
-        </TabsContent>
-
-        {/* Scenarios Tab */}
-        <TabsContent value="scenarios" className="space-y-4">
-          {activeProjectId && <Phase2ScenarioManager projectId={activeProjectId as number} />}
-        </TabsContent>
-
-        {/* Comparisons Tab */}
-        <TabsContent value="comparisons" className="space-y-4">
-          {activeProjectId && <Phase2BatchComparison projectId={activeProjectId as number} />}
-        </TabsContent>
-      </Tabs>
+      {/* Calculator Results Section */}
+      {calculatorResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Saved Calculator Results</CardTitle>
+            <CardDescription>{calculatorResults.length} calculations saved</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {calculatorResults.map((result, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">{result.calculatorType}</p>
+                    {result.notes && (
+                      <p className="text-xs text-muted-foreground">{result.notes}</p>
+                    )}
+                  </div>
+                  <Button size="sm" variant="ghost">
+                    <Download size={16} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

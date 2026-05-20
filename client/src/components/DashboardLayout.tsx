@@ -18,7 +18,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
@@ -65,18 +64,9 @@ export default function DashboardLayout({
               Sign in to continue
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+              Access to this dashboard requires authentication. Please log in.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Sign in
-          </Button>
         </div>
       </div>
     );

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, CheckCircle2, Download } from "lucide-react";
 import { exportEmergencyLightingToExcel } from "@/lib/excelExport";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 // NBC Part 3.2.7 - Emergency Lighting
 export function EmergencyLightingCalculator() {
@@ -312,7 +313,12 @@ export function EmergencyLightingCalculator() {
 
           {/* Export Button */}
           {result.required && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <SaveButton
+                calculatorType="emergencyLighting"
+                inputs={{ occupancy, floorArea, occupantLoad, buildingHeight }}
+                results={result}
+              />
               <Button
                 variant="outline"
                 size="sm"

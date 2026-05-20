@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit2, Trash2, Search, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
 
 export default function ClientsManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -216,7 +215,7 @@ export default function ClientsManagement() {
           notes: formData.notes || undefined,
         });
       } catch (error) {
-        toast.error('Failed to update client');
+        console.error('Error updating client:', error);
       }
     }
   };

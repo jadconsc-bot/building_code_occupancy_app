@@ -1,7 +1,7 @@
-import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
+import { useUser } from "@clerk/clerk-react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -9,13 +9,18 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  const { redirectOnUnauthenticated = false, redirectPath = "/" } =
     options ?? {};
+
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const utils = trpc.useUtils();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 5 * 60_000,
+    enabled: clerkLoaded && !!clerkUser,
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -42,38 +47,38 @@ export function useAuth(options?: UseAuthOptions) {
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
-    return {
-      user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
-    };
+    const user = meQuery.data ?? null;
+    const loading =
+      !clerkLoaded ||
+      !!(clerkUser && meQuery.isLoading) ||
+      logoutMutation.isPending;
+    const error = meQuery.error ?? logoutMutation.error ?? null;
+    const isAuthenticated = Boolean(clerkUser && user);
+    return { user, loading, error, isAuthenticated };
   }, [
+    clerkLoaded,
+    clerkUser,
     meQuery.data,
-    meQuery.error,
     meQuery.isLoading,
-    logoutMutation.error,
+    meQuery.error,
     logoutMutation.isPending,
+    logoutMutation.error,
   ]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
+    if (!clerkLoaded) return;
     if (meQuery.isLoading || logoutMutation.isPending) return;
-    if (state.user) return;
+    if (state.isAuthenticated) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
-
-    window.location.href = redirectPath
   }, [
     redirectOnUnauthenticated,
     redirectPath,
-    logoutMutation.isPending,
+    clerkLoaded,
     meQuery.isLoading,
-    state.user,
+    logoutMutation.isPending,
+    state.isAuthenticated,
   ]);
 
   return {

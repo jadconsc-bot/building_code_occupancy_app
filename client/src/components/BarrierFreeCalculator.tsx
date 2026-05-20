@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accessibility, CheckCircle2, Download } from "lucide-react";
 import { exportBarrierFreeToExcel } from "@/lib/excelExport";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 // NBC Part 3.8 - Barrier-Free Design Requirements
 export function BarrierFreeCalculator() {
@@ -230,7 +231,12 @@ export function BarrierFreeCalculator() {
 
           {/* Export Button */}
           {result.accessRequired && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <SaveButton
+                calculatorType="barrierFree"
+                inputs={{ occupancy, floorArea, numWashrooms, numParkingSpaces }}
+                results={{ accessRequired: result.accessRequired, minAccessibleWashrooms: result.minAccessibleWashrooms, minAccessibleParking: result.minAccessibleParking, additionalRequirements: result.additionalRequirements }}
+              />
               <Button
                 variant="outline"
                 size="sm"

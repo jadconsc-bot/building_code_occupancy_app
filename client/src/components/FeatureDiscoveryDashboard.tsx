@@ -6,7 +6,7 @@
  * Helps users understand what capabilities are available
  */
 
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,10 +18,10 @@ import {
   BookOpen,
   FolderOpen,
   Zap,
-  TrendingUp,
   Lock,
   CheckCircle2,
   ArrowRight,
+  FileImage,
 } from 'lucide-react';
 
 interface Feature {
@@ -58,7 +58,7 @@ const features: Feature[] = [
     title: 'Professional Calculators',
     description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
     icon: <Calculator className="w-6 h-6" />,
-    href: '/',
+    href: '/occupancy-classifier',
     category: 'tools',
     badge: '34+ Tools',
   },
@@ -67,7 +67,7 @@ const features: Feature[] = [
     title: 'Rule Management',
     description: 'Professional rule editor with digital signatures, audit trails, and admin authorization. For authorized users only.',
     icon: <Shield className="w-6 h-6" />,
-    href: '/admin',
+    href: '/rule-management',
     category: 'professional',
     badge: 'Admin Only',
   },
@@ -81,6 +81,16 @@ const features: Feature[] = [
     isNew: true,
   },
   {
+    id: 'drawing-analyzer',
+    title: 'Drawing Analyzer',
+    description: 'AI-assisted review of architectural drawings. Extracts dimensions and measurements; deterministic engine checks compliance against NBC 2023 Alberta Edition.',
+    icon: <FileImage className="w-6 h-6" />,
+    href: '/drawing-analyzer',
+    category: 'tools',
+    badge: 'AI + PD2.0',
+    isNew: true,
+  },
+  {
     id: 'compliance',
     title: 'Compliance Checker',
     description: 'Verify building plans against NBC 2025 requirements. Identify code infractions and get recommendations.',
@@ -90,10 +100,10 @@ const features: Feature[] = [
   },
   {
     id: 'analytics',
-    title: 'Project Analytics',
-    description: 'Track project metrics, compliance status, and calculation trends. Generate professional reports.',
-    icon: <TrendingUp className="w-6 h-6" />,
-    href: '/project-analytics',
+    title: 'Space Analyzer',
+    description: 'AI-powered architectural space analysis. Upload drawings for LEED gap analysis, occupancy classification, and NBC compliance review.',
+    icon: <Building2 className="w-6 h-6" />,
+    href: '/occupancy-classifier',
     category: 'professional',
   },
   {
@@ -101,28 +111,13 @@ const features: Feature[] = [
     title: 'Documentation',
     description: 'User guide, tutorials, and help articles. Learn how to use all features effectively.',
     icon: <BookOpen className="w-6 h-6" />,
-    href: '/terms',
+    href: '/documentation',
     category: 'core',
   },
 ];
 
-export const validRoutes = [
-  '/',
-  '/project-checklists',
-  '/compliance/:projectId',
-  '/calculation-history',
-  '/clients',
-  '/sharing',
-  '/versions',
-  '/billing',
-  '/verify',
-  '/certificates',
-  '/project-analytics',
-  '/admin',
-  '/terms',
-];
-
 export function FeatureDiscoveryDashboard() {
+  const [, navigate] = useLocation();
   const coreFeatures = features.filter((f) => f.category === 'core');
   const toolFeatures = features.filter((f) => f.category === 'tools');
   const professionalFeatures = features.filter((f) => f.category === 'professional');
@@ -151,11 +146,14 @@ export function FeatureDiscoveryDashboard() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         <CardDescription className="text-sm mb-4 flex-1">{feature.description}</CardDescription>
-        <Link href={feature.href}>
-          <Button variant="outline" size="sm" className="w-full">
-            Access <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => navigate(feature.href)}
+        >
+          Access <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
       </CardContent>
     </Card>
   );

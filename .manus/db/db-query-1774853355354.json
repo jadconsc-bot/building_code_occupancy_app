@@ -1,0 +1,28 @@
+{
+  "query": "SELECT id, name, email, companyName FROM clients ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2MB7F7YZ2z7BEfq.1ad32b139995 --database 9F4J2CDosTHNgtZbintBLn --execute SELECT id, name, email, companyName FROM clients ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Acme Construction Ltd",
+      "email": "contact@acme.com",
+      "companyName": "Acme Construction"
+    },
+    {
+      "id": "5",
+      "name": "Test Client",
+      "email": "client@test.com",
+      "companyName": "NULL"
+    },
+    {
+      "id": "300008",
+      "name": "Acme Construction Ltd - Updated",
+      "email": "contact@acme.com",
+      "companyName": "Acme Construction"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\tcompanyName\n1\tAcme Construction Ltd\tcontact@acme.com\tAcme Construction\n5\tTest Client\tclient@test.com\tNULL\n300008\tAcme Construction Ltd - Updated\tcontact@acme.com\tAcme Construction\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

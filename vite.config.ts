@@ -16,7 +16,7 @@ const plugins = [
     registerType: 'autoUpdate',
     includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
     workbox: {
-      maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MB limit for large calculator bundles
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB limit for large calculator bundles
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
       runtimeCaching: [
         {
@@ -85,8 +85,6 @@ export default defineConfig({
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
-    // Deduplicate React to prevent multiple instances (fixes hooks dispatcher errors)
-    dedupe: ['react', 'react-dom'],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),

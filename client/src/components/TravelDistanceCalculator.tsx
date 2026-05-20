@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SaveButton } from "@/components/CalculatorWithSave";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -279,9 +280,14 @@ export function TravelDistanceCalculator() {
         )}
       </div>
 
-      {/* Export Button */}
+      {/* Export + Save Buttons */}
       {result.maxAllowed > 0 && (
-        <div className="flex justify-end p-4 border-t border-border bg-muted/20">
+        <div className="flex justify-end gap-2 p-4 border-t border-border bg-muted/20">
+          <SaveButton
+            calculatorType="travelDistance"
+            inputs={{ occupancy, sprinklered, actualDistance, deadEndCorridor }}
+            results={{ maxAllowed: result.maxAllowed, actual: result.actual, compliant: result.compliant, margin: result.margin, deadEndLimit: result.deadEndLimit }}
+          />
           <Button
             variant="outline"
             size="sm"

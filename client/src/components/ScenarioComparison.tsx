@@ -5,7 +5,7 @@
  * Shows side-by-side results with differences highlighted
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,43 +27,92 @@ export interface Scenario {
   results?: Record<string, any>;
 }
 
-interface ScenarioComparisonProps {
-  onCalculate?: (scenario: Scenario) => Promise<void>;
-  onExport?: (scenarios: Scenario[]) => void;
+interface InitialScenarioData {
+  occupancy: string;
+  area_m2: number;
+  storeys: number;
+  construction_type: string;
+  sprinklers: boolean;
 }
 
+interface ScenarioComparisonProps {
+  projectId?: number;
+  onCalculate?: (scenario: Scenario) => Promise<void>;
+  onExport?: (scenarios: Scenario[]) => void;
+  results?: Record<string, any>;
+  initialScenario?: InitialScenarioData;
+  complianceResult?: any;
+}
+
+const DEFAULT_BASE_CASE: Omit<Scenario, 'id' | 'name'> = {
+  occupancy: 'D',
+  area_m2: 5000,
+  storeys: 2,
+  construction_type: 'Non-Combustible',
+  sprinklers: false,
+};
+
 export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
+  projectId,
   onCalculate,
   onExport,
+  results = {},
+  initialScenario,
+  complianceResult,
 }) => {
+  const baseCase = initialScenario ?? DEFAULT_BASE_CASE;
+
   const [scenarios, setScenarios] = useState<Scenario[]>([
     {
       id: '1',
       name: 'Base Case',
-      occupancy: 'D',
-      area_m2: 5000,
-      storeys: 2,
-      construction_type: 'Non-Combustible',
-      sprinklers: false,
+      occupancy: baseCase.occupancy,
+      area_m2: baseCase.area_m2,
+      storeys: baseCase.storeys,
+      construction_type: baseCase.construction_type,
+      sprinklers: baseCase.sprinklers,
     },
   ]);
+
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialScenario) return;
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    setScenarios(prev => prev.map(s =>
+      s.id === '1' ? {
+        ...s,
+        occupancy: initialScenario.occupancy ?? s.occupancy,
+        area_m2: initialScenario.area_m2 ?? s.area_m2,
+        storeys: initialScenario.storeys ?? s.storeys,
+        construction_type: initialScenario.construction_type ?? s.construction_type,
+        sprinklers: initialScenario.sprinklers ?? s.sprinklers,
+      } : s
+    ));
+  }, [initialScenario]);
+
+  useEffect(() => {
+    initializedRef.current = false;
+  }, [projectId]);
 
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set(['1']));
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Add new scenario
+  // Add new scenario — when cloning from Base Case, pull live complianceResult inputs if available
   const addScenario = () => {
     const newId = String(Math.max(...scenarios.map(s => parseInt(s.id)), 0) + 1);
     const lastScenario = scenarios[scenarios.length - 1];
-    
+    const src = lastScenario.id === '1' ? complianceResult?.inputs : null;
+
     setScenarios([
       ...scenarios,
       {
         id: newId,
         name: `Scenario ${newId}`,
-        occupancy: lastScenario.occupancy,
-        area_m2: lastScenario.area_m2,
-        storeys: lastScenario.storeys,
+        occupancy: src?.occupancy_major ?? lastScenario.occupancy,
+        area_m2: src?.area_m2 ?? lastScenario.area_m2,
+        storeys: src?.storeys ?? lastScenario.storeys,
         construction_type: lastScenario.construction_type,
         sprinklers: lastScenario.sprinklers,
       },
@@ -401,6 +450,31 @@ export const ScenarioComparison: React.FC<ScenarioComparisonProps> = ({
                       </TableCell>
                     ))}
                   </TableRow>
+
+                  {comparisonData.selected.some(s => results[s.id]) && (
+                    <TableRow>
+                      <TableCell className="font-semibold">Status</TableCell>
+                      {comparisonData.selected.map((scenario) => (
+                        <TableCell key={scenario.id} className="text-center">
+                          {results[scenario.id] ? (
+                            <Badge
+                              className={
+                                results[scenario.id].complianceStatus === 'compliant'
+                                  ? 'bg-green-100 text-green-800'
+                                  : results[scenario.id].complianceStatus === 'non_compliant'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }
+                            >
+                              {results[scenario.id].complianceStatus ?? 'pending'}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>

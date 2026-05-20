@@ -16,7 +16,7 @@
  */
 
 import { KMSClient, SignCommand, VerifyCommand, GetPublicKeyCommand } from '@aws-sdk/client-kms';
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 import { logger } from './logger';
 
 /**

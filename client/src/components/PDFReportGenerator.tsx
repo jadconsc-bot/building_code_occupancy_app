@@ -56,26 +56,31 @@ export function PDFReportGenerator({
         });
       };
 
-      // Title
-      doc.setFontSize(20);
+      // Branded header
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, pageWidth, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text("Building Code Compliance Report", pageWidth / 2, yPosition, { align: "center" });
-      yPosition += 15;
-
-      // Subtitle
-      doc.setFontSize(10);
+      doc.text("CodeComply", 14, 12);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
+      doc.text("Building Code Compliance Report", pageWidth - 14, 12, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      yPosition = 24;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
       doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: "center" });
-      yPosition += 15;
-
-      // Horizontal line
-      doc.setLineWidth(0.5);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      doc.setTextColor(0, 0, 0);
       yPosition += 10;
 
       // Project Information Section
       if (projectName || projectAddress || projectDescription) {
         checkPageBreak(40);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Project Information", margin, yPosition);
@@ -123,6 +128,9 @@ export function PDFReportGenerator({
       // Occupancy Classification Section
       if (occupancyCode && occupancyName) {
         checkPageBreak(30);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Occupancy Classification", margin, yPosition);
@@ -139,6 +147,9 @@ export function PDFReportGenerator({
       // Calculator Results Section
       if (comparisonItems && comparisonItems.length > 0) {
         checkPageBreak(40);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Structural Calculator Results", margin, yPosition);
@@ -174,6 +185,9 @@ export function PDFReportGenerator({
       // Notes Section
       if (notes) {
         checkPageBreak(40);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 4;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Additional Notes", margin, yPosition);
@@ -187,6 +201,9 @@ export function PDFReportGenerator({
 
       // Compliance Statement
       checkPageBreak(50);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 4;
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text("Compliance Statement", margin, yPosition);
@@ -203,17 +220,14 @@ export function PDFReportGenerator({
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
+        doc.setTextColor(150, 150, 150);
         doc.text(
-          `Page ${i} of ${totalPages}`,
+          `CodeComply PD2.0 — Page ${i} of ${totalPages} — buildingcodeoccupancyapp-production-4adf.up.railway.app`,
           pageWidth / 2,
-          pageHeight - 10,
+          pageHeight - 8,
           { align: "center" }
         );
-        doc.text(
-          "Building Code Occupancy Classifier",
-          margin,
-          pageHeight - 10
-        );
+        doc.setTextColor(0, 0, 0);
       }
 
       // Generate filename

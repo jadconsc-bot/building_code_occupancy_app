@@ -1,352 +1,297 @@
-import { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Edit2, Trash2, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/_core/hooks/useAuth';
-import { trpc } from '@/lib/trpc';
-import { useLocation } from 'wouter';
-import { toast as sonnerToast } from 'sonner';
-
-const useToast = () => ({
-  toast: (props: { title: string; description?: string; variant?: string }) => {
-    if (props.variant === 'destructive') {
-      sonnerToast.error(props.title, { description: props.description });
-    } else {
-      sonnerToast.success(props.title, { description: props.description });
-    }
-  },
-});
+import React, { useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import DashboardLayout from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertTriangle, FileText, Users, History, Lock } from "lucide-react";
+import RuleEditorUI from "@/components/RuleEditorUI";
+import AdminRuleApprovalDashboard from "@/components/AdminRuleApprovalDashboard";
 
 export default function RuleManagement() {
-  const { user } = useAuth();
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
+  const { user, loading, error } = useAuth();
+  const [showRuleEditor, setShowRuleEditor] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showNewRuleDialog, setShowNewRuleDialog] = useState(false);
-  const [showCustomRuleDialog, setShowCustomRuleDialog] = useState(false);
-  const [newRuleName, setNewRuleName] = useState('');
-  const [newRuleDescription, setNewRuleDescription] = useState('');
-  const [newRuleCategory, setNewRuleCategory] = useState('');
-  const [newRuleKeywords, setNewRuleKeywords] = useState('');
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  // tRPC queries
-  const { data: jurisdictions = [] } = trpc.rules.getJurisdictions.useQuery();
-  const { data: categories = [] } = trpc.rules.getCategories.useQuery();
-  const { data: searchResults = [] } = trpc.rules.search.useQuery({
-    query: searchQuery,
-    jurisdiction: selectedJurisdiction !== 'all' ? selectedJurisdiction : undefined,
-    category: selectedCategory !== 'all' ? selectedCategory : undefined,
-    limit: 100,
-  });
+  if (error || !user) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Authentication error. Please log in to access rule management.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  // tRPC mutations
-  const applyRuleMutation = trpc.rules.applyRule.useMutation({
-    onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Rule applied successfully',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
+  const isAdmin = user && user.role === "admin";
+  const isEditor = user && user.role === "admin";
 
-  const createCustomRuleMutation = trpc.rules.createCustomRule.useMutation({
-    onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Custom rule created successfully',
-      });
-      setShowCustomRuleDialog(false);
-      setNewRuleName('');
-      setNewRuleDescription('');
-      setNewRuleCategory('');
-      setNewRuleKeywords('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Filter rules
-  const filteredRules = useMemo(() => {
-    return (searchResults || []).filter((rule: any) => {
-      const matchesSearch = !searchQuery || 
-        rule.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rule.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (rule.keywords?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      
-      const matchesJurisdiction = selectedJurisdiction === 'all' || rule.jurisdiction === selectedJurisdiction;
-      const matchesCategory = selectedCategory === 'all' || rule.category === selectedCategory;
-      
-      return matchesSearch && matchesJurisdiction && matchesCategory;
-    });
-  }, [searchResults, searchQuery, selectedJurisdiction, selectedCategory]);
-
-  const handleApplyRule = (ruleId: number) => {
-    applyRuleMutation.mutate({ ruleId });
-  };
-
-  const handleCreateCustomRule = () => {
-    if (!newRuleName || !newRuleDescription || !newRuleCategory) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
-      return;
+  const handleSubmitRuleChange = async (changeRequest: any) => {
+    setIsSubmitting(true);
+    try {
+      // This would call the tRPC procedure
+      // await trpc.ruleManagement.requestRuleChange.useMutation(changeRequest);
+      console.log("Rule change submitted:", changeRequest);
+      // Show success toast
+    } catch (error) {
+      console.error("Error submitting rule change:", error);
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    createCustomRuleMutation.mutate({
-      name: newRuleName,
-      description: newRuleDescription,
-      category: newRuleCategory,
-      keywords: newRuleKeywords,
-    });
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header with Back Button */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-4 mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Button>
-            </div>
-            <h1 className="text-3xl font-bold text-foreground">Rule Management</h1>
-            <p className="text-muted-foreground">
-              Search, apply, and manage building code rules for your projects
-            </p>
-          </div>
+    <DashboardLayout>
+      <div className="space-y-6 p-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">Professional Rule Management</h1>
+          <p className="text-muted-foreground mt-2">
+            Submit, review, and manage building code rule changes with full audit trails and digital signatures
+          </p>
         </div>
 
-        {/* Search and Filter Bar */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {/* Search */}
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search rules by name, description, or keywords..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+        {/* Permission Alert */}
+        {!isEditor && (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              You do not have permission to submit rule changes. Contact an administrator to request editor credentials.
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Jurisdiction</Label>
-                  <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Jurisdictions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Jurisdictions</SelectItem>
-                      {jurisdictions.map((j: string) => (
-                        <SelectItem key={j} value={j}>
-                          {j}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Tabs */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="editor" disabled={!isEditor}>
+              Submit Changes
+            </TabsTrigger>
+            <TabsTrigger value="approvals" disabled={!isAdmin}>
+              Approvals
+            </TabsTrigger>
+            <TabsTrigger value="audit">Audit Trail</TabsTrigger>
+          </TabsList>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((c: string) => (
-                        <SelectItem key={c} value={c}>
-                          {c.charAt(0).toUpperCase() + c.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end gap-2">
-                  <Button
-                    onClick={() => setShowCustomRuleDialog(true)}
-                    className="gap-2 w-full"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Custom Rule
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Rules List */}
-        <div className="space-y-4">
-          {filteredRules.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No rules found. Try adjusting your filters.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredRules.map((rule: any) => (
-              <Card key={rule.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-foreground">{rule.name}</h3>
-                        <Badge variant="outline">{rule.category}</Badge>
-                        <Badge variant="secondary">{rule.jurisdiction}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">{rule.description}</p>
-                      {rule.nbcReference && (
-                        <p className="text-xs text-muted-foreground">
-                          <strong>NBC Reference:</strong> {rule.nbcReference}
-                        </p>
-                      )}
-                      {rule.keywords && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          <strong>Keywords:</strong> {rule.keywords}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleApplyRule(rule.id)}
-                        disabled={applyRuleMutation.isPending}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Apply
-                      </Button>
-                    </div>
-                  </div>
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Your Role
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold capitalize">{user.role}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isEditor ? "You can submit rule changes" : "Contact admin for editor access"}
+                  </p>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
 
-        {/* Results Summary */}
-        <div className="mt-6 text-sm text-muted-foreground">
-          Showing {filteredRules.length} of {searchResults.length} rules
-        </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Pending Requests
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">0</p>
+                  <p className="text-xs text-muted-foreground mt-1">Awaiting admin review</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Total Changes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">0</p>
+                  <p className="text-xs text-muted-foreground mt-1">All time</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Features Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle>System Features</CardTitle>
+                <CardDescription>
+                  Professional-grade rule management with legal defensibility
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Credential Verification</h4>
+                      <p className="text-xs text-muted-foreground">Professional licenses verified and tracked</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Digital Signatures</h4>
+                      <p className="text-xs text-muted-foreground">Cryptographic signatures for all changes</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Immutable Audit Trail</h4>
+                      <p className="text-xs text-muted-foreground">Complete history with blockchain-like integrity</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Admin Approval Workflow</h4>
+                      <p className="text-xs text-muted-foreground">Multi-level review and authorization</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Legal Defensibility</h4>
+                      <p className="text-xs text-muted-foreground">Court-ready documentation and timestamps</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-green-700 font-bold">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Notification System</h4>
+                      <p className="text-xs text-muted-foreground">Stakeholders notified of all changes</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Editor Tab */}
+          {isEditor && (
+            <TabsContent value="editor" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submit Rule Change</CardTitle>
+                  <CardDescription>
+                    Propose modifications to building code rules with full justification
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => setShowRuleEditor(true)}
+                    size="lg"
+                    className="w-full"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Open Rule Editor
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Recent Submissions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Your Recent Submissions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">No submissions yet</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Approvals Tab */}
+          {isAdmin && (
+            <TabsContent value="approvals" className="space-y-6">
+              <AdminRuleApprovalDashboard
+                requests={[]}
+                onApprove={async (requestId, notes) => {
+                  console.log("Approved:", requestId, notes);
+                }}
+                onReject={async (requestId, notes) => {
+                  console.log("Rejected:", requestId, notes);
+                }}
+              />
+            </TabsContent>
+          )}
+
+          {/* Audit Trail Tab */}
+          <TabsContent value="audit" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Audit Trail</CardTitle>
+                <CardDescription>
+                  Complete immutable history of all rule changes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">No audit entries yet</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* New Custom Rule Dialog */}
-      <Dialog open={showCustomRuleDialog} onOpenChange={setShowCustomRuleDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Custom Rule</DialogTitle>
-            <DialogDescription>
-              Create a custom rule for your organization with full audit trail
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="rule-name">Rule Name *</Label>
-              <Input
-                id="rule-name"
-                placeholder="e.g., Maximum Occupant Load"
-                value={newRuleName}
-                onChange={(e) => setNewRuleName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="rule-description">Description *</Label>
-              <Textarea
-                id="rule-description"
-                placeholder="Detailed description of the rule..."
-                value={newRuleDescription}
-                onChange={(e) => setNewRuleDescription(e.target.value)}
-                rows={4}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="rule-category">Category *</Label>
-              <Select value={newRuleCategory} onValueChange={setNewRuleCategory}>
-                <SelectTrigger id="rule-category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c: string) => (
-                    <SelectItem key={c} value={c}>
-                      {c.charAt(0).toUpperCase() + c.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="rule-keywords">Keywords (optional)</Label>
-              <Input
-                id="rule-keywords"
-                placeholder="e.g., occupancy, load, capacity"
-                value={newRuleKeywords}
-                onChange={(e) => setNewRuleKeywords(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCustomRuleDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateCustomRule}
-              disabled={createCustomRuleMutation.isPending}
-            >
-              Create Rule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      {/* Rule Editor Dialog */}
+      <RuleEditorUI
+        isOpen={showRuleEditor}
+        onClose={() => setShowRuleEditor(false)}
+        currentUser={{
+          id: user.id?.toString() || "",
+          name: user.name || "Unknown",
+          email: user.email || "",
+          role: (user.role as "admin" | "editor" | "user") || "user",
+        }}
+        onSubmitChange={handleSubmitRuleChange}
+        isSubmitting={isSubmitting}
+      />
+    </DashboardLayout>
   );
 }

@@ -6,7 +6,7 @@
  * Supports Sectigo, DigiCert, and other RFC 3161 providers
  */
 
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 
 interface TimestampToken {
   timestamp: Date;

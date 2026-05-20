@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useProject } from '@/contexts/ProjectContext';
 import { trpc } from '@/lib/trpc';
 import { Save, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,12 +39,11 @@ export function SaveCalculatorResultDialog({
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { activeProjectId } = useProject();
   const { data: projects = [] } = trpc.projects.list.useQuery();
-  const saveMutation = trpc.calculations.saveResult.useMutation();
+  const saveMutation = trpc.projectsLegacy.calculatorResults.save.useMutation();
 
   const handleSave = async () => {
-    const projectId = selectedProjectId ? parseInt(selectedProjectId, 10) : activeProjectId;
+    const projectId = selectedProjectId ? parseInt(selectedProjectId, 10) : null;
 
     if (!projectId) {
       toast.error('Please select a project');
@@ -55,10 +53,11 @@ export function SaveCalculatorResultDialog({
     setIsLoading(true);
     try {
       await saveMutation.mutateAsync({
-        projectId: String(projectId),
+        projectId,
         calculatorType,
-        inputs: JSON.parse(JSON.stringify(inputData)),
-        outputs: JSON.parse(JSON.stringify(resultData)),
+        inputData: JSON.stringify(inputData),
+        resultData: JSON.stringify(resultData),
+        notes: notes || undefined,
       });
 
       toast.success('Calculator result saved to project');
@@ -105,21 +104,12 @@ export function SaveCalculatorResultDialog({
                 <Label htmlFor="project-select">Select Project</Label>
                 <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                   <SelectTrigger id="project-select">
-                    <SelectValue
-                      placeholder={
-                        activeProjectId ? 'Use active project' : 'Choose a project...'
-                      }
-                    />
+                    <SelectValue placeholder="Choose a project..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeProjectId && (
-                      <SelectItem value="">
-                        <span className="font-medium">Active Project</span>
-                      </SelectItem>
-                    )}
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
-                        {project.name} ({project.occupancyCode})
+                        {project.projectNumber ? `[${project.projectNumber}] ` : ''}{project.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -146,7 +136,7 @@ export function SaveCalculatorResultDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isLoading || projects.length === 0}
+            disabled={isLoading || projects.length === 0 || !selectedProjectId}
             className="gap-2"
           >
             <Save size={16} />

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wind, AlertCircle } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
 
 export function VentilationRateCalculator() {
   const [occupancyType, setOccupancyType] = useState<string>("residential");
@@ -111,7 +112,15 @@ export function VentilationRateCalculator() {
               NBC 6.2 - Calculate required mechanical ventilation rates
             </CardDescription>
           </div>
-          <CalculatorActions
+          <div className="flex items-center gap-2">
+            {results !== null && (
+              <SaveButton
+                calculatorType="ventilationRate"
+                inputs={{ occupancyType, floorArea, numOccupants, ceilingHeight }}
+                results={results}
+              />
+            )}
+            <CalculatorActions
             calculatorId="ventilation_rate"
             calculatorName="Ventilation Rate"
             exportData={() => ({
@@ -141,6 +150,7 @@ export function VentilationRateCalculator() {
             }}
             hasResults={!!results}
           />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">

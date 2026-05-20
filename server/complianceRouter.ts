@@ -7,9 +7,8 @@ import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { rulesets, complianceSnapshots, ruleChangelog, auditLog, ruleTests } from "../drizzle/schema";
-import { ComplianceEvaluator, createEvaluator, validateInputsForStrictMode, ComplianceInput } from "./complianceEngine";
-import { createCodeInterpreter } from "./codeInterpreterService";
-import { eq, and } from "drizzle-orm";
+import { ComplianceEvaluator, createEvaluator, validateInputsForStrictMode, ComplianceInput, EvaluationResult } from "./complianceEngine";
+import { eq, and, isNull } from "drizzle-orm";
 
 export const complianceRouter = router({
   /**
@@ -18,7 +17,7 @@ export const complianceRouter = router({
   getRulesets: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
-    const allRulesets = await db.select().from(rulesets).where(eq(rulesets.retiredDate, null as any));
+    const allRulesets = await db.select().from(rulesets).where(isNull(rulesets.retiredDate));
     return allRulesets.map((rs) => ({
       id: rs.id,
       rulesetId: rs.rulesetId,
@@ -78,18 +77,17 @@ export const complianceRouter = router({
       if (input.mode === "strict") {
         const requiredFields = ["occupancy_major"];
         const validation = validateInputsForStrictMode(input.inputs as ComplianceInput, requiredFields);
-        if (!validation.valid) {
-          throw new Error(`Missing required fields for strict mode: ${validation.missingFields.join(", ")}`);
+        const errors = [...validation.missingFields.map((f: string) => `${f}: required`)];
+        if (!input.inputs.area_m2 || Number(input.inputs.area_m2) <= 0) {
+          errors.push("area_m2: Building area is required");
+        }
+        if (errors.length > 0) {
+          throw new Error(`Missing required fields for strict mode: ${errors.join(", ")}`);
         }
       }
 
       // Run analysis
-      const result = evaluator.evaluate(input.inputs as ComplianceInput);
-
-      // Determine compliance status
-      const allCompliant = Object.values(result.compliance_flags).every((flag) => flag === true);
-      const anyNonCompliant = Object.values(result.compliance_flags).some((flag) => flag === false);
-      const complianceStatus = allCompliant ? "compliant" : anyNonCompliant ? "non_compliant" : "conditional";
+      const result: EvaluationResult = await evaluator.evaluate(input.inputs as ComplianceInput);
 
       // Create snapshot
       const snapshotId = `snap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -102,8 +100,13 @@ export const complianceRouter = router({
         mode: input.mode,
         inputs: JSON.stringify(input.inputs),
         outputs: JSON.stringify(result.outputs),
-        ruleTrace: JSON.stringify(result.rule_trace),
-        complianceStatus: complianceStatus as "compliant" | "non_compliant" | "conditional",
+        ruleTrace: JSON.stringify(result.traces.map(t => ({
+          constraintId: t.constraintId,
+          rule: t.rule,
+          result: t.result,
+          severity: t.severity,
+        }))),
+        complianceStatus: result.complianceStatus,
         notes: null,
       });
 
@@ -116,14 +119,15 @@ export const complianceRouter = router({
         details: JSON.stringify({
           rulesetId: input.rulesetId,
           mode: input.mode,
-          complianceStatus,
+          complianceStatus: result.complianceStatus,
+          overallScore: result.overallScore,
+          jurisdictionApplied: result.jurisdictionApplied,
         }),
       });
 
       return {
         snapshotId,
         ...result,
-        complianceStatus,
       };
     }),
 
@@ -144,25 +148,28 @@ export const complianceRouter = router({
         throw new Error("Snapshot not found");
       }
 
-      const snap = snapshot[0];
-
-      // Verify user owns this snapshot
-      if (snap.userId !== ctx.user.id) {
+      const s = snapshot[0];
+      if (s.userId !== ctx.user.id) {
         throw new Error("Unauthorized");
       }
 
       return {
-        ...snap,
-        inputs: JSON.parse(snap.inputs),
-        outputs: JSON.parse(snap.outputs),
-        ruleTrace: JSON.parse(snap.ruleTrace),
+        snapshotId: s.snapshotId,
+        projectId: s.projectId,
+        rulesetId: s.rulesetId,
+        mode: s.mode,
+        inputs: JSON.parse(s.inputs as string),
+        outputs: JSON.parse(s.outputs as string),
+        ruleTrace: JSON.parse(s.ruleTrace as string || "[]"),
+        complianceStatus: s.complianceStatus,
+        createdAt: s.createdAt,
       };
     }),
 
   /**
-   * Get all snapshots for a project
+   * List snapshots for a project
    */
-  getProjectSnapshots: protectedProcedure
+  listSnapshots: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }: any) => {
       const db = await getDb();
@@ -170,18 +177,82 @@ export const complianceRouter = router({
       const snapshots = await db
         .select()
         .from(complianceSnapshots)
-        .where(and(eq(complianceSnapshots.projectId, input.projectId), eq(complianceSnapshots.userId, ctx.user.id)));
+        .where(
+          and(
+            eq(complianceSnapshots.projectId, input.projectId),
+            eq(complianceSnapshots.userId, ctx.user.id)
+          )
+        );
 
-      return snapshots.map((snap) => ({
-        ...snap,
-        inputs: JSON.parse(snap.inputs),
-        outputs: JSON.parse(snap.outputs),
-        ruleTrace: JSON.parse(snap.ruleTrace),
+      return snapshots.map((s) => ({
+        snapshotId: s.snapshotId,
+        projectId: s.projectId,
+        rulesetId: s.rulesetId,
+        mode: s.mode,
+        complianceStatus: s.complianceStatus,
+        createdAt: s.createdAt,
       }));
     }),
 
   /**
-   * Get audit log for a project
+   * Create new ruleset version
+   */
+  createRuleset: protectedProcedure
+    .input(
+      z.object({
+        rulesetId: z.string(),
+        code: z.string(),
+        edition: z.string(),
+        amendment: z.string().optional(),
+        version: z.string(),
+        effectiveDate: z.string(),
+        description: z.string().optional(),
+        rulesData: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }: any) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.insert(rulesets).values({
+        rulesetId: input.rulesetId,
+        code: input.code,
+        edition: input.edition,
+        amendment: input.amendment,
+        version: input.version,
+        effectiveDate: input.effectiveDate,
+        description: input.description,
+        rulesData: input.rulesData,
+        createdBy: ctx.user.id,
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Retire a ruleset
+   */
+  retireRuleset: protectedProcedure
+    .input(z.object({ rulesetId: z.string(), reason: z.string() }))
+    .mutation(async ({ ctx, input }: any) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db
+        .update(rulesets)
+        .set({ retiredDate: new Date() })
+        .where(eq(rulesets.rulesetId, input.rulesetId));
+
+      await db.insert(ruleChangelog).values({
+        rulesetId: input.rulesetId,
+        changeType: "retired",
+        description: input.reason,
+        changedBy: ctx.user.id,
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Get audit log for project
    */
   getAuditLog: protectedProcedure
     .input(z.object({ projectId: z.number() }))
@@ -191,113 +262,34 @@ export const complianceRouter = router({
       const logs = await db
         .select()
         .from(auditLog)
-        .where(and(eq(auditLog.projectId, input.projectId), eq(auditLog.userId, ctx.user.id)));
+        .where(
+          and(
+            eq(auditLog.projectId, input.projectId),
+            eq(auditLog.userId, ctx.user.id)
+          )
+        );
 
-      return logs.map((log) => ({
-        ...log,
-        details: log.details ? JSON.parse(log.details) : null,
+      return logs.map((l) => ({
+        id: l.id,
+        action: l.action,
+        details: JSON.parse(l.details as string || "{}"),
+        snapshotId: l.snapshotId,
+        createdAt: l.createdAt,
       }));
     }),
 
   /**
-   * Create or update ruleset (admin only)
+   * Run ruleset tests
    */
-  createRuleset: protectedProcedure
-    .input(
-      z.object({
-        code: z.string(),
-        edition: z.string(),
-        amendment: z.string().optional(),
-        version: z.string(),
-        description: z.string().optional(),
-        rules: z.array(z.record(z.string(), z.any())),
-      })
-    )
+  runTests: protectedProcedure
+    .input(z.object({ rulesetId: z.string() }))
     .mutation(async ({ ctx, input }: any) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
-      // Check if user is admin
-      if (ctx.user.role !== "admin") {
-        throw new Error("Only admins can create rulesets");
-      }
-
-      const rulesetId = `${input.code.toLowerCase()}_${input.edition}_v${input.version}`.replace(/\s+/g, "_");
-
-      const values = {
-        rulesetId,
-        code: input.code,
-        edition: input.edition,
-        amendment: input.amendment || null,
-        version: input.version,
-        effectiveDate: new Date(),
-        retiredDate: null,
-        description: input.description || null,
-        rulesData: JSON.stringify({ rules: input.rules }),
-      };
-
-      await db.insert(rulesets).values(values as any);
-      return { rulesetId };
-    }),
-
-  /**
-   * Get rule changelog
-   */
-  getRuleChangelog: publicProcedure
-    .input(z.object({ rulesetId: z.string() }))
-    .query(async ({ input }: any) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const changes = await db
+      const tests = await db
         .select()
-        .from(ruleChangelog)
-        .where(eq(ruleChangelog.rulesetId, input.rulesetId));
-
-      return changes;
-    }),
-
-  /**
-   * Add rule change to changelog (admin only)
-   */
-  logRuleChange: protectedProcedure
-    .input(
-      z.object({
-        rulesetId: z.string(),
-        changeType: z.enum(["added", "modified", "deprecated", "removed"]),
-        ruleId: z.string(),
-        clause: z.string(),
-        description: z.string(),
-        reason: z.string().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }: any) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      if (ctx.user.role !== "admin") {
-        throw new Error("Only admins can log rule changes");
-      }
-
-      await db.insert(ruleChangelog).values({
-        rulesetId: input.rulesetId,
-        changeType: input.changeType,
-        ruleId: input.ruleId,
-        clause: input.clause,
-        description: input.description,
-        reason: input.reason || null,
-        approvedBy: ctx.user.id,
-      });
-
-      return { success: true };
-    }),
-
-  /**
-   * Run rule tests
-   */
-  runRuleTests: publicProcedure
-    .input(z.object({ rulesetId: z.string() }))
-    .mutation(async ({ input }: any) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const tests = await db.select().from(ruleTests).where(eq(ruleTests.rulesetId, input.rulesetId));
+        .from(ruleTests)
+        .where(eq(ruleTests.rulesetId, input.rulesetId));
 
       const ruleset = await db
         .select()
@@ -315,7 +307,7 @@ export const complianceRouter = router({
         const inputs = JSON.parse(test.inputs);
         const expectedOutputs = JSON.parse(test.expectedOutputs);
 
-        const result = evaluator.evaluate(inputs);
+        const result = await evaluator.evaluate(inputs);
         const passed = JSON.stringify(result.outputs) === JSON.stringify(expectedOutputs);
 
         results.push({
@@ -332,72 +324,5 @@ export const complianceRouter = router({
       }
 
       return results;
-    }),
-
-  /**
-   * Interpret a building code clause
-   * Uses LLM to explain what a clause means in plain language
-   */
-  interpretClause: publicProcedure
-    .input(
-      z.object({
-        code: z.string(),
-        section: z.string(),
-        subsection: z.string().optional(),
-        description: z.string(),
-      })
-    )
-    .query(async ({ input }: any) => {
-      const interpreter = createCodeInterpreter();
-      return await interpreter.interpretClause(input);
-    }),
-
-  /**
-   * Interpret a compliance evaluation result
-   * Explains which rules fired and why
-   */
-  interpretComplianceResult: protectedProcedure
-    .input(z.object({ snapshotId: z.string() }))
-    .query(async ({ ctx, input }: any) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-
-      const snapshot = await db
-        .select()
-        .from(complianceSnapshots)
-        .where(eq(complianceSnapshots.snapshotId, input.snapshotId));
-
-      if (!snapshot.length) {
-        throw new Error("Snapshot not found");
-      }
-
-      if (snapshot[0].userId !== ctx.user.id) {
-        throw new Error("Unauthorized");
-      }
-
-      const snap = snapshot[0];
-      const ruleTrace = JSON.parse(snap.ruleTrace);
-      const complianceResult = {
-        complianceStatus: snap.complianceStatus,
-        compliance_flags: {},
-      };
-
-      const interpreter = createCodeInterpreter();
-      const interpretation = await interpreter.interpretCompliancePathway(
-        ruleTrace,
-        complianceResult
-      );
-
-      await db.insert(auditLog).values({
-        userId: ctx.user.id,
-        projectId: snap.projectId,
-        snapshotId: input.snapshotId,
-        action: "interpretation_requested",
-        details: JSON.stringify({
-          interpretationType: "compliance_pathway",
-        }),
-      });
-
-      return interpretation;
     }),
 });

@@ -3,7 +3,7 @@ import {
   occupantLoadFactors, 
   getLoadFactorsForOccupancy, 
   calculateOccupantLoad 
-} from '../components/OccupantLoadFactors';
+} from '../lib/occupantLoadFactorsData';
 
 describe('OccupantLoadFactors', () => {
   describe('occupantLoadFactors data', () => {

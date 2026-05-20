@@ -1,18 +1,21 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book, ChevronRight } from "lucide-react";
+import { Search, Info, AlertTriangle, CheckCircle2, Building2, Ruler, DoorOpen, Flame, Zap, Droplets, Camera, MapPin, ShieldAlert, Calculator, Activity, Layers, Star, Bookmark, Mic, MicOff, History, Clock, Printer, StickyNote, Save, Moon, Sun, Share2, Download, Leaf, FileText, ClipboardList, FolderOpen, ArrowLeftRight, Accessibility, FileImage, Menu, Book, ChevronRight, ArrowLeft, LayoutDashboard, Upload, Loader2, Building, Award, LayoutGrid, Wind } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useProject } from "@/contexts/ProjectContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProjectDashboard } from "@/components/ProjectDashboard";
+import { ProjectWizard } from "@/components/ProjectWizard";
 import { occupancyData, OccupancyGroup } from "@/lib/occupancyData";
 import { constructionLimits, separationMatrix } from "@/lib/constructionData";
 import { electricalChecklists } from "@/lib/electricalData";
@@ -21,7 +24,10 @@ import { additionsData } from "@/lib/additionsData";
 import { sustainabilityData } from "@/lib/sustainabilityData";
 import { heightLimitsByOccupancy, setbackRequirements, allowableOpenings, ergonomicRequirements } from "@/lib/buildingRequirementsData";
 import { getLoadFactors } from "@/lib/loadCalculationData";
-import { getLoginUrl } from "@/const";
+// AUTH-MIGRATE-001: Removed Manus OAuth getLoginUrl import
+// import { getLoginUrl } from "@/const";
+import { SignIn } from "@clerk/clerk-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { WetVentingDiagram, FixtureUnitCalculator, GasLineCalculator } from "@/components/PlumbingTools";
 import { SolarPVDiagram, EVChargingDiagram, TanklessHeaterDiagram, GridIntegrationDiagram } from "@/components/SustainabilityTools";
@@ -55,6 +61,9 @@ import { StairDesignCalculator } from "@/components/StairDesignCalculator";
 import { BatchStairCalculator } from "@/components/BatchStairCalculator";
 import { FoundationDesignCalculator } from "@/components/FoundationDesignCalculator";
 import { LateralLoadCalculator } from "@/components/LateralLoadCalculator";
+import { StepCodeCalculator } from "@/components/StepCodeCalculator";
+import { StepCodeReport } from "@/components/StepCodeReport";
+import { AlbertaNBCReport } from "@/components/AlbertaNBCReport";
 import { EnergyCodeCalculator } from "@/components/EnergyCodeCalculator";
 import { PlumbingFixtureCalculator } from "@/components/PlumbingFixtureCalculator";
 import { GuardHandrailCalculator } from "@/components/GuardHandrailCalculator";
@@ -76,7 +85,10 @@ import { ExportPDFDialog } from "@/components/ExportPDFDialog";
 import { MunicipalBylawsCalculator } from "@/components/MunicipalBylawsCalculator";
 import { DrawingAnalysis } from "@/components/DrawingAnalysis";
 import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
+import Projects from "@/pages/Projects";
+import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
 
+import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -88,28 +100,113 @@ import { generatePDFChecklist, ChecklistSection } from "@/lib/pdfChecklistGenera
 import { occupancyKeywords as searchKeywords, getMatchingOccupancyIds, getAutocompleteSuggestions, getDidYouMeanSuggestions, getComprehensiveSearchResults, getTabForKeyword } from "@/lib/searchKeywords";
 import { toast } from "sonner";
 import { LegalDisclaimer } from "@/components/LegalDisclaimer";
-import { DevLogin } from "@/components/DevLogin";
-import { DisclaimerGate } from "@/components/DisclaimerGate";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+function StepCodeTabContent({ activeProjectId }: { activeProjectId: number | null | undefined }) {
+  const { data: projects } = trpc.projects.list.useQuery();
+  const [stepCodeProjectId, setStepCodeProjectId] = useState<number | null>(
+    activeProjectId ?? null
+  );
+
+  const selectedProject = projects?.find((p) => p.id === stepCodeProjectId);
+
+  return (
+    <div className="space-y-6">
+      {/* Project selector */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" /> Select Project
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={stepCodeProjectId ? String(stepCodeProjectId) : ""}
+            onValueChange={(v) => setStepCodeProjectId(v ? Number(v) : null)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Project (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects?.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>
+                  {p.projectNumber ? `[${p.projectNumber}] ` : ""}{p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedProject && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              {selectedProject.province && (
+                <Badge variant="outline" className="text-xs">{selectedProject.province}</Badge>
+              )}
+              {selectedProject.climateZone && (
+                <Badge variant="outline" className="text-xs">Zone {selectedProject.climateZone}</Badge>
+              )}
+              {selectedProject.buildingType && (
+                <Badge variant="outline" className="text-xs">{selectedProject.buildingType}</Badge>
+              )}
+              <button
+                onClick={() => setStepCodeProjectId(null)}
+                className="ml-auto text-xs text-muted-foreground underline hover:text-destructive"
+              >
+                Clear project
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {!stepCodeProjectId ? (
+        <Card className="border-dashed">
+          <CardContent className="pt-8 pb-8 text-center text-muted-foreground text-sm">
+            <Building2 className="w-8 h-8 mx-auto mb-3 opacity-40" />
+            <p>Select a project above to pre-populate the calculator with project data.</p>
+            <p className="mt-1 text-xs">You can still edit all fields manually after selection.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-8">
+          <section>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+              <Zap className="w-5 h-5" /> BC Energy Step Code
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Calculate TEDI/TEUI compliance targets for BC Energy Step Code tiers. Enter building performance data to check compliance and generate a quick PDF.
+            </p>
+            <StepCodeCalculator projectId={stepCodeProjectId} />
+          </section>
+
+          <section className="mt-8 pt-8 border-t border-border">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+              <Zap className="w-5 h-5" /> Alberta NBC Compliance
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Generate Alberta NBC 2024 compliance reports with cold climate provisions, envelope analysis, and immutable audit trail.
+            </p>
+            <AlbertaNBCReport projectId={stepCodeProjectId} />
+          </section>
+
+          <section className="mt-8 pt-8 border-t border-border">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Certified Step Code Report
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Generate a formal certified report from the last saved analysis with full audit trail and immutable signature.
+            </p>
+            <StepCodeReport projectId={stepCodeProjectId} />
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Home() {
   // The userAuth hooks provides authentication state
   // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
   let { user, loading, error, isAuthenticated, logout } = useAuth();
-
-  // Show dev login form if not authenticated
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <h1 className="text-3xl font-bold mb-4">Welcome to CodeComply</h1>
-          <p className="text-muted-foreground mb-6">
-            Professional building code compliance tools for architects, engineers, and inspectors
-          </p>
-          <DevLogin />
-        </div>
-      </div>
-    );
-  }
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
@@ -159,11 +256,50 @@ export default function Home() {
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [showUserManual, setShowUserManual] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
+  const [showOccupancyAdvisor, setShowOccupancyAdvisor] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
     return saved || "AB";
   });
+  const [spaceAnalysisImage, setSpaceAnalysisImage] = useState<string | null>(null);
+  const [spaceAnalysisImageMime, setSpaceAnalysisImageMime] = useState<string>('image/jpeg');
+  const [spaceAnalysisResult, setSpaceAnalysisResult] = useState<any>(null);
+  const [spaceAnalysisLoading, setSpaceAnalysisLoading] = useState(false);
+  const spaceAnalysisFileRef = useRef<HTMLInputElement>(null);
+  const [spacePdfPages, setSpacePdfPages] = useState<string[]>([]);
+  const [spaceSelectedPage, setSpaceSelectedPage] = useState<number>(0);
+  const analyzeSpaceMutation = trpc.analyzeSpace.useMutation();
+
+  const runSpaceAnalysis = async () => {
+    if (!spaceAnalysisImage) {
+      toast.error('Please upload a floor plan or drawing first.');
+      return;
+    }
+    setSpaceAnalysisLoading(true);
+    setSpaceAnalysisResult(null);
+    try {
+      const result = await analyzeSpaceMutation.mutateAsync({
+        imageBase64: spaceAnalysisImage!,
+        mimeType: spaceAnalysisImageMime,
+        climateZone: undefined,
+      });
+      console.log('Space analysis raw result:', JSON.stringify(result));
+      if (result.success && result.result) {
+        setSpaceAnalysisResult(result.result);
+        console.log('Space analysis result set:', result.result);
+      } else {
+        console.warn('Space analysis returned no result:', result);
+        toast.error('Analysis returned no data. Please try again.');
+      }
+    } catch (err) {
+      console.error('Space analysis error:', err);
+      toast.error('Analysis failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setSpaceAnalysisLoading(false);
+    }
+  };
 
   // Tab order for navigation
   const tabOrder = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws"];
@@ -583,7 +719,9 @@ export default function Home() {
   };
 
   const exportChecklistPDF = async () => {
+    console.log('exportChecklistPDF called, selectedGroup:', selectedGroup);
     if (!selectedGroup) {
+      console.log('No selectedGroup, returning early');
       return;
     }
 
@@ -638,6 +776,7 @@ export default function Home() {
       });
     }
 
+    console.log('Calling generatePDFChecklist with sections:', sections);
     try {
       await generatePDFChecklist({
         occupancyCode: selectedGroup.code,
@@ -645,7 +784,9 @@ export default function Home() {
         sections,
         includeQRCode: true,
       });
+      console.log('generatePDFChecklist completed successfully');
     } catch (error) {
+      console.error('Error in exportChecklistPDF:', error);
       toast.error('Failed to generate checklist PDF');
     }
   };
@@ -690,6 +831,7 @@ export default function Home() {
         // Stop the stream immediately - we just needed permission
         stream.getTracks().forEach(track => track.stop());
       } catch (err: any) {
+        console.error('Microphone permission error:', err);
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
           toast.error("Microphone access denied. Please allow microphone access in your browser settings.");
         } else if (err.name === 'NotFoundError') {
@@ -722,6 +864,8 @@ export default function Home() {
 
       recognition.onerror = (event: any) => {
         setIsListening(false);
+        console.error('Speech recognition error:', event.error, event);
+        
         switch (event.error) {
           case 'no-speech':
             toast.error('No speech detected. Please try again and speak clearly.');
@@ -808,6 +952,7 @@ export default function Home() {
 
       recognition.start();
     } catch (err: any) {
+      console.error('Failed to start speech recognition:', err);
       toast.error('Failed to start voice recognition. Please try again.');
       setIsListening(false);
     }
@@ -888,7 +1033,7 @@ export default function Home() {
       // Tab switching with numbers
       if (e.key >= "1" && e.key <= "7" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws", "drawing-analysis"];
+        const tabs = ["building", "plumbing", "electrical", "additions", "sustainability", "fire-safety", "design-tools", "municipal-bylaws", "drawing-analysis", "step-code"];
         setActiveTab(tabs[parseInt(e.key) - 1]);
       }
     };
@@ -897,15 +1042,16 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [filteredData, focusedIndex]);
 
-  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-
   return (
-    <DisclaimerGate onAccepted={() => setDisclaimerAccepted(true)}>
-      {disclaimerAccepted && (
     <div className="min-h-screen bg-background flex flex-col md:flex-row overflow-hidden font-sans">
       {/* Sidebar / Search Area */}
       <div className={`w-full md:w-1/3 lg:w-1/4 border-r border-border bg-sidebar flex flex-col h-screen overflow-hidden z-10 ${selectedGroup ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-border bg-sidebar">
+          <Link href="/" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 group w-fit">
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
           <div className="flex items-center justify-between gap-2 mb-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
@@ -942,18 +1088,8 @@ export default function Home() {
                   Logout ({user?.name || 'User'})
                 </Button>
               ) : (
-                <div className="flex items-center gap-2">
-                  <DevLogin />
-                  <span className="text-xs text-muted-foreground">or</span>
-                  <Button
-                    onClick={() => window.location.href = getLoginUrl()}
-                    variant="default"
-                    size="sm"
-                    className="text-xs bg-blue-600 hover:bg-blue-700"
-                  >
-                    OAuth Login
-                  </Button>
-                </div>
+                // AUTH-MIGRATE-001: Use Clerk SignIn component instead of Manus OAuth redirect
+                <SignIn />
               )}
               <Select value={selectedRegion} onValueChange={setSelectedRegion}>
                 <SelectTrigger className="w-[80px] h-8 text-xs">
@@ -1300,17 +1436,13 @@ export default function Home() {
             
             {/* Desktop Action Buttons */}
             <div className="hidden md:flex items-center gap-2 mb-6 ml-auto print:hidden">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
-                      <FolderOpen className="w-4 h-4" />
-                      Projects
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
-                    <ProjectDashboard />
-                  </DialogContent>
-                </Dialog>
+                <button
+                  onClick={() => setShowProjectWizard(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Projects
+                </button>
                 <Dialog>
                   <DialogTrigger asChild>
                     <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors">
@@ -1380,18 +1512,14 @@ export default function Home() {
                   Share
                 </button>
                 
-                {/* Projects Dialog */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors">
-                      <FolderOpen className="w-4 h-4" />
-                      Projects
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto rounded-none">
-                    <ProjectDashboard />
-                  </DialogContent>
-                </Dialog>
+                {/* Projects Button */}
+                <button
+                  onClick={() => setShowProjectWizard(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 border border-purple-300 rounded-md hover:bg-purple-50 bg-purple-50/50 transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Projects
+                </button>
                 
                 {/* Compare Dialog */}
                 <Dialog>
@@ -1572,6 +1700,16 @@ export default function Home() {
                         <FileImage className="w-4 h-4" /> Drawing Analysis
                       </div>
                     </SelectItem>
+                    <SelectItem value="step-code">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4" /> Step Code
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="projects">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="w-4 h-4" /> Projects
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1615,10 +1753,22 @@ export default function Home() {
                   <MapPin className="w-4 h-4 mr-2" /> Municipal Bylaws
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="drawing-analysis" 
+                  value="drawing-analysis"
                   className="rounded-md border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-indigo-600"
                 >
                   <FileImage className="w-4 h-4 mr-2" /> Drawing Analysis
+                </TabsTrigger>
+                <TabsTrigger
+                  value="step-code"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-yellow-500 data-[state=active]:bg-yellow-50 data-[state=active]:text-yellow-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-yellow-600"
+                >
+                  <Zap className="w-4 h-4 mr-2" /> Step Code
+                </TabsTrigger>
+                <TabsTrigger
+                  value="projects"
+                  className="rounded-md border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700 data-[state=active]:shadow-sm px-4 py-3 text-xs font-bold uppercase tracking-wider hover:text-orange-600"
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" /> Projects
                 </TabsTrigger>
               </TabsList>
 
@@ -2707,13 +2857,242 @@ export default function Home() {
                   </section>
 
                   <section className="mt-8 pt-8 border-t border-border">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
-                      <FileImage className="w-5 h-5" /> AI-Powered Plan Analysis
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Upload architectural plans (floor plans, elevations, site plans) to automatically detect NBC 2025 code infractions using AI vision analysis. Get instant feedback on compliance issues with specific code references and recommendations.
-                    </p>
-                    <PlanAnalyzer />
+                    {/* Architectural Space Analyzer */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Architectural Space Analyzer</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Upload a floor plan to receive AI-powered recommendations for space efficiency,
+                        natural light, ventilation, sustainable materials, and LEED gap analysis.
+                      </p>
+
+                      {/* Upload Area */}
+                      <div
+                        className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                        onClick={() => spaceAnalysisFileRef.current?.click()}
+                      >
+                        {spaceAnalysisImage ? (
+                          <div className="space-y-2">
+                            <img
+                              src={`data:${spaceAnalysisImageMime};base64,${spaceAnalysisImage}`}
+                              alt="Uploaded plan"
+                              className="max-h-48 mx-auto rounded object-contain"
+                            />
+                            <p className="text-xs text-muted-foreground">Click to replace</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                            <p className="text-sm font-medium">Drop your floor plan here</p>
+                            <p className="text-xs text-muted-foreground">PDF, JPG, PNG supported</p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        ref={spaceAnalysisFileRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          if (file.type === 'application/pdf') {
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            const pageCount = Math.min(pdf.numPages, 20);
+                            const pages: string[] = [];
+                            for (let i = 1; i <= pageCount; i++) {
+                              const page = await pdf.getPage(i);
+                              const viewport = page.getViewport({ scale: 1.5 });
+                              const canvas = document.createElement('canvas');
+                              canvas.width = viewport.width;
+                              canvas.height = viewport.height;
+                              const ctx = canvas.getContext('2d')!;
+                              await page.render({ canvasContext: ctx, viewport } as any).promise;
+                              pages.push(canvas.toDataURL('image/png'));
+                            }
+                            setSpacePdfPages(pages);
+                            setSpaceSelectedPage(0);
+                            const base64 = pages[0].split(',')[1];
+                            setSpaceAnalysisImage(base64);
+                            setSpaceAnalysisImageMime('image/png');
+                          } else {
+                            setSpacePdfPages([]);
+                            setSpaceSelectedPage(0);
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              const base64 = result.split(',')[1];
+                              setSpaceAnalysisImage(base64);
+                              setSpaceAnalysisImageMime(file.type || 'image/jpeg');
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+
+                      {spacePdfPages.length > 1 && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground font-medium">SELECT PAGE TO ANALYZE</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {spacePdfPages.map((page, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setSpaceSelectedPage(idx);
+                                  setSpaceAnalysisImage(page.split(',')[1]);
+                                  setSpaceAnalysisImageMime('image/png');
+                                }}
+                                className={`flex-shrink-0 cursor-pointer rounded border-2 transition-all ${
+                                  spaceSelectedPage === idx
+                                    ? 'border-primary shadow-md'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                <img
+                                  src={page}
+                                  alt={`Page ${idx + 1}`}
+                                  className="h-24 w-auto rounded object-contain"
+                                />
+                                <p className="text-xs text-center text-muted-foreground py-1">
+                                  Page {idx + 1}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={runSpaceAnalysis}
+                        disabled={!spaceAnalysisImage || spaceAnalysisLoading}
+                        className="w-full"
+                      >
+                        {spaceAnalysisLoading ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</>
+                        ) : (
+                          <><Building className="w-4 h-4 mr-2" /> Analyze Space</>
+                        )}
+                      </Button>
+
+                      {/* Results */}
+                      {spaceAnalysisResult && (
+                        <div className="space-y-6 mt-4">
+
+                          {/* Overall Score */}
+                          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-lg">Overall Design Score</span>
+                              <span className="text-2xl font-bold text-primary">{spaceAnalysisResult.overallScore}/100</span>
+                            </div>
+                            <Progress value={spaceAnalysisResult.overallScore} className="h-2" />
+                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                              <span>Drawing: {spaceAnalysisResult.drawingType}</span>
+                              <span>Climate Zone: {spaceAnalysisResult.climateZone}</span>
+                            </div>
+                          </div>
+
+                          {/* Six Dimension Cards */}
+                          {[
+                            { key: 'spaceDistribution', label: 'Space Distribution', icon: LayoutGrid },
+                            { key: 'naturalLight', label: 'Natural Light', icon: Sun },
+                            { key: 'roomLayout', label: 'Room Layout', icon: Building },
+                            { key: 'ventilation', label: 'Wind & Ventilation', icon: Wind },
+                            { key: 'sustainableMaterials', label: 'Sustainable Materials', icon: Leaf },
+                          ].map(({ key, label, icon: Icon }) => {
+                            const section = spaceAnalysisResult[key];
+                            if (!section) return null;
+                            return (
+                              <div key={key} className="border border-border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Icon className="w-4 h-4 text-primary" />
+                                    <span className="font-medium">{label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={section.score} className="w-24 h-1.5" />
+                                    <span className="text-sm font-semibold">{section.score}/100</span>
+                                  </div>
+                                </div>
+                                {section.findings?.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">FINDINGS</p>
+                                    <ul className="space-y-1">
+                                      {section.findings.map((f: string, i: number) => (
+                                        <li key={i} className="text-sm flex gap-2">
+                                          <span className="text-amber-500 mt-0.5">•</span>
+                                          <span>{f}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {section.recommendations?.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">RECOMMENDATIONS</p>
+                                    <ul className="space-y-1">
+                                      {section.recommendations.map((r: string, i: number) => (
+                                        <li key={i} className="text-sm flex gap-2">
+                                          <span className="text-green-500 mt-0.5">→</span>
+                                          <span>{r}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* LEED Gap Analysis */}
+                          {spaceAnalysisResult.leedGapAnalysis && (
+                            <div className="border border-green-200 bg-green-50 rounded-lg p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Award className="w-4 h-4 text-green-600" />
+                                  <span className="font-medium text-green-800">LEED Gap Analysis</span>
+                                </div>
+                                <Badge variant="outline" className="border-green-400 text-green-700">
+                                  ~{spaceAnalysisResult.leedGapAnalysis.estimatedPoints} / {spaceAnalysisResult.leedGapAnalysis.maxPossiblePoints} pts
+                                </Badge>
+                              </div>
+                              <div className="space-y-3">
+                                {spaceAnalysisResult.leedGapAnalysis.categories?.map((cat: any, i: number) => (
+                                  <div key={i} className="bg-white rounded p-3 space-y-1 border border-green-100">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium text-sm">{cat.category}</span>
+                                      <Badge className="bg-green-100 text-green-700 text-xs">{cat.estimatedPoints} pts</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground"><span className="font-medium">Status:</span> {cat.status}</p>
+                                    <p className="text-xs text-amber-700"><span className="font-medium">Gap:</span> {cat.gap}</p>
+                                    <p className="text-xs text-green-700"><span className="font-medium">Action:</span> {cat.action}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Priority Actions */}
+                          {spaceAnalysisResult.priorityActions?.length > 0 && (
+                            <div className="border border-border rounded-lg p-4 space-y-2">
+                              <p className="font-medium text-sm">Priority Actions</p>
+                              <ol className="space-y-2">
+                                {spaceAnalysisResult.priorityActions.map((action: string, i: number) => (
+                                  <li key={i} className="text-sm flex gap-2">
+                                    <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">{i + 1}</span>
+                                    <span>{action}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                        </div>
+                      )}
+                    </div>
                   </section>
                 </div>
               </TabsContent>
@@ -2748,17 +3127,80 @@ export default function Home() {
                   </section>
                 </div>
               </TabsContent>
+
+              <TabsContent value="step-code" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <StepCodeTabContent activeProjectId={activeProjectId} />
+              </TabsContent>
+
+              <TabsContent value="projects" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                <Projects />
+              </TabsContent>
             </Tabs>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto opacity-40">
-            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-              <Search className="w-10 h-10 text-muted-foreground" />
+          <div className="h-full flex flex-col gap-6 p-6 overflow-y-auto">
+            {/* Welcome header */}
+            <div>
+              <h2 className="text-2xl font-bold mb-1">Occupancy Classifier</h2>
+              <p className="text-muted-foreground text-sm">
+                Select an occupancy group from the sidebar or search to view detailed NBC compliance requirements.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Select a Building Type</h2>
-            <p className="text-muted-foreground">
-              Search for a building type in the sidebar or select an occupancy group to view detailed compliance requirements.
-            </p>
+
+            {/* Quick access grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Assembly', code: 'A', icon: '🎭', description: 'Theatres, arenas, schools' },
+                { label: 'Residential', code: 'C', icon: '🏠', description: 'Dwellings, hotels' },
+                { label: 'Business', code: 'D', icon: '🏢', description: 'Offices, banks' },
+                { label: 'Mercantile', code: 'E', icon: '🛒', description: 'Retail, shops' },
+                { label: 'Industrial', code: 'F', icon: '🏭', description: 'Factories, storage' },
+                { label: 'Institutional', code: 'B', icon: '🏥', description: 'Hospitals, care homes' },
+              ].map((item) => {
+                const group = occupancyData.find(g => g.code.startsWith(item.code));
+                return (
+                  <button
+                    key={item.code}
+                    onClick={() => group && setSelectedGroup(group)}
+                    className="flex flex-col items-start gap-1 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors text-left"
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="font-semibold text-sm">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">{item.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search tip */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+              <Search className="w-4 h-4 shrink-0" />
+              <span>
+                Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-xs font-mono">/</kbd> to focus search, or type an occupancy type to filter the list.
+              </span>
+            </div>
+
+            {/* Occupancy Advisor teaser */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+              <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-sm mb-1">Not sure which occupancy applies?</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  The Occupancy Advisor asks a few quick questions and recommends the correct classification based on NBC 2025 criteria.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setShowOccupancyAdvisor(true)}>
+                  Launch Advisor
+                </Button>
+              </div>
+            </div>
+
+            {/* Occupancy Advisor modal */}
+            <OccupancyAdvisor
+              open={showOccupancyAdvisor}
+              onOpenChange={setShowOccupancyAdvisor}
+              projectId={activeProjectId ?? undefined}
+              onConfirm={() => setShowOccupancyAdvisor(false)}
+            />
           </div>
         )}
       </div>
@@ -2816,6 +3258,8 @@ export default function Home() {
         onClose={() => setShowUserManual(false)} 
       />
 
+      <ProjectWizard open={showProjectWizard} onOpenChange={setShowProjectWizard} />
+
       {/* Export PDF Dialog */}
       <ExportPDFDialog
         open={showExportDialog}
@@ -2827,7 +3271,5 @@ export default function Home() {
         getSectionsForGroup={getSectionsForGroup}
       />
     </div>
-      )}
-    </DisclaimerGate>
   );
 }

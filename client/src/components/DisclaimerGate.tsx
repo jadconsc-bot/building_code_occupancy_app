@@ -1,210 +1,231 @@
 /**
  * DisclaimerGate Component
  *
- * Non-dismissible modal that blocks access until user accepts legal disclaimer.
- * Logs DISCLAIMER_ACKNOWLEDGED audit event on confirmation.
+ * PD2.0 §6.3 — Disclaimer must be acknowledged before any drawing analysis.
+ * This component blocks access to the analysis tool until the user explicitly
+ * acknowledges the disclaimer. The acknowledgment is stored server-side via
+ * trpc.drawingAnalysis.acknowledgeDisclaimer.
  *
- * CRITICAL: This component must be rendered BEFORE any drawing upload functionality.
- * User cannot proceed without accepting both checkboxes.
+ * The disclaimer version is tracked so users are re-prompted if the disclaimer
+ * text changes (CURRENT_DISCLAIMER_VERSION bump on server).
  */
 
-import { useState, useEffect } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/_core/hooks/useAuth';
-import { trpc } from '@/lib/trpc';
+import { useState, useRef, useEffect } from "react";
+import { AlertTriangle, CheckCircle2, FileText, Shield, ChevronDown, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { trpc } from "@/lib/trpc";
 
 interface DisclaimerGateProps {
-  children?: React.ReactNode;
-  onAccepted: () => void;
-  disclaimerVersion?: string;
+  onAcknowledged: (disclaimerVersion: string) => void;
 }
 
-const DISCLAIMER_TEXT = `
-REQUIRED LEGAL ACKNOWLEDGMENT
+export function DisclaimerGate({ onAcknowledged }: DisclaimerGateProps) {
+  const [checked, setChecked] = useState(false);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [formMounted, setFormMounted] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-NOT A PROFESSIONAL ENGINEER SERVICE
+  const { data: disclaimerData, isLoading, isError, refetch } = trpc.drawingAnalysis.getDisclaimer.useQuery();
 
-This tool is NOT a substitute for professional engineering review, consultation, or licensed professional services. All analyses are informational only. You are solely responsible for:
-
-• Conducting independent verification of all outputs
-• Exercising professional judgment and responsibility
-• Obtaining professional engineering review
-• Compliance with professional standards and codes of ethics
-• Taking full responsibility for any professional opinions
-
-BUILDING CODES VARY BY JURISDICTION
-
-Building codes and regulations vary significantly by jurisdiction. This tool may not reflect all local requirements or recent code updates.
-
-I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
-
-I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
-`;
-
-export function DisclaimerGate({ 
-  children, 
-  onAccepted, 
-  disclaimerVersion = "1.0" 
-}: DisclaimerGateProps) {
-  const { user } = useAuth();
-  const [understands, setUnderstands] = useState(false);
-  const [accepts, setAccepts] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAlreadyAccepted, setIsAlreadyAccepted] = useState(false);
-
-  // Query: Check if user already accepted disclaimer
-  const checkDisclaimerQuery = trpc.auth.hasAcceptedDisclaimer.useQuery(
-    { version: disclaimerVersion },
-    { enabled: !!user }
-  );
-
-  // Mutation: Accept disclaimer
-  const acceptDisclaimerMutation = trpc.auth.acceptDisclaimer.useMutation({
-    onSuccess: () => {
-      setIsAlreadyAccepted(true);
-      onAccepted();
-    },
-    onError: (error) => {
-      setError(error.message || 'Failed to accept disclaimer');
-      setIsLoading(false);
+  const acknowledgeMutation = trpc.drawingAnalysis.acknowledgeDisclaimer.useMutation({
+    onSuccess: (data) => {
+      onAcknowledged(data.disclaimerVersion);
     },
   });
 
-  // Check if already accepted on mount
+  // Set formMounted once data is loaded so the scroll container ref is available
   useEffect(() => {
-    if (!checkDisclaimerQuery.isLoading && checkDisclaimerQuery.data?.accepted) {
-      setIsAlreadyAccepted(true);
-      onAccepted();
+    if (disclaimerData && !isLoading) {
+      setFormMounted(true);
     }
-    setIsLoading(checkDisclaimerQuery.isLoading);
-  }, [checkDisclaimerQuery.isLoading, checkDisclaimerQuery.data, onAccepted]);
+  }, [disclaimerData, isLoading]);
 
-  const handleProceed = async () => {
-    if (!understands || !accepts) {
-      setError('You must check both boxes to proceed');
+  // Auto-detect when content doesn't need scrolling
+  // Depends on formMounted so it re-fires after the scroll container renders
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (el.scrollHeight <= el.clientHeight) {
+      setScrolledToBottom(true);
+    }
+  }, [disclaimerData, formMounted]);
+
+  // Improved scroll detection with better threshold
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 0) {
+      setScrolledToBottom(true);
       return;
     }
-
-    if (!user) {
-      setError('User authentication required');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await acceptDisclaimerMutation.mutateAsync({
-        version: disclaimerVersion,
-      });
-    } catch (err) {
-      // Error is handled in onError callback
-    }
+    const progress = (scrollTop / maxScroll) * 100;
+    setScrollProgress(progress);
+    const atBottom = progress >= 95 || scrollHeight - (scrollTop + clientHeight) < 10;
+    setScrolledToBottom(atBottom);
   };
 
-  // If already accepted, show children
-  if (isAlreadyAccepted) {
-    return <>{children}</>;
-  }
+  const handleAcknowledge = async () => {
+    console.log('[Disclaimer] Acknowledge clicked:', { disclaimerData: !!disclaimerData, checked, scrolledToBottom });
+    if (!disclaimerData || !checked || !scrolledToBottom) return;
+    acknowledgeMutation.mutate({ disclaimerVersion: disclaimerData.version });
+  };
 
-  // Loading state
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-2xl">
-          <CardContent className="p-6 flex items-center justify-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Loading...</span>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Shield className="w-5 h-5 mr-2 animate-pulse" />
+        Loading disclaimer...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <p className="text-sm text-destructive">Failed to load disclaimer. Please try again.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Retry
+        </Button>
       </div>
     );
   }
 
   return (
-    <>
-      {/* Non-dismissible modal backdrop */}
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <CardHeader className="bg-red-50 border-b border-red-200">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-              <CardTitle className="text-red-600">REQUIRED LEGAL ACKNOWLEDGMENT</CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent className="p-6 space-y-6">
-            {/* Disclaimer Text */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm font-bold text-red-600 mb-3">NOT A PROFESSIONAL ENGINEER SERVICE</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{DISCLAIMER_TEXT}</p>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-
-            {/* Checkboxes */}
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="understands"
-                  checked={understands}
-                  onCheckedChange={(checked) => setUnderstands(checked as boolean)}
-                  disabled={acceptDisclaimerMutation.isPending}
-                />
-                <Label htmlFor="understands" className="text-sm cursor-pointer">
-                  I understand that this tool is NOT a substitute for professional engineering review and that professional judgment and responsibility are required.
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="accepts"
-                  checked={accepts}
-                  onCheckedChange={(checked) => setAccepts(checked as boolean)}
-                  disabled={acceptDisclaimerMutation.isPending}
-                />
-                <Label htmlFor="accepts" className="text-sm cursor-pointer">
-                  I accept all terms, conditions, disclaimers, and limitations of liability outlined above and acknowledge the risks of using this tool.
-                </Label>
-              </div>
-            </div>
-
-            {/* Proceed Button */}
-            <Button
-              onClick={handleProceed}
-              disabled={!understands || !accepts || acceptDisclaimerMutation.isPending}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              {acceptDisclaimerMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                'I Accept - Continue to CodeComply'
-              )}
-            </Button>
-
-            {/* Version Info */}
-            <p className="text-xs text-gray-500 text-center">
-              Disclaimer Version: {disclaimerVersion}
-            </p>
-          </CardContent>
-        </Card>
+    <div className="max-w-2xl mx-auto space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-start gap-4 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <h2 className="font-semibold text-amber-900 dark:text-amber-100 text-base">
+            Important Disclaimer — Read Before Proceeding
+          </h2>
+          <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+            This tool uses AI to extract data from drawings. All results require professional review.
+            You must read and acknowledge the full disclaimer before using this feature.
+          </p>
+        </div>
       </div>
 
-      {/* Show children only if accepted */}
-      {isAlreadyAccepted && <>{children}</>}
-    </>
+      {/* Disclaimer Text Container */}
+      <div className="border border-border rounded-lg overflow-hidden bg-background">
+        {/* Header with scroll indicator */}
+        <div className="flex items-center gap-2 px-4 py-3 bg-muted border-b border-border">
+          <FileText className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">
+            Disclaimer v{disclaimerData?.version}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {!scrolledToBottom && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(scrollProgress)}%
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
+              </div>
+            )}
+            {scrolledToBottom && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Read
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable disclaimer text */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="h-64 overflow-y-auto p-4 bg-background"
+        >
+          <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+            {disclaimerData?.text}
+          </pre>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1 bg-muted">
+          <div
+            className="h-full bg-blue-500 transition-all duration-200"
+            style={{ width: `${scrollProgress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Acknowledgment Checkbox */}
+      <div className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
+        checked && scrolledToBottom
+          ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+          : "border-border bg-background"
+      }`}>
+        <Checkbox
+          id="disclaimer-ack"
+          checked={checked}
+          onCheckedChange={(v) => setChecked(!!v)}
+          disabled={!scrolledToBottom}
+          className="mt-0.5"
+        />
+        <Label
+          htmlFor="disclaimer-ack"
+          className={`text-sm leading-relaxed cursor-pointer ${
+            !scrolledToBottom ? "text-muted-foreground cursor-not-allowed" : "text-foreground"
+          }`}
+        >
+          I have read and understood the full disclaimer. I acknowledge that this tool is for
+          informational purposes only and that all results must be reviewed by a licensed
+          professional engineer or registered architect before any regulatory use.
+        </Label>
+      </div>
+
+      {!scrolledToBottom && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-bounce" />
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            Please scroll through the entire disclaimer ({Math.round(scrollProgress)}% complete) before acknowledging.
+          </p>
+        </div>
+      )}
+
+      {/* Acknowledge Button */}
+      <Button
+        onClick={handleAcknowledge}
+        disabled={!checked || !scrolledToBottom || acknowledgeMutation.isPending}
+        className="w-full"
+        size="lg"
+        title={`Button disabled: checked=${checked}, scrolledToBottom=${scrolledToBottom}, isPending=${acknowledgeMutation.isPending}`}
+      >
+        {acknowledgeMutation.isPending ? (
+          <>
+            <Shield className="w-4 h-4 mr-2 animate-spin" />
+            Recording acknowledgment...
+          </>
+        ) : (
+          <>
+            <Shield className="w-4 h-4 mr-2" />
+            I Acknowledge — Proceed to Drawing Analysis
+          </>
+        )}
+      </Button>
+
+      {acknowledgeMutation.isError && (
+        <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Failed to record acknowledgment. Please try again.
+          </p>
+        </div>
+      )}
+
+      {acknowledgeMutation.isSuccess && (
+        <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+          <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            Acknowledgment recorded successfully!
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

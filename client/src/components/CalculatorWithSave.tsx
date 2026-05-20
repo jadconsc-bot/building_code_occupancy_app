@@ -3,6 +3,22 @@ import { SaveCalculatorResultDialog } from './SaveCalculatorResultDialog';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
+interface SaveButtonProps {
+  calculatorType: string;
+  inputs: Record<string, unknown>;
+  results: Record<string, unknown>;
+}
+
+export function SaveButton({ calculatorType, inputs, results }: SaveButtonProps) {
+  return (
+    <SaveCalculatorResultDialog
+      calculatorType={calculatorType}
+      inputData={inputs}
+      resultData={results}
+    />
+  );
+}
+
 interface CalculatorWithSaveProps {
   calculatorType: string;
   calculatorName: string;

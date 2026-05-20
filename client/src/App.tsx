@@ -8,13 +8,13 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
-import { AuthHydrationWrapper } from "./components/AuthHydrationWrapper";
+import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
+import { CookieConsent } from "./components/CookieConsent";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
-import { RequiredLegalAcknowledgment } from "./components/RequiredLegalAcknowledgment";
-import { useLocalStorage } from "@/_core/hooks/useLocalStorage";
-import { useState, useEffect } from "react";
+import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
 import Home from "./pages/Home";
+import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
@@ -27,21 +27,36 @@ import CalculationVersioning from "./pages/CalculationVersioning";
 import Billing from "./pages/Billing";
 import VerificationPortal from "./pages/VerificationPortal";
 import TermsOfService from "./pages/TermsOfService";
-import CertificateManagement from "./pages/CertificateManagement";
-import ProjectAnalytics from "./pages/ProjectAnalytics";
-import SharedWithMe from "./pages/SharedWithMe";
+import Documentation from "./pages/Documentation";
+import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
+import Settings from "./pages/Settings";
 import { NavigationHeader } from "./components/NavigationHeader";
+import { ProjectTabView } from "./components/ProjectTabView";
+import { useLocation } from "wouter";
 
-function MainApp() {
+function ProjectDetailPage({ params }: { params: { projectId: string } }) {
+  const [, setLocation] = useLocation();
+  return (
+    <ProjectTabView
+      projectId={params.projectId ?? ''}
+      onNavigate={(route) => setLocation(route)}
+      onBack={() => setLocation('/')}
+    />
+  );
+}
+
+function Router() {
   // make sure to consider if you need authentication for certain routes
+  // ProjectTabView route added for individual project detail views
   return (
     <>
       <NavigationHeader />
       <Switch>
-        <Route path={"/"} component={Home} />
-        <Route path={"/dashboard"} component={Dashboard} />
+        <Route path={"/"} component={Dashboard} />
+        <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/compliance/:projectId"} component={Compliance} />
+        <Route path={"/compliance"} component={Compliance} />
         <Route path={"/rule-management"} component={RuleManagement} />
         <Route path={"/calculation-history"} component={CalculationHistory} />
         <Route path={"/clients"} component={ClientsManagement} />
@@ -49,11 +64,12 @@ function MainApp() {
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
         <Route path={"/verify"} component={VerificationPortal} />
-        <Route path={"/certificates"} component={CertificateManagement} />
-        <Route path={"/project-analytics"} component={ProjectAnalytics} />
-        <Route path={"/shared-with-me"} component={SharedWithMe} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
+        <Route path={"/documentation"} component={Documentation} />
+        <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
+        <Route path={"/settings"} component={Settings} />
+        <Route path={"/project/:projectId"} component={ProjectDetailPage} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />
@@ -67,45 +83,36 @@ function MainApp() {
 //   to keep consistent foreground/background color across components
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
-function AppWithLegalAcknowledgment() {
-  const [hasAcknowledgedLegal, setHasAcknowledgedLegal] = useLocalStorage(
-    'legal_acknowledgment_v1',
-    false
-  );
-
-  const handleAcknowledged = () => {
-    setHasAcknowledgedLegal(true);
-  };
-
-  // Show disclaimer on first use or if not acknowledged
-  if (!hasAcknowledgedLegal) {
-    return <RequiredLegalAcknowledgment onAcknowledged={handleAcknowledged} />;
-  }
-
-  return <MainApp />;
-}
-
 function App() {
+  // AUTH-MIGRATE-001 / BUG-FIX-AUTH-011: Run session exchange before AuthHydrationProvider
+  // gates the tree. This breaks the circular dependency: exchange no longer needs to wait
+  // for isHydrated=true, so auth.me can fire with a valid cookie on the first attempt.
+  useClerkSessionExchange();
+
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <ProjectProvider>
-          <ComparisonProvider>
-            <CalculationHistoryProvider>
-              <HelpSystemProvider>
-                <TooltipProvider>
-                  <AuthHydrationWrapper>
+      <CookieConsent />
+      <AuthHydrationProvider>
+        <ThemeProvider
+          defaultTheme="light"
+          switchable
+        >
+          <ProjectProvider>
+            <ComparisonProvider>
+              <CalculationHistoryProvider>
+                <HelpSystemProvider>
+                  <TooltipProvider>
                     <Toaster />
                     <OfflineIndicator />
                     <HelpPanel />
-                    <AppWithLegalAcknowledgment />
-                  </AuthHydrationWrapper>
-                </TooltipProvider>
-              </HelpSystemProvider>
-            </CalculationHistoryProvider>
-          </ComparisonProvider>
-        </ProjectProvider>
-      </ThemeProvider>
+                    <Router />
+                  </TooltipProvider>
+                </HelpSystemProvider>
+              </CalculationHistoryProvider>
+            </ComparisonProvider>
+          </ProjectProvider>
+        </ThemeProvider>
+      </AuthHydrationProvider>
     </ErrorBoundary>
   );
 }

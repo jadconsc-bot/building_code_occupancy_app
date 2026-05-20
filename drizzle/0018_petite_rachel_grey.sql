@@ -1,0 +1,1 @@
+-- Tables already exist from 0002_drawing_analysis_tables.sql raw migration

@@ -1,0 +1,159 @@
+import axios from 'axios';
+import { ENV } from '../../_core/env';
+
+export interface OcrLabel {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: number;
+}
+
+export interface OcrResult {
+  labels: OcrLabel[];       // filtered room labels
+  allLabels: OcrLabel[];    // all words, including legend/notes blocks
+  rawResponse: unknown;
+}
+
+export async function extractLabelsFromImage(
+  imageBase64: string,
+  imageWidth: number,
+  imageHeight: number,
+): Promise<OcrResult> {
+  const endpoint = ENV.azureDocIntelligenceEndpoint
+    || process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT
+    || '';
+  const key = ENV.azureDocIntelligenceKey
+    || process.env.AZURE_DOC_INTELLIGENCE_KEY
+    || '';
+
+  console.log(`[AzureOCR] Config check — endpoint: ${endpoint ? endpoint.substring(0, 40) + '...' : 'MISSING'}, key: ${key ? 'present' : 'MISSING'}`);
+
+  if (!endpoint || !key) {
+    console.warn('[AzureOCR] Not configured — skipping label extraction');
+    return { labels: [], allLabels: [], rawResponse: null };
+  }
+
+  const submitUrl =
+    `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30`;
+
+  const submitResponse = await axios.post(
+    submitUrl,
+    { base64Source: imageBase64 },
+    {
+      headers: {
+        'Ocp-Apim-Subscription-Key': key,
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+
+  const operationUrl = submitResponse.headers['operation-location'];
+  if (!operationUrl) throw new Error('Azure OCR: no operation-location header');
+
+  let result: any = null;
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const poll = await axios.get(operationUrl, {
+      headers: { 'Ocp-Apim-Subscription-Key': key },
+    });
+    if (poll.data.status === 'succeeded') { result = poll.data; break; }
+    if (poll.data.status === 'failed') throw new Error('Azure OCR analysis failed');
+  }
+
+  if (!result) throw new Error('Azure OCR timed out');
+
+  const labels: OcrLabel[] = [];
+  const pages: any[] = result.analyzeResult?.pages ?? [];
+
+  for (const page of pages) {
+    const pageW: number = page.width ?? imageWidth;
+    const pageH: number = page.height ?? imageHeight;
+    const scaleX = imageWidth / pageW;
+    const scaleY = imageHeight / pageH;
+
+    for (const word of page.words ?? []) {
+      const polygon: number[] = word.polygon ?? [];
+      if (polygon.length < 8) continue;
+
+      const xs = [polygon[0], polygon[2], polygon[4], polygon[6]];
+      const ys = [polygon[1], polygon[3], polygon[5], polygon[7]];
+      const minX = Math.min(...xs) * scaleX;
+      const minY = Math.min(...ys) * scaleY;
+      const maxX = Math.max(...xs) * scaleX;
+      const maxY = Math.max(...ys) * scaleY;
+
+      labels.push({
+        text: word.content,
+        x: Math.round((minX + maxX) / 2),
+        y: Math.round((minY + maxY) / 2),
+        width: Math.round(maxX - minX),
+        height: Math.round(maxY - minY),
+        confidence: word.confidence ?? 0.9,
+      });
+    }
+  }
+
+  console.log(`[AzureOCR] Extracted ${labels.length} text labels`);
+  return { labels, allLabels: labels, rawResponse: result };
+}
+
+const ROOM_KEYWORDS = [
+  // Core room types
+  'bedroom', 'bathroom', 'kitchen', 'living', 'dining',
+  'corridor', 'hallway', 'vestibule', 'storage', 'closet',
+  'laundry', 'utility', 'office', 'lobby', 'stair', 'elevator',
+  'unit', 'suite', 'room', 'wc', 'ensuite', 'garage',
+  'mechanical', 'electrical', 'janitor', 'lounge',
+  // Additional room types common in Canadian drawings
+  'greatroom', 'great room', 'great-room',
+  'den', 'study', 'library',
+  'en-suite', 'en suite',
+  'washroom', 'w/r', 'wr',
+  'powder', 'powder room',
+  'pantry', 'walk-in', 'wic', 'w.i.c',
+  'foyer', 'entry', 'entrance', 'mudroom', 'mud room',
+  'family', 'family room',
+  'rec', 'recreation', 'media', 'theatre',
+  'gym', 'exercise',
+  'balcony', 'terrace', 'patio', 'deck',
+  'mech', 'mec', 'elec',
+  'common', 'amenity',
+  'ar',
+];
+
+export function filterRoomLabels(
+  labels: OcrLabel[],
+  imageHeight: number = 0,
+  imageWidth: number = 0,
+): OcrLabel[] {
+  // Exclude top 20% — title block schedule tables
+  const yMin = imageHeight > 0 ? imageHeight * 0.20 : 0;
+  // Exclude rightmost 15% — title block / stamp column on the right
+  const xMax = imageWidth > 0 ? imageWidth * 0.85 : Infinity;
+  // Grid axis pattern: RC1, RS1, RB1, A1, B2 — letter(s) + digits, no separator
+  const gridAxisPattern = /^[A-Z]{1,2}\d{1,2}$/;
+
+  // Procurement / equipment-label phrases that are never room labels
+  const equipmentPhrasePattern = /design.builder|contractor|provided.installed|by owner|by others|n\.i\.c\.|not in contract|owner supplied|owner furnished|legend|revision cloud|keynote/i;
+
+  return labels.filter(label => {
+    if (label.y < yMin) return false;
+    if (label.x > xMax) return false;
+    if (gridAxisPattern.test(label.text)) return false;
+    if (equipmentPhrasePattern.test(label.text)) return false;
+
+    const lower = label.text.toLowerCase();
+    const text = label.text;
+
+    if (ROOM_KEYWORDS.some(kw => lower.includes(kw))) return true;
+    // Room codes require an explicit separator: AR-103, A-12, B.12
+    if (/^[A-Z]{1,4}[-.]\d+$/i.test(text)) return true;
+    if (/^unit\s*\d+/i.test(text)) return true;
+    // Short Canadian drawing abbreviations
+    if (/^(W\/R|WC|WR|MEC|MECH|ELEC|DEN|FAM|REC|GYM|ENS)$/i.test(text)) return true;
+
+    return false;
+  });
+}
