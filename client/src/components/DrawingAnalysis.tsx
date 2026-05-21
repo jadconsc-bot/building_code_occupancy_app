@@ -76,6 +76,7 @@ import { toast } from "sonner";
 import { DisclaimerGate } from "@/components/DisclaimerGate";
 import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
+import { SaveCalculatorResultDialog } from "@/components/SaveCalculatorResultDialog";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
 import { 
@@ -104,6 +105,9 @@ interface TravelDistanceResult {
   distancePx: number | null;
   distanceM: number | null;
   limit: number;
+  limitUnsprinklered: number;
+  limitSprinklered: number;
+  limitSource: 'occupancy_specific' | 'default_conservative';
   result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
   nbcClause: '3.4.2.5';
   sprinklered: boolean;
@@ -4231,14 +4235,58 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <div className="w-10 h-0.5 rounded-full bg-slate-300 group-hover:bg-purple-400 transition-colors" />
                   </div>
 
-                  {/* Travel distance caveat — shown when overlay is active */}
+                  {/* Travel distance caveat + Save to Project — shown when overlay is active */}
                   {showTravelDistanceOverlay && (
-                    <div className="mt-1 px-3 py-1.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-1.5">
-                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                      <span>
-                        Travel distances are straight-line estimates. Actual path of travel may be longer.
-                        Verify manually per NBC 3.4.2.5.
-                      </span>
+                    <div className="mt-1 space-y-1">
+                      <div className="px-3 py-1.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                        <span>
+                          Travel distances are straight-line estimates. Actual path of travel may be longer.
+                          Verify manually per NBC 3.4.2.5.
+                        </span>
+                      </div>
+                      {(() => {
+                        const worstFail = travelDistanceResults
+                          .filter(r => r.result === 'fail' && r.distanceM !== null)
+                          .sort((a, b) => (b.distanceM ?? 0) - (a.distanceM ?? 0))[0] ?? null;
+                        if (!worstFail) return null;
+                        const proj = projectListQuery.data?.find(p => p.id === selectedProjectId);
+                        const sprinkVal = proj?.sprinklersRequired ? 'yes' : 'no';
+                        // Map single-letter group back to a full occupancy code for the calculator
+                        const occGroup = worstFail.roomLabel ? (
+                          detectedRoomsData.find(r => r.id === worstFail.roomId)?.occupancyGroup ?? ''
+                        ) : '';
+                        // The calculator uses codes like "D", "C", "A-1" etc.; use group letter as fallback
+                        const occCode = occGroup || 'D';
+                        return (
+                          <div className="flex justify-end">
+                            <SaveCalculatorResultDialog
+                              calculatorType="travelDistance"
+                              inputData={{
+                                occupancy: occCode,
+                                sprinklered: sprinkVal,
+                                actualDistance: worstFail.distanceM?.toFixed(1) ?? '',
+                                deadEndCorridor: 'no',
+                                source: 'drawing_overlay',
+                                roomLabel: worstFail.roomLabel,
+                              }}
+                              resultData={{
+                                maxAllowed: worstFail.limit,
+                                actual: worstFail.distanceM,
+                                compliant: false,
+                                margin: worstFail.limit - (worstFail.distanceM ?? 0),
+                                deadEndLimit: travelSprinklered ? 9 : 6,
+                                limitSource: worstFail.limitSource,
+                              }}
+                            >
+                              <button className="px-2 py-1 rounded text-xs font-medium bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1">
+                                <Save className="w-3 h-3" />
+                                Save worst-case to project
+                              </button>
+                            </SaveCalculatorResultDialog>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -4270,13 +4318,26 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <div className="font-medium text-foreground mb-1">Travel Distance (Est.)</div>
                             <div className="space-y-0.5 text-muted-foreground">
                               {tdResult.result === 'unable_to_evaluate' ? (
-                                <div className="text-amber-600">
-                                  Unable to evaluate — {pixelsPerMm === null ? 'calibrate scale first' : 'no exits detected'}
+                                <div className="text-amber-600 space-y-0.5">
+                                  {tdResult.distanceM !== null ? (
+                                    <>
+                                      <div>Measured: {tdResult.distanceM.toFixed(1)} m</div>
+                                      <div>Limit: {tdResult.limit} m (conservative default — occupancy unknown)</div>
+                                      {tdResult.nearestExitLabel && <div>Nearest exit: {tdResult.nearestExitLabel}</div>}
+                                    </>
+                                  ) : (
+                                    <div>Unable to evaluate — {pixelsPerMm === null ? 'calibrate scale first' : 'no exits detected'}</div>
+                                  )}
                                 </div>
                               ) : (
                                 <>
                                   <div>Measured: {tdResult.distanceM?.toFixed(1)} m</div>
-                                  <div>Limit (NBC 3.4.2.5): {tdResult.limit} m{travelSprinklered ? ' (sprinklered)' : ''}</div>
+                                  <div>
+                                    Limit (NBC 3.4.2.5): {tdResult.limit} m{travelSprinklered ? ' (sprinklered)' : ''}
+                                    {tdResult.limitSource === 'default_conservative' && (
+                                      <span className="text-amber-600"> *default</span>
+                                    )}
+                                  </div>
                                   {tdResult.nearestExitLabel && <div>Nearest exit: {tdResult.nearestExitLabel}</div>}
                                   <div className={`font-semibold mt-1 ${tdResult.result === 'pass' ? 'text-green-600' : 'text-red-600'}`}>
                                     {tdResult.result === 'pass' ? '✓ PASS' : '✗ FAIL'}

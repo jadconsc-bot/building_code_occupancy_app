@@ -4,6 +4,10 @@
  * Calculates straight-line travel distances from each occupiable room centroid
  * to the nearest exit (stairwell). Returns pass/fail against the NBC limit.
  *
+ * Limits are occupancy-group-specific per NBC 3.4.2.5 Table 3.4.2.5.
+ * Where the occupancy group is unknown a conservative default is applied and
+ * the result is marked 'unable_to_evaluate'.
+ *
  * IMPORTANT: distances are straight-line estimates only. Actual path of travel
  * may be longer. Results must be verified manually by a qualified professional.
  */
@@ -34,10 +38,42 @@ export interface TravelDistanceResult {
   exitCentroidY: number | null;
   distancePx: number | null;
   distanceM: number | null;
+  /** Active limit for the current sprinklered state */
   limit: number;
+  limitUnsprinklered: number;
+  limitSprinklered: number;
+  limitSource: 'occupancy_specific' | 'default_conservative';
   result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
   nbcClause: '3.4.2.5';
   sprinklered: boolean;
+}
+
+/**
+ * NBC 3.4.2.5 — Maximum travel distance by occupancy group (metres).
+ * Keyed by the single-letter group (first character of occupancyGroup).
+ * Where a group has sub-divisions (A-1, A-2 …) the most conservative value
+ * within that group is used; in practice all sub-divisions share the same limit.
+ */
+const TRAVEL_DISTANCE_LIMITS: Record<string, { unsprinklered: number; sprinklered: number }> = {
+  A: { unsprinklered: 40, sprinklered: 60 },
+  B: { unsprinklered: 30, sprinklered: 45 },
+  C: { unsprinklered: 30, sprinklered: 45 },
+  D: { unsprinklered: 30, sprinklered: 45 },
+  E: { unsprinklered: 30, sprinklered: 45 },
+  F: { unsprinklered: 30, sprinklered: 45 },
+};
+
+/** Fallback when occupancyGroup is absent or unrecognised. */
+const DEFAULT_LIMITS = { unsprinklered: 25, sprinklered: 45 };
+
+function getLimits(occupancyGroup: string | null): {
+  limits: { unsprinklered: number; sprinklered: number };
+  source: 'occupancy_specific' | 'default_conservative';
+} {
+  const group = occupancyGroup?.charAt(0).toUpperCase() ?? '';
+  const limits = TRAVEL_DISTANCE_LIMITS[group];
+  if (limits) return { limits, source: 'occupancy_specific' };
+  return { limits: DEFAULT_LIMITS, source: 'default_conservative' };
 }
 
 // Room labels that classify a space as an exit (stairwell / exit stair)
@@ -74,7 +110,6 @@ export function calculateTravelDistances(
   pixelsPerMm: number | null,
   sprinklered: boolean,
 ): TravelDistanceResult[] {
-  const limit = sprinklered ? 45 : 25;
   const features = (r: DetectedRoomInput) => r.features ?? [];
 
   const exits = rooms.filter(r => r.boundingBox && isExitRoom(r.roomLabel, features(r)));
@@ -84,9 +119,10 @@ export function calculateTravelDistances(
 
   const results: TravelDistanceResult[] = [];
 
-  // Exit rooms themselves get 'not_applicable'
+  // Exit rooms themselves are not subject to a travel distance check
   for (const ex of exits) {
     const c = centroid(ex.boundingBox!);
+    const { limits } = getLimits(ex.occupancyGroup);
     results.push({
       roomId: ex.id,
       roomLabel: ex.roomLabel,
@@ -98,7 +134,10 @@ export function calculateTravelDistances(
       exitCentroidY: null,
       distancePx: null,
       distanceM: null,
-      limit,
+      limit: sprinklered ? limits.sprinklered : limits.unsprinklered,
+      limitUnsprinklered: limits.unsprinklered,
+      limitSprinklered: limits.sprinklered,
+      limitSource: 'occupancy_specific',
       result: 'not_applicable',
       nbcClause: '3.4.2.5',
       sprinklered,
@@ -107,6 +146,8 @@ export function calculateTravelDistances(
 
   for (const room of occupiable) {
     const c = centroid(room.boundingBox!);
+    const { limits, source } = getLimits(room.occupancyGroup);
+    const activeLimit = sprinklered ? limits.sprinklered : limits.unsprinklered;
 
     // No exits detected or no calibration → unable_to_evaluate
     if (exits.length === 0 || pixelsPerMm === null || pixelsPerMm <= 0) {
@@ -121,7 +162,43 @@ export function calculateTravelDistances(
         exitCentroidY: null,
         distancePx: null,
         distanceM: null,
-        limit,
+        limit: activeLimit,
+        limitUnsprinklered: limits.unsprinklered,
+        limitSprinklered: limits.sprinklered,
+        limitSource: source,
+        result: 'unable_to_evaluate',
+        nbcClause: '3.4.2.5',
+        sprinklered,
+      });
+      continue;
+    }
+
+    // Unknown occupancy group → use conservative default, mark unable_to_evaluate
+    if (source === 'default_conservative') {
+      // Still compute the distance so the popover can show it, but result is unable_to_evaluate
+      let nearest = exits[0];
+      let nearestDist = Infinity;
+      for (const ex of exits) {
+        const ec = centroid(ex.boundingBox!);
+        const d = euclidean(c.x, c.y, ec.x, ec.y);
+        if (d < nearestDist) { nearestDist = d; nearest = ex; }
+      }
+      const ec = centroid(nearest.boundingBox!);
+      results.push({
+        roomId: room.id,
+        roomLabel: room.roomLabel,
+        centroidX: c.x,
+        centroidY: c.y,
+        nearestExitId: nearest.id,
+        nearestExitLabel: nearest.roomLabel,
+        exitCentroidX: ec.x,
+        exitCentroidY: ec.y,
+        distancePx: nearestDist,
+        distanceM: nearestDist / pixelsPerMm / 1000,
+        limit: activeLimit,
+        limitUnsprinklered: limits.unsprinklered,
+        limitSprinklered: limits.sprinklered,
+        limitSource: source,
         result: 'unable_to_evaluate',
         nbcClause: '3.4.2.5',
         sprinklered,
@@ -156,8 +233,11 @@ export function calculateTravelDistances(
       exitCentroidY: ec.y,
       distancePx,
       distanceM,
-      limit,
-      result: distanceM <= limit ? 'pass' : 'fail',
+      limit: activeLimit,
+      limitUnsprinklered: limits.unsprinklered,
+      limitSprinklered: limits.sprinklered,
+      limitSource: source,
+      result: distanceM <= activeLimit ? 'pass' : 'fail',
       nbcClause: '3.4.2.5',
       sprinklered,
     });
