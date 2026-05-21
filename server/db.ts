@@ -41,26 +41,28 @@ export async function getDb() {
 }
 
 // Reset the singleton so the next getDb() call creates a fresh pool+drizzle.
-async function resetDb(): Promise<void> {
-  const oldPool = _pool;
+// Do NOT call pool.end() here — that permanently closes the shared pool and
+// kills concurrent requests that hold a reference to the same Drizzle instance.
+// Just null the module-level references; the old pool is garbage-collected.
+function resetDb(): void {
   _db = null;
   _pool = null;
-  if (oldPool) {
-    try { await oldPool.end(); } catch { /* ignore */ }
-  }
 }
 
 function isConnectionError(err: any): boolean {
   const code = err?.code ?? err?.cause?.code;
+  const msg: string = err?.message ?? '';
+  const causeMsg: string = err?.cause?.message ?? '';
   return (
     code === 'PROTOCOL_CONNECTION_LOST' ||
     code === 'ECONNRESET' ||
     err?.cause?.fatal === true ||
     err?.fatal === true ||
-    (typeof err?.message === 'string' && (
-      err.message.includes('Connection lost') ||
-      err.message.includes('ECONNRESET')
-    ))
+    msg.includes('Connection lost') ||
+    msg.includes('ECONNRESET') ||
+    causeMsg.includes('Pool is closed') ||
+    causeMsg.includes('Connection lost') ||
+    causeMsg.includes('ECONNRESET')
   );
 }
 
@@ -81,7 +83,7 @@ export async function withDbRetry<T>(
     } catch (err: any) {
       if (isConnectionError(err) && attempt < retries) {
         console.warn(`[DB] Connection error on attempt ${attempt}/${retries}, resetting pool and retrying in ${delayMs * attempt}ms...`);
-        await resetDb();
+        resetDb();
         await new Promise(r => setTimeout(r, delayMs * attempt));
         continue;
       }
