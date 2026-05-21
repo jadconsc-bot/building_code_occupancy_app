@@ -453,7 +453,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
   const [drawingAnalysisHistory, setDrawingAnalysisHistory] = useState<any[]>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
-  
+  const [showAllFindings, setShowAllFindings] = useState(false);
+
   // tRPC mutations for persistence
   const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
   const getDrawingAnalysesQuery = trpc.getDrawingAnalyses.useQuery(
@@ -4530,6 +4531,181 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </ScrollArea>
                     </CardContent>
                   </Card>
+
+                  {/* Compliance Findings Panel — NBC 3.4.2.5 */}
+                  {travelDistanceResults.some(r => r.result === 'pass' || r.result === 'fail') && (() => {
+                    const tdPass = travelDistanceResults.filter(r => r.result === 'pass').length;
+                    const tdFail = travelDistanceResults.filter(r => r.result === 'fail').length;
+                    const tdUnable = travelDistanceResults.filter(r => r.result === 'unable_to_evaluate').length;
+                    const worstCase = [...travelDistanceResults]
+                      .filter(r => r.result === 'fail')
+                      .sort((a, b) => (b.distanceM ?? 0) - (a.distanceM ?? 0))[0] ?? null;
+                    const sortedFindings = [...travelDistanceResults]
+                      .filter(r => r.result === 'pass' || r.result === 'fail')
+                      .sort((a, b) => {
+                        if (a.result === 'fail' && b.result !== 'fail') return -1;
+                        if (a.result !== 'fail' && b.result === 'fail') return 1;
+                        return (b.distanceM ?? 0) - (a.distanceM ?? 0);
+                      });
+                    const visibleFindings = showAllFindings ? sortedFindings : sortedFindings.slice(0, 5);
+                    const jurisdictionLabel = selectedMunicipalityId.charAt(0).toUpperCase() + selectedMunicipalityId.slice(1);
+                    return (
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Ruler className="w-4 h-4 text-primary" />
+                            Compliance Findings
+                          </CardTitle>
+                          <CardDescription className="text-xs">NBC 3.4.2.5 · Travel Distance</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+
+                          {/* Badge summary */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {tdPass > 0 && (
+                              <Badge className="text-[10px] bg-green-100 text-green-800 hover:bg-green-100 border-0">
+                                ✓ {tdPass} Pass{tdPass !== 1 ? 'es' : ''}
+                              </Badge>
+                            )}
+                            {tdFail > 0 && (
+                              <Badge className="text-[10px] bg-red-100 text-red-800 hover:bg-red-100 border-0">
+                                ✗ {tdFail} Fail{tdFail !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {tdUnable > 0 && (
+                              <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-0">
+                                ? {tdUnable} Unable to evaluate
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Worst-case finding */}
+                          {worstCase && (() => {
+                            const wcRoom = detectedRoomsData.find((r: any) => r.id === worstCase.roomId);
+                            const wcOccupancy: string | null = wcRoom?.occupancyGroup ?? null;
+                            return (
+                              <div className="rounded border border-red-200 bg-red-50 p-2.5 space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    EGR-{String(worstCase.roomId).padStart(3, '0')}
+                                  </span>
+                                  <Badge className="text-[10px] bg-red-600 text-white hover:bg-red-600 border-0">✗ FAIL</Badge>
+                                </div>
+                                <p className="font-semibold text-foreground truncate">{worstCase.roomLabel}</p>
+                                <div className="space-y-0.5 text-muted-foreground">
+                                  <p><span className="font-medium text-foreground">Measured:</span> {(worstCase.distanceM ?? 0).toFixed(1)} m</p>
+                                  <p><span className="font-medium text-foreground">Limit:</span> {worstCase.limit} m (NBC 3.4.2.5)</p>
+                                  {worstCase.nearestExitLabel && (
+                                    <p><span className="font-medium text-foreground">Exit:</span> {worstCase.nearestExitLabel}</p>
+                                  )}
+                                  {wcOccupancy && (
+                                    <p><span className="font-medium text-foreground">Occupancy:</span> Group {wcOccupancy.charAt(0)}</p>
+                                  )}
+                                  <p>
+                                    <span className="font-medium text-foreground">Limit source:</span>{' '}
+                                    {worstCase.limitSource === 'occupancy_specific' ? 'Occupancy-specific' : 'Conservative default'}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* All findings list */}
+                          <div className="space-y-1">
+                            {visibleFindings.map(r => (
+                              <div key={r.roomId} className="flex items-center justify-between text-xs py-0.5">
+                                <span className="truncate flex-1 mr-2 text-muted-foreground">{r.roomLabel}</span>
+                                <span className="text-muted-foreground mr-2 shrink-0">
+                                  {r.distanceM != null ? `${r.distanceM.toFixed(1)} m` : '—'}
+                                </span>
+                                {r.result === 'pass' ? (
+                                  <Badge className="text-[10px] bg-green-100 text-green-800 hover:bg-green-100 border-0 shrink-0">PASS</Badge>
+                                ) : (
+                                  <Badge className="text-[10px] bg-red-100 text-red-800 hover:bg-red-100 border-0 shrink-0">FAIL</Badge>
+                                )}
+                              </div>
+                            ))}
+                            {sortedFindings.length > 5 && (
+                              <button
+                                type="button"
+                                className="text-[10px] text-primary hover:underline"
+                                onClick={() => setShowAllFindings(v => !v)}
+                              >
+                                {showAllFindings ? 'Show fewer' : `Show all ${sortedFindings.length} findings`}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Assumptions */}
+                          <div className="rounded bg-amber-50 border border-amber-200 p-2 space-y-0.5 text-[10px] text-amber-800">
+                            <p className="font-semibold flex items-center gap-1 mb-1">
+                              <AlertTriangle className="w-3 h-3 shrink-0" />
+                              Assumptions
+                            </p>
+                            <p>· Scale: {selectedScale.label} (user-calibrated)</p>
+                            <p>· Method: Straight-line (Euclidean)</p>
+                            <p>· Sprinklered: {travelSprinklered ? 'Yes' : 'No'}</p>
+                            <p>· Exits identified by: room label match</p>
+                            <p>· Path of travel not yet traced — verify along centerline manually</p>
+                          </div>
+
+                          {/* NBC Reference */}
+                          <p className="text-[10px] text-muted-foreground font-mono">
+                            NBC 3.4.2.5.(1) · {jurisdictionLabel} Edition
+                          </p>
+
+                          {/* Overlay toggle */}
+                          <div>
+                            {showTravelDistanceOverlay ? (
+                              <span className="text-[10px] text-green-700 font-medium flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                                Overlay active
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="text-[10px] text-primary hover:underline"
+                                onClick={() => setShowTravelDistanceOverlay(true)}
+                              >
+                                Show on drawing ↗
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Save to Project */}
+                          {projectId && tdFail > 0 && worstCase && (
+                            <SaveCalculatorResultDialog
+                              calculatorType="travelDistance"
+                              inputData={{
+                                source: 'drawing_analysis',
+                                drawingId: analysisId,
+                                scale: selectedScale.label,
+                                sprinklered: travelSprinklered,
+                                municipality: selectedMunicipalityId,
+                              }}
+                              resultData={{
+                                worstCaseRoomId: worstCase.roomId,
+                                worstCaseRoomLabel: worstCase.roomLabel,
+                                worstCaseDistanceM: worstCase.distanceM,
+                                worstCaseLimit: worstCase.limit,
+                                worstCaseExitLabel: worstCase.nearestExitLabel,
+                                passCount: tdPass,
+                                failCount: tdFail,
+                                unableCount: tdUnable,
+                                nbcClause: '3.4.2.5',
+                              }}
+                            >
+                              <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+                                <Save className="w-3.5 h-3.5" />
+                                Save Findings to Project
+                              </Button>
+                            </SaveCalculatorResultDialog>
+                          )}
+
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
 
                   {/* Drawing Analysis History Panel (Phase 2) */}
                   {projectId && drawingAnalysisHistory.length > 0 && (
