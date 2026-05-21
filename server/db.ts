@@ -1,101 +1,24 @@
 import { eq, and, or, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
 import { InsertUser, users, bookmarks, notes, InsertBookmark, InsertNote, clients, InsertClient, Client, projectMembers, InsertProjectMember, ProjectMember, teamRoles, InsertTeamRole, TeamRole, subscriptionPlans, InsertSubscriptionPlan, SubscriptionPlan, userSubscriptions, InsertUserSubscription, UserSubscription, usageMetrics, InsertUsageMetric, UsageMetric, shareLinks, InsertShareLink, ShareLink, verificationTokens, InsertVerificationToken, VerificationToken, calculationVersions, InsertCalculationVersion, CalculationVersion } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
-let _pool: mysql.Pool | null = null;
 
 // Singleton db instance for server-side use
 export let db: ReturnType<typeof drizzle> | null = null;
 
-function createPool(): mysql.Pool {
-  return mysql.createPool({
-    uri: process.env.DATABASE_URL,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 10000,
-    connectTimeout: 60000,
-    idleTimeout: 300000,
-  });
-}
-
 // Lazily create the drizzle instance so local tooling can run without a DB.
-// Passes the pool directly so Drizzle acquires a fresh connection on each
-// query rather than caching a prepared-statement connection that can go dead.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _pool = createPool();
-      _db = drizzle(_pool as any, { mode: 'default', logger: false });
+      _db = drizzle(process.env.DATABASE_URL);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
-      _pool = null;
     }
   }
   return _db;
-}
-
-// Reset the singleton so the next getDb() call creates a fresh pool+drizzle.
-// Do NOT call pool.end() here — that permanently closes the shared pool and
-// kills concurrent requests that hold a reference to the same Drizzle instance.
-// Just null the module-level references; the old pool is garbage-collected.
-function resetDb(): void {
-  _db = null;
-  _pool = null;
-}
-
-function isConnectionError(err: any): boolean {
-  const code = err?.code ?? err?.cause?.code;
-  const msg: string = err?.message ?? '';
-  const causeMsg: string = err?.cause?.message ?? '';
-  return (
-    code === 'PROTOCOL_CONNECTION_LOST' ||
-    code === 'ECONNRESET' ||
-    err?.cause?.fatal === true ||
-    err?.fatal === true ||
-    msg.includes('Connection lost') ||
-    msg.includes('ECONNRESET') ||
-    causeMsg.includes('Pool is closed') ||
-    causeMsg.includes('Connection lost') ||
-    causeMsg.includes('ECONNRESET')
-  );
-}
-
-/**
- * Retry wrapper for DB operations that may fail due to connection loss.
- *
- * Calls `getDb()` inside each attempt so that after a reset the retry
- * always gets a fresh pool — the closure captures nothing stale.
- */
-export async function withDbRetry<T>(
-  operation: () => Promise<T>,
-  retries = 3,
-  delayMs = 500,
-): Promise<T> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await operation();
-    } catch (err: any) {
-      if (isConnectionError(err) && attempt < retries) {
-        console.warn(`[DB] Connection error on attempt ${attempt}/${retries}, resetting pool and retrying in ${delayMs * attempt}ms...`);
-        resetDb();
-        await new Promise(r => setTimeout(r, delayMs * attempt));
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw new Error('DB retry exhausted');
-}
-
-/** @deprecated Use withDbRetry instead */
-export async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
-  return withDbRetry(fn, retries, 1000);
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -148,12 +71,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await withDbRetry(async () => {
-      const freshDb = await getDb();
-      if (!freshDb) throw new Error('Database not available after retry');
-      await freshDb.insert(users).values(values).onDuplicateKeyUpdate({
-        set: updateSet,
-      });
+    await db.insert(users).values(values).onDuplicateKeyUpdate({
+      set: updateSet,
     });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
