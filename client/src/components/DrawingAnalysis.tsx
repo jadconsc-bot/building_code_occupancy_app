@@ -410,6 +410,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const isMultiPageAnalysisRef = useRef(false); // Prevent premature setIsAnalyzing(false) during multi-page analysis
   const canvasResizeStartRef = useRef<{ y: number; h: number } | null>(null);
   const wwrPanelResizeRef = useRef<{ y: number; h: number } | null>(null);
+  const imageJustLoadedRef = useRef<boolean>(false);
   
   // Auth state (PD2.0 §6.1 — authentication required)
   const { isAuthenticated } = useAuth();
@@ -2974,6 +2975,38 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   };
 
+  // Resize canvas to match container and recompute zoom/pan.
+  // On first load (imageJustLoadedRef = true): resets zoom + pan to fit-and-center.
+  // On subsequent calls (container resize): preserves user zoom, shifts pan by delta.
+  const fitCanvasToContainer = useCallback(() => {
+    const canvas = canvasRef.current;
+    const img = imageRef.current;
+    if (!canvas || !containerRef.current || !img) return;
+
+    const prevW = canvas.width;
+    const prevH = canvas.height;
+
+    canvas.width = containerRef.current.clientWidth;
+    canvas.height = containerRef.current.clientHeight;
+
+    if (imageJustLoadedRef.current) {
+      const sx = canvas.width / img.width;
+      const sy = canvas.height / img.height;
+      const initialZoom = Math.min(sx, sy, 1) * 0.9;
+      setZoom(initialZoom);
+      setPan({
+        x: (canvas.width - img.width * initialZoom) / 2,
+        y: (canvas.height - img.height * initialZoom) / 2,
+      });
+      imageJustLoadedRef.current = false;
+    } else if (prevW > 0 && prevH > 0) {
+      // Shift pan so the image stays visually centred in the resized canvas
+      const dx = (canvas.width - prevW) / 2;
+      const dy = (canvas.height - prevH) / 2;
+      setPan(p => ({ x: p.x + dx, y: p.y + dy }));
+    }
+  }, []); // stable: only refs + stable React state setters
+
   // Load image when drawing changes
   useEffect(() => {
     if (drawingImage) {
@@ -2981,26 +3014,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const img = new Image();
       img.onload = () => {
         imageRef.current = img;
-        
-        // Set canvas size
-        const canvas = canvasRef.current;
-        if (canvas && containerRef.current) {
-          canvas.width = containerRef.current.clientWidth;
-          canvas.height = containerRef.current.clientHeight;
-          
-          // Calculate initial zoom to fit image
-          const scaleX = canvas.width / img.width;
-          const scaleY = canvas.height / img.height;
-          const initialZoom = Math.min(scaleX, scaleY, 1) * 0.9;
-          setZoom(initialZoom);
-          
-          // Center image
-          setPan({
-            x: (canvas.width - img.width * initialZoom) / 2,
-            y: (canvas.height - img.height * initialZoom) / 2
-          });
-        }
-        
+        imageJustLoadedRef.current = true;
+        fitCanvasToContainer();
         // Mark image as loaded to trigger redraw
         setImageLoaded(true);
       };
@@ -3009,7 +3024,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setImageLoaded(false);
       imageRef.current = null;
     }
-  }, [drawingImage]);
+  }, [drawingImage, fitCanvasToContainer]);
 
   // Redraw canvas when image is loaded
   useEffect(() => {
@@ -3037,6 +3052,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [drawCanvas]);
+
+  // ResizeObserver: refit canvas when the container changes size (e.g. right panel opening).
+  // Only active after the image is loaded. Preserves user zoom; shifts pan by size delta.
+  useEffect(() => {
+    if (!imageLoaded) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      fitCanvasToContainer();
+      drawCanvas();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [imageLoaded, fitCanvasToContainer, drawCanvas]);
 
   // Sync canvas pixel buffer when user drags the resize handle.
   // Only updates canvas dimensions — never resets zoom or pan.
