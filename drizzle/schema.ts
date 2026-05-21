@@ -99,6 +99,13 @@ export const projects = mysqlTable("projects", {
   projectCode: varchar("projectCode", { length: 50 }), // user-entered code e.g. "CCC21", "ABC-2024"
   grossFloorArea: decimal("grossFloorArea", { precision: 10, scale: 2 }),
   projectNumber: varchar("projectNumber", { length: 20 }), // auto-generated e.g. "CC-2025-001"
+  codeEdition: varchar("codeEdition", { length: 20 }), // e.g. "NBC 2020", "BCBC 2024"
+  part3Determination: varchar("part3Determination", { length: 100 }), // e.g. "Part 3 — Large Building"
+  constructionType: mysqlEnum("constructionType", ["combustible", "non_combustible", "mixed"]),
+  sprinklersRequired: tinyint("sprinklersRequired"), // 1 = required, 0 = not required
+  zoningCategory: varchar("zoningCategory", { length: 50 }), // e.g. "RM-4", "C-1"
+  storeys: int("storeys"), // number of storeys above grade
+  buildingHeight: decimal("buildingHeight", { precision: 6, scale: 2 }), // metres above grade
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -195,6 +195,37 @@ export const complianceRouter = router({
     }),
 
   /**
+   * Get snapshots for a project (used by client components)
+   */
+  getProjectSnapshots: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ ctx, input }: any) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const snapshots = await db
+        .select()
+        .from(complianceSnapshots)
+        .where(
+          and(
+            eq(complianceSnapshots.projectId, input.projectId),
+            eq(complianceSnapshots.userId, ctx.user.id)
+          )
+        );
+
+      return snapshots.map((s) => ({
+        snapshotId: s.snapshotId,
+        projectId: s.projectId,
+        rulesetId: s.rulesetId,
+        mode: s.mode,
+        complianceStatus: s.complianceStatus,
+        inputs: JSON.parse(s.inputs || "{}") as Record<string, any>,
+        outputs: JSON.parse(s.outputs || "{}") as Record<string, any>,
+        ruleTrace: JSON.parse(s.ruleTrace || "[]") as any[],
+        createdAt: s.createdAt,
+      }));
+    }),
+
+  /**
    * Create new ruleset version
    */
   createRuleset: protectedProcedure

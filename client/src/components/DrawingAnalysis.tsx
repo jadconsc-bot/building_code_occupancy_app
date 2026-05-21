@@ -2668,7 +2668,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const today = new Date().toLocaleDateString("en-CA");
     const reportTitle = "Drawing Compliance Report";
 
-    let y = drawHeader(doc, reportTitle, today, analysisId ?? "Drawing Analysis");
+    let y = drawHeader(doc, reportTitle, today, analysisId != null ? String(analysisId) : "Drawing Analysis");
 
     if (complianceLevel) {
       y = drawStatusBanner(
@@ -2702,7 +2702,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     // Rule Evaluations
     if (ruleEvaluations.length > 0) {
-      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId != null ? String(analysisId) : ""); }
       y = drawSectionBar(doc, "Rule Evaluations", y);
       autoTable(doc, {
         startY: y,
@@ -2724,7 +2724,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     // Issues
     if (pdIssues.length > 0) {
-      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId != null ? String(analysisId) : ""); }
       y = drawSectionBar(doc, "Issues", y);
       autoTable(doc, {
         startY: y,
@@ -2746,7 +2746,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     // Recommendations
     if (pdRecommendations.length > 0) {
-      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+      if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId != null ? String(analysisId) : ""); }
       y = drawSectionBar(doc, "Recommendations", y);
       autoTable(doc, {
         startY: y,
@@ -2761,7 +2761,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // Disclaimer section
-    if (y > maxY - 30) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId ?? ""); }
+    if (y > maxY - 30) { doc.addPage(); y = drawHeader(doc, reportTitle, today, analysisId != null ? String(analysisId) : ""); }
     y = drawSectionBar(doc, "Legal Disclaimer", y);
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
@@ -2773,7 +2773,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       14, y, { maxWidth: pw - 28 }
     );
 
-    drawFooters(doc, "CodeComply \xB7 Drawing Analyzer PD2.0 \xB7 NBC(AE) 2023", analysisId ?? "");
+    drawFooters(doc, "CodeComply \xB7 Drawing Analyzer PD2.0 \xB7 NBC(AE) 2023", analysisId != null ? String(analysisId) : "");
 
     const safeName = (fileName || "drawing").replace(/\.[^/.]+$/, "");
     const idStr = analysisId ? `-${analysisId}` : "";
