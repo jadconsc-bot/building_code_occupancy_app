@@ -69,7 +69,8 @@ import {
   ChevronDown,
   FileSearch,
   Check,
-  Folder
+  Folder,
+  BarChart2
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -111,6 +112,13 @@ interface TravelDistanceResult {
   result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
   nbcClause: '3.4.2.5';
   sprinklered: boolean;
+}
+
+type ComplianceLevel = 'critical' | 'major' | 'minor' | 'warning' | 'pass' | 'none';
+
+interface RoomHeatmapEntry {
+  level: ComplianceLevel;
+  source: 'compliance_engine' | 'travel_distance' | 'both';
 }
 
 // Types for annotations
@@ -210,6 +218,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
   const [showTravelDistanceOverlay, setShowTravelDistanceOverlay] = useState(false);
+  const [showComplianceHeatmap, setShowComplianceHeatmap] = useState(false);
   const [hoveredRoom, setHoveredRoom] = useState<{ roomId: number; screenX: number; screenY: number } | null>(null);
   const [evalData, setEvalData] = useState<{
     accuracy: number;
@@ -242,6 +251,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       flaggedFill: 'rgba(234,179,8,0.18)',
     },
   } as const;
+
+  const HEATMAP_COLORS: Record<ComplianceLevel, { fill: string; stroke: string }> = {
+    critical: { fill: 'rgba(220,38,38,0.50)', stroke: 'rgba(220,38,38,0.90)' },
+    major:    { fill: 'rgba(239,68,68,0.38)',  stroke: 'rgba(239,68,68,0.80)'  },
+    minor:    { fill: 'rgba(245,158,11,0.38)', stroke: 'rgba(245,158,11,0.80)' },
+    warning:  { fill: 'rgba(245,158,11,0.30)', stroke: 'rgba(245,158,11,0.70)' },
+    pass:     { fill: 'rgba(34,197,94,0.35)',  stroke: 'rgba(34,197,94,0.80)'  },
+    none:     { fill: '',                       stroke: ''                      },
+  };
 
   // State for dimension input
   const [dimensionValue, setDimensionValue] = useState<string>("");
@@ -1078,6 +1096,47 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const scaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
         ? naturalH / analyzedPageDims.height : 1;
 
+      // Build per-room worst-case compliance level map
+      const severityRank: Record<ComplianceLevel, number> = {
+        critical: 5, major: 4, minor: 3, warning: 2, pass: 1, none: 0,
+      };
+      const heatmapMap = new Map<number, RoomHeatmapEntry>();
+
+      for (const item of roomComplianceData) {
+        let worstLevel: ComplianceLevel = 'none';
+        for (const c of item.compliance) {
+          if (c.status === 'not_applicable') continue;
+          let level: ComplianceLevel;
+          if (c.status === 'fail') {
+            level = c.severity === 'critical' ? 'critical'
+                  : c.severity === 'major'    ? 'major'
+                  : 'minor';
+          } else if (c.status === 'warning') {
+            level = 'warning';
+          } else {
+            level = 'pass';
+          }
+          if (severityRank[level] > severityRank[worstLevel]) worstLevel = level;
+        }
+        if (worstLevel !== 'none') {
+          heatmapMap.set(item.room.id, { level: worstLevel, source: 'compliance_engine' });
+        }
+      }
+
+      // Merge travel distance failures (treat as 'major' unless engine already worse)
+      for (const r of travelDistanceResults) {
+        if (r.result !== 'fail') continue;
+        const tdLevel: ComplianceLevel = 'major';
+        const existing = heatmapMap.get(r.roomId);
+        if (!existing) {
+          heatmapMap.set(r.roomId, { level: tdLevel, source: 'travel_distance' });
+        } else {
+          const newLevel = severityRank[tdLevel] > severityRank[existing.level] ? tdLevel : existing.level;
+          const newSource = existing.source === 'travel_distance' ? 'travel_distance' : 'both';
+          heatmapMap.set(r.roomId, { level: newLevel, source: newSource });
+        }
+      }
+
       for (const room of detectedRoomsData) {
         const geometry = room.boundingBox;
         if (!geometry) continue;
@@ -1091,21 +1150,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const colors = ROOM_OVERLAY_COLORS.occupancy[group as keyof typeof ROOM_OVERLAY_COLORS.occupancy]
           ?? { fill: 'rgba(100,100,100,0.2)', stroke: 'rgba(100,100,100,0.6)' };
 
-        const hasFailure = room.compliance?.some((c: any) => c.status === 'fail');
-        const hasWarning = room.compliance?.some((c: any) => c.status === 'warning');
-        const statusBorder = hasFailure ? ROOM_OVERLAY_COLORS.status.fail
-          : hasWarning ? ROOM_OVERLAY_COLORS.status.warning
-          : colors.stroke;
+        const heatmapEntry = heatmapMap.get(room.id);
+        const useHeatmap = showComplianceHeatmap && !!heatmapEntry && heatmapEntry.level !== 'none';
 
-        ctx.fillStyle = colors.fill;
+        const fillColor = useHeatmap && heatmapEntry
+          ? HEATMAP_COLORS[heatmapEntry.level].fill
+          : colors.fill;
+        ctx.fillStyle = fillColor;
         ctx.fillRect(screenX, screenY, screenW, screenH);
         if (room.flaggedForReview) {
           ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
           ctx.fillRect(screenX, screenY, screenW, screenH);
         }
 
-        ctx.strokeStyle = statusBorder;
-        ctx.lineWidth = hasFailure ? 2.5 : 1.5;
+        const strokeColor = useHeatmap && heatmapEntry
+          ? HEATMAP_COLORS[heatmapEntry.level].stroke
+          : (heatmapEntry?.level === 'critical' || heatmapEntry?.level === 'major')
+            ? ROOM_OVERLAY_COLORS.status.fail
+            : colors.stroke;
+        ctx.strokeStyle = strokeColor;
+        const isSevere = useHeatmap && heatmapEntry &&
+          (heatmapEntry.level === 'critical' || heatmapEntry.level === 'major');
+        ctx.lineWidth = isSevere ? 2.5 : 1.5;
         ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
         ctx.strokeRect(screenX, screenY, screenW, screenH);
         ctx.setLineDash([]);
@@ -1309,7 +1375,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3297,6 +3363,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <Ruler className={`w-4 h-4 ${showTravelDistanceOverlay ? '' : 'opacity-40'}`} />
                   </button>
+                  <button
+                    onClick={() => roomComplianceData.length > 0 && setShowComplianceHeatmap(!showComplianceHeatmap)}
+                    className={`p-1.5 rounded transition-colors text-xs font-medium ${
+                      showComplianceHeatmap
+                        ? 'bg-red-100 text-red-700'
+                        : roomComplianceData.length === 0
+                          ? 'text-muted-foreground/40 cursor-not-allowed'
+                          : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={
+                      roomComplianceData.length === 0
+                        ? 'Run compliance check first'
+                        : showComplianceHeatmap
+                          ? 'Hide compliance heatmap'
+                          : 'Show compliance heatmap'
+                    }
+                  >
+                    <BarChart2 className={`w-4 h-4 ${showComplianceHeatmap ? '' : 'opacity-40'}`} />
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -4236,6 +4321,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <div className="w-10 h-0.5 rounded-full bg-slate-300 group-hover:bg-purple-400 transition-colors" />
                   </div>
 
+                  {/* Compliance heatmap legend — shown when heatmap is active */}
+                  {showComplianceHeatmap && (
+                    <div className="mt-1 px-3 py-1.5 rounded bg-muted/60 border border-border text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-medium text-foreground">Compliance Heatmap:</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'rgba(220,38,38,0.65)' }} />Critical</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'rgba(239,68,68,0.55)' }} />Major</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'rgba(245,158,11,0.55)' }} />Minor / Warning</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'rgba(34,197,94,0.55)' }} />Pass</span>
+                    </div>
+                  )}
+
                   {/* Travel distance caveat + Save to Project — shown when overlay is active */}
                   {showTravelDistanceOverlay && (
                     <div className="mt-1 space-y-1">
@@ -4655,21 +4751,40 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </p>
 
                           {/* Overlay toggle */}
-                          <div>
-                            {showTravelDistanceOverlay ? (
-                              <span className="text-[10px] text-green-700 font-medium flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                                Overlay active
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="text-[10px] text-primary hover:underline"
-                                onClick={() => setShowTravelDistanceOverlay(true)}
-                              >
-                                Show on drawing ↗
-                              </button>
-                            )}
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div>
+                              {showTravelDistanceOverlay ? (
+                                <span className="text-[10px] text-green-700 font-medium flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                                  Overlay active
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-primary hover:underline"
+                                  onClick={() => setShowTravelDistanceOverlay(true)}
+                                >
+                                  Show on drawing ↗
+                                </button>
+                              )}
+                            </div>
+                            <div>
+                              {showComplianceHeatmap ? (
+                                <span className="text-[10px] text-red-700 font-medium flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                                  Heatmap active
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={`text-[10px] ${roomComplianceData.length > 0 ? 'text-primary hover:underline' : 'text-muted-foreground/50 cursor-not-allowed'}`}
+                                  onClick={() => roomComplianceData.length > 0 && setShowComplianceHeatmap(true)}
+                                  title={roomComplianceData.length === 0 ? 'Run compliance check first' : undefined}
+                                >
+                                  Show heatmap ↗
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Save to Project */}
