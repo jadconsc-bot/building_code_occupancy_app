@@ -4,7 +4,7 @@ import { jurisdictionProfiles } from "../../drizzle/schema";
 export async function seedJurisdictionProfiles() {
   const db = await getDb();
   if (!db) throw new Error("Database connection unavailable");
-  await db.insert(jurisdictionProfiles).values([
+  await db.insert(jurisdictionProfiles).values(([
 
     // ─── ALBERTA (NBC(AE) 2023) ───────────────────────────────────────
     { province: "AB", municipality: "Calgary", climateZone: "6A", heatingDegreeDays: 5000, designTemperatureWinter: -33, designTemperatureSummer: 29, seismicZone: "Low", spectralAccelerationSa02: "0.120", spectralAccelerationSa05: "0.075", spectralAccelerationSa10: "0.044", stepCodeAdopted: false, nbcEdition: "2023", isActive: true },
@@ -46,7 +46,7 @@ export async function seedJurisdictionProfiles() {
     { province: "ON", municipality: "Ottawa", climateZone: "6A", heatingDegreeDays: 4440, designTemperatureWinter: -27, designTemperatureSummer: 30, seismicZone: "Intermediate", spectralAccelerationSa02: "0.420", spectralAccelerationSa05: "0.270", spectralAccelerationSa10: "0.158", stepCodeAdopted: false, nbcEdition: "2020", isActive: true },
     { province: "ON", municipality: "Kingston", climateZone: "6A", heatingDegreeDays: 4100, designTemperatureWinter: -24, designTemperatureSummer: 29, seismicZone: "Intermediate", spectralAccelerationSa02: "0.380", spectralAccelerationSa05: "0.245", spectralAccelerationSa10: "0.143", stepCodeAdopted: false, nbcEdition: "2020", isActive: true },
 
-  ]).onDuplicateKeyUpdate({ set: { isActive: true } });
+  ] as any)).onDuplicateKeyUpdate({ set: { isActive: true } });
 
   console.log("jurisdictionProfiles seeded: 33 rows (AB x12, BC x10, ON x11)");
 }

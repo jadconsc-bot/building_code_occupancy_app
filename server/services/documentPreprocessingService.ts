@@ -90,7 +90,7 @@ async function rasterizePage(
   page.cleanup();
 
   const pngBuffer = canvas.toBuffer("image/png");
-  nodeCanvasFactory.destroy(canvasAndContext);
+  nodeCanvasFactory.destroy(canvasAndContext as any);
 
   const jpegBuffer = await compressToLimit(pngBuffer);
   return { buffer: jpegBuffer, widthPx, heightPx };

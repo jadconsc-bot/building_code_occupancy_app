@@ -253,7 +253,6 @@ export const complianceRouter = router({
         effectiveDate: input.effectiveDate,
         description: input.description,
         rulesData: input.rulesData,
-        createdBy: ctx.user.id,
       });
 
       return { success: true };
@@ -274,9 +273,11 @@ export const complianceRouter = router({
 
       await db.insert(ruleChangelog).values({
         rulesetId: input.rulesetId,
-        changeType: "retired",
+        changeType: "deprecated",
+        ruleId: input.rulesetId,
+        clause: "N/A",
         description: input.reason,
-        changedBy: ctx.user.id,
+        approvedBy: ctx.user.id,
       });
 
       return { success: true };
