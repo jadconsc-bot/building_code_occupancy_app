@@ -34,6 +34,7 @@ import {
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
 import { evaluateCompliance, RULE_ENGINE_VERSION } from "../services/drawingComplianceEngine";
+import { calculateTravelDistances } from "../services/travelDistanceService";
 import { storagePut } from "../storage";
 import { preprocessDocument } from "../services/documentPreprocessingService";
 import { queuePageAnalysis } from "../services/analysisQueue";
@@ -1014,5 +1015,71 @@ export const drawingAnalysisRouter = router({
       }
 
       return results;
+    }),
+
+  /**
+   * Calculate travel distances for all detected rooms on a drawing (NBC 3.4.2.5).
+   * pixelsPerMm is computed client-side from the calibration state and passed here.
+   */
+  getTravelDistances: protectedProcedure
+    .input(z.object({
+      drawingId: z.number().int().positive(),
+      pixelsPerMm: z.number().nullable(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Verify ownership and get project for sprinklersRequired
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id, projectId: drawingAnalyses.projectId })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, input.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Drawing not found" });
+      }
+
+      // Read sprinklersRequired from the linked project (0/null = false, 1 = true)
+      let sprinklered = false;
+      if (analysis.projectId) {
+        const [project] = await db
+          .select({ sprinklersRequired: projects.sprinklersRequired })
+          .from(projects)
+          .where(eq(projects.id, analysis.projectId));
+        sprinklered = project?.sprinklersRequired === 1;
+      }
+
+      // Fetch all pages → rooms → features
+      const pages = await db
+        .select()
+        .from(drawingPages)
+        .where(eq(drawingPages.drawingId, input.drawingId));
+
+      const roomInputs = [];
+      for (const page of pages) {
+        const pageRooms = await db
+          .select()
+          .from(detectedRooms)
+          .where(eq(detectedRooms.pageId, page.id));
+
+        for (const room of pageRooms) {
+          const features = await db
+            .select({ featureType: detectedFeatures.featureType })
+            .from(detectedFeatures)
+            .where(eq(detectedFeatures.roomId, room.id));
+
+          roomInputs.push({
+            id: room.id,
+            roomLabel: room.roomLabel,
+            boundingBox: safeJsonParse(room.boundingBoxJson) as { x: number; y: number; width: number; height: number } | null,
+            occupancyGroup: room.occupancyGroup ?? null,
+            features,
+          });
+        }
+      }
+
+      const results = calculateTravelDistances(roomInputs, input.pixelsPerMm, sprinklered);
+      return { results, sprinklered };
     }),
 });

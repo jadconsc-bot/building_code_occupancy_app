@@ -92,6 +92,23 @@ import {
 // Worker must be assigned after all imports (ES module parse order requirement)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
+interface TravelDistanceResult {
+  roomId: number;
+  roomLabel: string;
+  centroidX: number;
+  centroidY: number;
+  nearestExitId: number | null;
+  nearestExitLabel: string | null;
+  exitCentroidX: number | null;
+  exitCentroidY: number | null;
+  distancePx: number | null;
+  distanceM: number | null;
+  limit: number;
+  result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
+  nbcClause: '3.4.2.5';
+  sprinklered: boolean;
+}
+
 // Types for annotations
 interface Point {
   x: number;
@@ -188,6 +205,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
+  const [showTravelDistanceOverlay, setShowTravelDistanceOverlay] = useState(false);
+  const [hoveredRoom, setHoveredRoom] = useState<{ roomId: number; screenX: number; screenY: number } | null>(null);
   const [evalData, setEvalData] = useState<{
     accuracy: number;
     passingRooms: number;
@@ -535,6 +554,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       refetchOnReconnect: false,
     }
   );
+
+  // Compute pixelsPerMm from calibration state for travel distance calculation
+  const pixelsPerMm = pixelsPerDrawingUnit > 0
+    ? (scaleSystem === 'metric'
+        ? pixelsPerDrawingUnit / selectedScale.ratio
+        : pixelsPerDrawingUnit / (selectedScale.ratio * 25.4))
+    : null;
+
+  // Travel distance query — only runs when the overlay is toggled on
+  const { data: travelDistanceData } = trpc.drawingAnalysis.getTravelDistances.useQuery(
+    { drawingId: analysisId ?? 0, pixelsPerMm },
+    { enabled: !!analysisId && showTravelDistanceOverlay }
+  );
+  const travelDistanceResults: TravelDistanceResult[] = travelDistanceData?.results ?? [];
+  const travelSprinklered = travelDistanceData?.sprinklered ?? false;
 
   // Fetch room-level compliance results once rooms have loaded
   const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
@@ -1099,6 +1133,59 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     // ===== END ROOM OVERLAY LAYER =====
 
+    // ===== TRAVEL DISTANCE OVERLAY LAYER =====
+    if (showTravelDistanceOverlay && travelDistanceResults.length > 0) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const tdScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const tdScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      for (const r of travelDistanceResults) {
+        if (r.result === 'not_applicable' || r.result === 'unable_to_evaluate') continue;
+        if (r.exitCentroidX === null || r.exitCentroidY === null || r.distanceM === null) continue;
+
+        const color = r.result === 'pass' ? '#22c55e' : '#dc2626';
+        const sx = r.centroidX * tdScaleX * zoom + pan.x;
+        const sy = r.centroidY * tdScaleY * zoom + pan.y;
+        const ex = r.exitCentroidX * tdScaleX * zoom + pan.x;
+        const ey = r.exitCentroidY * tdScaleY * zoom + pan.y;
+        const mx = (sx + ex) / 2;
+        const my = (sy + ey) / 2;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 3]);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Room centroid dot
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Distance label at midpoint with white background
+        const label = `${r.distanceM.toFixed(1)}m`;
+        ctx.font = '11px Inter, sans-serif';
+        const tw = ctx.measureText(label).width;
+        const pad = 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+        ctx.fillRect(mx - tw / 2 - pad, my - 8 - pad, tw + pad * 2, 14 + pad * 2);
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, mx, my);
+        ctx.restore();
+      }
+    }
+    // ===== END TRAVEL DISTANCE OVERLAY LAYER =====
+
     // ===== WINDOW MEASUREMENT LAYER =====
     if (measuredWindows.length > 0) {
       for (const win of measuredWindows) {
@@ -1217,7 +1304,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2029,6 +2116,38 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     } else if (isDraggingDimension && dragStartPoint) {
       // Update drag current point for live preview
       setDragCurrentPoint({ x, y });
+    }
+
+    // Room hover hit-test (for popover)
+    if (showRoomOverlay && detectedRoomsData.length > 0) {
+      const canvas = canvasRef.current;
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const hScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const hScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      let found: { roomId: number; screenX: number; screenY: number } | null = null;
+      for (const room of detectedRoomsData) {
+        const bbox = room.boundingBox;
+        if (!bbox) continue;
+        const rx = bbox.x * hScaleX;
+        const ry = bbox.y * hScaleY;
+        const rw = bbox.width * hScaleX;
+        const rh = bbox.height * hScaleY;
+        if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) {
+          found = {
+            roomId: room.id,
+            screenX: e.clientX - (canvas?.getBoundingClientRect().left ?? 0),
+            screenY: e.clientY - (canvas?.getBoundingClientRect().top ?? 0),
+          };
+          break;
+        }
+      }
+      setHoveredRoom(found);
+    } else {
+      setHoveredRoom(null);
     }
   };
 
@@ -3162,6 +3281,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <Layers className={`w-4 h-4 ${showRoomOverlay ? '' : 'opacity-40'}`} />
                   </button>
+                  <button
+                    onClick={() => setShowTravelDistanceOverlay(!showTravelDistanceOverlay)}
+                    className={`p-1.5 rounded transition-colors text-xs font-medium ${
+                      showTravelDistanceOverlay
+                        ? 'bg-green-100 text-green-700'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={showTravelDistanceOverlay ? 'Hide travel distance overlay' : 'Show travel distance overlay (NBC 3.4.2.5)'}
+                  >
+                    <Ruler className={`w-4 h-4 ${showTravelDistanceOverlay ? '' : 'opacity-40'}`} />
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -4072,7 +4202,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               {/* Canvas and side panel */}
               <div className="flex flex-col lg:flex-row gap-4">
                 {/* Canvas column — user-resizable */}
-                <div className="flex flex-col flex-1 min-w-0">
+                <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
                     ref={containerRef}
                     className="w-full border border-border rounded-t-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
@@ -4084,7 +4214,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseDown={handleCanvasMouseDown}
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
-                      onMouseLeave={handleCanvasMouseUp}
+                      onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
                       onWheel={handleCanvasWheel}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
@@ -4100,6 +4230,65 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <div className="w-10 h-0.5 rounded-full bg-slate-300 group-hover:bg-purple-400 transition-colors" />
                   </div>
+
+                  {/* Travel distance caveat — shown when overlay is active */}
+                  {showTravelDistanceOverlay && (
+                    <div className="mt-1 px-3 py-1.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                      <span>
+                        Travel distances are straight-line estimates. Actual path of travel may be longer.
+                        Verify manually per NBC 3.4.2.5.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Room hover popover */}
+                  {hoveredRoom && showRoomOverlay && (() => {
+                    const room = detectedRoomsData.find(r => r.id === hoveredRoom.roomId);
+                    if (!room) return null;
+                    const tdResult = showTravelDistanceOverlay
+                      ? travelDistanceResults.find(r => r.roomId === hoveredRoom.roomId)
+                      : null;
+                    return (
+                      <div
+                        className="absolute z-50 pointer-events-none bg-popover border border-border rounded-md shadow-lg p-3 text-xs w-56"
+                        style={{ left: hoveredRoom.screenX + 12, top: hoveredRoom.screenY - 8 }}
+                      >
+                        <div className="font-semibold text-sm mb-1">{room.roomLabel ?? 'Unknown'}</div>
+                        <div className="space-y-0.5 text-muted-foreground">
+                          {room.occupancyGroup && (
+                            <div>Occupancy: Group {room.occupancyGroup}{room.occupancyDivision ? `-${room.occupancyDivision}` : ''}</div>
+                          )}
+                          {room.areaSqm && (
+                            <div>Area: {Number(room.areaSqm).toFixed(1)} m²</div>
+                          )}
+                          {room.floorLevel && <div>Level: {room.floorLevel}</div>}
+                        </div>
+                        {tdResult && tdResult.result !== 'not_applicable' && (
+                          <>
+                            <div className="my-2 border-t border-border" />
+                            <div className="font-medium text-foreground mb-1">Travel Distance (Est.)</div>
+                            <div className="space-y-0.5 text-muted-foreground">
+                              {tdResult.result === 'unable_to_evaluate' ? (
+                                <div className="text-amber-600">
+                                  Unable to evaluate — {pixelsPerMm === null ? 'calibrate scale first' : 'no exits detected'}
+                                </div>
+                              ) : (
+                                <>
+                                  <div>Measured: {tdResult.distanceM?.toFixed(1)} m</div>
+                                  <div>Limit (NBC 3.4.2.5): {tdResult.limit} m{travelSprinklered ? ' (sprinklered)' : ''}</div>
+                                  {tdResult.nearestExitLabel && <div>Nearest exit: {tdResult.nearestExitLabel}</div>}
+                                  <div className={`font-semibold mt-1 ${tdResult.result === 'pass' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {tdResult.result === 'pass' ? '✓ PASS' : '✗ FAIL'}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Side panel */}
@@ -4181,6 +4370,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           ))}
                         </div>
                       </div>
+
+                      {/* Sprinkler System — read from project settings */}
+                      {selectedProjectId > 0 && (() => {
+                        const proj = projectListQuery.data?.find(p => p.id === selectedProjectId);
+                        const isSprinklered = !!proj?.sprinklersRequired;
+                        return (
+                          <div className="flex items-center justify-between text-xs py-1">
+                            <span className="text-muted-foreground">Sprinkler System</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-medium ${isSprinklered ? 'text-green-700' : 'text-muted-foreground'}`}>
+                                {isSprinklered ? 'Yes (45m limit)' : 'No (25m limit)'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Drawing Type selector */}
                       <div>
