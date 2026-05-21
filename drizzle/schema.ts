@@ -796,8 +796,6 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   fileType: mysqlEnum("fileType", ["pdf", "dwg", "png", "jpeg"]),
   pageCount: int("pageCount").default(1),
   uploadStatus: mysqlEnum("uploadStatus", ["pending", "processing", "complete", "error"]).default("complete"),
-  reviewerCredentialId: int("reviewerCredentialId"),
-  credentialStatusAtReview: varchar("credentialStatusAtReview", { length: 20 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -885,30 +883,6 @@ export const complianceEvaluationResults = mysqlTable("complianceEvaluationResul
 
 export type ComplianceEvaluationResult = typeof complianceEvaluationResults.$inferSelect;
 export type InsertComplianceEvaluationResult = typeof complianceEvaluationResults.$inferInsert;
-
-/**
- * Professional Credentials - Verified Canadian professional engineer / architect registrations
- */
-export const professionalCredentials = mysqlTable("professionalCredentials", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  licenseNumber: varchar("licenseNumber", { length: 50 }).notNull(),
-  fullName: varchar("fullName", { length: 255 }).notNull(),
-  province: varchar("province", { length: 10 }).notNull(),
-  discipline: varchar("discipline", { length: 20 }).notNull(),
-  registryName: varchar("registryName", { length: 20 }).notNull(),
-  verifiedName: varchar("verifiedName", { length: 255 }),
-  status: varchar("status", { length: 20 }).notNull().default("pending"),
-  licenseExpiryDate: date("licenseExpiryDate").notNull(),
-  lastVerifiedAt: timestamp("lastVerifiedAt"),
-  verificationMethod: varchar("verificationMethod", { length: 20 }).default("live_lookup"),
-  rawResponseHash: varchar("rawResponseHash", { length: 64 }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type ProfessionalCredential = typeof professionalCredentials.$inferSelect;
-export type InsertProfessionalCredential = typeof professionalCredentials.$inferInsert;
 
 /**
  * Compliance Audit Trail - IMMUTABLE, APPEND-ONLY
