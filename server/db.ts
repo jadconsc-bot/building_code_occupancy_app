@@ -11,36 +11,26 @@ let _pool: mysql.Pool | null = null;
 export let db: ReturnType<typeof drizzle> | null = null;
 
 function createPool(): mysql.Pool {
-  const pool = mysql.createPool({
+  return mysql.createPool({
     uri: process.env.DATABASE_URL,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
+    keepAliveInitialDelay: 10000,
     connectTimeout: 60000,
+    idleTimeout: 300000,
   });
-
-  pool.on('connection', (connection) => {
-    connection.on('error', (err: NodeJS.ErrnoException & { code?: string; fatal?: boolean }) => {
-      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.fatal) {
-        console.error('[DB] Connection lost — pool will reconnect:', err.code);
-        // Force pool recreation on next getDb() call
-        _db = null;
-        _pool = null;
-      }
-    });
-  });
-
-  return pool;
 }
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
+// Passes the pool directly so Drizzle acquires a fresh connection on each
+// query rather than caching a prepared-statement connection that can go dead.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       _pool = createPool();
-      _db = drizzle(_pool as any);
+      _db = drizzle(_pool as any, { mode: 'default', logger: false });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -50,24 +40,60 @@ export async function getDb() {
   return _db;
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
-  for (let i = 0; i < retries; i++) {
+// Reset the singleton so the next getDb() call creates a fresh pool+drizzle.
+async function resetDb(): Promise<void> {
+  const oldPool = _pool;
+  _db = null;
+  _pool = null;
+  if (oldPool) {
+    try { await oldPool.end(); } catch { /* ignore */ }
+  }
+}
+
+function isConnectionError(err: any): boolean {
+  const code = err?.code ?? err?.cause?.code;
+  return (
+    code === 'PROTOCOL_CONNECTION_LOST' ||
+    code === 'ECONNRESET' ||
+    err?.cause?.fatal === true ||
+    err?.fatal === true ||
+    (typeof err?.message === 'string' && (
+      err.message.includes('Connection lost') ||
+      err.message.includes('ECONNRESET')
+    ))
+  );
+}
+
+/**
+ * Retry wrapper for DB operations that may fail due to connection loss.
+ *
+ * Calls `getDb()` inside each attempt so that after a reset the retry
+ * always gets a fresh pool — the closure captures nothing stale.
+ */
+export async function withDbRetry<T>(
+  operation: () => Promise<T>,
+  retries = 3,
+  delayMs = 500,
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return await fn();
+      return await operation();
     } catch (err: any) {
-      const code = err?.code ?? err?.cause?.code;
-      const isConnectionLost = code === 'PROTOCOL_CONNECTION_LOST' || code === 'ECONNRESET' || err?.fatal;
-      if (isConnectionLost && i < retries - 1) {
-        console.warn(`[DB] Retrying after connection loss (attempt ${i + 1}/${retries}):`, code);
-        _db = null;
-        _pool = null;
-        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+      if (isConnectionError(err) && attempt < retries) {
+        console.warn(`[DB] Connection error on attempt ${attempt}/${retries}, resetting pool and retrying in ${delayMs * attempt}ms...`);
+        await resetDb();
+        await new Promise(r => setTimeout(r, delayMs * attempt));
         continue;
       }
       throw err;
     }
   }
-  throw new Error('Max retries exceeded');
+  throw new Error('DB retry exhausted');
+}
+
+/** @deprecated Use withDbRetry instead */
+export async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  return withDbRetry(fn, retries, 1000);
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -120,8 +146,12 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
+    await withDbRetry(async () => {
+      const freshDb = await getDb();
+      if (!freshDb) throw new Error('Database not available after retry');
+      await freshDb.insert(users).values(values).onDuplicateKeyUpdate({
+        set: updateSet,
+      });
     });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
