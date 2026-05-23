@@ -1082,4 +1082,36 @@ export const drawingAnalysisRouter = router({
       const results = calculateTravelDistances(roomInputs, input.pixelsPerMm, sprinklered);
       return { results, sprinklered };
     }),
+
+  saveCalibration: protectedProcedure
+    .input(z.object({
+      pageId: z.number().int().positive(),
+      calibrationScale: z.number().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Verify the page belongs to a drawing owned by the current user
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.pageId));
+
+      if (!page) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
+
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+
+      await db
+        .update(drawingPages)
+        .set({ calibrationScale: input.calibrationScale.toFixed(6) })
+        .where(eq(drawingPages.id, input.pageId));
+
+      return { ok: true };
+    }),
 });

@@ -820,6 +820,7 @@ export const drawingPages = mysqlTable("drawingPages", {
   evalTotalRooms: int("evalTotalRooms"),
   evalMissedRoomsJson: text("evalMissedRoomsJson"),
   detectedScale: varchar("detectedScale", { length: 20 }),
+  calibrationScale: decimal("calibrationScale", { precision: 12, scale: 6 }),
 });
 
 export type DrawingPage = typeof drawingPages.$inferSelect;

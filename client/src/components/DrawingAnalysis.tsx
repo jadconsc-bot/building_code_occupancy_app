@@ -230,6 +230,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
   const [roomPollCount, setRoomPollCount] = useState(0);
   const [detectedScale, setDetectedScale] = useState<string | null>(null);
+  const [currentPageId, setCurrentPageId] = useState<number | null>(null);
+  const [calibrationRestored, setCalibrationRestored] = useState(false);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -412,6 +414,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const canvasResizeStartRef = useRef<{ y: number; h: number } | null>(null);
   const wwrPanelResizeRef = useRef<{ y: number; h: number } | null>(null);
   const imageJustLoadedRef = useRef<boolean>(false);
+  const rafRef = useRef<number | null>(null);
   
   // Auth state (PD2.0 §6.1 — authentication required)
   const { isAuthenticated } = useAuth();
@@ -595,6 +598,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const travelDistanceResults: TravelDistanceResult[] = travelDistanceData?.results ?? [];
   const travelSprinklered = travelDistanceData?.sprinklered ?? false;
 
+  const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
+
   // Fetch room-level compliance results once rooms have loaded
   const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
     { drawingId: analysisId ?? 0, projectId: selectedProjectId },
@@ -661,6 +666,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       if (p.detectedScale) {
         setDetectedScale(p.detectedScale);
+      }
+      setCurrentPageId(p.id);
+      if (p.calibrationScale && pixelsPerDrawingUnit === 0) {
+        setPixelsPerDrawingUnit(parseFloat(p.calibrationScale as unknown as string));
+        setCalibrationRestored(true);
       }
       if (p.evalAccuracy != null && p.evalTotalRooms != null) {
         setEvalData({
@@ -2274,34 +2284,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setDragCurrentPoint({ x, y });
     }
 
-    // Room hover hit-test (for popover)
+    // Room hover hit-test (for popover) — RAF-throttled to 60fps
     if (showRoomOverlay && detectedRoomsData.length > 0) {
-      const canvas = canvasRef.current;
-      const naturalW = imageRef.current?.naturalWidth ?? 0;
-      const naturalH = imageRef.current?.naturalHeight ?? 0;
-      const hScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
-        ? naturalW / analyzedPageDims.width : 1;
-      const hScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
-        ? naturalH / analyzedPageDims.height : 1;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const capturedX = x;
+      const capturedY = y;
+      const capturedClientX = e.clientX;
+      const capturedClientY = e.clientY;
+      rafRef.current = requestAnimationFrame(() => {
+        const canvas = canvasRef.current;
+        const naturalW = imageRef.current?.naturalWidth ?? 0;
+        const naturalH = imageRef.current?.naturalHeight ?? 0;
+        const hScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+          ? naturalW / analyzedPageDims.width : 1;
+        const hScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+          ? naturalH / analyzedPageDims.height : 1;
 
-      let found: { roomId: number; screenX: number; screenY: number } | null = null;
-      for (const room of detectedRoomsData) {
-        const bbox = room.boundingBox;
-        if (!bbox) continue;
-        const rx = bbox.x * hScaleX;
-        const ry = bbox.y * hScaleY;
-        const rw = bbox.width * hScaleX;
-        const rh = bbox.height * hScaleY;
-        if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) {
-          found = {
-            roomId: room.id,
-            screenX: e.clientX - (canvas?.getBoundingClientRect().left ?? 0),
-            screenY: e.clientY - (canvas?.getBoundingClientRect().top ?? 0),
-          };
-          break;
+        let found: { roomId: number; screenX: number; screenY: number } | null = null;
+        for (const room of detectedRoomsData) {
+          const bbox = room.boundingBox;
+          if (!bbox) continue;
+          const rx = bbox.x * hScaleX;
+          const ry = bbox.y * hScaleY;
+          const rw = bbox.width * hScaleX;
+          const rh = bbox.height * hScaleY;
+          if (capturedX >= rx && capturedX <= rx + rw && capturedY >= ry && capturedY <= ry + rh) {
+            found = {
+              roomId: room.id,
+              screenX: capturedClientX - (canvas?.getBoundingClientRect().left ?? 0),
+              screenY: capturedClientY - (canvas?.getBoundingClientRect().top ?? 0),
+            };
+            break;
+          }
         }
-      }
-      setHoveredRoom(found);
+        setHoveredRoom(found);
+      });
     } else {
       setHoveredRoom(null);
     }
@@ -3816,6 +3833,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       setSelectedPages([]);
                       setTotalPages(0);
                       setCurrentPreviewPage(1);
+                      // Reset all overlay and analysis state
+                      setDetectedRoomsData([]);
+                      setAnalyzedPageDims(null);
+                      setRoomPollCount(0);
+                      setEvalData(null);
+                      setDetectedScale(null);
+                      setShowRoomOverlay(true);
+                      setShowTravelDistanceOverlay(false);
+                      setShowComplianceHeatmap(false);
+                      setShowCompliancePanel(false);
+                      setComplianceResults([]);
+                      setRuleEvaluations([]);
+                      setRoomComplianceData([]);
+                      setAnalysisId(null);
+                      setAnalysisStatus(null);
+                      setCurrentPageId(null);
+                      setCalibrationRestored(false);
+                      setPixelsPerDrawingUnit(0);
+                      setIsCalibrating(false);
+                      setCalibrationLine(null);
+                      setReferenceValue("");
+                      setMeasuredWindows([]);
+                      setWindowMeasureMode(false);
                     }}
                   >
                     <RotateCcw className="w-4 h-4 mr-1" />
@@ -3907,16 +3947,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         // Calculate pixels per drawing unit
                         // For imperial: user enters feet, we need pixels per inch on drawing
                         // For metric: user enters meters, we need pixels per mm on drawing
+                        let newPixelsPerUnit: number;
                         if (scaleSystem === "imperial") {
                           // Convert feet to inches, then divide by scale ratio to get drawing inches
                           const realInches = value * 12;
                           const drawingInches = realInches / selectedScale.ratio;
-                          setPixelsPerDrawingUnit(pixelDistance / drawingInches);
+                          newPixelsPerUnit = pixelDistance / drawingInches;
                         } else {
                           // Convert meters to mm, then divide by scale ratio to get drawing mm
                           const realMm = value * 1000;
                           const drawingMm = realMm / selectedScale.ratio;
-                          setPixelsPerDrawingUnit(pixelDistance / drawingMm);
+                          newPixelsPerUnit = pixelDistance / drawingMm;
+                        }
+                        setPixelsPerDrawingUnit(newPixelsPerUnit);
+                        setCalibrationRestored(false);
+                        if (currentPageId) {
+                          saveCalibrationMutation.mutate({ pageId: currentPageId, calibrationScale: newPixelsPerUnit });
                         }
                         setIsEditingReference(false);
                         setCalibrationLine(null);
@@ -3944,7 +3990,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               {pixelsPerDrawingUnit > 0 && !isCalibrating && !isEditingReference && (
                 <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg text-sm">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="font-medium text-green-700 dark:text-green-400">Scale calibrated:</span>
+                  <span className="font-medium text-green-700 dark:text-green-400">
+                    {calibrationRestored ? '✓ Calibration restored' : 'Scale calibrated:'}
+                  </span>
                   <span>{selectedScale.label}</span>
                   <span className="text-muted-foreground">•</span>
                   <span className="text-muted-foreground">{selectedScale.drawingType}</span>
@@ -4083,8 +4131,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               type="number"
                               min={1}
                               max={10}
-                              value={storeyCount}
-                              onChange={(e) => setStoreyCount(parseInt(e.target.value) || 1)}
+                              defaultValue={storeyCount}
+                              onBlur={(e) => {
+                                const v = parseInt(e.target.value) || 1;
+                                if (v !== storeyCount) setStoreyCount(v);
+                              }}
                               className="w-14 h-6 text-xs"
                             />
                           </div>
@@ -4093,8 +4144,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <Input
                               type="number"
                               step={0.1}
-                              value={storeyHeightM}
-                              onChange={(e) => setStoreyHeightM(parseFloat(e.target.value) || 2.7)}
+                              defaultValue={storeyHeightM}
+                              onBlur={(e) => {
+                                const v = parseFloat(e.target.value) || 2.7;
+                                if (v !== storeyHeightM) setStoreyHeightM(v);
+                              }}
                               className="w-16 h-6 text-xs"
                             />
                             <span className="text-xs text-muted-foreground">m</span>
