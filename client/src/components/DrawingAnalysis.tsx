@@ -1214,6 +1214,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const tdScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
         ? naturalH / analyzedPageDims.height : 1;
 
+      // Build deduplicated exit map before drawing room lines
+      const exitMap = new Map<number, { x: number; y: number; label: string }>();
+      for (const r of travelDistanceResults) {
+        if (r.nearestExitId !== null && r.exitCentroidX !== null && r.exitCentroidY !== null) {
+          if (!exitMap.has(r.nearestExitId)) {
+            exitMap.set(r.nearestExitId, {
+              x: r.exitCentroidX * tdScaleX * zoom + pan.x,
+              y: r.exitCentroidY * tdScaleY * zoom + pan.y,
+              label: r.nearestExitLabel ?? 'Exit',
+            });
+          }
+        }
+      }
+
       for (const r of travelDistanceResults) {
         if (r.result === 'not_applicable' || r.result === 'unable_to_evaluate') continue;
         if (r.exitCentroidX === null || r.exitCentroidY === null || r.distanceM === null) continue;
@@ -1236,25 +1250,91 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // Arrowhead toward exit
+        const angle = Math.atan2(ey - sy, ex - sx);
+        const arrowSize = 8;
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-arrowSize, -arrowSize / 2);
+        ctx.lineTo(-arrowSize, arrowSize / 2);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+
         // Room centroid dot
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(sx, sy, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Distance label at midpoint with white background
-        const label = `${r.distanceM.toFixed(1)}m`;
-        ctx.font = '11px Inter, sans-serif';
-        const tw = ctx.measureText(label).width;
-        const pad = 2;
+        // Two-line margin pill at midpoint
+        const margin = r.limit - r.distanceM;
+        const line1 = r.result === 'pass'
+          ? `${r.distanceM.toFixed(1)}m ✓`
+          : `${r.distanceM.toFixed(1)}m ✗`;
+        const line2 = r.result === 'pass'
+          ? `${margin.toFixed(1)}m leeway`
+          : `+${(-margin).toFixed(1)}m over`;
+        const muteColor = r.result === 'pass' ? '#16a34a' : '#b91c1c';
+        const pad = 3;
+
+        ctx.font = 'bold 11px Inter, sans-serif';
+        const tw1 = ctx.measureText(line1).width;
+        ctx.font = '9px Inter, sans-serif';
+        const tw2 = ctx.measureText(line2).width;
+        const pillW = Math.max(tw1, tw2) + pad * 2;
+        const pillH = 26;
+
         ctx.fillStyle = 'rgba(255,255,255,0.88)';
-        ctx.fillRect(mx - tw / 2 - pad, my - 8 - pad, tw + pad * 2, 14 + pad * 2);
-        ctx.fillStyle = color;
+        ctx.fillRect(mx - pillW / 2 - pad, my - pillH / 2 - pad, pillW + pad * 2, pillH + pad * 2);
+
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(label, mx, my);
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillStyle = color;
+        ctx.fillText(line1, mx, my - 7);
+        ctx.font = '9px Inter, sans-serif';
+        ctx.fillStyle = muteColor;
+        ctx.fillText(line2, mx, my + 7);
+
         ctx.restore();
       }
+
+      // Exit node markers (drawn after all room lines so they appear on top)
+      ctx.save();
+      for (const [, exit] of exitMap) {
+        ctx.beginPath();
+        ctx.arc(exit.x, exit.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(22,163,74,0.90)';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        const exitLabelW = ctx.measureText('EXIT').width + 6;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(exit.x - exitLabelW / 2, exit.y + 13, exitLabelW, 13);
+        ctx.fillStyle = '#15803d';
+        ctx.fillText('EXIT', exit.x, exit.y + 14);
+
+        const shortLabel = exit.label.length > 12 ? exit.label.substring(0, 12) + '…' : exit.label;
+        ctx.font = '9px Inter, sans-serif';
+        const slW = ctx.measureText(shortLabel).width + 6;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(exit.x - slW / 2, exit.y + 27, slW, 11);
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(shortLabel, exit.x, exit.y + 28);
+      }
+      ctx.restore();
     }
     // ===== END TRAVEL DISTANCE OVERLAY LAYER =====
 
@@ -4364,6 +4444,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   {/* Travel distance caveat + Save to Project — shown when overlay is active */}
                   {showTravelDistanceOverlay && (
                     <div className="mt-1 space-y-1">
+                      <div className="px-3 py-1.5 rounded bg-muted/60 border border-border text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#22c55e' }} />
+                          Pass
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#dc2626' }} />
+                          Fail
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-full inline-block border-2 border-white" style={{ background: 'rgba(22,163,74,0.90)', boxShadow: '0 0 0 1px #15803d' }} />
+                          Exit node
+                        </span>
+                      </div>
                       <div className="px-3 py-1.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-1.5">
                         <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
                         <span>
@@ -4465,9 +4559,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                     )}
                                   </div>
                                   {tdResult.nearestExitLabel && <div>Nearest exit: {tdResult.nearestExitLabel}</div>}
-                                  <div className={`font-semibold mt-1 ${tdResult.result === 'pass' ? 'text-green-600' : 'text-red-600'}`}>
-                                    {tdResult.result === 'pass' ? '✓ PASS' : '✗ FAIL'}
-                                  </div>
+                                  {tdResult.result === 'pass' && tdResult.distanceM !== null ? (
+                                    <div className="mt-1 text-green-700">
+                                      <div className="font-semibold">✓ PASS</div>
+                                      <div>{(tdResult.limit - tdResult.distanceM).toFixed(1)}m within limit ({((tdResult.distanceM / tdResult.limit) * 100).toFixed(0)}% of limit used)</div>
+                                      <div>Up to {(tdResult.limit - tdResult.distanceM).toFixed(1)}m additional travel permitted</div>
+                                    </div>
+                                  ) : tdResult.result === 'fail' && tdResult.distanceM !== null ? (
+                                    <div className="mt-1 text-red-700">
+                                      <div className="font-semibold">✗ FAIL</div>
+                                      <div>Exceeds limit by {(tdResult.distanceM - tdResult.limit).toFixed(1)}m</div>
+                                      <div>Reduce travel path or add exit access</div>
+                                    </div>
+                                  ) : null}
                                 </>
                               )}
                             </div>
