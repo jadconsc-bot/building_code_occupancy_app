@@ -253,7 +253,7 @@ export async function detectRoomsFromPage(
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
   // Save with full image dimensions so the client scale factor is correct.
-  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH);
+  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, raw.metadata?.scale ?? null);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
   return {
@@ -372,6 +372,7 @@ async function saveRoomsToDb(
   province: string = 'AB',
   imgW: number = 0,
   imgH: number = 0,
+  detectedScale: string | null = null,
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
@@ -395,7 +396,7 @@ async function saveRoomsToDb(
   // Backfill the page dimensions so the client can compute a scale factor
   if (imgW > 0 && imgH > 0) {
     await db.update(drawingPages)
-      .set({ widthPx: imgW, heightPx: imgH })
+      .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ?? null })
       .where(eq(drawingPages.id, pageId));
   }
 

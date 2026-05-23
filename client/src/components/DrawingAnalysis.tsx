@@ -229,6 +229,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
   const [roomPollCount, setRoomPollCount] = useState(0);
+  const [detectedScale, setDetectedScale] = useState<string | null>(null);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -657,6 +658,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       if (p.widthPx > 0 && p.heightPx > 0) {
         setAnalyzedPageDims({ width: p.widthPx, height: p.heightPx });
         console.log('[RoomOverlay] Analyzed page dims:', p.widthPx, 'x', p.heightPx);
+      }
+      if (p.detectedScale) {
+        setDetectedScale(p.detectedScale);
       }
       if (p.evalAccuracy != null && p.evalTotalRooms != null) {
         setEvalData({
@@ -3685,6 +3689,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <Ruler className="w-4 h-4 mr-1" />
                     {pixelsPerDrawingUnit > 0 ? "Recalibrate" : "Calibrate"}
                   </Button>
+                  {detectedScale && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-amber-600 font-medium px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200" title="Scale detected from drawing by AI — verify before calibrating">
+                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 10.5h-1.5v-5h1.5v5zm0-6.5h-1.5V3.5h1.5V5z"/></svg>
+                      {detectedScale}
+                    </span>
+                  )}
                   <button
                     onClick={() => {
                       if (pixelsPerDrawingUnit === 0) {

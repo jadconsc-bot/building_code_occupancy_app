@@ -72,7 +72,7 @@ const plugins = [
       ]
     },
     devOptions: {
-      enabled: true
+      enabled: false
     }
   })
 ];
