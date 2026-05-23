@@ -70,7 +70,10 @@ import {
   FileSearch,
   Check,
   Folder,
-  BarChart2
+  BarChart2,
+  FileUp,
+  Clock,
+  ChevronRight
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -885,6 +888,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setSelectedProjectId(projectListQuery.data[0].id);
     }
   }, [projectListQuery.data, selectedProjectId]);
+
+  // Persist selected project to localStorage
+  useEffect(() => {
+    if (selectedProjectId > 0) {
+      localStorage.setItem('codecomply_last_project_id', String(selectedProjectId));
+    }
+  }, [selectedProjectId]);
 
   // Close project selector dropdown on outside click
   useEffect(() => {
@@ -3233,127 +3243,192 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         </CardHeader>
         <CardContent>
           {!drawingImage ? (
-            // Upload area
-            <div className="space-y-6">
-              {disclaimerAcknowledged ? (
-                <>
-                  <div
-                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Upload Drawing</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Drag and drop or click to upload PDF or image files
+            // Upload area — two-column entry page
+            <div>
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* LEFT 60%: value statement + project selector + upload zone */}
+                <div className="flex-[3] min-w-0 space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold">Analyse a floor plan</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Upload, photograph, or sketch a plan — AI extracts rooms, dimensions, and travel distances, then checks against the Alberta Building Code.
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Supported formats: PDF, PNG, JPG, JPEG
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
                   </div>
 
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="h-px bg-border flex-1" />
-                    <span className="text-sm text-muted-foreground">or</span>
-                    <div className="h-px bg-border flex-1" />
+                  {/* Project selector */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Project</Label>
+                    <Select
+                      value={selectedProjectId > 0 ? String(selectedProjectId) : ''}
+                      onValueChange={(v) => setSelectedProjectId(Number(v))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={projectListQuery.isLoading ? 'Loading…' : 'Select a project'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projectListQuery.data?.map(p => (
+                          <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div
-                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-accent/50 transition-colors"
-                    onClick={() => cameraInputRef.current?.click()}
-                  >
-                    <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Take Photo</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Use your device camera to capture a drawing
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      AI will automatically extract dimensions and measurements
-                    </p>
-                    <input
-                      ref={cameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      onChange={handleCameraCapture}
-                    />
-                  </div>
+                  {disclaimerAcknowledged ? (
+                    <>
+                      {/* Primary upload zone */}
+                      <div
+                        className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary hover:bg-accent/40 transition-colors group"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <FileUp className="w-10 h-10 mx-auto text-muted-foreground mb-3 group-hover:text-primary transition-colors" />
+                        <p className="font-medium mb-1">Upload a drawing</p>
+                        <p className="text-sm text-muted-foreground">PDF, PNG, JPG, JPEG · drag &amp; drop or click</p>
+                      </div>
 
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="h-px bg-border flex-1" />
-                    <span className="text-sm text-muted-foreground">or</span>
-                    <div className="h-px bg-border flex-1" />
-                  </div>
+                      {/* Hidden file inputs — must stay rendered */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleCameraCapture}
+                      />
 
-                  <div
-                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors"
-                    onClick={() => {
-                      const canvas = document.createElement('canvas');
-                      canvas.width = 1200;
-                      canvas.height = 900;
-                      const ctx = canvas.getContext('2d');
-                      if (ctx) {
-                        ctx.fillStyle = '#FFFFFF';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        ctx.strokeStyle = '#E5E7EB';
-                        ctx.lineWidth = 1;
-                        const gridSize = 50;
-                        for (let x = 0; x <= canvas.width; x += gridSize) {
-                          ctx.beginPath();
-                          ctx.moveTo(x, 0);
-                          ctx.lineTo(x, canvas.height);
-                          ctx.stroke();
-                        }
-                        for (let y = 0; y <= canvas.height; y += gridSize) {
-                          ctx.beginPath();
-                          ctx.moveTo(0, y);
-                          ctx.lineTo(canvas.width, y);
-                          ctx.stroke();
-                        }
-                      }
-                      setDrawingImage(canvas.toDataURL('image/png'));
-                      setFileName('New Drawing');
-                      setIsDrawMode(true);
-                      setIsCanvasLocked(true);
-                      setDrawingStrokes([]);
-                      setDrawingHistory([[]]);
-                      setHistoryIndex(0);
-                    }}
-                  >
-                    <PenTool className="w-12 h-12 mx-auto text-blue-500 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Start Drawing</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create a new floor plan or sketch from scratch
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Use drawing tools to sketch walls, rooms, and features
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg opacity-60">
-                  <Lock className="w-8 h-8 text-gray-400 mb-3" />
-                  <p className="text-sm text-gray-500 text-center">
-                    Please accept the disclaimer below to access drawing analysis
-                  </p>
+                      {/* Secondary actions */}
+                      <div className="flex items-center gap-5 text-sm">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => cameraInputRef.current?.click()}
+                        >
+                          <Camera className="w-4 h-4" />
+                          Take photo
+                        </button>
+                        <span className="text-border select-none">·</span>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 1200;
+                            canvas.height = 900;
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                              ctx.fillStyle = '#FFFFFF';
+                              ctx.fillRect(0, 0, canvas.width, canvas.height);
+                              ctx.strokeStyle = '#E5E7EB';
+                              ctx.lineWidth = 1;
+                              const gridSize = 50;
+                              for (let x = 0; x <= canvas.width; x += gridSize) {
+                                ctx.beginPath();
+                                ctx.moveTo(x, 0);
+                                ctx.lineTo(x, canvas.height);
+                                ctx.stroke();
+                              }
+                              for (let y = 0; y <= canvas.height; y += gridSize) {
+                                ctx.beginPath();
+                                ctx.moveTo(0, y);
+                                ctx.lineTo(canvas.width, y);
+                                ctx.stroke();
+                              }
+                            }
+                            setDrawingImage(canvas.toDataURL('image/png'));
+                            setFileName('New Drawing');
+                            setIsDrawMode(true);
+                            setIsCanvasLocked(true);
+                            setDrawingStrokes([]);
+                            setDrawingHistory([[]]);
+                            setHistoryIndex(0);
+                          }}
+                        >
+                          <PenTool className="w-4 h-4" />
+                          Sketch a plan
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg opacity-60">
+                      <Lock className="w-8 h-8 text-gray-400 mb-3" />
+                      <p className="text-sm text-gray-500 text-center">
+                        Please accept the disclaimer below to access drawing analysis
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-              
-              <div className="bg-muted/50 rounded-lg p-4 flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-sm">AI-Powered Analysis</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    After uploading, capturing, or drawing a plan, use the AI Analyze button to automatically extract dimensions, room labels, setbacks, and building measurements. The AI will identify lot sizes, building footprints, and check compliance against municipal bylaws.
-                  </p>
+
+                {/* RIGHT 40%: Recent Analyses */}
+                <div className="flex-[2] min-w-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Recent Analyses</span>
+                  </div>
+                  {!recentAnalyses || recentAnalyses.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      No analyses yet for this project
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentAnalyses.slice(0, 5).map(a => {
+                        const hasThumbnail = a.drawingUrl?.startsWith('https://');
+                        const proj = projectListQuery.data?.find(p => p.id === a.projectId);
+                        const dateStr = new Date(a.createdAt).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
+                        const statusColor =
+                          a.analysisStatus === 'VALID' ? 'bg-green-100 text-green-700' :
+                          a.analysisStatus === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                          a.analysisStatus === 'UNDER_REVIEW' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-600';
+                        return (
+                          <button
+                            key={a.id}
+                            type="button"
+                            className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors text-left group"
+                            onClick={() => {
+                              setAnalysisId(a.id);
+                              if (a.drawingUrl?.startsWith('https://')) {
+                                setDrawingImage(a.drawingUrl);
+                              }
+                            }}
+                          >
+                            <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center">
+                              {hasThumbnail ? (
+                                <img src={a.drawingUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <FileText className="w-5 h-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-medium truncate max-w-[120px]">{proj?.name ?? `Project ${a.projectId}`}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColor}`}>{a.analysisStatus}</span>
+                                {a.complianceScore != null && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">{a.complianceScore}%</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">{dateStr}</div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground flex-shrink-0 transition-colors" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Footer strip */}
+              <div className="mt-5 pt-4 border-t border-border/50 flex items-start gap-3">
+                <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">AI-Powered Analysis</span> — After uploading, the AI extracts dimensions, room labels, and travel distances, then checks compliance against the Alberta Building Code. For professional use only; always reviewed by a qualified professional.
+                </p>
               </div>
             </div>
           ) : (
