@@ -561,9 +561,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     },
   });
 
+  const activeProjectId = selectedProjectId || projectId;
+
   const { data: recentAnalyses } = trpc.drawingAnalysis.listByProject.useQuery(
-    { projectId: projectId! },
-    { enabled: !!projectId && !analysisId }
+    { projectId: activeProjectId! },
+    { enabled: !!activeProjectId && !analysisId }
   );
 
   useEffect(() => {
