@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
+import { trpc } from '@/lib/trpc';
 
 type UserRole = 'free' | 'basic' | 'professional' | 'rule_editor' | 'admin';
 
@@ -185,6 +186,12 @@ export function NavigationHeader() {
 
   const userRole: UserRole = (user?.role as UserRole) ?? 'free';
 
+  const pendingCountQuery = trpc.complianceMonitor.getPendingCount.useQuery(undefined, {
+    enabled: isAuthenticated,
+    refetchInterval: 60_000,
+  });
+  const pendingCount = pendingCountQuery.data?.count ?? 0;
+
   const canAccess = (feature: NavFeature) => hasRole(userRole, feature.requiredRole);
 
   // Primary nav items (max 4, visible in top bar)
@@ -222,11 +229,12 @@ export function NavigationHeader() {
           <nav className="hidden md:flex items-center gap-1">
             {primaryFeatures.map((feature) => {
               const accessible = canAccess(feature);
+              const showBadge = feature.href === '/compliance' && pendingCount > 0;
               const item = (
                 <button
                   key={feature.href}
                   onClick={() => accessible && navigate(feature.href)}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1 ${
+                  className={`relative px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1 ${
                     accessible
                       ? 'text-white/80 hover:text-white hover:bg-white/10 cursor-pointer'
                       : 'text-white/30 cursor-not-allowed'
@@ -234,6 +242,11 @@ export function NavigationHeader() {
                 >
                   {!accessible && <Lock className="w-3 h-3" />}
                   {feature.label}
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
+                      {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
                 </button>
               );
 

@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { SignIn } from '@clerk/clerk-react';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
+import { ComplianceNotificationsPanel } from '@/components/ComplianceNotificationsPanel';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ReportBuilder } from '@/components/ReportBuilder';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -87,6 +88,11 @@ export default function Dashboard() {
 
         {/* Feature Discovery Dashboard */}
         <FeatureDiscoveryDashboard />
+
+        {/* Compliance Intelligence */}
+        <div className="mt-12 border border-border rounded-lg p-6">
+          <ComplianceNotificationsPanel />
+        </div>
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">
