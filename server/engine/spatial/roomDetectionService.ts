@@ -16,6 +16,15 @@ import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 
 const CONFIDENCE_THRESHOLD = 0.7;
+const CROP_LEFT_PCT = 0.20;
+const CROP_TOP_PCT = 0.15;
+const CLAUDE_VISION_MAX_PX = 1568;
+
+interface PageRegion {
+  top: number;
+  height: number;
+  label: string;
+}
 
 async function safeParseRoomJSON(raw: string): Promise<{ rooms: any[]; metadata: any }> {
   // First try clean parse
@@ -73,7 +82,6 @@ export async function detectRoomsFromPage(
     ? `\nBUILDING TYPE: ${template.label}\n${template.systemHints}\n\nFEW-SHOT EXAMPLES:\n${template.fewShotExamples}\n`
     : '';
 
-  // Convert to JPEG so we can read exact pixel dimensions before building the prompt.
   const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
     .jpeg({ quality: 85 })
     .toBuffer();
@@ -81,101 +89,92 @@ export async function detectRoomsFromPage(
   const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
   console.log('[RoomDetection] Full image:', imgW, 'x', imgH, 'px');
 
-  // Crop the top 15% and left 20% to eliminate the key plan.
-  // Key plans are almost always in the top-left column of the sheet;
-  // the main floor plan occupies the lower-center/right area.
-  // Both offsets are restored after detection so saved coords are in full-image space.
-  const cropOffsetY = Math.floor(imgH * 0.15);
-  const cropOffsetX = Math.floor(imgW * 0.20);
-  const croppedH = imgH - cropOffsetY;
-  const croppedW = imgW - cropOffsetX;
-  const croppedBuffer = await sharp(jpegBuffer)
-    .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
-    .toBuffer();
-  const croppedBase64 = croppedBuffer.toString('base64');
-  console.log(
-    `[RoomDetection] Sending cropped image to Claude: ${croppedW}x${croppedH} px` +
-    ` (offset x=${cropOffsetX}, y=${cropOffsetY})`
-  );
+  const regions = await detectPageRegions(jpegBuffer, imgW, imgH);
+  const rawRooms: any[] = [];
+  let modelVersion = '';
+  let metadata: any = {};
 
-  // Pass 1: Azure OCR — extract legend + room labels with precise pixel coordinates
-  let labelContext = '';
-  let legendContext = '';
-  try {
-    const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
+  for (const region of regions) {
+    const regionBuffer = await sharp(jpegBuffer)
+      .extract({ left: 0, top: region.top, width: imgW, height: region.height })
+      .toBuffer();
 
-    // Pass 1a: extract drawing legend from ALL labels before room filtering
-    const legend = extractLegend(ocrResult.allLabels, croppedW, croppedH);
-    legendContext = formatLegendForPrompt(legend);
-    console.log(`[RoomDetection] Legend extracted: hasLegend=${legend.hasLegend}, abbreviations=${Object.keys(legend.abbreviations).length}`);
+    const cropOffsetY = Math.floor(region.height * CROP_TOP_PCT);
+    const cropOffsetX = Math.floor(imgW * CROP_LEFT_PCT);
+    const croppedH = region.height - cropOffsetY;
+    const croppedW = imgW - cropOffsetX;
 
-    // Pass 1b: filter to room labels only
-    const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
-    console.log(`[RoomDetection] Azure OCR found ${roomLabels.length} room labels`);
-    if (roomLabels.length > 0) {
-      labelContext =
-        `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
-        roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${l.x}, ${l.y})`).join('\n') +
-        `\n\nYou MUST return a bounding box for EVERY label listed above. Do not skip any labels.\n` +
-        `For every single label provided, return a bounding box entry.\n` +
-        `If the label has a leader line/arrow, follow it to the room.\n` +
-        `Place the bounding box around the WALLS of that room, not the label.\n` +
-        `Use the label coordinates as anchor points to find the correct room.\n` +
-        `If you cannot determine exact walls, use your best estimate with confidence < 0.7.\n` +
-        `Skipping a labeled room is not acceptable — return ALL rooms.\n`;
+    const croppedBuffer = await sharp(regionBuffer)
+      .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
+      .toBuffer();
+    const croppedBase64 = croppedBuffer.toString('base64');
+
+    const longestDim = Math.max(croppedW, croppedH);
+    const visionScale = longestDim > CLAUDE_VISION_MAX_PX ? CLAUDE_VISION_MAX_PX / longestDim : 1.0;
+    const visionW = Math.max(1, Math.round(croppedW * visionScale));
+    const visionH = Math.max(1, Math.round(croppedH * visionScale));
+
+    const visionBuffer = visionScale < 1.0
+      ? await sharp(croppedBuffer)
+          .resize(visionW, visionH, { fit: 'fill' })
+          .jpeg({ quality: 90 })
+          .toBuffer()
+      : croppedBuffer;
+
+    const visionBase64 = visionBuffer.toString('base64');
+
+    let labelContext = '';
+    let legendContext = '';
+    try {
+      const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
+      const legend = extractLegend(ocrResult.allLabels, croppedW, croppedH);
+      legendContext = formatLegendForPrompt(legend);
+      const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
+      if (roomLabels.length > 0) {
+        labelContext =
+          `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
+          roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${l.x}, ${l.y})`).join('\n') +
+          `\n\nYou MUST return a bounding box for EVERY label listed above. Do not skip any labels.\n` +
+          `For every single label provided, return a bounding box entry.\n` +
+          `If the label has a leader line/arrow, follow it to the room.\n` +
+          `Place the bounding box around the WALLS of that room, not the label.\n` +
+          `Use the label coordinates as anchor points to find the correct room.\n` +
+          `If you cannot determine exact walls, use your best estimate with confidence < 0.7.\n` +
+          `Skipping a labeled room is not acceptable — return ALL rooms.\n`;
+      }
+    } catch (err) {
+      console.warn(`[RoomDetection] ${region.label} Azure OCR failed, proceeding without labels:`, err);
     }
-  } catch (err) {
-    console.warn('[RoomDetection] Azure OCR failed, proceeding without labels:', err);
-  }
 
-  // Pass 2: Claude Vision — legend context first, then label anchors
-  const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext);
+    const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext);
 
-  const { rawText, modelVersion } = await callAnthropicVision({
-    imageBase64: croppedBase64,
-    mimeType: 'image/jpeg',
-    systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
-    userPrompt,
-    jsonSchema: {},
-    maxTokens: 16000,
-  });
+    const response = await callAnthropicVision({
+      imageBase64: visionBase64,
+      mimeType: 'image/jpeg',
+      systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
+      userPrompt,
+      jsonSchema: {},
+      maxTokens: 16000,
+    });
 
-  const raw = await safeParseRoomJSON(rawText);
+    modelVersion = response.modelVersion;
+    const raw = await safeParseRoomJSON(response.rawText);
+    metadata = raw.metadata ?? metadata;
 
-  // Claude Vision internally downscales images to max 1568px on the longest side.
-  // Coordinates come back in that downscaled space even when the prompt specifies
-  // full pixel dimensions.  Scale them back to cropped-image pixel space before
-  // any further processing.
-  const rawRooms: any[] = raw.rooms ?? [];
-  if (rawRooms.length > 0) {
-    const maxX = Math.max(...rawRooms.map((r: any) => (r.boundingBox?.x ?? 0) + (r.boundingBox?.width ?? 0)));
-    const maxY = Math.max(...rawRooms.map((r: any) => (r.boundingBox?.y ?? 0) + (r.boundingBox?.height ?? 0)));
-    console.log(`[RoomDetection] Raw coord range: maxX=${maxX} maxY=${maxY} vs cropped ${croppedW}x${croppedH}`);
-
-    const CLAUDE_MAX_DIMENSION = 1568;
-    const claudeScale = Math.min(CLAUDE_MAX_DIMENSION / croppedW, CLAUDE_MAX_DIMENSION / croppedH);
-    // Claude sometimes returns coords in its internal downscaled space (~1568px max),
-    // and sometimes in full pixel space (when OCR label anchors calibrate it).
-    // If maxX is above 1800 it's already in full-image space — skip correction.
-    const needsCorrection = maxX <= 1800;
-    const coordScale = (claudeScale < 1 && needsCorrection) ? 1 / claudeScale : 1.0;
-    console.log(`[RoomDetection] Claude internal scale: ${claudeScale.toFixed(3)}, coord correction: ${coordScale.toFixed(2)}x (maxX=${maxX}, needsCorrection=${needsCorrection})`);
-
-    if (coordScale > 1.0) {
-      for (const r of rawRooms) {
-        if (r.boundingBox) {
-          r.boundingBox.x = Math.round(r.boundingBox.x * coordScale);
-          r.boundingBox.y = Math.round(r.boundingBox.y * coordScale);
-          r.boundingBox.width = Math.round(r.boundingBox.width * coordScale);
-          r.boundingBox.height = Math.round(r.boundingBox.height * coordScale);
-        }
-        for (const f of r.features ?? []) {
-          if (f.position) {
-            f.position.x = Math.round(f.position.x * coordScale);
-            f.position.y = Math.round(f.position.y * coordScale);
-          }
+    for (const r of raw.rooms ?? []) {
+      if (r.boundingBox) {
+        r.boundingBox.x = Math.round(r.boundingBox.x / visionScale) + cropOffsetX;
+        r.boundingBox.y = Math.round(r.boundingBox.y / visionScale) + cropOffsetY + region.top;
+        r.boundingBox.width = Math.round(r.boundingBox.width / visionScale);
+        r.boundingBox.height = Math.round(r.boundingBox.height / visionScale);
+      }
+      for (const f of r.features ?? []) {
+        if (f.position) {
+          f.position.x = Math.round(f.position.x / visionScale) + cropOffsetX;
+          f.position.y = Math.round(f.position.y / visionScale) + cropOffsetY + region.top;
         }
       }
+      rawRooms.push(r);
     }
   }
 
@@ -193,20 +192,16 @@ export async function detectRoomsFromPage(
     flags: r.flags ?? [],
   }));
 
-  // Reject rooms whose bounding box lies substantially outside the cropped image.
-  // Claude occasionally returns coordinates beyond the image edges (e.g. title-block
-  // contact blocks at 105-111% of image width). Discard any room where the box
-  // centre is outside the image or where >50% of the box area falls outside.
   const inBoundsRooms = rooms.filter(r => {
     const b = r.boundingBox;
     const cx = b.x + b.width / 2;
     const cy = b.y + b.height / 2;
-    if (cx < 0 || cx > croppedW || cy < 0 || cy > croppedH) return false;
-    // Clamp box to image and check retained area
+    if (cx < 0 || cx > imgW || cy < 0 || cy > imgH) return false;
+
     const clampedX = Math.max(0, b.x);
     const clampedY = Math.max(0, b.y);
-    const clampedRight = Math.min(croppedW, b.x + b.width);
-    const clampedBottom = Math.min(croppedH, b.y + b.height);
+    const clampedRight = Math.min(imgW, b.x + b.width);
+    const clampedBottom = Math.min(imgH, b.y + b.height);
     const retainedArea = Math.max(0, clampedRight - clampedX) * Math.max(0, clampedBottom - clampedY);
     const totalArea = b.width * b.height;
     return totalArea > 0 && retainedArea / totalArea >= 0.5;
@@ -217,11 +212,8 @@ export async function detectRoomsFromPage(
     console.log(`[RoomDetection] Rejected ${rejectedOob} out-of-bounds room(s)`);
   }
 
-  // Reject implausibly small room boxes. A box narrower than 1.5% of the cropped
-  // image width or shorter than 1% of the height is almost certainly a misdetection
-  // (e.g. a thin sliver label artifact, wall line, or annotation bbox).
-  const MIN_W = croppedW * 0.015;
-  const MIN_H = croppedH * 0.010;
+  const MIN_W = imgW * 0.015;
+  const MIN_H = imgH * 0.010;
   const sizedRooms = inBoundsRooms.filter(r => {
     if (r.boundingBox.width < MIN_W || r.boundingBox.height < MIN_H) {
       console.log(`[RoomDetection] Rejected undersized room "${r.label}" (${r.boundingBox.width}×${r.boundingBox.height}px vs min ${Math.round(MIN_W)}×${Math.round(MIN_H)})`);
@@ -230,35 +222,19 @@ export async function detectRoomsFromPage(
     return true;
   });
 
-  // Envelope check against cropped dimensions (Claude's coordinate space).
-  const filteredRooms = rejectKeyPlanRooms(sizedRooms, croppedW, croppedH);
+  const filteredRooms = rejectKeyPlanRooms(sizedRooms, imgW, imgH);
 
-  // Non-blocking LLM-judge accuracy eval — must run BEFORE offset restoration so
-  // the room coords are still in cropped-image space, matching the croppedBase64 image.
-  evaluateDetectionAccuracy(filteredRooms, pageId, croppedBase64, croppedW, croppedH)
+  evaluateDetectionAccuracy(filteredRooms, pageId, pageBase64, imgW, imgH)
     .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
-
-  // Restore X and Y coordinates from cropped-image space to full-image space.
-  for (const room of filteredRooms) {
-    room.boundingBox.x += cropOffsetX;
-    room.boundingBox.y += cropOffsetY;
-    for (const feature of room.features) {
-      if (feature.position) {
-        feature.position.x += cropOffsetX;
-        feature.position.y += cropOffsetY;
-      }
-    }
-  }
 
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  // Save with full image dimensions so the client scale factor is correct.
-  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, raw.metadata?.scale ?? null);
+  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
   return {
     rooms: filteredRooms,
-    metadata: (raw.metadata ?? {}) as RoomDetectionResult['metadata'],
+    metadata: (metadata ?? {}) as RoomDetectionResult['metadata'],
     pageNumber,
     modelVersion,
     processingTimeMs: Date.now() - startTime,
@@ -327,6 +303,47 @@ function reduceOverlap(rooms: any[]): void {
     }
   }
 }
+
+async function detectPageRegions(pageBuffer: Buffer, pageW: number, pageH: number): Promise<PageRegion[]> {
+  const { data } = await sharp(pageBuffer).grayscale().raw().toBuffer({ resolveWithObject: true });
+  const SCAN_BAND_HEIGHT = 20;
+  const DARK_PIXEL_THRESHOLD = 128;
+  const DIVIDER_DARK_PCT = 0.02;
+  const MIN_REGION_HEIGHT_PCT = 0.15;
+  const dividerYs: number[] = [];
+
+  for (let y = 0; y < pageH - SCAN_BAND_HEIGHT; y += SCAN_BAND_HEIGHT) {
+    let darkCount = 0;
+    const bandPixels = pageW * SCAN_BAND_HEIGHT;
+    for (let dy = 0; dy < SCAN_BAND_HEIGHT; dy++) {
+      for (let x = 0; x < pageW; x++) {
+        if (data[(y + dy) * pageW + x] < DARK_PIXEL_THRESHOLD) darkCount++;
+      }
+    }
+    if (darkCount / bandPixels < DIVIDER_DARK_PCT) dividerYs.push(y + Math.floor(SCAN_BAND_HEIGHT / 2));
+  }
+
+  const mergedDividers = mergeAdjacentDividers(dividerYs, 40);
+  const boundaries = [0, ...mergedDividers, pageH];
+  const minRegionH = pageH * MIN_REGION_HEIGHT_PCT;
+  const regions: PageRegion[] = [];
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const top = boundaries[i];
+    const height = boundaries[i + 1] - top;
+    if (height >= minRegionH) regions.push({ top, height, label: `region_${i}` });
+  }
+  return regions.length > 0 ? regions : [{ top: 0, height: pageH, label: 'region_0' }];
+}
+
+function mergeAdjacentDividers(ys: number[], threshold: number): number[] {
+  if (ys.length === 0) return [];
+  const merged: number[] = [ys[0]];
+  for (let i = 1; i < ys.length; i++) {
+    if (ys[i] - merged[merged.length - 1] > threshold) merged.push(ys[i]);
+  }
+  return merged;
+}
+
 
 /**
  * Safety net: discard detections whose combined envelope covers < 3% of the
