@@ -20,6 +20,7 @@ import {
   RULE_ENGINE_VERSION,
   evaluateCompliance,
 } from "../services/drawingComplianceEngine";
+import { evaluateStructuralCompliance } from "../services/structuralComplianceEngine";
 import {
   EXTRACTION_PROMPT_VERSION,
 } from "../services/drawingExtractionService";
@@ -232,7 +233,7 @@ describe("NBC 9.5.5.2 — Minimum stud size 38x89mm", () => {
       },
     });
 
-    const result = evaluateCompliance(extraction);
+    const result = evaluateStructuralCompliance(extraction);
     const studRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-9.5.5.2");
     expect(studRule).toBeDefined();
     expect(studRule?.result).toBe("FAIL");
@@ -250,7 +251,7 @@ describe("NBC 9.5.5.2 — Minimum stud size 38x89mm", () => {
       },
     });
 
-    const result = evaluateCompliance(extraction);
+    const result = evaluateStructuralCompliance(extraction);
     const studRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-9.5.5.2");
     expect(studRule).toBeDefined();
     // CONDITIONAL because professional verification is always required

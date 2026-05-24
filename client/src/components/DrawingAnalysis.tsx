@@ -3438,6 +3438,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             <div className="space-y-4">
               {/* Toolbar */}
               <div className="flex flex-wrap items-center gap-2 p-2 bg-muted rounded-lg">
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant={activeTool === "select" ? "default" : "ghost"}
@@ -3455,6 +3468,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <Move className="w-4 h-4" />
                   </Button>
+                </div>
+
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
@@ -3482,6 +3508,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <Type className="w-4 h-4" />
                   </Button>
+                </div>
+
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
@@ -3519,6 +3558,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
 
                 {/* Rotation Controls */}
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="ghost"
@@ -3537,6 +3589,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <RotateCw className="w-4 h-4" />
                   </Button>
+                </div>
+
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
@@ -3615,6 +3680,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
 
                 {/* Drawing Mode Toggle */}
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant={isDrawMode ? "default" : "outline"}
@@ -3864,6 +3942,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </div>
                     </div>
                   )}
+                </div>
+
+
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
+                    title="Select drawing type before analyzing"
+                  >
+                    <option value="comprehensive">Floor Plan</option>
+                    <option value="structural">Structural / Framing</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
