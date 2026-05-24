@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
 import { logEnvStatus } from "./env";
+import { startComplianceMonitorCron } from "../cron/complianceMonitorCron";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -67,6 +68,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    startComplianceMonitorCron();
   });
 }
 

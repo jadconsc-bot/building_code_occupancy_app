@@ -24,6 +24,7 @@ import { stepCodeRouter } from "./routers/stepCodeRouter";
 import { jurisdictionRouter } from "./routers/jurisdictionRouter";
 import { reportRouter } from "./routers/reportRouter";
 import { occupancyAdvisorRouter } from "./routers/occupancyAdvisorRouter";
+import { complianceMonitorRouter } from "./routers/complianceMonitorRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -48,6 +49,7 @@ export const appRouter = router({
   jurisdiction: jurisdictionRouter,
   report: reportRouter,
   occupancyAdvisor: occupancyAdvisorRouter,
+  complianceMonitor: complianceMonitorRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
