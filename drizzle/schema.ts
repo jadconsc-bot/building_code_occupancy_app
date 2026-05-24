@@ -1256,3 +1256,38 @@ export const complianceResults = mysqlTable('complianceResults', {
 
 export type ComplianceResult = typeof complianceResults.$inferSelect;
 export type InsertComplianceResult = typeof complianceResults.$inferInsert;
+
+export const complianceMonitorSnapshots = mysqlTable("complianceMonitorSnapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceId: varchar("sourceId", { length: 20 }).notNull(),
+  sourceUrl: varchar("sourceUrl", { length: 500 }).notNull(),
+  contentHash: varchar("contentHash", { length: 64 }).notNull(),
+  contentSample: text("contentSample"),
+  fetchedAt: timestamp("fetchedAt").notNull(),
+  httpStatus: int("httpStatus"),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ComplianceMonitorSnapshot = typeof complianceMonitorSnapshots.$inferSelect;
+export type InsertComplianceMonitorSnapshot = typeof complianceMonitorSnapshots.$inferInsert;
+
+export const complianceNotifications = mysqlTable("complianceNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceId: varchar("sourceId", { length: 20 }).notNull(),
+  sourceUrl: varchar("sourceUrl", { length: 500 }).notNull(),
+  changeDetectedAt: timestamp("changeDetectedAt").notNull(),
+  headline: varchar("headline", { length: 500 }).notNull(),
+  summary: text("summary").notNull(),
+  affectedRuleIds: json("affectedRuleIds"),
+  recommendedActions: json("recommendedActions"),
+  severity: mysqlEnum("severity", ["critical", "major", "minor", "info"]).notNull().default("info"),
+  status: mysqlEnum("status", ["pending", "reviewed", "actioned", "dismissed"]).notNull().default("pending"),
+  reviewedBy: int("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ComplianceNotification = typeof complianceNotifications.$inferSelect;
+export type InsertComplianceNotification = typeof complianceNotifications.$inferInsert;
