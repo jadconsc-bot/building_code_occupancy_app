@@ -787,12 +787,26 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         setPdfPages(pages);
         setSelectedPages([1]);
         setDrawingImage(pages[0]);
+        setDetectedRoomsData([]);
+        setRoomComplianceData([]);
+        setAnalysisId(null);
+        setShowRoomOverlay(true);
+        setShowComplianceHeatmap(false);
+        setShowTravelDistanceOverlay(false);
+        setAnalyzedPageDims(null);
         setCurrentPreviewPage(1);
       } else {
         // Existing image handling
         const reader = new FileReader();
         reader.onload = (e) => {
           setDrawingImage(e.target?.result as string);
+          setDetectedRoomsData([]);
+          setRoomComplianceData([]);
+          setAnalysisId(null);
+          setShowRoomOverlay(true);
+          setShowComplianceHeatmap(false);
+          setShowTravelDistanceOverlay(false);
+          setAnalyzedPageDims(null);
         };
         reader.onerror = () => {
           toast.error("Error loading file. Please try again.");
@@ -824,6 +838,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     reader.onload = (e) => {
       const result = e.target?.result as string;
       setDrawingImage(result);
+      setDetectedRoomsData([]);
+      setRoomComplianceData([]);
+      setAnalysisId(null);
+      setShowRoomOverlay(true);
+      setShowComplianceHeatmap(false);
+      setShowTravelDistanceOverlay(false);
+      setAnalyzedPageDims(null);
       setIsLoading(false);
       setAnnotations([]);
       setAiResults(null);
@@ -3343,6 +3364,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               }
                             }
                             setDrawingImage(canvas.toDataURL('image/png'));
+                            setDetectedRoomsData([]);
+                            setRoomComplianceData([]);
+                            setAnalysisId(null);
+                            setShowRoomOverlay(true);
+                            setShowComplianceHeatmap(false);
+                            setShowTravelDistanceOverlay(false);
+                            setAnalyzedPageDims(null);
                             setFileName('New Drawing');
                             setIsDrawMode(true);
                             setIsCanvasLocked(true);
@@ -3396,6 +3424,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               setAnalysisId(a.id);
                               if (a.drawingUrl?.startsWith('https://')) {
                                 setDrawingImage(a.drawingUrl);
+                                setDetectedRoomsData([]);
+                                setRoomComplianceData([]);
+                                setShowRoomOverlay(true);
+                                setShowComplianceHeatmap(false);
+                                setShowTravelDistanceOverlay(false);
+                                setAnalyzedPageDims(null);
                               }
                             }}
                           >
@@ -4525,6 +4559,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           style={{ width: 80 }}
                           onClick={() => {
                             setDrawingImage(pageImg);
+                            setDetectedRoomsData([]);
+                            setRoomComplianceData([]);
+                            setAnalysisId(null);
+                            setShowRoomOverlay(true);
+                            setShowComplianceHeatmap(false);
+                            setShowTravelDistanceOverlay(false);
+                            setAnalyzedPageDims(null);
                             setCurrentPreviewPage(pageNum);
                           }}
                         >
