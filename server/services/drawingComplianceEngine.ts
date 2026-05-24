@@ -23,6 +23,7 @@
  */
 
 import { DrawingExtractionResult } from "./drawingExtractionService";
+import { evaluateStructuralCompliance } from './structuralComplianceEngine';
 
 export const RULE_ENGINE_VERSION = "2.0.0";
 
@@ -263,6 +264,9 @@ export function evaluateCompliance(extraction: DrawingExtractionResult): Complia
 
   if (type === "fire-safety" || type === "comprehensive") {
     allEvaluations.push(...evaluateFireSafetyRules(extraction));
+  }
+  if (type === "structural") {
+    allEvaluations.push(...evaluateStructuralCompliance(extraction).ruleEvaluations);
   }
 
   const score = calculateScore(allEvaluations);
