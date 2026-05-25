@@ -210,7 +210,7 @@ export async function detectRoomsFromPage(
     const clampedBottom = Math.min(imgH, b.y + b.height);
     const retainedArea = Math.max(0, clampedRight - clampedX) * Math.max(0, clampedBottom - clampedY);
     const totalArea = b.width * b.height;
-    return totalArea > 0 && retainedArea / totalArea >= 0.75;
+    return totalArea > 0 && retainedArea / totalArea >= 0.5;
   });
 
   const rejectedOob = rooms.length - inBoundsRooms.length;
