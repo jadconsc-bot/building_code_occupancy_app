@@ -15,6 +15,8 @@ import { ReportBuilder } from '@/components/ReportBuilder';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { Button } from '@/components/ui/button';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 
 function LegalDisclaimerCollapsible() {
   const [expanded, setExpanded] = React.useState(() => {
@@ -43,6 +45,74 @@ function LegalDisclaimerCollapsible() {
           <LegalDisclaimer />
         </div>
       )}
+    </div>
+  );
+}
+
+function OrgTrainingStatsWidget() {
+  const { data: stats, isLoading } = trpc.organization.getOrgTrainingStats.useQuery();
+  const { data: exportData, refetch: doExport, isFetching: isExporting } =
+    trpc.organization.exportOrgTrainingData.useQuery(undefined, { enabled: false });
+
+  const handleExport = async () => {
+    const result = await doExport();
+    if (result.data) {
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `org-training-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Training data exported.');
+    }
+  };
+
+  if (isLoading) return null;
+  if (!stats || stats.count === 0) return null;
+
+  const PLAN_TYPE_LABELS: Record<string, string> = {
+    floor_plan: 'Floor Plan',
+    structural: 'Structural',
+    industrial: 'Industrial',
+    residential_multi_unit: 'Multi-Unit Residential',
+    residential_single_family: 'Single Family',
+    commercial_office: 'Commercial Office',
+    institutional: 'Institutional',
+    mixed_use: 'Mixed Use',
+    auto: 'General',
+  };
+
+  return (
+    <div className="mt-8 border border-border rounded-lg p-6 bg-card">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base font-semibold">Your Organization's Training Data</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Model accuracy improves with each correction</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={isExporting}
+        >
+          {isExporting ? 'Exporting…' : 'Export Training Data'}
+        </Button>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        {stats.byPlanType.map((row: any) => (
+          <div key={row.planType} className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              {PLAN_TYPE_LABELS[row.planType] ?? row.planType}
+            </span>
+            <span className="font-medium tabular-nums">{Number(row.count)} corrections</span>
+          </div>
+        ))}
+        <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
+          <span>Total</span>
+          <span>{stats.count} corrections</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -93,6 +163,9 @@ export default function Dashboard() {
         <div className="mt-12 border border-border rounded-lg p-6">
           <ComplianceNotificationsPanel />
         </div>
+
+        {/* Org Training Stats — admin only */}
+        {user?.role === 'admin' && <OrgTrainingStatsWidget />}
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">

@@ -16,6 +16,7 @@ import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
+import { getTrainingExamples } from '../../services/correctionService';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const CROP_LEFT_PCT = 0.20;
@@ -77,13 +78,22 @@ export async function detectRoomsFromPage(
   },
   province: string = 'AB',
   cropRegion?: { x: number; y: number; width: number; height: number },
+  orgId?: number | null,
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
+  // Inject org-specific training examples into prompt context (org-first, global fallback)
+  const drawingTypeForTraining = projectContext?.drawingType ?? 'auto';
+  const trainingExamplesList = await getTrainingExamples(drawingTypeForTraining, orgId);
+
   const template = getPromptTemplate(projectContext?.drawingType ?? 'auto');
-  const templateContext = template.id !== 'auto'
-    ? `\nBUILDING TYPE: ${template.label}\n${template.systemHints}\n\nFEW-SHOT EXAMPLES:\n${template.fewShotExamples}\n`
+  const orgTrainingContext = trainingExamplesList.length > 0
+    ? `\n\nLEARNED CORRECTIONS FROM THIS ORGANIZATION:\n${trainingExamplesList.map((ex, i) => `${i + 1}. ${ex}`).join('\n')}\n`
     : '';
+
+  const templateContext = template.id !== 'auto'
+    ? `\nBUILDING TYPE: ${template.label}\n${template.systemHints}\n\nFEW-SHOT EXAMPLES:\n${template.fewShotExamples}\n${orgTrainingContext}`
+    : orgTrainingContext;
 
   const jpegBuffer = await sharp(Buffer.from(pageBase64, 'base64'))
     .jpeg({ quality: 85 })

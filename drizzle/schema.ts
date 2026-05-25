@@ -17,6 +17,7 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["free", "basic", "professional", "rule_editor", "admin"]).notNull().default("free"),
+  orgId: int("orgId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -1297,3 +1298,60 @@ export const complianceNotifications = mysqlTable("complianceNotifications", {
 
 export type ComplianceNotification = typeof complianceNotifications.$inferSelect;
 export type InsertComplianceNotification = typeof complianceNotifications.$inferInsert;
+
+/**
+ * Organizations — multi-tenant partitioning for training data and corrections.
+ * orgId links users → organizations for org-level personalization.
+ */
+export const organizations = mysqlTable("organizations", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull(),
+  planTier: mysqlEnum("planTier", ["basic", "professional", "enterprise"]).notNull().default("professional"),
+  trainingExampleCount: int("trainingExampleCount").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+
+/**
+ * Room Corrections — Phase 5B admin correction records.
+ * orgId partitions corrections by organization; NULL = CodeComply global.
+ * Full table definition created in migration 0010_correction_training.sql.
+ */
+export const roomCorrections = mysqlTable("roomCorrections", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  pageId: int("pageId").notNull(),
+  correctedBy: int("correctedBy").notNull(),
+  orgId: int("orgId"),
+  correctionType: varchar("correctionType", { length: 50 }).notNull(),
+  previousValue: json("previousValue"),
+  correctedValue: json("correctedValue"),
+  planType: varchar("planType", { length: 50 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RoomCorrection = typeof roomCorrections.$inferSelect;
+export type InsertRoomCorrection = typeof roomCorrections.$inferInsert;
+
+/**
+ * Training Examples — org-specific and global-baseline examples injected into prompts.
+ * orgId = NULL means CodeComply-curated global baseline (visible to all orgs).
+ * orgId = INT means org-specific example (only used for that org's analyses).
+ * Full table definition created in migration 0010_correction_training.sql.
+ */
+export const trainingExamples = mysqlTable("trainingExamples", {
+  id: int("id").autoincrement().primaryKey(),
+  orgId: int("orgId"),
+  planType: varchar("planType", { length: 50 }).notNull(),
+  promptContribution: text("promptContribution").notNull(),
+  isActive: tinyint("isActive").notNull().default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TrainingExample = typeof trainingExamples.$inferSelect;
+export type InsertTrainingExample = typeof trainingExamples.$inferInsert;

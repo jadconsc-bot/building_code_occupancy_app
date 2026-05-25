@@ -30,6 +30,7 @@ import {
   detectedRooms,
   detectedFeatures,
   complianceResults,
+  users,
 } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
@@ -545,6 +546,14 @@ export const drawingAnalysisRouter = router({
       // ROOM DETECTION — non-blocking, runs after main analysis completes
       // ======================================================================
 
+      // Fetch calling user's orgId for org-aware training example injection
+      const [callerRow] = await db
+        .select({ orgId: users.orgId })
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1);
+      const callerOrgId = callerRow?.orgId ?? null;
+
       // PDF path: room detection from rasterized page 1
       if (pdfPreprocessed && pdfPreprocessed.pages.length > 0) {
         const page1b64 = pdfPreprocessed.pages[0].base64;
@@ -565,7 +574,7 @@ export const drawingAnalysisRouter = router({
             const activeCrop = clientCropRegion ?? pageCrop ?? undefined;
             console.log('[RoomDetection] Queuing room detection for page', page1Record.id, activeCrop ? '(with crop region)' : '');
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined)
+              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined, callerOrgId)
             );
           })
           .catch(err => console.error('[RoomDetection] PDF page 1 detection failed:', err));
@@ -587,7 +596,7 @@ export const drawingAnalysisRouter = router({
             const syntheticPageId = result[0].insertId;
             console.log('[RoomDetection] Queuing room detection for page', syntheticPageId, clientCropRegion ? '(with crop region)' : '');
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext, 'AB', clientCropRegion ?? undefined)
+              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext, 'AB', clientCropRegion ?? undefined, callerOrgId)
             );
           })
           .catch(err => console.error('[RoomDetection] Image detection failed:', err));
