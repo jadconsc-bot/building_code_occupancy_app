@@ -568,11 +568,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { enabled: !!activeProjectId && !analysisId }
   );
 
-  useEffect(() => {
-    if (!analysisId && recentAnalyses && recentAnalyses.length > 0) {
-      setAnalysisId(recentAnalyses[0].id);
-    }
-  }, [recentAnalyses, analysisId]);
 
   const waitingForRooms = detectedRoomsData.length === 0 && roomPollCount < 40;
   const waitingForEval = detectedRoomsData.length > 0 && evalData === null && roomPollCount < 50;
