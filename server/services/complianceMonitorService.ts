@@ -6,15 +6,15 @@ import { eq, desc, and, isNull } from 'drizzle-orm';
 import { ENV } from '../_core/env';
 
 const SOURCES = [
-  { id: 'RAIC',     url: 'https://raic.org/practice-resources',           jurisdiction: 'National' },
-  { id: 'NRC',      url: 'https://nrc-cnrc.gc.ca/eng/publications/codes_centre', jurisdiction: 'National' },
-  { id: 'STANDATA', url: 'https://www.alberta.ca/standata',               jurisdiction: 'AB' },
-  { id: 'ABC',      url: 'https://www.alberta.ca/alberta-building-code',  jurisdiction: 'AB' },
+  { id: 'RAIC',     url: 'https://raic.org/en/practice-resources',                          jurisdiction: 'National' },
+  { id: 'NRC',      url: 'https://nrc-cnrc.gc.ca/eng/publications/codes_centre',            jurisdiction: 'National' },
+  { id: 'STANDATA', url: 'https://www.alberta.ca/building-codes-and-permits',              jurisdiction: 'AB' },
+  { id: 'ABC',      url: 'https://www.alberta.ca/building-codes-and-permits',              jurisdiction: 'AB' },
   { id: 'BCBC',     url: 'https://www2.gov.bc.ca/gov/content/industry/construction-industry/building-codes-standards', jurisdiction: 'BC' },
-  { id: 'OBC',      url: 'https://www.ontario.ca/laws/statute/92b23',     jurisdiction: 'ON' },
-  { id: 'SK',       url: 'https://publications.saskatchewan.ca',          jurisdiction: 'SK' },
-  { id: 'MB',       url: 'https://web.leg.mb.ca',                         jurisdiction: 'MB' },
-  { id: 'YK',       url: 'https://gov.yk.ca/services/building-standards', jurisdiction: 'YK' },
+  { id: 'OBC',      url: 'https://www.ontario.ca/laws/statute/92b23',                      jurisdiction: 'ON' },
+  { id: 'SK',       url: 'https://publications.saskatchewan.ca',                           jurisdiction: 'SK' },
+  { id: 'MB',       url: 'https://www.gov.mb.ca/housing/pubs/index.html',                 jurisdiction: 'MB' },
+  { id: 'YK',       url: 'https://yukon.ca/en/housing-and-property/building-your-home',   jurisdiction: 'YK' },
 ] as const;
 
 function hashContent(content: string): string {
