@@ -165,7 +165,7 @@ export const occupancyAdvisorRouter = router({
       }
 
       const candidates = parsed.candidates
-        .sort((a, b) => b.confidence - a.confidence)
+        .sort((a: any, b: any) => b.confidence - a.confidence)
         .slice(0, 3);
 
       return { ...parsed, candidates, modelVersion };

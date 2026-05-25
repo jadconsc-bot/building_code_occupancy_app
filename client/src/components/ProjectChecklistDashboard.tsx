@@ -131,7 +131,7 @@ export function ProjectChecklistDashboard() {
     setExpandedPhases(newExpanded);
   };
 
-  const phases = Array.from(new Set(checklistItems.map((item) => item.phase)));
+  const phases = Array.from(new Set(checklistItems.map((item: any) => item.phase as string)));
 
   if (!activeProjectId) {
     return (

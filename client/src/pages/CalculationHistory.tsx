@@ -271,7 +271,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
             <div>
               <label className="text-sm font-medium">Audit Trail</label>
               <div className="mt-2 space-y-2 max-h-40 overflow-auto">
-                {auditLog.auditLog.map((entry) => (
+                {auditLog.auditLog.map((entry: any) => (
                   <div
                     key={entry.id}
                     className="p-2 bg-muted rounded text-xs"
@@ -524,7 +524,7 @@ export default function CalculationHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {historyData?.calculations.map((calc) => (
+                  {historyData?.calculations.map((calc: any) => (
                     <TableRow key={calc.id}>
                       <TableCell>
                         <div>

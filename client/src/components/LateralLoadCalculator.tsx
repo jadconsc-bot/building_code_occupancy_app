@@ -305,7 +305,7 @@ export function LateralLoadCalculator() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Based on NBC seismic hazard maps for {locationLabel}</p>
-                  {seismicZoneData?.seismicData?.requirements?.map((req, i) => (
+                  {seismicZoneData?.seismicData?.requirements?.map((req: any, i: number) => (
                     <p key={i} className="text-xs mt-1">• {req}</p>
                   ))}
                 </TooltipContent>

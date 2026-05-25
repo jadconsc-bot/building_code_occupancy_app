@@ -42,7 +42,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
 
   // Most recent snapshot drives the status badge
   const latestSnapshot = snapshots.length > 0
-    ? snapshots.sort((a, b) =>
+    ? snapshots.sort((a: any, b: any) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )[0]
     : null;

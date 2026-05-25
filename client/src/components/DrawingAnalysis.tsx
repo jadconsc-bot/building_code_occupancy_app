@@ -3422,7 +3422,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {recentAnalyses.slice(0, 5).map(a => {
+                      {recentAnalyses.slice(0, 5).map((a: any) => {
                         const hasThumbnail = a.drawingUrl?.startsWith('https://');
                         const proj = projectListQuery.data?.find(p => p.id === a.projectId);
                         const dateStr = new Date(a.createdAt).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });

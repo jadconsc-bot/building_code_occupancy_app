@@ -146,7 +146,7 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
   if (fire.exitWidths.length === 0) {
     results.push({ ...RULE_EXIT_WIDTH, result: "UNABLE_TO_EVALUATE", details: "No exit widths identified in drawing." });
   } else {
-    const nonCompliant = fire.exitWidths.filter(e => {
+    const nonCompliant = fire.exitWidths.filter((e: any) => {
       const mm = parseDimensionToMm(e.width);
       return mm !== null && mm < 860;
     });
@@ -154,10 +154,10 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
       results.push({
         ...RULE_EXIT_WIDTH,
         result: "FAIL",
-        details: `Exit(s) appear narrower than minimum 860mm clear width: ${nonCompliant.map(e => `${e.location} (${e.width})`).join(", ")}.`,
+        details: `Exit(s) appear narrower than minimum 860mm clear width: ${nonCompliant.map((e: any) => `${e.location} (${e.width})`).join(", ")}.`,
       });
     } else {
-      const unverifiable = fire.exitWidths.filter(e => parseDimensionToMm(e.width) === null);
+      const unverifiable = fire.exitWidths.filter((e: any) => parseDimensionToMm(e.width) === null);
       results.push({
         ...RULE_EXIT_WIDTH,
         result: unverifiable.length > 0 ? "CONDITIONAL" : "PASS",
@@ -170,7 +170,7 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
   if (fire.corridorWidths.length === 0) {
     results.push({ ...RULE_CORRIDOR_WIDTH, result: "UNABLE_TO_EVALUATE", details: "No corridors identified in drawing." });
   } else {
-    const nonCompliant = fire.corridorWidths.filter(c => {
+    const nonCompliant = fire.corridorWidths.filter((c: any) => {
       const mm = parseDimensionToMm(c.width);
       return mm !== null && mm < 1100;
     });
@@ -178,7 +178,7 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
       results.push({
         ...RULE_CORRIDOR_WIDTH,
         result: "FAIL",
-        details: `Corridor(s) appear narrower than minimum 1100mm: ${nonCompliant.map(c => `${c.location} (${c.width})`).join(", ")}.`,
+        details: `Corridor(s) appear narrower than minimum 1100mm: ${nonCompliant.map((c: any) => `${c.location} (${c.width})`).join(", ")}.`,
       });
     } else {
       results.push({
@@ -193,7 +193,7 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
   if (fire.fireSeparations.length === 0) {
     results.push({ ...RULE_FIRE_SEPARATION, result: "UNABLE_TO_EVALUATE", details: "No fire separations identified in drawing." });
   } else {
-    const unrated = fire.fireSeparations.filter(f => !f.rating);
+    const unrated = fire.fireSeparations.filter((f: any) => !f.rating);
     results.push({
       ...RULE_FIRE_SEPARATION,
       result: unrated.length > 0 ? "CONDITIONAL" : "CONDITIONAL",

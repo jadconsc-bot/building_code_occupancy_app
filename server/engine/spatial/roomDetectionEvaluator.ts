@@ -63,6 +63,7 @@ export async function evaluateDetectionAccuracy(
   pageBase64: string,
   imgW: number,
   imgH: number,
+  mimeType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg',
 ): Promise<DetectionEvalResult> {
   if (!ENV.anthropicApiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured');
@@ -110,7 +111,7 @@ export async function evaluateDetectionAccuracy(
       content: [
         {
           type: 'image',
-          source: { type: 'base64', media_type: 'image/jpeg', data: pageBase64 },
+          source: { type: 'base64', media_type: mimeType, data: pageBase64 },
         },
         { type: 'text', text: userPrompt },
       ],

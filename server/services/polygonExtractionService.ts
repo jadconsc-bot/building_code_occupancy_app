@@ -17,8 +17,10 @@ async function cleanWalls(
   const buffer = Buffer.from(imageBase64, 'base64');
   const { data } = await sharp(buffer)
     .grayscale()
-    .blur(1.5)
-    .threshold(100)
+    .blur(3.0)
+    .threshold(80)
+    .blur(1.0)
+    .threshold(128)
     .raw()
     .toBuffer({ resolveWithObject: true });
   return new Uint8ClampedArray(data);
@@ -29,7 +31,7 @@ function floodFill(
   width: number,
   height: number,
   seed: Point,
-  maxFillPx: number = Math.floor(width * height * 0.25),
+  maxFillPx: number = Math.floor(width * height * 0.15),
 ): boolean[] {
   const filled = new Array(width * height).fill(false);
   const idx = (x: number, y: number) => y * width + x;

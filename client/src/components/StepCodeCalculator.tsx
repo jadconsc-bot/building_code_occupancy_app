@@ -141,7 +141,7 @@ export function StepCodeCalculator({
   });
 
   const tierData = useMemo(
-    () => tiersData?.find((t) => t.tier === selectedTier) ?? null,
+    () => tiersData?.find((t: any) => t.tier === selectedTier) ?? null,
     [tiersData, selectedTier]
   );
 

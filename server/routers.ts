@@ -910,9 +910,9 @@ Return ONLY a valid JSON object in this exact format:
         resultData: JSON.stringify({
           infractions: input.infractions,
           totalInfractions: input.infractions.length,
-          criticalCount: input.infractions.filter((i) => i.severity === "critical").length,
-          warningCount: input.infractions.filter((i) => i.severity === "warning").length,
-          infoCount: input.infractions.filter((i) => i.severity === "info").length,
+          criticalCount: input.infractions.filter((i: any) => i.severity === "critical").length,
+          warningCount: input.infractions.filter((i: any) => i.severity === "warning").length,
+          infoCount: input.infractions.filter((i: any) => i.severity === "info").length,
         }),
       });
 

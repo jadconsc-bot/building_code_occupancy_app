@@ -232,7 +232,8 @@ export async function detectRoomsFromPage(
 
   const filteredRooms = rejectKeyPlanRooms(sizedRooms, imgW, imgH);
 
-  evaluateDetectionAccuracy(filteredRooms, pageId, pageBase64, imgW, imgH)
+  const evalMimeType = pageBase64.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
+  evaluateDetectionAccuracy(filteredRooms, pageId, pageBase64, imgW, imgH, evalMimeType)
     .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
 
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);

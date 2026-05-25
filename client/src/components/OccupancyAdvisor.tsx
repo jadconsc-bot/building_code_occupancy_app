@@ -273,7 +273,7 @@ export function OccupancyAdvisor({
       setScreen(2);
       const area = parseFloat(estimatedArea) || 500;
       const storeysNum = parseInt(storeysStr) || 1;
-      data.candidates.forEach(c => {
+      data.candidates.forEach((c: any) => {
         scoreMutation.mutate({ code: c.code, area, storeys: storeysNum, province: selectedProvince });
       });
     },

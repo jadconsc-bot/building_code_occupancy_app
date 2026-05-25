@@ -190,7 +190,7 @@ export function ComplianceNotificationsPanel() {
 
       {/* Notification Cards */}
       <div className="space-y-3">
-        {notifications.map((notif) => {
+        {notifications.map((notif: any) => {
           const severity = notif.severity as Severity;
           const sevConfig = SEVERITY_CONFIG[severity] ?? SEVERITY_CONFIG.info;
           const jurisdiction = SOURCE_JURISDICTION[notif.sourceId] ?? notif.sourceId;
@@ -311,7 +311,7 @@ export function ComplianceNotificationsPanel() {
                         <div className="space-y-2">
                           <Textarea
                             placeholder="Optional notes…"
-                            value={actionState.notes}
+                            value={actionState!.notes}
                             onChange={(e) => setActionState(prev => prev ? { ...prev, notes: e.target.value } : prev)}
                             className="text-xs h-16 resize-none"
                           />
