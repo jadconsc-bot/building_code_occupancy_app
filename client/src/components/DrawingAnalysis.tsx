@@ -1199,25 +1199,46 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const fillColor = useHeatmap && heatmapEntry
           ? HEATMAP_COLORS[heatmapEntry.level].fill
           : colors.fill;
-        ctx.fillStyle = fillColor;
-        ctx.fillRect(screenX, screenY, screenW, screenH);
-        if (room.flaggedForReview) {
-          ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
-          ctx.fillRect(screenX, screenY, screenW, screenH);
-        }
-
         const strokeColor = useHeatmap && heatmapEntry
           ? HEATMAP_COLORS[heatmapEntry.level].stroke
           : (heatmapEntry?.level === 'critical' || heatmapEntry?.level === 'major')
             ? ROOM_OVERLAY_COLORS.status.fail
             : colors.stroke;
-        ctx.strokeStyle = strokeColor;
         const isSevere = useHeatmap && heatmapEntry &&
           (heatmapEntry.level === 'critical' || heatmapEntry.level === 'major');
-        ctx.lineWidth = isSevere ? 2.5 : 1.5;
-        ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
-        ctx.strokeRect(screenX, screenY, screenW, screenH);
-        ctx.setLineDash([]);
+
+        const polygon: { x: number; y: number }[] | null = (room as any).polygonJson;
+        if (polygon && polygon.length >= 4) {
+          ctx.beginPath();
+          ctx.moveTo(polygon[0].x * scaleX * zoom + pan.x, polygon[0].y * scaleY * zoom + pan.y);
+          for (let i = 1; i < polygon.length; i++) {
+            ctx.lineTo(polygon[i].x * scaleX * zoom + pan.x, polygon[i].y * scaleY * zoom + pan.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = fillColor;
+          ctx.fill();
+          if (room.flaggedForReview) {
+            ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
+            ctx.fill();
+          }
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = isSevere ? 2.5 : 1.5;
+          ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else {
+          ctx.fillStyle = fillColor;
+          ctx.fillRect(screenX, screenY, screenW, screenH);
+          if (room.flaggedForReview) {
+            ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
+            ctx.fillRect(screenX, screenY, screenW, screenH);
+          }
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = isSevere ? 2.5 : 1.5;
+          ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+          ctx.strokeRect(screenX, screenY, screenW, screenH);
+          ctx.setLineDash([]);
+        }
 
         if (screenW > 40 && screenH > 20) {
           const fontSize = Math.max(9, Math.min(13, screenW / 8));

@@ -956,6 +956,7 @@ export const drawingAnalysisRouter = router({
           rooms.push({
             ...room,
             boundingBox: safeJsonParse(room.boundingBoxJson),
+            polygonJson: room.polygonJson ? (typeof room.polygonJson === 'string' ? safeJsonParse(room.polygonJson) : room.polygonJson) : null,
             flags: (safeJsonParse(room.flagsJson) as any[]) ?? [],
             features: features.map(f => ({
               ...f,
@@ -1071,7 +1072,7 @@ export const drawingAnalysisRouter = router({
 
           roomInputs.push({
             id: room.id,
-            roomLabel: room.roomLabel,
+            roomLabel: room.roomLabel ?? '',
             boundingBox: safeJsonParse(room.boundingBoxJson) as { x: number; y: number; width: number; height: number } | null,
             occupancyGroup: room.occupancyGroup ?? null,
             features,

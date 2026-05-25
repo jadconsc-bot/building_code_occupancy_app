@@ -14,6 +14,8 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
 import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/schema';
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
+import { polygonQueue } from '../../services/polygonQueue';
+import { extractRoomPolygon } from '../../services/polygonExtractionService';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const CROP_LEFT_PCT = 0.20;
@@ -235,7 +237,7 @@ export async function detectRoomsFromPage(
 
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null);
+  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
   return {
@@ -396,6 +398,7 @@ async function saveRoomsToDb(
   imgW: number = 0,
   imgH: number = 0,
   detectedScale: string | null = null,
+  pageBase64: string = '',
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
@@ -444,6 +447,49 @@ async function saveRoomsToDb(
     // Queue compliance evaluation (non-blocking)
     evaluateRoomCompliance(room, roomId, projectId, province)
       .catch(err => console.error('[RoomCompliance] Evaluation failed:', err));
+
+    // Queue polygon extraction (non-blocking, lower priority)
+    if (pageBase64) {
+      const seed = {
+        x: room.boundingBox.x + Math.floor(room.boundingBox.width / 2),
+        y: room.boundingBox.y + Math.floor(room.boundingBox.height / 2),
+      };
+      const capturedRoomId = roomId;
+      const capturedLabel = room.label;
+      const capturedBbox = room.boundingBox;
+      polygonQueue.add(async () => {
+        const pageRows = await (await getDb())
+          ?.select({ calibrationScale: drawingPages.calibrationScale })
+          .from(drawingPages)
+          .where(eq(drawingPages.id, pageId))
+          .limit(1);
+        const calibrationPxPerMm = pageRows?.[0]?.calibrationScale
+          ? Number(pageRows[0].calibrationScale)
+          : null;
+
+        const result = await extractRoomPolygon(
+          pageBase64,
+          imgW,
+          imgH,
+          seed,
+          calibrationPxPerMm,
+          capturedBbox,
+        );
+
+        const db2 = await getDb();
+        if (!db2) return;
+        await db2.update(detectedRooms)
+          .set({
+            polygonJson: JSON.stringify(result.vertices),
+            polygonSource: result.source,
+            polygonExtractedAt: new Date(),
+            ...(result.areaSqm !== null ? { areaSqm: result.areaSqm.toFixed(2) } : {}),
+          })
+          .where(eq(detectedRooms.id, capturedRoomId));
+
+        console.log(`[PolygonExtraction] Room "${capturedLabel}" — ${result.source}, ${result.vertices.length} vertices`);
+      }).catch(err => console.error('[PolygonExtraction] Queue error:', err));
+    }
 
     for (const feature of room.features) {
       await db.insert(detectedFeatures).values({

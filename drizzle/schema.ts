@@ -1201,9 +1201,12 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   pageId: int("pageId").notNull(),        // FK → drawingPages.id
   projectId: int("projectId").notNull(),
 
-  roomLabel: varchar("roomLabel", { length: 255 }).notNull(),
+  roomLabel: varchar("roomLabel", { length: 255 }),
   boundingBoxJson: text("boundingBoxJson").notNull(),    // { x, y, width, height }
-  areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }).notNull(),
+  polygonJson: json("polygonJson"),                      // Array of {x,y} vertices in full-image px
+  polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual"]),
+  polygonExtractedAt: timestamp("polygonExtractedAt"),
+  areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }),
   floorLevel: varchar("floorLevel", { length: 100 }),
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
   occupancyDivision: int("occupancyDivision"),
