@@ -174,6 +174,12 @@ export async function detectRoomsFromPage(
           f.position.y = Math.round(f.position.y / visionScale) + cropOffsetY + region.top;
         }
       }
+      if (r.boundingBox) {
+        r.boundingBox.x = Math.max(0, Math.min(r.boundingBox.x, imgW - 1));
+        r.boundingBox.y = Math.max(0, Math.min(r.boundingBox.y, imgH - 1));
+        r.boundingBox.width = Math.min(r.boundingBox.width, imgW - r.boundingBox.x);
+        r.boundingBox.height = Math.min(r.boundingBox.height, imgH - r.boundingBox.y);
+      }
       rawRooms.push(r);
     }
   }
@@ -204,7 +210,7 @@ export async function detectRoomsFromPage(
     const clampedBottom = Math.min(imgH, b.y + b.height);
     const retainedArea = Math.max(0, clampedRight - clampedX) * Math.max(0, clampedBottom - clampedY);
     const totalArea = b.width * b.height;
-    return totalArea > 0 && retainedArea / totalArea >= 0.5;
+    return totalArea > 0 && retainedArea / totalArea >= 0.75;
   });
 
   const rejectedOob = rooms.length - inBoundsRooms.length;
@@ -212,10 +218,10 @@ export async function detectRoomsFromPage(
     console.log(`[RoomDetection] Rejected ${rejectedOob} out-of-bounds room(s)`);
   }
 
-  const MIN_W = imgW * 0.015;
-  const MIN_H = imgH * 0.010;
+  const MIN_W = Math.max(imgW * 0.015, 20);
+  const MIN_H = Math.max(imgH * 0.010, 20);
   const sizedRooms = inBoundsRooms.filter(r => {
-    if (r.boundingBox.width < MIN_W || r.boundingBox.height < MIN_H) {
+    if (r.boundingBox.width <= 0 || r.boundingBox.height <= 0 || r.boundingBox.width < MIN_W || r.boundingBox.height < MIN_H) {
       console.log(`[RoomDetection] Rejected undersized room "${r.label}" (${r.boundingBox.width}×${r.boundingBox.height}px vs min ${Math.round(MIN_W)}×${Math.round(MIN_H)})`);
       return false;
     }
