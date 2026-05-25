@@ -220,6 +220,9 @@ importers:
       pdfjs-dist:
         specifier: 4.4.168
         version: 4.4.168
+      playwright-core:
+        specifier: ^1.60.0
+        version: 1.60.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4

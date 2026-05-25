@@ -6,19 +6,37 @@ import { eq, desc, and, isNull } from 'drizzle-orm';
 import { ENV } from '../_core/env';
 
 const SOURCES = [
-  { id: 'RAIC',     url: 'https://raic.org/en/practice-resources',                          jurisdiction: 'National' },
-  { id: 'NRC',      url: 'https://nrc-cnrc.gc.ca/eng/publications/codes_centre',            jurisdiction: 'National' },
-  { id: 'STANDATA', url: 'https://www.alberta.ca/building-codes-and-permits',              jurisdiction: 'AB' },
-  { id: 'ABC',      url: 'https://www.alberta.ca/building-codes-and-permits',              jurisdiction: 'AB' },
+  { id: 'RAIC',     url: 'https://raic.org/resources/',                                                               jurisdiction: 'National' },
+  { id: 'NRC',      url: 'https://nrc-cnrc.gc.ca/eng/publications/codes_centre',                                     jurisdiction: 'National' },
+  { id: 'CBHCC',   url: 'https://cbhcc-cchcc.ca/en/significant-technical-changes-2020-national-model-codes/',        jurisdiction: 'National' },
+  { id: 'STANDATA', url: 'https://www.alberta.ca/safety-codes',                                                      jurisdiction: 'AB' },
+  { id: 'ABC',      url: 'https://www.alberta.ca/safety-codes',                                                      jurisdiction: 'AB' },
   { id: 'BCBC',     url: 'https://www2.gov.bc.ca/gov/content/industry/construction-industry/building-codes-standards', jurisdiction: 'BC' },
-  { id: 'OBC',      url: 'https://www.ontario.ca/laws/statute/92b23',                      jurisdiction: 'ON' },
-  { id: 'SK',       url: 'https://publications.saskatchewan.ca',                           jurisdiction: 'SK' },
-  { id: 'MB',       url: 'https://www.gov.mb.ca/housing/pubs/index.html',                 jurisdiction: 'MB' },
-  { id: 'YK',       url: 'https://yukon.ca/en/housing-and-property/building-your-home',   jurisdiction: 'YK' },
+  { id: 'OBC',      url: 'https://www.ontario.ca/laws/statute/92b23',                                                jurisdiction: 'ON' },
+  { id: 'SK',       url: 'https://publications.saskatchewan.ca',                                                     jurisdiction: 'SK' },
+  { id: 'MB',       url: 'https://www.gov.mb.ca/housing/pubs/index.html',                                           jurisdiction: 'MB' },
+  { id: 'YK',       url: 'https://yukon.ca/en/housing-and-property/building-and-renovating/building-and-renovating-information', jurisdiction: 'YK' },
 ] as const;
 
 function hashContent(content: string): string {
   return crypto.createHash('sha256').update(content.trim().toLowerCase()).digest('hex');
+}
+
+async function fetchWithBrowser(url: string): Promise<{ content: string; status: number; error?: string }> {
+  try {
+    const { chromium } = await import('playwright-core');
+    const browser = await chromium.launch();
+    const page = await browser.newPage({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const content = await page.content();
+    const status = response?.status() ?? 0;
+    await browser.close();
+    return { content, status };
+  } catch (err) {
+    return { content: '', status: 0, error: String(err) };
+  }
 }
 
 async function fetchSource(url: string): Promise<{ content: string; status: number; error?: string }> {
@@ -27,6 +45,10 @@ async function fetchSource(url: string): Promise<{ content: string; status: numb
       headers: { 'User-Agent': 'CodeComply-Monitor/1.0' },
       signal: AbortSignal.timeout(15000),
     });
+    // Fall back to headless browser for bot-protected sites
+    if (response.status === 403 || response.status === 429) {
+      return fetchWithBrowser(url);
+    }
     const content = await response.text();
     return { content, status: response.status };
   } catch (err) {
