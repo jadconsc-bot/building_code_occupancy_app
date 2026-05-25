@@ -649,14 +649,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   }, [analysisId]);
 
   useEffect(() => {
+    if (roomsData !== undefined) {
+      setRoomPollCount(c => c + 1);
+    }
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
-    } else if (roomsData !== undefined) {
-      // Got a response but rooms still empty — count this poll
-      setRoomPollCount(c => c + 1);
-      if (roomPollCount >= 39) {
-        console.log('[RoomOverlay] Polling stopped after 40 attempts — no rooms detected');
-      }
     }
     if (roomsData?.pages && roomsData.pages.length > 0) {
       const p = roomsData.pages[0];
