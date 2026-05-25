@@ -76,6 +76,7 @@ export async function detectRoomsFromPage(
     drawingType?: DrawingType;
   },
   province: string = 'AB',
+  cropRegion?: { x: number; y: number; width: number; height: number },
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
@@ -90,25 +91,48 @@ export async function detectRoomsFromPage(
 
   const { width: imgW = 0, height: imgH = 0 } = await sharp(jpegBuffer).metadata();
   console.log('[RoomDetection] Full image:', imgW, 'x', imgH, 'px');
+  if (cropRegion) {
+    console.log('[RoomDetection] User crop region active:', cropRegion);
+  }
 
-  const regions = await detectPageRegions(jpegBuffer, imgW, imgH);
+  // When user crop is active, bypass multi-region detection — use a single synthetic region
+  const regions: PageRegion[] = cropRegion
+    ? [{ top: 0, height: cropRegion.height, label: 'user_crop' }]
+    : await detectPageRegions(jpegBuffer, imgW, imgH);
+
   const rawRooms: any[] = [];
   let modelVersion = '';
   let metadata: any = {};
 
   for (const region of regions) {
-    const regionBuffer = await sharp(jpegBuffer)
-      .extract({ left: 0, top: region.top, width: imgW, height: region.height })
-      .toBuffer();
+    let croppedBuffer: Buffer;
+    let cropOffsetX: number;
+    let cropOffsetY: number;
+    let croppedW: number;
+    let croppedH: number;
 
-    const cropOffsetY = Math.floor(region.height * CROP_TOP_PCT);
-    const cropOffsetX = Math.floor(imgW * CROP_LEFT_PCT);
-    const croppedH = region.height - cropOffsetY;
-    const croppedW = imgW - cropOffsetX;
+    if (cropRegion) {
+      // User-defined region: extract exactly the requested rectangle, no margin crop
+      croppedBuffer = await sharp(jpegBuffer)
+        .extract({ left: cropRegion.x, top: cropRegion.y, width: cropRegion.width, height: cropRegion.height })
+        .toBuffer();
+      cropOffsetX = cropRegion.x;
+      cropOffsetY = cropRegion.y;
+      croppedW = cropRegion.width;
+      croppedH = cropRegion.height;
+    } else {
+      const regionBuffer = await sharp(jpegBuffer)
+        .extract({ left: 0, top: region.top, width: imgW, height: region.height })
+        .toBuffer();
+      cropOffsetY = Math.floor(region.height * CROP_TOP_PCT);
+      cropOffsetX = Math.floor(imgW * CROP_LEFT_PCT);
+      croppedH = region.height - cropOffsetY;
+      croppedW = imgW - cropOffsetX;
+      croppedBuffer = await sharp(regionBuffer)
+        .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
+        .toBuffer();
+    }
 
-    const croppedBuffer = await sharp(regionBuffer)
-      .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
-      .toBuffer();
     const croppedBase64 = croppedBuffer.toString('base64');
 
     const longestDim = Math.max(croppedW, croppedH);
@@ -230,7 +254,11 @@ export async function detectRoomsFromPage(
     return true;
   });
 
-  const filteredRooms = rejectKeyPlanRooms(sizedRooms, imgW, imgH);
+  const filteredRooms = rejectKeyPlanRooms(
+    sizedRooms,
+    cropRegion ? cropRegion.width : imgW,
+    cropRegion ? cropRegion.height : imgH,
+  );
 
   const evalMimeType = pageBase64.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
   evaluateDetectionAccuracy(filteredRooms, pageId, pageBase64, imgW, imgH, evalMimeType)

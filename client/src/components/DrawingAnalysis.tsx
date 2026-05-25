@@ -73,7 +73,8 @@ import {
   BarChart2,
   FileUp,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Crop
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -235,6 +236,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [detectedScale, setDetectedScale] = useState<string | null>(null);
   const [currentPageId, setCurrentPageId] = useState<number | null>(null);
   const [calibrationRestored, setCalibrationRestored] = useState(false);
+
+  // User-defined analysis region (click-and-drag crop)
+  const [cropRegionMode, setCropRegionMode] = useState(false);
+  const [cropRegionConfirmed, setCropRegionConfirmed] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isDraggingCropRegion, setIsDraggingCropRegion] = useState(false);
+  const cropDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const cropRegionDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -957,6 +965,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             drawingType: drawingType as any,
             disclaimerAcknowledged: true,
             disclaimerVersion,
+            cropRegion: cropRegionConfirmed ?? undefined,
           });
           allNotes.push(`--- Page ${pageNum} ---`);
           const mappedRecs = (data.recommendations as Array<{priority: string; clause: string; description: string}>)
@@ -1009,6 +1018,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       drawingType: drawingType as any,
       disclaimerAcknowledged: true,
       disclaimerVersion,
+      cropRegion: cropRegionConfirmed ?? undefined,
     });
   };
 
@@ -1516,7 +1526,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData]);
+
+    // ===== CROP REGION LAYER =====
+    const cropToDraw = cropRegionDraftRef.current ?? cropRegionConfirmed;
+    if (cropToDraw && imageLoaded) {
+      const { x, y, width, height } = cropToDraw;
+      const sx = x * zoom + pan.x;
+      const sy = y * zoom + pan.y;
+      const sw = width * zoom;
+      const sh = height * zoom;
+      const isDraft = !!cropRegionDraftRef.current;
+
+      ctx.save();
+      if (!isDraft) {
+        ctx.fillStyle = 'rgba(0,0,0,0.38)';
+        ctx.fillRect(0, 0, canvas.width, sy);
+        ctx.fillRect(0, sy + sh, canvas.width, canvas.height - sy - sh);
+        ctx.fillRect(0, sy, sx, sh);
+        ctx.fillRect(sx + sw, sy, canvas.width - sx - sw, sh);
+      }
+      ctx.strokeStyle = isDraft ? 'rgba(251,191,36,0.9)' : 'rgba(99,102,241,0.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.strokeRect(sx, sy, sw, sh);
+      ctx.setLineDash([]);
+      ctx.fillStyle = isDraft ? 'rgba(251,191,36,0.9)' : 'rgba(99,102,241,0.9)';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(
+        isDraft ? `${width} × ${height} px` : 'Analysis Region',
+        sx + 4, sy + 4,
+      );
+      ctx.restore();
+    }
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2157,6 +2201,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
 
+    // Crop region drag: start drawing the selection rectangle
+    if (cropRegionMode) {
+      cropDragStartRef.current = { x, y };
+      cropRegionDraftRef.current = null;
+      setIsDraggingCropRegion(true);
+      return;
+    }
+
     // Middle mouse button (button 1) always enables pan
     if (e.button === 1) {
       e.preventDefault();
@@ -2257,6 +2309,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Crop region drag: update live draft
+    if (isDraggingCropRegion && cropDragStartRef.current) {
+      const start = cropDragStartRef.current;
+      cropRegionDraftRef.current = {
+        x: Math.round(Math.min(start.x, x)),
+        y: Math.round(Math.min(start.y, y)),
+        width: Math.round(Math.abs(x - start.x)),
+        height: Math.round(Math.abs(y - start.y)),
+      };
+      drawCanvas();
+      return;
+    }
 
     // Continuous erasing while mouse is held down
     if (isErasing && isDrawMode && drawingTool === "eraser") {
@@ -2377,6 +2442,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Crop region drag: finalize the selection
+    if (isDraggingCropRegion) {
+      setIsDraggingCropRegion(false);
+      const draft = cropRegionDraftRef.current;
+      cropRegionDraftRef.current = null;
+      if (draft && draft.width > 10 && draft.height > 10) {
+        setCropRegionConfirmed(draft);
+        toast.success('Analysis region set — click AI Analyze to re-analyze with this region.', { duration: 4000 });
+      }
+      setCropRegionMode(false);
+      return;
+    }
 
     setIsPanning(false);
 
@@ -3929,6 +4007,33 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     </div>
                   )}
                 </div>
+
+                {drawingImage && (
+                  <div className="flex items-center gap-1 border-r border-border pr-2">
+                    <Button
+                      variant={cropRegionMode ? "default" : cropRegionConfirmed ? "outline" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        if (cropRegionConfirmed) {
+                          setCropRegionConfirmed(null);
+                          cropRegionDraftRef.current = null;
+                          toast.info('Analysis region cleared.');
+                        } else {
+                          setCropRegionMode(m => !m);
+                        }
+                      }}
+                      title={
+                        cropRegionConfirmed ? "Clear analysis region"
+                        : cropRegionMode ? "Click and drag on the drawing to define the region"
+                        : "Set analysis region by click-and-drag — only this area will be analyzed"
+                      }
+                      className={cropRegionMode ? "bg-amber-500 hover:bg-amber-600 text-white" : cropRegionConfirmed ? "border-indigo-500 text-indigo-600" : ""}
+                    >
+                      <Crop className="w-4 h-4 mr-1" />
+                      {cropRegionConfirmed ? "Clear Region" : cropRegionMode ? "Drag to select…" : "Set Region"}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button

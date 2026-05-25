@@ -813,6 +813,9 @@ export const drawingPages = mysqlTable("drawingPages", {
   widthPx: int("widthPx").notNull(),
   heightPx: int("heightPx").notNull(),
   preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
+  cropRegionJson: json("cropRegionJson"),
+  cropRegionInheritedFrom: int("cropRegionInheritedFrom"),
+  cropRegionSetAt: timestamp("cropRegionSetAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   // LLM-judge eval results written asynchronously after detection
   evalAccuracy: decimal("evalAccuracy", { precision: 4, scale: 3 }),

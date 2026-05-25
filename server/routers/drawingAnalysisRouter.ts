@@ -235,6 +235,12 @@ export const drawingAnalysisRouter = router({
         error: "You must acknowledge the disclaimer before proceeding.",
       }),
       disclaimerVersion: z.string(),
+      cropRegion: z.object({
+        x: z.number().int().nonnegative(),
+        y: z.number().int().nonnegative(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       // PD2.0 §6.3: Enforce disclaimer at API layer
@@ -542,6 +548,7 @@ export const drawingAnalysisRouter = router({
       // PDF path: room detection from rasterized page 1
       if (pdfPreprocessed && pdfPreprocessed.pages.length > 0) {
         const page1b64 = pdfPreprocessed.pages[0].base64;
+        const clientCropRegion = input.cropRegion;
         // Look up the drawingPages row inserted during preprocessing
         db.select()
           .from(drawingPages)
@@ -549,9 +556,16 @@ export const drawingAnalysisRouter = router({
           .limit(1)
           .then(([page1Record]) => {
             if (!page1Record) return;
-            console.log('[RoomDetection] Queuing room detection for page', page1Record.id);
+            // Prefer client-side crop region; fall back to page's persisted region
+            const pageCrop = page1Record.cropRegionJson
+              ? (typeof page1Record.cropRegionJson === 'string'
+                  ? safeJsonParse(page1Record.cropRegionJson)
+                  : page1Record.cropRegionJson) as { x: number; y: number; width: number; height: number } | null
+              : null;
+            const activeCrop = clientCropRegion ?? pageCrop ?? undefined;
+            console.log('[RoomDetection] Queuing room detection for page', page1Record.id, activeCrop ? '(with crop region)' : '');
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext)
+              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined)
             );
           })
           .catch(err => console.error('[RoomDetection] PDF page 1 detection failed:', err));
@@ -559,18 +573,21 @@ export const drawingAnalysisRouter = router({
 
       // Single-image path: create a synthetic drawingPage row, then detect
       if (input.mimeType !== "application/pdf") {
+        const clientCropRegion = input.cropRegion;
         db.insert(drawingPages).values({
           drawingId: analysisId,
           pageNumber: 1,
           widthPx: 0,
           heightPx: 0,
           preprocessedUrl: drawingUrl || null,
+          cropRegionJson: clientCropRegion ?? null,
+          cropRegionSetAt: clientCropRegion ? new Date() : null,
         })
           .then(result => {
             const syntheticPageId = result[0].insertId;
-            console.log('[RoomDetection] Queuing room detection for page', syntheticPageId);
+            console.log('[RoomDetection] Queuing room detection for page', syntheticPageId, clientCropRegion ? '(with crop region)' : '');
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext)
+              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext, 'AB', clientCropRegion ?? undefined)
             );
           })
           .catch(err => console.error('[RoomDetection] Image detection failed:', err));
@@ -1114,5 +1131,100 @@ export const drawingAnalysisRouter = router({
         .where(eq(drawingPages.id, input.pageId));
 
       return { ok: true };
+    }),
+
+  saveCropRegion: protectedProcedure
+    .input(z.object({
+      pageId: z.number().int().positive(),
+      region: z.object({
+        x: z.number().int().nonnegative(),
+        y: z.number().int().nonnegative(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.pageId));
+
+      if (!page) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
+
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+
+      const now = new Date();
+      await db
+        .update(drawingPages)
+        .set({ cropRegionJson: input.region, cropRegionInheritedFrom: null, cropRegionSetAt: now })
+        .where(eq(drawingPages.id, input.pageId));
+
+      return { ok: true };
+    }),
+
+  clearCropRegion: protectedProcedure
+    .input(z.object({ pageId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.pageId));
+
+      if (!page) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
+
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+
+      await db
+        .update(drawingPages)
+        .set({ cropRegionJson: null, cropRegionInheritedFrom: null, cropRegionSetAt: null })
+        .where(eq(drawingPages.id, input.pageId));
+
+      return { ok: true };
+    }),
+
+  getCropRegion: protectedProcedure
+    .input(z.object({ pageId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [page] = await db
+        .select()
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.pageId));
+
+      if (!page) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
+
+      const [analysis] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+
+      if (!analysis) throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+
+      if (page.cropRegionJson) {
+        const region = typeof page.cropRegionJson === 'string'
+          ? safeJsonParse(page.cropRegionJson)
+          : page.cropRegionJson;
+        return { region, inheritedFrom: page.cropRegionInheritedFrom };
+      }
+
+      return { region: null, inheritedFrom: null };
     }),
 });
