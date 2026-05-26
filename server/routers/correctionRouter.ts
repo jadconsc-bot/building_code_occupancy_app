@@ -25,6 +25,14 @@ export const correctionRouter = router({
       correctedValue: z.record(z.string(), z.unknown()),
       planType: z.string().default("floor_plan"),
       notes: z.string().optional(),
+      conventionType: z.enum([
+        'label_convention',
+        'symbol_convention',
+        'layout_convention',
+        'equipment_convention',
+        'occupancy_convention',
+        'correction',
+      ]).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       if (!CORRECTION_ROLES.includes(ctx.user.role as any)) {

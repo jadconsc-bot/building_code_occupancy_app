@@ -30,6 +30,7 @@ export interface CorrectionPayload {
   correctedValue: Record<string, unknown>;
   planType: string;
   notes?: string;
+  conventionType?: 'label_convention' | 'symbol_convention' | 'layout_convention' | 'equipment_convention' | 'occupancy_convention' | 'correction';
 }
 
 export async function saveCorrection(payload: CorrectionPayload): Promise<number> {
@@ -154,6 +155,7 @@ async function generateTrainingExample(
     planType: payload.planType,
     correctionId,
     promptContribution,
+    conventionType: payload.conventionType ?? 'correction',
     isActive: 1,
     createdAt: new Date(),
   });

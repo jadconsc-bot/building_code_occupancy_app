@@ -1361,6 +1361,14 @@ export const trainingExamples = mysqlTable("trainingExamples", {
   correctionId: int("correctionId").notNull(),
   imageCropBase64: text("imageCropBase64"),
   promptContribution: text("promptContribution").notNull(),
+  conventionType: mysqlEnum("conventionType", [
+    "label_convention",
+    "symbol_convention",
+    "layout_convention",
+    "equipment_convention",
+    "occupancy_convention",
+    "correction",
+  ]).notNull().default("correction"),
   isActive: tinyint("isActive").notNull().default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
