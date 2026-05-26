@@ -171,6 +171,14 @@ export async function extractRoomPolygon(
 
   try {
     const wallPixels = await cleanWalls(imageBase64, imageWidth, imageHeight);
+
+    const darkPixelCount = wallPixels.filter(p => p === 0).length;
+    const darkPixelRatio = darkPixelCount / (imageWidth * imageHeight);
+    if (darkPixelRatio < 0.01) {
+      console.warn('[PolygonExtraction] Wall mask too sparse (ratio=' + darkPixelRatio.toFixed(3) + '), using bbox fallback');
+      return makeBboxResult();
+    }
+
     const filled = floodFill(wallPixels, imageWidth, imageHeight, seedPoint);
     const fillCount = filled.filter(Boolean).length;
 

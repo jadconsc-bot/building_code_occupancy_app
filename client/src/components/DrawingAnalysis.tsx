@@ -588,7 +588,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
 
   const waitingForRooms = detectedRoomsData.length === 0 && roomPollCount < 40;
-  const waitingForEval = detectedRoomsData.length > 0 && evalData === null && roomPollCount < 50;
+  const hasPolygons = detectedRoomsData.some(r => (r as any).polygonJson != null);
+  const waitingForEval = detectedRoomsData.length > 0 && evalData === null && !hasPolygons && roomPollCount < 50;
   const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
     { drawingId: analysisId ?? 0 },
     {
