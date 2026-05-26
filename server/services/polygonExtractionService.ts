@@ -7,6 +7,9 @@ export interface PolygonResult {
   areaPx: number;
   areaSqm: number | null;
   source: 'flood_fill' | 'fallback_bbox';
+  bboxAreaPx: number;
+  polygonToBboxRatio: number;
+  leakSuspected: boolean;
 }
 
 async function cleanWalls(
@@ -149,6 +152,23 @@ export async function extractRoomPolygon(
   calibrationPxPerMm: number | null,
   fallbackBoundingBox: { x: number; y: number; width: number; height: number },
 ): Promise<PolygonResult> {
+  const bboxAreaPx = fallbackBoundingBox.width * fallbackBoundingBox.height;
+
+  const makeBboxResult = (err?: unknown): PolygonResult => {
+    if (err) console.warn('[PolygonExtraction] Flood fill failed, using bbox fallback:', err);
+    const { x, y, width, height } = fallbackBoundingBox;
+    const vertices = [
+      { x, y }, { x: x + width, y }, { x: x + width, y: y + height }, { x, y: y + height },
+    ];
+    const areaPx = bboxAreaPx;
+    let areaSqm: number | null = null;
+    if (calibrationPxPerMm !== null && calibrationPxPerMm > 0) {
+      areaSqm = areaPx / (calibrationPxPerMm * calibrationPxPerMm) / 1_000_000;
+    }
+    return { vertices, areaPx, areaSqm, source: 'fallback_bbox',
+             bboxAreaPx, polygonToBboxRatio: 1.0, leakSuspected: false };
+  };
+
   try {
     const wallPixels = await cleanWalls(imageBase64, imageWidth, imageHeight);
     const filled = floodFill(wallPixels, imageWidth, imageHeight, seedPoint);
@@ -160,35 +180,31 @@ export async function extractRoomPolygon(
       throw new Error(`Fill count ${fillCount} outside expected range [${Math.round(minFillPx)}, ${Math.round(maxFillPx)}]`);
     }
 
+    const polygonToBboxRatio = bboxAreaPx > 0 ? fillCount / bboxAreaPx : 1.0;
+    // ratio > 2.5: polygon far exceeds bbox → flood-fill leak almost certain
+    if (polygonToBboxRatio > 2.5) {
+      console.warn(
+        `[PolygonExtraction] Leak suspected (ratio=${polygonToBboxRatio.toFixed(2)} > 2.5), using bbox fallback`
+      );
+      return makeBboxResult();
+    }
+
     const vertices = extractContour(filled, imageWidth, imageHeight);
     if (vertices.length < 4) throw new Error('Insufficient contour vertices');
 
     const areaPx = fillCount;
     let areaSqm: number | null = null;
     if (calibrationPxPerMm !== null && calibrationPxPerMm > 0) {
-      const areaMm2 = areaPx / (calibrationPxPerMm * calibrationPxPerMm);
-      areaSqm = areaMm2 / 1_000_000;
+      areaSqm = areaPx / (calibrationPxPerMm * calibrationPxPerMm) / 1_000_000;
     }
 
-    return { vertices, areaPx, areaSqm, source: 'flood_fill' };
+    // ratio < 0.4: polygon much smaller than bbox → extraction may have failed
+    const leakSuspected = polygonToBboxRatio < 0.4;
+
+    return { vertices, areaPx, areaSqm, source: 'flood_fill',
+             bboxAreaPx, polygonToBboxRatio, leakSuspected };
 
   } catch (err) {
-    console.warn('[PolygonExtraction] Flood fill failed, using bbox fallback:', err);
-
-    const { x, y, width, height } = fallbackBoundingBox;
-    const vertices = [
-      { x, y },
-      { x: x + width, y },
-      { x: x + width, y: y + height },
-      { x, y: y + height },
-    ];
-    const areaPx = width * height;
-    let areaSqm: number | null = null;
-    if (calibrationPxPerMm !== null && calibrationPxPerMm > 0) {
-      const areaMm2 = areaPx / (calibrationPxPerMm * calibrationPxPerMm);
-      areaSqm = areaMm2 / 1_000_000;
-    }
-
-    return { vertices, areaPx, areaSqm, source: 'fallback_bbox' };
+    return makeBboxResult(err);
   }
 }

@@ -522,11 +522,18 @@ async function saveRoomsToDb(
             polygonJson: JSON.stringify(result.vertices),
             polygonSource: result.source,
             polygonExtractedAt: new Date(),
+            polygonToBboxRatio: result.polygonToBboxRatio.toFixed(3),
+            polygonLeakSuspected: result.leakSuspected ? 1 : 0,
             ...(result.areaSqm !== null ? { areaSqm: result.areaSqm.toFixed(2) } : {}),
           })
           .where(eq(detectedRooms.id, capturedRoomId));
 
-        console.log(`[PolygonExtraction] Room "${capturedLabel}" — ${result.source}, ${result.vertices.length} vertices`);
+        console.log(
+          `[PolygonExtraction] Room "${capturedLabel}" — ${result.source}, ` +
+          `${result.vertices.length} vertices, ` +
+          `ratio=${result.polygonToBboxRatio.toFixed(2)}` +
+          `${result.leakSuspected ? ' ⚠️ LEAK SUSPECTED' : ''}`
+        );
       }).catch(err => console.error('[PolygonExtraction] Queue error:', err));
     }
 

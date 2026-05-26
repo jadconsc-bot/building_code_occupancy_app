@@ -74,7 +74,8 @@ import {
   FileUp,
   Clock,
   ChevronRight,
-  Crop
+  Crop,
+  PenLine
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -243,6 +244,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [isDraggingCropRegion, setIsDraggingCropRegion] = useState(false);
   const cropDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const cropRegionDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Phase 5B — Admin review mode + correction state
+  const [reviewMode, setReviewMode] = useState(false);
+  const [selectedRoomForCorrection, setSelectedRoomForCorrection] = useState<any | null>(null);
+  const [correctionPopover, setCorrectionPopover] = useState<{ x: number; y: number; room: any } | null>(null);
+  const [boundaryRedrawMode, setBoundaryRedrawMode] = useState<'rect' | 'polygon' | null>(null);
+  const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number }[]>([]);
+  const boundaryRectDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const boundaryRectDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -428,7 +438,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const rafRef = useRef<number | null>(null);
   
   // Auth state (PD2.0 §6.1 — authentication required)
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   // PD2.0 §6.3 — disclaimer state
   const [disclaimerAcknowledged, setDisclaimerAcknowledged] = useState(false);
@@ -607,6 +617,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const travelSprinklered = travelDistanceData?.sprinklered ?? false;
 
   const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
+  const saveCorrectionMutation = trpc.correction.saveCorrection.useMutation({
+    onSuccess: () => toast.success('Correction saved and added to training pool.'),
+    onError: () => toast.error('Failed to save correction.'),
+  });
 
   // Fetch room-level compliance results once rooms have loaded
   const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
@@ -1271,6 +1285,33 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           ctx.textBaseline = 'top';
           ctx.fillText('⚠', screenX + 4, screenY + 4);
         }
+
+        // ⚠️ Polygon leak badge — amber pill at top-right when flood fill suspected leaky
+        if ((room as any).polygonLeakSuspected && screenW > 24) {
+          ctx.save();
+          const badgeX = screenX + screenW - 29;
+          const badgeY = screenY + 2;
+          ctx.fillStyle = 'rgba(245,158,11,0.92)';
+          ctx.beginPath();
+          ctx.roundRect(badgeX, badgeY, 27, 14, 4);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 8px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚠ poly', badgeX + 13, badgeY + 7);
+          ctx.restore();
+        }
+
+        // Amber ring highlight for every room in review mode
+        if (reviewMode) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(245,158,11,0.80)';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([]);
+          ctx.strokeRect(screenX - 1, screenY - 1, screenW + 2, screenH + 2);
+          ctx.restore();
+        }
       }
     }
     // ===== END ROOM OVERLAY LAYER =====
@@ -1527,6 +1568,42 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       ctx.restore();
     }
 
+    // ===== BOUNDARY REDRAW RECT DRAFT =====
+    if (boundaryRedrawMode === 'rect' && boundaryRectDraftRef.current) {
+      const { x, y, width, height } = boundaryRectDraftRef.current;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239,68,68,0.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.strokeRect(x * zoom + pan.x, y * zoom + pan.y, width * zoom, height * zoom);
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // ===== POLYGON POINT COLLECTION PREVIEW =====
+    if (boundaryRedrawMode === 'polygon' && polygonPoints.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239,68,68,0.9)';
+      ctx.fillStyle = 'rgba(239,68,68,0.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      polygonPoints.forEach((pt, i) => {
+        const sx = pt.x * zoom + pan.x;
+        const sy = pt.y * zoom + pan.y;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      polygonPoints.forEach(pt => {
+        ctx.beginPath();
+        ctx.arc(pt.x * zoom + pan.x, pt.y * zoom + pan.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
     // ===== CROP REGION LAYER =====
     const cropToDraw = cropRegionDraftRef.current ?? cropRegionConfirmed;
     if (cropToDraw && imageLoaded) {
@@ -1560,7 +1637,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2201,6 +2278,67 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
 
+    // Boundary redraw — rect mode: start drag
+    if (boundaryRedrawMode === 'rect') {
+      boundaryRectDragStartRef.current = { x, y };
+      boundaryRectDraftRef.current = null;
+      return;
+    }
+
+    // Boundary redraw — polygon mode: add point or close on double-click
+    if (boundaryRedrawMode === 'polygon' && selectedRoomForCorrection) {
+      if (e.detail === 2 && polygonPoints.length >= 3) {
+        const bbox = {
+          x: Math.min(...polygonPoints.map(p => p.x)),
+          y: Math.min(...polygonPoints.map(p => p.y)),
+          width: Math.max(...polygonPoints.map(p => p.x)) - Math.min(...polygonPoints.map(p => p.x)),
+          height: Math.max(...polygonPoints.map(p => p.y)) - Math.min(...polygonPoints.map(p => p.y)),
+        };
+        saveCorrectionMutation.mutate({
+          roomId: selectedRoomForCorrection.id,
+          pageId: currentPageId!,
+          correctionType: 'boundary_redraw',
+          previousValue: {
+            label: selectedRoomForCorrection.roomLabel,
+            boundingBox: selectedRoomForCorrection.boundingBox,
+          },
+          correctedValue: { polygon: polygonPoints, boundingBox: bbox },
+          planType: aiResults?.drawingType ?? 'floor_plan',
+        });
+        setBoundaryRedrawMode(null);
+        setPolygonPoints([]);
+        setSelectedRoomForCorrection(null);
+        toast.success('Boundary corrected');
+        return;
+      }
+      setPolygonPoints(prev => [...prev, { x: Math.round(x), y: Math.round(y) }]);
+      return;
+    }
+
+    // Review mode: click room to open correction popover
+    if (reviewMode && detectedRoomsData.length > 0) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const sX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const sY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      const clickedRoom = detectedRoomsData.find(room => {
+        const b = room.boundingBox;
+        if (!b) return false;
+        return x >= b.x * sX && x <= (b.x + b.width) * sX &&
+               y >= b.y * sY && y <= (b.y + b.height) * sY;
+      });
+      if (clickedRoom) {
+        setCorrectionPopover({ x: e.clientX, y: e.clientY, room: clickedRoom });
+        setSelectedRoomForCorrection(clickedRoom);
+      } else {
+        setCorrectionPopover(null);
+      }
+      return;
+    }
+
     // Crop region drag: start drawing the selection rectangle
     if (cropRegionMode) {
       cropDragStartRef.current = { x, y };
@@ -2309,6 +2447,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Boundary redraw rect: update live draft
+    if (boundaryRedrawMode === 'rect' && boundaryRectDragStartRef.current) {
+      const start = boundaryRectDragStartRef.current;
+      boundaryRectDraftRef.current = {
+        x: Math.round(Math.min(start.x, x)),
+        y: Math.round(Math.min(start.y, y)),
+        width: Math.round(Math.abs(x - start.x)),
+        height: Math.round(Math.abs(y - start.y)),
+      };
+      drawCanvas();
+      return;
+    }
 
     // Crop region drag: update live draft
     if (isDraggingCropRegion && cropDragStartRef.current) {
@@ -2442,6 +2593,30 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Boundary redraw rect: finalize and save correction
+    if (boundaryRedrawMode === 'rect' && selectedRoomForCorrection && boundaryRectDragStartRef.current) {
+      const draft = boundaryRectDraftRef.current;
+      boundaryRectDragStartRef.current = null;
+      boundaryRectDraftRef.current = null;
+      if (draft && draft.width > 5 && draft.height > 5) {
+        saveCorrectionMutation.mutate({
+          roomId: selectedRoomForCorrection.id,
+          pageId: currentPageId!,
+          correctionType: 'boundary_redraw',
+          previousValue: {
+            label: selectedRoomForCorrection.roomLabel,
+            boundingBox: selectedRoomForCorrection.boundingBox,
+          },
+          correctedValue: { boundingBox: draft },
+          planType: aiResults?.drawingType ?? 'floor_plan',
+        });
+        toast.success('Boundary corrected');
+      }
+      setBoundaryRedrawMode(null);
+      setSelectedRoomForCorrection(null);
+      return;
+    }
 
     // Crop region drag: finalize the selection
     if (isDraggingCropRegion) {
@@ -4035,6 +4210,39 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </div>
                 )}
 
+                {drawingImage && (user?.role === 'admin' || user?.role === 'rule_editor') && (
+                  <div className="flex items-center gap-1 border-r border-border pr-2">
+                    <Button
+                      variant={reviewMode ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setReviewMode(m => !m);
+                        if (reviewMode) {
+                          setCorrectionPopover(null);
+                          setSelectedRoomForCorrection(null);
+                          setBoundaryRedrawMode(null);
+                          setPolygonPoints([]);
+                        }
+                      }}
+                      title={reviewMode ? "Exit Review Mode" : "Enter Review Mode — click rooms to correct labels, occupancy, or boundaries"}
+                      className={reviewMode ? "bg-amber-500 hover:bg-amber-600 text-white" : ""}
+                    >
+                      <PenLine className="w-4 h-4 mr-1" />
+                      {reviewMode ? "Reviewing…" : "Review"}
+                    </Button>
+                    {reviewMode && boundaryRedrawMode && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setBoundaryRedrawMode(null); setPolygonPoints([]); }}
+                        className="text-red-600 border-red-200 text-xs"
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="default"
@@ -4897,6 +5105,158 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </div>
                     );
                   })()}
+
+                  {/* Phase 5B — Correction Popover (admin/rule_editor) */}
+                  {correctionPopover && (
+                    <div
+                      className="fixed z-[60] bg-popover border border-border rounded-lg shadow-xl p-4 w-72 text-sm"
+                      style={{ left: correctionPopover.x + 8, top: correctionPopover.y - 8 }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-sm">Correct Room</span>
+                        <button
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => { setCorrectionPopover(null); setSelectedRoomForCorrection(null); }}
+                        >✕</button>
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-3 font-medium truncate">
+                        {correctionPopover.room.roomLabel} · Group {correctionPopover.room.occupancyGroup}
+                        {correctionPopover.room.polygonLeakSuspected && (
+                          <span className="ml-2 text-amber-600">⚠ leak suspected</span>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        {/* Label rename */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Rename label</label>
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              defaultValue={correctionPopover.room.roomLabel}
+                              id="correction-label-input"
+                              className="flex-1 text-xs border rounded px-2 py-1 bg-background"
+                              placeholder="New label…"
+                            />
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                const el = document.getElementById('correction-label-input') as HTMLInputElement;
+                                const newLabel = el?.value?.trim();
+                                if (!newLabel || !currentPageId) return;
+                                saveCorrectionMutation.mutate({
+                                  roomId: correctionPopover.room.id,
+                                  pageId: currentPageId,
+                                  correctionType: 'label_rename',
+                                  previousValue: { label: correctionPopover.room.roomLabel },
+                                  correctedValue: { label: newLabel },
+                                  planType: aiResults?.drawingType ?? 'floor_plan',
+                                });
+                                setCorrectionPopover(null);
+                                setSelectedRoomForCorrection(null);
+                              }}
+                              disabled={saveCorrectionMutation.isPending}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Occupancy change */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Change occupancy group</label>
+                          <div className="flex gap-1">
+                            <select
+                              id="correction-occ-select"
+                              defaultValue={correctionPopover.room.occupancyGroup ?? 'D'}
+                              className="flex-1 text-xs border rounded px-2 py-1 bg-background"
+                            >
+                              {['A', 'B', 'C', 'D', 'E', 'F'].map(g => (
+                                <option key={g} value={g}>Group {g}</option>
+                              ))}
+                            </select>
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                const el = document.getElementById('correction-occ-select') as HTMLSelectElement;
+                                const newGroup = el?.value;
+                                if (!newGroup || !currentPageId) return;
+                                saveCorrectionMutation.mutate({
+                                  roomId: correctionPopover.room.id,
+                                  pageId: currentPageId,
+                                  correctionType: 'occupancy_change',
+                                  previousValue: { label: correctionPopover.room.roomLabel, occupancyGroup: correctionPopover.room.occupancyGroup },
+                                  correctedValue: { occupancyGroup: newGroup },
+                                  planType: aiResults?.drawingType ?? 'floor_plan',
+                                });
+                                setCorrectionPopover(null);
+                                setSelectedRoomForCorrection(null);
+                              }}
+                              disabled={saveCorrectionMutation.isPending}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Boundary redraw */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium">Redraw boundary</label>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs"
+                              onClick={() => {
+                                setBoundaryRedrawMode('rect');
+                                setCorrectionPopover(null);
+                                toast.info('Drag a rectangle over the correct room boundary', { duration: 3000 });
+                              }}
+                            >
+                              Rect
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-xs"
+                              onClick={() => {
+                                setBoundaryRedrawMode('polygon');
+                                setPolygonPoints([]);
+                                setCorrectionPopover(null);
+                                toast.info('Click to add vertices — double-click to close polygon', { duration: 4000 });
+                              }}
+                            >
+                              Polygon
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Delete false positive */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => {
+                            if (!currentPageId) return;
+                            saveCorrectionMutation.mutate({
+                              roomId: correctionPopover.room.id,
+                              pageId: currentPageId,
+                              correctionType: 'false_positive_delete',
+                              previousValue: { label: correctionPopover.room.roomLabel, boundingBox: correctionPopover.room.boundingBox },
+                              correctedValue: { deleted: true },
+                              planType: aiResults?.drawingType ?? 'floor_plan',
+                            });
+                            setCorrectionPopover(null);
+                            setSelectedRoomForCorrection(null);
+                          }}
+                          disabled={saveCorrectionMutation.isPending}
+                        >
+                          Mark as false positive
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Side panel */}

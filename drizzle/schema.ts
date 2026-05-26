@@ -1210,6 +1210,10 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   polygonJson: json("polygonJson"),                      // Array of {x,y} vertices in full-image px
   polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual"]),
   polygonExtractedAt: timestamp("polygonExtractedAt"),
+  polygonToBboxRatio: decimal("polygonToBboxRatio", { precision: 5, scale: 3 }),
+  polygonLeakSuspected: tinyint("polygonLeakSuspected").default(0),
+  correctionCount: int("correctionCount").default(0),
+  lastCorrectedAt: timestamp("lastCorrectedAt"),
   areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }),
   floorLevel: varchar("floorLevel", { length: 100 }),
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
@@ -1319,7 +1323,6 @@ export type InsertOrganization = typeof organizations.$inferInsert;
 /**
  * Room Corrections — Phase 5B admin correction records.
  * orgId partitions corrections by organization; NULL = CodeComply global.
- * Full table definition created in migration 0010_correction_training.sql.
  */
 export const roomCorrections = mysqlTable("roomCorrections", {
   id: int("id").autoincrement().primaryKey(),
@@ -1327,27 +1330,36 @@ export const roomCorrections = mysqlTable("roomCorrections", {
   pageId: int("pageId").notNull(),
   correctedBy: int("correctedBy").notNull(),
   orgId: int("orgId"),
-  correctionType: varchar("correctionType", { length: 50 }).notNull(),
-  previousValue: json("previousValue"),
-  correctedValue: json("correctedValue"),
-  planType: varchar("planType", { length: 50 }).notNull(),
+  correctedAt: timestamp("correctedAt").defaultNow().notNull(),
+  correctionType: mysqlEnum("correctionType", [
+    "label_rename",
+    "occupancy_change",
+    "boundary_redraw",
+    "false_positive_delete",
+    "missing_room_add",
+  ]).notNull(),
+  previousValueJson: json("previousValueJson"),
+  correctedValueJson: json("correctedValueJson").notNull(),
+  planType: varchar("planType", { length: 50 }),
+  addedToTraining: tinyint("addedToTraining").default(1),
+  trainingWeight: decimal("trainingWeight", { precision: 3, scale: 2 }).default("1.00"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type RoomCorrection = typeof roomCorrections.$inferSelect;
 export type InsertRoomCorrection = typeof roomCorrections.$inferInsert;
 
 /**
- * Training Examples — org-specific and global-baseline examples injected into prompts.
+ * Training Examples — org-specific and global-baseline prompt contributions.
  * orgId = NULL means CodeComply-curated global baseline (visible to all orgs).
- * orgId = INT means org-specific example (only used for that org's analyses).
- * Full table definition created in migration 0010_correction_training.sql.
+ * orgId = INT means org-specific (used only for that org's analyses).
  */
 export const trainingExamples = mysqlTable("trainingExamples", {
   id: int("id").autoincrement().primaryKey(),
   orgId: int("orgId"),
   planType: varchar("planType", { length: 50 }).notNull(),
+  correctionId: int("correctionId").notNull(),
+  imageCropBase64: text("imageCropBase64"),
   promptContribution: text("promptContribution").notNull(),
   isActive: tinyint("isActive").notNull().default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

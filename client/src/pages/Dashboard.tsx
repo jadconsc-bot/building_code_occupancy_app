@@ -14,6 +14,7 @@ import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { ReportBuilder } from '@/components/ReportBuilder';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
+import { TrainingExamplesPanel } from '@/components/TrainingExamplesPanel';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
@@ -166,6 +167,13 @@ export default function Dashboard() {
 
         {/* Org Training Stats — admin only */}
         {user?.role === 'admin' && <OrgTrainingStatsWidget />}
+
+        {/* Training Examples Panel — admin only */}
+        {user?.role === 'admin' && (
+          <div className="mt-6">
+            <TrainingExamplesPanel />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">
