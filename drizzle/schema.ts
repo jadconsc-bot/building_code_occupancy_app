@@ -16,7 +16,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["free", "basic", "professional", "rule_editor", "admin"]).notNull().default("free"),
+  role: mysqlEnum("role", ["free", "basic", "professional", "rule_editor", "admin", "org_admin"]).notNull().default("free"),
   orgId: int("orgId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -1378,8 +1378,9 @@ export type InsertTrainingExample = typeof trainingExamples.$inferInsert;
 
 /**
  * CodeComply Home — consumer pay-per-report records.
- * No auth required; access controlled by reportToken (256-bit hex).
- * userId links to users table when optional account is created post-payment.
+ * Rev 2 security: reportToken stores SHA-256 hash only — raw token lives in email link.
+ * userId links to users table when optional account is created post-payment (Fix 3).
+ * pdfStorageKey is the S3 object key; never a public URL.
  */
 export const homeReports = mysqlTable("homeReports", {
   id: int("id").autoincrement().primaryKey(),
@@ -1389,13 +1390,13 @@ export const homeReports = mysqlTable("homeReports", {
   province: mysqlEnum("province", ["AB", "BC", "ON"]).notNull(),
   municipality: varchar("municipality", { length: 100 }),
   projectType: varchar("projectType", { length: 50 }).notNull(),
-  formAnswersJson: json("formAnswersJson"),
+  formAnswersJson: json("formAnswersJson").notNull(),
   complianceResultJson: json("complianceResultJson"),
   overallResult: mysqlEnum("overallResult", ["pass", "conditional", "fail"]),
   stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 100 }),
-  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 100 }),
-  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "refunded"]).default("pending").notNull(),
-  pdfGeneratedAt: timestamp("pdfGeneratedAt"),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "refunded"]).default("pending"),
+  pdfStorageKey: varchar("pdfStorageKey", { length: 500 }),
+  reportGeneratedAt: timestamp("reportGeneratedAt"),
   downloadExpiresAt: timestamp("downloadExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

@@ -33,6 +33,7 @@ import Settings from "./pages/Settings";
 import HomeLanding from "./pages/HomeLanding";
 import HomeForm from "./pages/HomeForm";
 import HomePreview from "./pages/HomePreview";
+import HomeProcessing from "./pages/HomeProcessing";
 import HomeReport from "./pages/HomeReport";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
@@ -75,9 +76,10 @@ function Router() {
         <Route path={"/settings"} component={Settings} />
         <Route path={"/project/:projectId"} component={ProjectDetailPage} />
         <Route path={"/home"} component={HomeLanding} />
+        <Route path={"/home/preview"} component={HomePreview} />
+        <Route path={"/home/processing"} component={HomeProcessing} />
+        <Route path={"/home/report/:rawToken"} component={HomeReport} />
         <Route path={"/home/:projectType"} component={HomeForm} />
-        <Route path={"/home/preview/:reportToken"} component={HomePreview} />
-        <Route path={"/home/report/:reportToken"} component={HomeReport} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

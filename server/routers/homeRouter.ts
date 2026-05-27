@@ -1,14 +1,17 @@
 /**
- * CodeComply Home router — consumer pay-per-report.
+ * CodeComply Home — tRPC Router (Rev 2)
  *
- * Flow:
- *   1. createSession   → inserts pending homeReport, returns token
- *   2. submitAnswers   → runs compliance engine, stores results
- *   3. createCheckout  → Stripe Checkout Session ($29 CAD), returns redirect URL
- *   4. getReport       → public token-auth; full data only after paid
+ * Procedures:
+ *   home.createReport   — saves form answers + creates Stripe PI → clientSecret
+ *   home.getPreview     — runs compliance check, returns partial results
+ *   home.downloadReport — validates raw token (SHA-256 lookup), returns PDF info
+ *   home.getReport      — poll status by paymentIntentId (processing page)
  *
- * Stripe webhook (Express route, not tRPC) is registered in server/_core/index.ts.
- * PDF generation happens ONLY after payment_intent webhook — never before.
+ * Rev 2 token security: raw token lives only in the email link.
+ * DB stores SHA-256 hash only. Download validates by hashing the incoming raw token.
+ *
+ * PDF generation happens ONLY via Stripe webhook (payment_intent.succeeded),
+ * never on client redirect.
  */
 
 import { z } from "zod";
@@ -17,208 +20,149 @@ import { publicProcedure, router } from "../_core/trpc.js";
 import { getDb } from "../db.js";
 import { homeReports } from "../../drizzle/schema.js";
 import { eq } from "drizzle-orm";
-import { randomBytes } from "crypto";
-import Stripe from "stripe";
-import { runHomeCompliance, type HomeFormAnswers } from "../services/homeComplianceEngine.js";
+import { createHash, randomBytes } from "crypto";
+import { createPaymentIntent } from "../services/stripeService.js";
+import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
+import {
+  evaluateHomeCompliance,
+  aggregateOverallResult,
+} from "../engine/home/part9Rules.js";
 
-// ─── Stripe singleton ────────────────────────────────────────────────────────
-function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe is not configured" });
-  return new Stripe(key, { apiVersion: "2026-04-22.dahlia" });
-}
+// ─── Input schemas ────────────────────────────────────────────────────────────
 
-const REPORT_PRICE_CAD = 2900; // $29.00 CAD in cents
-
-// ─── Zod schemas for Q&A answers ────────────────────────────────────────────
-
-const provinceEnum = z.enum(["AB", "BC", "ON"]);
-const yesNo = z.enum(["yes", "no"]);
-
-const secondarySuiteSchema = z.object({
-  projectType: z.literal("secondary_suite"),
-  province: provinceEnum,
-  municipality: z.string().optional(),
-  yearBuilt: z.number().int().min(1800).max(2026).optional(),
-  storeys: z.number().int().min(1).max(10).optional(),
-  suiteLocation: z.enum(["basement", "above_grade", "attached_garage"]),
-  suiteAreaSqft: z.number().positive().optional(),
-  separateEntrance: yesNo,
-  ceilingHeightFt: z.number().positive(),
-  egressWindows: yesNo,
-  egressWindowSizeSqm: z.number().positive().optional(),
-  smokeAlarms: yesNo,
-  coDetectors: yesNo,
-  fireSeparation: yesNo,
-  sprinklerSystem: yesNo,
-  parkingProvided: yesNo,
-  fullBathroom: yesNo,
-  kitchen: yesNo,
-});
-
-const deckPatioSchema = z.object({
-  projectType: z.literal("deck_patio"),
-  province: provinceEnum,
-  municipality: z.string().optional(),
-  attachedToHouse: yesNo,
-  heightAboveGradeFt: z.number().nonnegative(),
-  deckAreaSqft: z.number().positive().optional(),
-  ledgerAttachment: yesNo.optional(),
-  footingType: z.enum(["concrete", "helical", "surface"]),
-  joistSpanFt: z.number().positive(),
-  beamSpanFt: z.number().positive(),
+const rawFormSchema = z.object({
+  province: z.enum(["AB", "BC", "ON"]),
+  municipality: z.string().max(100).optional(),
+  projectType: z.string().min(1).max(50),
+  ceilingHeightFt: z.number().positive().optional(),
+  suiteAreaSqFt: z.number().positive().optional(),
+  suiteLocation: z.enum(["basement", "above_grade", "attached_garage"]).optional(),
+  yearBuilt: z.number().int().min(1800).max(2030).optional(),
+  storeys: z.number().int().min(1).max(20).optional(),
+  separateEntrance: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  egressWindows: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  egressWindowAreaM2: z.number().positive().optional(),
+  smokeAlarms: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  coDetectors: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  fireSeparation: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  sprinklerSystem: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  bedroomCount: z.number().int().nonnegative().max(20).optional(),
+  fullBathroom: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  kitchen: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  parking: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  attachedToHouse: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  heightAboveGradeFt: z.number().nonnegative().optional(),
+  deckAreaSqFt: z.number().positive().optional(),
+  ledgerAttachment: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  footingType: z.enum(["concrete", "helical", "surface"]).optional(),
+  joistSpanFt: z.number().positive().optional(),
+  beamSpanFt: z.number().positive().optional(),
   postHeightFt: z.number().positive().optional(),
-  guardRail: yesNo,
+  guardRail: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
   guardRailHeightFt: z.number().positive().optional(),
+  insulation: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  insulationRValue: z.number().positive().optional(),
 });
-
-const basementDevSchema = z.object({
-  projectType: z.literal("basement_development"),
-  province: provinceEnum,
-  municipality: z.string().optional(),
-  existingState: z.enum(["finished", "unfinished"]),
-  ceilingHeightFt: z.number().positive(),
-  egressWindows: yesNo,
-  bedroomCount: z.number().int().nonnegative(),
-  fullBathroom: yesNo,
-  smokeAlarms: yesNo,
-  separateEntrance: yesNo,
-  insulation: yesNo,
-  rValue: z.number().positive().optional(),
-});
-
-const formAnswersSchema = z.discriminatedUnion("projectType", [
-  secondarySuiteSchema,
-  deckPatioSchema,
-  basementDevSchema,
-]);
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const homeRouter = router({
 
-  // 1. Create a new report session — returns the secure token
-  createSession: publicProcedure
+  /**
+   * 1. createReport
+   * Saves form answers, runs compliance, creates Stripe PaymentIntent.
+   * Returns clientSecret for Stripe Elements + paymentIntentId for polling.
+   * Raw token is NOT stored — only SHA-256 hash is stored in DB.
+   * Raw token is set AFTER payment confirmed (in webhook).
+   */
+  createReport: publicProcedure
     .input(z.object({
       email: z.string().email(),
-      province: provinceEnum,
-      municipality: z.string().max(100).optional(),
-      projectType: z.string().min(1).max(50),
+      formAnswers: rawFormSchema,
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
-      // 256-bit cryptographically secure token — not guessable, not predictable
-      const reportToken = randomBytes(32).toString("hex");
+      // Adapt and validate form answers
+      let adapted: ReturnType<typeof adaptFormAnswers>;
+      try {
+        adapted = adaptFormAnswers(input.formAnswers as RawFormSubmission);
+      } catch (err: any) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: err.message });
+      }
 
-      await db.insert(homeReports).values({
-        reportToken,
+      // Run compliance — store results upfront
+      const complianceItems = evaluateHomeCompliance(adapted);
+      const overallResult = aggregateOverallResult(complianceItems);
+
+      // Placeholder token hash (real one set in webhook after payment)
+      // We need a token in the DB for the row — use random placeholder that will be replaced
+      const placeholderRaw = randomBytes(32).toString("hex");
+      const placeholderHash = createHash("sha256").update(placeholderRaw).digest("hex");
+
+      const result = await db.insert(homeReports).values({
+        reportToken: placeholderHash,
         email: input.email,
-        province: input.province,
-        municipality: input.municipality,
-        projectType: input.projectType,
+        province: adapted.province,
+        municipality: adapted.municipality,
+        projectType: adapted.projectType,
+        formAnswersJson: input.formAnswers as any,
+        complianceResultJson: { items: complianceItems } as any,
+        overallResult,
         paymentStatus: "pending",
         createdAt: new Date(),
       });
 
-      return { reportToken };
-    }),
+      const reportId = result[0].insertId;
 
-  // 2. Submit Q&A answers and run compliance — stores results, returns preview
-  submitAnswers: publicProcedure
-    .input(z.object({
-      reportToken: z.string().length(64),
-      answers: formAnswersSchema,
-    }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-
-      const [report] = await db
-        .select()
-        .from(homeReports)
-        .where(eq(homeReports.reportToken, input.reportToken))
-        .limit(1);
-
-      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report session not found" });
-      if (report.paymentStatus === "paid") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This report has already been paid — answers cannot be changed" });
+      // Create Stripe PaymentIntent
+      let clientSecret: string;
+      let paymentIntentId: string;
+      try {
+        ({ clientSecret, paymentIntentId } = await createPaymentIntent(reportId, input.email));
+      } catch (err: any) {
+        // If Stripe is not configured, return a dev-mode response
+        console.warn("[HomeRouter] Stripe not configured — returning mock PI for dev:", err.message);
+        return {
+          clientSecret: "dev_mock_client_secret",
+          paymentIntentId: `dev_pi_${reportId}`,
+          reportId,
+          overallResult,
+          previewItems: complianceItems.slice(0, 2).map((i) => ({
+            ruleId: i.ruleId,
+            description: i.description,
+            result: i.result,
+          })),
+        };
       }
 
-      const complianceResult = runHomeCompliance(input.answers as HomeFormAnswers);
-
+      // Store paymentIntentId so webhook can look up the report
       await db.update(homeReports)
-        .set({
-          formAnswersJson: input.answers,
-          complianceResultJson: complianceResult,
-          overallResult: complianceResult.overallResult,
-          province: (input.answers as any).province,
-          municipality: (input.answers as any).municipality,
-        })
-        .where(eq(homeReports.reportToken, input.reportToken));
+        .set({ stripePaymentIntentId: paymentIntentId })
+        .where(eq(homeReports.id, reportId));
 
-      // Return preview-safe result (full data — gate is on getReport after payment)
-      return { overallResult: complianceResult.overallResult, itemCount: complianceResult.items.length };
+      return {
+        clientSecret,
+        paymentIntentId,
+        reportId,
+        overallResult,
+        previewItems: complianceItems.slice(0, 2).map((i) => ({
+          ruleId: i.ruleId,
+          description: i.description,
+          result: i.result,
+        })),
+      };
     }),
 
-  // 3. Create Stripe Checkout Session — returns redirect URL
-  createCheckout: publicProcedure
-    .input(z.object({
-      reportToken: z.string().length(64),
-      successUrl: z.string().url(),
-      cancelUrl: z.string().url(),
-    }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-
-      const [report] = await db
-        .select()
-        .from(homeReports)
-        .where(eq(homeReports.reportToken, input.reportToken))
-        .limit(1);
-
-      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report session not found" });
-      if (report.paymentStatus === "paid") throw new TRPCError({ code: "BAD_REQUEST", message: "Already paid" });
-      if (!report.complianceResultJson) throw new TRPCError({ code: "BAD_REQUEST", message: "Submit answers before checkout" });
-
-      const stripe = getStripe();
-
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        currency: "cad",
-        customer_email: report.email,
-        line_items: [{
-          price_data: {
-            currency: "cad",
-            unit_amount: REPORT_PRICE_CAD,
-            product_data: {
-              name: `CodeComply Home — ${report.projectType.replace(/_/g, " ")} Report`,
-              description: `Building code compliance report for ${report.province}`,
-            },
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: {
-          metadata: { reportToken: input.reportToken },
-        },
-        metadata: { reportToken: input.reportToken },
-        success_url: input.successUrl,
-        cancel_url: input.cancelUrl,
-        allow_promotion_codes: true, // supports 5-pack coupon codes per suggestion
-      });
-
-      await db.update(homeReports)
-        .set({ stripeCheckoutSessionId: session.id })
-        .where(eq(homeReports.reportToken, input.reportToken));
-
-      return { checkoutUrl: session.url };
-    }),
-
-  // 4. Get report — public, token-gated; full compliance data only after payment
-  getReport: publicProcedure
-    .input(z.object({ reportToken: z.string().length(64) }))
+  /**
+   * 2. getPreview
+   * Runs compliance check against stored form answers.
+   * Returns partial results (ruleId + result only — no plainLanguage details).
+   * Full compliance detail is gated behind payment.
+   */
+  getPreview: publicProcedure
+    .input(z.object({ paymentIntentId: z.string().min(1) }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -226,38 +170,100 @@ export const homeRouter = router({
       const [report] = await db
         .select()
         .from(homeReports)
-        .where(eq(homeReports.reportToken, input.reportToken))
+        .where(eq(homeReports.stripePaymentIntentId, input.paymentIntentId))
         .limit(1);
 
       if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found" });
 
-      // Check 30-day download expiry
-      if (report.downloadExpiresAt && new Date() > report.downloadExpiresAt) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "This report link has expired. Contact support to recover your report." });
-      }
-
-      const paid = report.paymentStatus === "paid";
+      const complianceResult = report.complianceResultJson as { items: any[] } | null;
+      const items = complianceResult?.items ?? [];
 
       return {
-        reportToken: report.reportToken,
+        paymentStatus: report.paymentStatus,
+        overallResult: report.overallResult,
+        province: report.province,
+        projectType: report.projectType,
+        // Preview: ruleId + description + result visible, no plainLanguage or whatToDo
+        previewItems: items.map((i: any) => ({
+          ruleId: i.ruleId,
+          description: i.description,
+          result: i.result,
+        })),
+      };
+    }),
+
+  /**
+   * 3. getReport
+   * Poll report status by paymentIntentId.
+   * Used by the /home/processing page while webhook is processing.
+   */
+  getReport: publicProcedure
+    .input(z.object({ paymentIntentId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [report] = await db
+        .select()
+        .from(homeReports)
+        .where(eq(homeReports.stripePaymentIntentId, input.paymentIntentId))
+        .limit(1);
+
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found" });
+
+      return {
+        paymentStatus: report.paymentStatus,
+        overallResult: report.overallResult,
+        reportGeneratedAt: report.reportGeneratedAt,
+        pdfReady: !!report.pdfStorageKey,
+      };
+    }),
+
+  /**
+   * 4. downloadReport
+   * Token-based access — no authentication required.
+   * Hashes the raw token from the email link and looks up the SHA-256 hash in DB.
+   * Returns full compliance data + signed PDF URL (if S3 configured).
+   * Enforces 30-day expiry.
+   */
+  downloadReport: publicProcedure
+    .input(z.object({ rawToken: z.string().length(64) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Hash the raw token — never store raw token, only compare hashes
+      const tokenHash = createHash("sha256").update(input.rawToken).digest("hex");
+
+      const [report] = await db
+        .select()
+        .from(homeReports)
+        .where(eq(homeReports.reportToken, tokenHash))
+        .limit(1);
+
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found — the link may be invalid or expired" });
+
+      if (report.paymentStatus !== "paid") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This report has not been paid for" });
+      }
+
+      // 30-day expiry check
+      if (report.downloadExpiresAt && new Date() > report.downloadExpiresAt) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This download link has expired. Contact support to recover your report." });
+      }
+
+      const complianceResult = report.complianceResultJson as { items: any[] } | null;
+
+      return {
         email: report.email,
         province: report.province,
         municipality: report.municipality,
         projectType: report.projectType,
-        paymentStatus: report.paymentStatus,
         overallResult: report.overallResult,
-        pdfGeneratedAt: report.pdfGeneratedAt,
+        complianceItems: complianceResult?.items ?? [],
+        pdfStorageKey: report.pdfStorageKey,
+        reportGeneratedAt: report.reportGeneratedAt,
         downloadExpiresAt: report.downloadExpiresAt,
-        // Full compliance detail only after payment
-        complianceResult: paid ? report.complianceResultJson : null,
-        // Preview: top-level items with result visible, detail blurred client-side
-        previewItems: paid
-          ? null
-          : ((report.complianceResultJson as any)?.items ?? []).map((item: any) => ({
-              ruleId: item.ruleId,
-              title: item.title,
-              result: item.result,
-            })),
       };
     }),
 });
