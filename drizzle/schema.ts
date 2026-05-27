@@ -1375,3 +1375,30 @@ export const trainingExamples = mysqlTable("trainingExamples", {
 
 export type TrainingExample = typeof trainingExamples.$inferSelect;
 export type InsertTrainingExample = typeof trainingExamples.$inferInsert;
+
+/**
+ * CodeComply Home — consumer pay-per-report records.
+ * No auth required; access controlled by reportToken (256-bit hex).
+ * userId links to users table when optional account is created post-payment.
+ */
+export const homeReports = mysqlTable("homeReports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportToken: varchar("reportToken", { length: 64 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).notNull(),
+  userId: int("userId"),
+  province: mysqlEnum("province", ["AB", "BC", "ON"]).notNull(),
+  municipality: varchar("municipality", { length: 100 }),
+  projectType: varchar("projectType", { length: 50 }).notNull(),
+  formAnswersJson: json("formAnswersJson"),
+  complianceResultJson: json("complianceResultJson"),
+  overallResult: mysqlEnum("overallResult", ["pass", "conditional", "fail"]),
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 100 }),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 100 }),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "refunded"]).default("pending").notNull(),
+  pdfGeneratedAt: timestamp("pdfGeneratedAt"),
+  downloadExpiresAt: timestamp("downloadExpiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type HomeReport = typeof homeReports.$inferSelect;
+export type InsertHomeReport = typeof homeReports.$inferInsert;

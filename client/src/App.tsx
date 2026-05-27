@@ -30,6 +30,10 @@ import TermsOfService from "./pages/TermsOfService";
 import Documentation from "./pages/Documentation";
 import DrawingAnalyzerPage from "./pages/DrawingAnalyzerPage";
 import Settings from "./pages/Settings";
+import HomeLanding from "./pages/HomeLanding";
+import HomeForm from "./pages/HomeForm";
+import HomePreview from "./pages/HomePreview";
+import HomeReport from "./pages/HomeReport";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { useLocation } from "wouter";
@@ -70,6 +74,10 @@ function Router() {
         <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
         <Route path={"/settings"} component={Settings} />
         <Route path={"/project/:projectId"} component={ProjectDetailPage} />
+        <Route path={"/home"} component={HomeLanding} />
+        <Route path={"/home/:projectType"} component={HomeForm} />
+        <Route path={"/home/preview/:reportToken"} component={HomePreview} />
+        <Route path={"/home/report/:reportToken"} component={HomeReport} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

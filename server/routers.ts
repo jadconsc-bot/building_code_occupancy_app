@@ -27,6 +27,7 @@ import { occupancyAdvisorRouter } from "./routers/occupancyAdvisorRouter";
 import { complianceMonitorRouter } from "./routers/complianceMonitorRouter";
 import { organizationRouter } from "./routers/organizationRouter";
 import { correctionRouter } from "./routers/correctionRouter";
+import { homeRouter } from "./routers/homeRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -54,6 +55,7 @@ export const appRouter = router({
   complianceMonitor: complianceMonitorRouter,
   organization: organizationRouter,
   correction: correctionRouter,
+  home: homeRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

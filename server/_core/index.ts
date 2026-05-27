@@ -10,6 +10,7 @@ import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
 import { logEnvStatus } from "./env";
 import { startComplianceMonitorCron } from "../cron/complianceMonitorCron";
+import { handleStripeWebhook } from "../routes/homeWebhook";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -37,6 +38,9 @@ async function startServer() {
   const app = express();
   app.set('trust proxy', 1); // Trust Railway's reverse proxy for correct protocol detection
   const server = createServer(app);
+  // Stripe webhook needs raw body — must be registered BEFORE express.json()
+  app.post("/api/home/stripe-webhook", express.raw({ type: "application/json" }), handleStripeWebhook);
+
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
