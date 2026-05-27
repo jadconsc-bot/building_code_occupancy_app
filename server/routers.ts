@@ -28,6 +28,7 @@ import { complianceMonitorRouter } from "./routers/complianceMonitorRouter";
 import { organizationRouter } from "./routers/organizationRouter";
 import { correctionRouter } from "./routers/correctionRouter";
 import { homeRouter } from "./routers/homeRouter";
+import { codeStrategyRouter } from "./routers/codeStrategyRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 
 export const appRouter = router({
@@ -57,6 +58,7 @@ export const appRouter = router({
   organization: organizationRouter,
   correction: correctionRouter,
   home: homeRouter,
+  codeStrategy: codeStrategyRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

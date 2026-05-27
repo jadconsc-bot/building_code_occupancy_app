@@ -1403,3 +1403,44 @@ export const homeReports = mysqlTable("homeReports", {
 
 export type HomeReport = typeof homeReports.$inferSelect;
 export type InsertHomeReport = typeof homeReports.$inferInsert;
+
+export const codeStrategies = mysqlTable("codeStrategies", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  orgId: int("orgId"),
+  createdBy: int("createdBy").notNull(),
+  province: varchar("province", { length: 5 }).notNull(),
+  codeEdition: varchar("codeEdition", { length: 20 }).notNull(),
+  constructionType: varchar("constructionType", { length: 10 }).notNull(),
+  sprinklered: tinyint("sprinklered").default(0),
+  buildingHeightM: decimal("buildingHeightM", { precision: 6, scale: 2 }),
+  buildingAreaM2: decimal("buildingAreaM2", { precision: 10, scale: 2 }),
+  storeys: int("storeys"),
+  occupancyGroups: json("occupancyGroups"),
+  egressStrategy: text("egressStrategy"),
+  exitCount: int("exitCount"),
+  separationRequired: tinyint("separationRequired").default(0),
+  strategySummaryJson: json("strategySummaryJson"),
+  approvedBy: int("approvedBy"),
+  approvedAt: timestamp("approvedAt"),
+  status: mysqlEnum("status", ["draft", "approved", "superseded"]).default("draft"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CodeStrategy = typeof codeStrategies.$inferSelect;
+export type InsertCodeStrategy = typeof codeStrategies.$inferInsert;
+
+export const permitReviews = mysqlTable("permitReviews", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  orgId: int("orgId").notNull(),
+  reviewedBy: int("reviewedBy").notNull(),
+  reviewType: mysqlEnum("reviewType", ["code_strategy", "calculations", "permit_package"]).notNull(),
+  decision: mysqlEnum("decision", ["approved", "revision_requested", "rejected"]).notNull(),
+  notes: text("notes"),
+  reviewedAt: timestamp("reviewedAt").defaultNow().notNull(),
+});
+
+export type PermitReview = typeof permitReviews.$inferSelect;
+export type InsertPermitReview = typeof permitReviews.$inferInsert;
