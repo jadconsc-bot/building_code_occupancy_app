@@ -361,6 +361,243 @@ function CodeStrategyTab({ projectId, userId, userRole }: { projectId: number; u
   );
 }
 
+// ── Calculations Tab ──────────────────────────────────────────────────────────
+const PROVINCES = ["AB", "BC", "ON", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "NT", "NU", "YT"];
+const CALC_CODE_EDITIONS = ["NBC 2020", "NBC 2015", "ABC 2019", "BCBC 2024", "OBC 2012"];
+
+const OCCUPANT_LOAD_FACTORS: Record<string, number> = {
+  "A-1": 0.67, "A-2": 1.0, "A-3": 0.5, "A-4": 0.67,
+  "B-1": 0.1, "B-2": 0.1, "B-3": 0.1,
+  C: 0.04, D: 0.107, E: 0.27,
+  "F-1": 0.033, "F-2": 0.033, "F-3": 0.033,
+};
+
+function CalculationsTab({ projectId, userRole }: { projectId: number; userRole: string }) {
+  const isOrgAdmin = userRole === "org_admin" || userRole === "admin";
+
+  const [province, setProvince] = useState("AB");
+  const [codeEdition, setCodeEdition] = useState("NBC 2020");
+  const [sprinklered, setSprinklered] = useState(false);
+
+  const getQuery = trpc.calculationsPackage.get.useQuery({ projectId });
+  const generateMutation = trpc.calculationsPackage.generate.useMutation({
+    onSuccess: () => { getQuery.refetch(); toast.success("Calculations generated"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const approveMutation = trpc.calculationsPackage.approve.useMutation({
+    onSuccess: () => { getQuery.refetch(); toast.success("Calculations approved"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const generatePdfMutation = trpc.calculationsPackage.generatePDF.useMutation({
+    onSuccess: (data) => {
+      const link = document.createElement("a");
+      link.href = data.pdfBase64;
+      link.download = `calculations-package-${data.packageId}.pdf`;
+      link.click();
+      toast.success("PDF downloaded");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const pkg = getQuery.data;
+  const occupantRows = (pkg?.occupantLoadByGroup as any[] | null) ?? [];
+  const travelResults = (pkg?.travelDistanceResults as any[] | null) ?? [];
+  const areaByFloor = (pkg?.areaByFloor as Record<string, number> | null) ?? {};
+  const summary = pkg?.calculationsSummaryJson as any;
+
+  const handleGenerate = () => {
+    generateMutation.mutate({ projectId, province, codeEdition, sprinklered });
+  };
+  const handleApprove = () => {
+    if (pkg?.id) approveMutation.mutate({ packageId: pkg.id });
+  };
+  const handlePDF = () => {
+    if (pkg?.id) generatePdfMutation.mutate({ packageId: pkg.id });
+  };
+
+  if (getQuery.isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Status badge */}
+      {pkg && (
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+            pkg.status === "approved" ? "bg-green-50 text-green-700 border-green-300"
+            : pkg.status === "draft"    ? "bg-amber-50 text-amber-700 border-amber-300"
+            : "bg-gray-100 text-gray-600 border-gray-300"
+          }`}>
+            {pkg.status === "approved" ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+            {(pkg.status ?? "draft").toUpperCase()}
+          </span>
+          {pkg.approvedAt && <span className="text-xs text-gray-500">Approved {new Date(pkg.approvedAt).toLocaleDateString("en-CA")}</span>}
+        </div>
+      )}
+
+      {/* Generation inputs */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+        <p className="text-sm font-semibold text-gray-700">Generate Calculations Package</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <Label className="text-xs">Province</Label>
+            <Select value={province} onValueChange={setProvince}>
+              <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>{PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Code Edition</Label>
+            <Select value={codeEdition} onValueChange={setCodeEdition}>
+              <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>{CALC_CODE_EDITIONS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={sprinklered} onChange={e => setSprinklered(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+              <span className="text-sm text-gray-700">Sprinklered</span>
+            </label>
+          </div>
+        </div>
+        <Button onClick={handleGenerate} disabled={generateMutation.isPending} className="bg-blue-700 hover:bg-blue-800 text-white">
+          {generateMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</> : "Generate Calculations"}
+        </Button>
+      </div>
+
+      {/* Results */}
+      {pkg && (
+        <div className="space-y-5">
+          {/* Occupant Load */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Occupant Load — NBC Table 4.1.5.3</h4>
+            {occupantRows.length > 0 ? (
+              <div className="overflow-x-auto rounded border border-gray-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-100 text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Group</th>
+                      <th className="px-3 py-2 text-right font-medium">Area (m²)</th>
+                      <th className="px-3 py-2 text-right font-medium">Factor (p/m²)</th>
+                      <th className="px-3 py-2 text-right font-medium">Persons</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {occupantRows.map((r: any) => (
+                      <tr key={r.group} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">{r.group}</td>
+                        <td className="px-3 py-2 text-right">{Number(r.areaSqm).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right">{r.factor}</td>
+                        <td className="px-3 py-2 text-right font-medium">{r.persons}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                      <td className="px-3 py-2">TOTAL</td>
+                      <td className="px-3 py-2 text-right">{Number(pkg.totalAreaM2 ?? 0).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right">—</td>
+                      <td className="px-3 py-2 text-right text-blue-700">{pkg.totalOccupantLoad ?? 0}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No room data detected. Upload and process a drawing first.</p>
+            )}
+          </div>
+
+          {/* Exit Width */}
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+            <h4 className="text-sm font-semibold text-blue-800 mb-1">Exit Width — NBC 3.3.1.9</h4>
+            <p className="text-sm text-blue-700">
+              {pkg.totalOccupantLoad ?? 0} persons × 6.1 mm/person = <strong>{Number(pkg.exitWidthRequiredMm ?? 0)} mm</strong> required exit width
+            </p>
+            <p className="text-xs text-blue-500 mt-1">Minimum door clear width: 850 mm (NBC 3.3.1.9(3))</p>
+          </div>
+
+          {/* Travel Distance */}
+          {travelResults.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Travel Distance — NBC 3.4.2.5</h4>
+              <div className="flex gap-4 text-xs mb-2">
+                <span className="text-green-600 font-medium">Pass: {summary?.travelDistancePass ?? 0}</span>
+                <span className="text-red-600 font-medium">Fail: {summary?.travelDistanceFail ?? 0}</span>
+                <span className="text-gray-500">Unable: {summary?.travelDistanceUnable ?? 0}</span>
+              </div>
+              <div className="overflow-x-auto rounded border border-gray-200 max-h-64">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-100 text-gray-600 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Room</th>
+                      <th className="px-3 py-2 text-right font-medium">Distance</th>
+                      <th className="px-3 py-2 text-right font-medium">Limit</th>
+                      <th className="px-3 py-2 text-center font-medium">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {travelResults.filter((r: any) => r.result !== "not_applicable").map((r: any) => (
+                      <tr key={r.roomId} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">{r.roomLabel}</td>
+                        <td className="px-3 py-2 text-right">{r.distanceM !== null ? `${Number(r.distanceM).toFixed(1)} m` : "—"}</td>
+                        <td className="px-3 py-2 text-right">{r.limit} m</td>
+                        <td className="px-3 py-2 text-center">
+                          {r.result === "pass" ? <span className="text-green-600 font-semibold">PASS</span>
+                           : r.result === "fail" ? <span className="text-red-600 font-semibold">FAIL</span>
+                           : <span className="text-gray-400">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Area by Floor */}
+          {Object.keys(areaByFloor).length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Floor Area Summary</h4>
+              <div className="rounded border border-gray-200 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-100 text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Floor</th>
+                      <th className="px-3 py-2 text-right font-medium">Area (m²)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Object.entries(areaByFloor).map(([floor, area]) => (
+                      <tr key={floor} className="hover:bg-gray-50">
+                        <td className="px-3 py-2">{floor}</td>
+                        <td className="px-3 py-2 text-right">{Number(area).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button variant="outline" onClick={handlePDF} disabled={generatePdfMutation.isPending || !pkg?.id}>
+              {generatePdfMutation.isPending
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
+                : <><FileText className="w-4 h-4 mr-1.5" />Generate PDF</>}
+            </Button>
+            {isOrgAdmin && pkg?.id && pkg.status === "draft" && (
+              <Button variant="outline" onClick={handleApprove} disabled={approveMutation.isPending}
+                className="border-green-500 text-green-700 hover:bg-green-50">
+                {approveMutation.isPending
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Approving…</>
+                  : <><CheckCircle className="w-4 h-4 mr-1.5" />Approve</>}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
   const [, setLocation] = useLocation();
@@ -590,12 +827,11 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
         />
       )}
 
-      {activeTab === "calculations" && (
-        <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <p className="text-sm font-medium text-gray-700">Calculations Package</p>
-          <p className="text-xs text-gray-400 mt-1">Available in Phase 4 — coming soon</p>
-        </div>
+      {activeTab === "calculations" && me && (
+        <CalculationsTab
+          projectId={numericProjectId}
+          userRole={me.role}
+        />
       )}
 
       {activeTab === "permit_package" && (

@@ -1444,3 +1444,31 @@ export const permitReviews = mysqlTable("permitReviews", {
 
 export type PermitReview = typeof permitReviews.$inferSelect;
 export type InsertPermitReview = typeof permitReviews.$inferInsert;
+
+export const calculationsPackages = mysqlTable("calculationsPackages", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  orgId: int("orgId"),
+  createdBy: int("createdBy").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId"),
+  codeStrategyId: int("codeStrategyId"),
+  province: varchar("province", { length: 5 }).notNull(),
+  codeEdition: varchar("codeEdition", { length: 20 }).notNull(),
+  sprinklered: tinyint("sprinklered").default(0),
+  occupantLoadByGroup: json("occupantLoadByGroup"),
+  totalOccupantLoad: int("totalOccupantLoad"),
+  exitWidthRequiredMm: decimal("exitWidthRequiredMm", { precision: 8, scale: 2 }),
+  travelDistanceResults: json("travelDistanceResults"),
+  areaByFloor: json("areaByFloor"),
+  totalAreaM2: decimal("totalAreaM2", { precision: 10, scale: 2 }),
+  nbcTableRef: varchar("nbcTableRef", { length: 50 }),
+  calculationsSummaryJson: json("calculationsSummaryJson"),
+  approvedBy: int("approvedBy"),
+  approvedAt: timestamp("approvedAt"),
+  status: mysqlEnum("status", ["draft", "approved", "superseded"]).default("draft"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CalculationsPackage = typeof calculationsPackages.$inferSelect;
+export type InsertCalculationsPackage = typeof calculationsPackages.$inferInsert;
