@@ -43,6 +43,8 @@ import { detectRoomsFromPage } from "../engine/spatial/roomDetectionService";
 import type { DrawingType } from "../engine/spatial/promptLibrary";
 import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
+import { runWallEngine } from "../services/wallEngineOrchestrator";
+import { wallEngineQueue } from "../services/wallEngineQueue";
 
 /**
  * Drizzle returns MySQL JSON columns as already-parsed objects.
@@ -558,6 +560,7 @@ export const drawingAnalysisRouter = router({
       // PDF path: room detection from rasterized page 1
       if (pdfPreprocessed && pdfPreprocessed.pages.length > 0) {
         const page1b64 = pdfPreprocessed.pages[0].base64;
+        const page1Dims = pdfPreprocessed.pages[0];
         const clientCropRegion = input.cropRegion;
         // Look up the drawingPages row inserted during preprocessing
         db.select()
@@ -574,6 +577,20 @@ export const drawingAnalysisRouter = router({
               : null;
             const activeCrop = clientCropRegion ?? pageCrop ?? undefined;
             console.log('[RoomDetection] Queuing room detection for page', page1Record.id, activeCrop ? '(with crop region)' : '');
+
+            // Non-blocking wall extraction — PDF path
+            wallEngineQueue.add(async () => {
+              await runWallEngine(
+                input.imageBase64,
+                1,
+                page1Record.id,
+                analysisId,
+                page1Dims.widthPx,
+                page1Dims.heightPx,
+                activeCrop ?? null,
+              );
+            }).catch(err => console.error('[WallEngine] Queue error:', err));
+
             return queuePageAnalysis(() =>
               detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined, callerOrgId)
             );

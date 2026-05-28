@@ -825,10 +825,71 @@ export const drawingPages = mysqlTable("drawingPages", {
   evalMissedRoomsJson: text("evalMissedRoomsJson"),
   detectedScale: varchar("detectedScale", { length: 20 }),
   calibrationScale: decimal("calibrationScale", { precision: 12, scale: 6 }),
+  vectorExtracted: tinyint("vectorExtracted").default(0),
+  vectorExtractedAt: timestamp("vectorExtractedAt"),
+  wallSegmentCount: int("wallSegmentCount").default(0),
+  vectorExtractionSource: mysqlEnum("vectorExtractionSource", ["pdf_paths", "raster_fallback", "none"]).default("none"),
 });
 
 export type DrawingPage = typeof drawingPages.$inferSelect;
 export type InsertDrawingPage = typeof drawingPages.$inferInsert;
+
+// ── Wall Geometry Tables (Phase B) ────────────────────────────────────────────
+
+export const vectorPaths = mysqlTable("vectorPaths", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  pathType: mysqlEnum("pathType", ["line", "polyline", "rect", "curve"]).notNull(),
+  strokeWidth: decimal("strokeWidth", { precision: 6, scale: 3 }),
+  strokeColor: varchar("strokeColor", { length: 20 }),
+  fillColor: varchar("fillColor", { length: 20 }),
+  pathDataJson: json("pathDataJson").notNull(),
+  boundingBoxJson: json("boundingBoxJson"),
+  pdfSpaceWidth: decimal("pdfSpaceWidth", { precision: 10, scale: 3 }),
+  pdfSpaceHeight: decimal("pdfSpaceHeight", { precision: 10, scale: 3 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VectorPath = typeof vectorPaths.$inferSelect;
+export type InsertVectorPath = typeof vectorPaths.$inferInsert;
+
+export const wallSegments = mysqlTable("wallSegments", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  startX: decimal("startX", { precision: 10, scale: 3 }).notNull(),
+  startY: decimal("startY", { precision: 10, scale: 3 }).notNull(),
+  endX: decimal("endX", { precision: 10, scale: 3 }).notNull(),
+  endY: decimal("endY", { precision: 10, scale: 3 }).notNull(),
+  thicknessPx: decimal("thicknessPx", { precision: 6, scale: 3 }),
+  lengthPx: decimal("lengthPx", { precision: 10, scale: 3 }),
+  orientation: mysqlEnum("orientation", ["horizontal", "vertical", "diagonal"]),
+  confidence: decimal("confidence", { precision: 4, scale: 3 }).default("1.000"),
+  source: mysqlEnum("source", ["vector", "raster", "manual"]).default("vector"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WallSegment = typeof wallSegments.$inferSelect;
+export type InsertWallSegment = typeof wallSegments.$inferInsert;
+
+export const doorOpenings = mysqlTable("doorOpenings", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  centerX: decimal("centerX", { precision: 10, scale: 3 }).notNull(),
+  centerY: decimal("centerY", { precision: 10, scale: 3 }).notNull(),
+  widthPx: decimal("widthPx", { precision: 8, scale: 3 }),
+  angle: decimal("angle", { precision: 6, scale: 2 }),
+  wallSegmentId: int("wallSegmentId"),
+  detectedFeatureId: int("detectedFeatureId"),
+  confidence: decimal("confidence", { precision: 4, scale: 3 }).default("1.000"),
+  source: mysqlEnum("source", ["vector", "feature_match", "manual"]).default("vector"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DoorOpening = typeof doorOpenings.$inferSelect;
+export type InsertDoorOpening = typeof doorOpenings.$inferInsert;
 
 /**
  * Drawing Data Extractions - Stage 1 output (LLM extraction only)

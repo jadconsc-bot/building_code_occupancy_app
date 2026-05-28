@@ -31,6 +31,7 @@ import { homeRouter } from "./routers/homeRouter";
 import { codeStrategyRouter } from "./routers/codeStrategyRouter";
 import { calculationsPackageRouter } from "./routers/calculationsPackageRouter";
 import { permitPackageRouter } from "./routers/permitPackageRouter";
+import { wallEngineRouter } from "./routers/wallEngineRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 
 export const appRouter = router({
@@ -63,6 +64,7 @@ export const appRouter = router({
   codeStrategy: codeStrategyRouter,
   calculationsPackage: calculationsPackageRouter,
   permitPackage: permitPackageRouter,
+  wallEngine: wallEngineRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

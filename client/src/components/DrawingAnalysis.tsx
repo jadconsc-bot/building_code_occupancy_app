@@ -224,6 +224,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showRoomOverlay, setShowRoomOverlay] = useState(true);
   const [showTravelDistanceOverlay, setShowTravelDistanceOverlay] = useState(false);
   const [showComplianceHeatmap, setShowComplianceHeatmap] = useState(false);
+  const [showWallOverlay, setShowWallOverlay] = useState(false);
   const [hoveredRoom, setHoveredRoom] = useState<{ roomId: number; screenX: number; screenY: number } | null>(null);
   const [evalData, setEvalData] = useState<{
     accuracy: number;
@@ -608,6 +609,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ? pixelsPerDrawingUnit / selectedScale.ratio
         : pixelsPerDrawingUnit / (selectedScale.ratio * 25.4))
     : null;
+
+  // Wall segments query — only runs when the overlay is toggled on (admin/professional)
+  const canSeeWalls = user?.role === "admin" || user?.role === "rule_editor" || user?.role === "professional";
+  const { data: wallSegmentsData } = trpc.wallEngine.getWallSegments.useQuery(
+    { pageId: currentPageId ?? 0 },
+    { enabled: !!currentPageId && showWallOverlay && canSeeWalls }
+  );
+  const wallSegmentsList = wallSegmentsData ?? [];
 
   // Travel distance query — only runs when the overlay is toggled on
   const { data: travelDistanceData } = trpc.drawingAnalysis.getTravelDistances.useQuery(
@@ -1605,6 +1614,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       ctx.restore();
     }
 
+    // ===== WALL OVERLAY LAYER (admin/professional only) =====
+    if (showWallOverlay && wallSegmentsList.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      for (const wall of wallSegmentsList) {
+        ctx.beginPath();
+        ctx.moveTo(wall.startX * zoom + pan.x, wall.startY * zoom + pan.y);
+        ctx.lineTo(wall.endX   * zoom + pan.x, wall.endY   * zoom + pan.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // ===== CROP REGION LAYER =====
     const cropToDraw = cropRegionDraftRef.current ?? cropRegionConfirmed;
     if (cropToDraw && imageLoaded) {
@@ -1638,7 +1662,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3906,6 +3930,23 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   >
                     <BarChart2 className={`w-4 h-4 ${showComplianceHeatmap ? '' : 'opacity-40'}`} />
                   </button>
+                  {canSeeWalls && (
+                    <button
+                      onClick={() => setShowWallOverlay(!showWallOverlay)}
+                      className={`p-1.5 rounded transition-colors text-xs font-medium ${
+                        showWallOverlay
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title={showWallOverlay ? 'Hide wall overlay' : 'Show wall overlay (vector extraction)'}
+                    >
+                      <svg className={`w-4 h-4 ${showWallOverlay ? '' : 'opacity-40'}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="2" y="6" width="12" height="4" rx="0.5" />
+                        <line x1="2" y1="2" x2="2" y2="14" />
+                        <line x1="14" y1="2" x2="14" y2="14" />
+                      </svg>
+                    </button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
