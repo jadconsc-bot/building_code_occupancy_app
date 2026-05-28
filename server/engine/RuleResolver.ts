@@ -61,20 +61,46 @@ export class RuleResolver {
     let resolvedSource: string = 'NBC 2020 Federal';
     let resolvedLayer: ResolvedRule['layer'] = 'federal';
 
-    // Layer 2 — Provincial override
+    // Layer 2 — Provincial / Municipal override
     if (context.jurisdiction.province) {
       const db = await getDb();
       if (!db) return { value: resolvedValue, unit: resolvedUnit, ref: federalRef, source: resolvedSource, layer: resolvedLayer, overrideChain: chain };
-      const jurisdiction = await db
-        .select()
-        .from(jurisdictionProfiles)
-        .where(
-          and(
-            eq(jurisdictionProfiles.province, context.jurisdiction.province as any),
-            isNull(jurisdictionProfiles.municipality),
-          ),
-        )
-        .limit(1);
+
+      // Try municipality-specific profile first
+      let jurisdiction = context.jurisdiction.municipality
+        ? await db
+            .select()
+            .from(jurisdictionProfiles)
+            .where(
+              and(
+                eq(jurisdictionProfiles.province, context.jurisdiction.province as any),
+                eq(jurisdictionProfiles.municipality, context.jurisdiction.municipality),
+              ),
+            )
+            .limit(1)
+        : [];
+
+      // Fall back to province-level profile
+      if (jurisdiction.length === 0) {
+        jurisdiction = await db
+          .select()
+          .from(jurisdictionProfiles)
+          .where(
+            and(
+              eq(jurisdictionProfiles.province, context.jurisdiction.province as any),
+              isNull(jurisdictionProfiles.municipality),
+            ),
+          )
+          .limit(1);
+      }
+
+      // Log which profile was used
+      if (jurisdiction[0]) {
+        console.log(
+          `[RuleResolver] Using ${jurisdiction[0].municipality ?? 'provincial'} ` +
+          `profile for ${jurisdiction[0].province}`,
+        );
+      }
 
       if (jurisdiction[0]?.localAmendments) {
         try {
@@ -126,7 +152,7 @@ export class RuleResolver {
       }
     }
 
-    // Layer 3 — Municipal override (Phase 3 — placeholder)
+    // Layer 3 — Municipal override (handled in Layer 2 via municipality-first lookup above)
     // chain[2] remains { layer: 'municipal', source: null, value: null, applied: false }
 
     // Layer 4 — Project override (Phase 3 — for alternative solutions)

@@ -242,6 +242,7 @@ export const drawingAnalysisRouter = router({
         width: z.number().int().positive(),
         height: z.number().int().positive(),
       }).optional(),
+      municipality: z.string().max(100).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       // PD2.0 §6.3: Enforce disclaimer at API layer

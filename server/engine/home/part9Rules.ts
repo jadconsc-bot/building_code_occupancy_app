@@ -79,6 +79,7 @@ export interface Part9Rule {
   ruleId: string;
   description: string;
   province: HomeProvince | "national";
+  municipality?: string;
   projectTypes: HomeProjectType[];
   evaluate: (answers: HomeFormAnswers) => RuleResult;
 }
@@ -359,6 +360,36 @@ const DECK_FOOTING_RULE: Part9Rule = {
   },
 };
 
+// ─── Calgary-specific rules (1P2007) ─────────────────────────────────────────
+
+const CALGARY_SMOKE_ALARM_RULE: Part9Rule = {
+  ruleId: "P9-SMOKE-CALGARY",
+  description: "Hardwired and interconnected smoke/CO alarms (Calgary)",
+  province: "AB",
+  municipality: "Calgary",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.hasSmokeAlarms) {
+      return {
+        result: "fail",
+        plainLanguage:
+          "Calgary requires hardwired, interconnected smoke and CO alarms in every bedroom, common space, and mechanical room.",
+        whatToDo:
+          "Install hardwired smoke/CO alarms wired to the electrical panel. Battery-only alarms do not meet Calgary requirements.",
+        codeReference: "Calgary 1P2007 + NBC 2023 Alberta Edition",
+      };
+    }
+    return {
+      result: "conditional",
+      plainLanguage:
+        "Smoke/CO alarms required. Calgary specifically requires hardwired (not battery-only) interconnected alarms.",
+      whatToDo:
+        "Confirm alarms are permanently wired to the electrical panel, not battery-only. Required in every bedroom, common space, and mechanical room.",
+      codeReference: "Calgary 1P2007 Secondary Suite Requirements",
+    };
+  },
+};
+
 // ─── All rules ───────────────────────────────────────────────────────────────
 
 export const PART9_RULES: Part9Rule[] = [
@@ -369,20 +400,42 @@ export const PART9_RULES: Part9Rule[] = [
   FIRE_SEPARATION_RULE,
   DECK_GUARD_RAIL_RULE,
   DECK_FOOTING_RULE,
+  CALGARY_SMOKE_ALARM_RULE,
 ];
 
 export function evaluateHomeCompliance(answers: HomeFormAnswers): EvaluatedRule[] {
-  return PART9_RULES
-    .filter(
-      (rule) =>
-        (rule.province === answers.province || rule.province === "national") &&
-        rule.projectTypes.includes(answers.projectType),
-    )
+  const results: EvaluatedRule[] = PART9_RULES
+    .filter((rule) => {
+      const provinceMatch = rule.province === answers.province || rule.province === "national";
+      const municipalityMatch = rule.municipality === undefined
+        || rule.municipality === answers.municipality;
+      return provinceMatch && municipalityMatch && rule.projectTypes.includes(answers.projectType);
+    })
     .map((rule) => ({
       ruleId: rule.ruleId,
       description: rule.description,
       ...rule.evaluate(answers),
     }));
+
+  // Calgary Secondary Suite Incentive Program notice
+  if (
+    answers.municipality === "Calgary" &&
+    answers.province === "AB" &&
+    answers.projectType === "secondary_suite"
+  ) {
+    results.push({
+      ruleId: "INFO-CALGARY-INCENTIVE",
+      description: "Calgary Secondary Suite Incentive Program",
+      result: "pass",
+      plainLanguage:
+        "Calgary offers up to $10,000 grant for qualifying secondary suite safety upgrades.",
+      whatToDo:
+        "Apply at calgary.ca before starting work. Grant covers egress windows ($1,500), smoke/CO alarms ($1,000), smoke-tight barrier ($4,000), protected exiting ($1,000), split heat ($6,000).",
+      codeReference: "City of Calgary Secondary Suite Incentive Program (2025)",
+    });
+  }
+
+  return results;
 }
 
 export function aggregateOverallResult(

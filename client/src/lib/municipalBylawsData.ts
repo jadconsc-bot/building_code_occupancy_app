@@ -501,6 +501,69 @@ export const municipalities: Municipality[] = [
         },
       },
       {
+        zoneCode: 'R-G',
+        zoneName: 'Residential - Grade-Oriented',
+        description: 'New residential areas — single and semi-detached with secondary and backyard suites',
+        setbacks: {
+          front: 3.0,
+          rear: 6.0,
+          sideInterior: 1.2,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+          notes: 'Secondary suites and backyard suites permitted by default',
+        },
+        coverage: {
+          maxSiteCoverage: 45,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 240,
+          minWidth: 7.5,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Secondary suites permitted as-of-right',
+          'Backyard suites permitted as-of-right',
+          'Parking: 1 space per dwelling unit',
+        ],
+      },
+      {
+        zoneCode: 'R-2M',
+        zoneName: 'Residential - Two Dwelling Multi-Residential',
+        description: 'Side-by-side and stacked duplexes in established areas',
+        setbacks: {
+          front: 6.0,
+          rear: 7.5,
+          sideInterior: 1.2,
+          sideCorner: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 360,
+          minWidth: 10.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Secondary suites may be permitted subject to development permit',
+        ],
+      },
+      {
         zoneCode: 'M-CG',
         zoneName: 'Multi-Residential - Contextual Grade-Oriented',
         description: 'Low-rise multi-residential buildings',
@@ -526,6 +589,63 @@ export const municipalities: Municipality[] = [
           areaUnit: 'sqm',
           widthUnit: 'meters',
         },
+      },
+      {
+        zoneCode: 'M-C1',
+        zoneName: 'Multi-Residential - Contextual Low Profile',
+        description: 'Low-rise apartment buildings up to 4 storeys',
+        setbacks: {
+          front: 4.5,
+          rear: 7.5,
+          sideInterior: 3.0,
+          sideCorner: 4.5,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 16.0,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1000,
+          minWidth: 20.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'M-C2',
+        zoneName: 'Multi-Residential - Contextual Medium Profile',
+        description: 'Mid-rise apartment buildings up to 8 storeys',
+        setbacks: {
+          front: 4.5,
+          rear: 7.5,
+          sideInterior: 3.0,
+          sideCorner: 4.5,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 26.0,
+          maxStoreys: 8,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 1500,
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Underground parking required when site coverage exceeds 40%',
+        ],
       },
       // Commercial Zones
       {
