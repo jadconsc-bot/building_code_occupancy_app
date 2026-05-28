@@ -598,6 +598,259 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
   );
 }
 
+// ── Permit Package Tab ────────────────────────────────────────────────────────
+type SubmissionStatus = "not_submitted" | "submitted" | "under_review" | "approved" | "rejected";
+
+const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
+  not_submitted: "Not Submitted",
+  submitted:     "Submitted",
+  under_review:  "Under Review",
+  approved:      "Approved",
+  rejected:      "Rejected",
+};
+
+function StageRow({ label, exists, status, approvedAt }: {
+  label: string;
+  exists: boolean;
+  status: string | null;
+  approvedAt: Date | string | null;
+}) {
+  const isApproved = status === "approved";
+  const isDraft    = status === "draft";
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-3">
+        {!exists
+          ? <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0" />
+          : isApproved
+          ? <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          : <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+        <span className={`text-sm font-medium ${!exists ? "text-gray-400" : isApproved ? "text-green-700" : "text-amber-700"}`}>
+          {label}
+        </span>
+      </div>
+      <div className="text-right">
+        {!exists
+          ? <span className="text-xs text-gray-400">Not started</span>
+          : <span className={`text-xs font-semibold ${isApproved ? "text-green-600" : isDraft ? "text-amber-600" : "text-gray-500"}`}>
+              {(status ?? "draft").toUpperCase()}
+              {isApproved && approvedAt && ` · ${new Date(approvedAt).toLocaleDateString("en-CA")}`}
+            </span>}
+      </div>
+    </div>
+  );
+}
+
+function PermitPackageTab({ projectId, userRole }: { projectId: number; userRole: string }) {
+  const isOrgAdmin = userRole === "org_admin" || userRole === "admin";
+
+  const statusQuery = trpc.permitPackage.getStatus.useQuery({ projectId });
+  const generateMutation = trpc.permitPackage.generate.useMutation({
+    onSuccess: () => { statusQuery.refetch(); toast.success("Permit package generated"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const generatePdfMutation = trpc.permitPackage.generatePDF.useMutation({
+    onSuccess: (data) => {
+      const link = document.createElement("a");
+      link.href = data.pdfBase64;
+      link.download = `permit-package-${projectId}.pdf`;
+      link.click();
+      toast.success("PDF downloaded");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const generateJsonMutation = trpc.permitPackage.generateJSON.useMutation({
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data.json, null, 2)], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href     = url;
+      link.download = `permit-package-${projectId}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Electronic package downloaded");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const trackingMutation = trpc.permitPackage.updateSubmissionTracking.useMutation({
+    onSuccess: () => { statusQuery.refetch(); toast.success("Tracking updated"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const status = statusQuery.data;
+  const pkg    = status?.permitPackage;
+
+  const [submittedDate,    setSubmittedDate]    = useState(pkg?.submittedDate ? String(pkg.submittedDate).slice(0, 10) : "");
+  const [appNumber,        setAppNumber]        = useState(pkg?.permitApplicationNumber ?? "");
+  const [authority,        setAuthority]        = useState(pkg?.reviewingAuthority ?? "");
+  const [subStatus,        setSubStatus]        = useState<SubmissionStatus>((pkg?.submissionStatus as SubmissionStatus | null) ?? "not_submitted");
+  const [permitNum,        setPermitNum]        = useState(pkg?.permitNumber ?? "");
+
+  // Sync form when status loads
+  if (pkg && !trackingMutation.isPending && !trackingMutation.isSuccess) {
+    // only set if different to avoid re-render loops — handled via key prop in parent
+  }
+
+  if (statusQuery.isLoading) return (
+    <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+  );
+
+  const handleSaveTracking = () => {
+    if (!pkg?.reviewId) return;
+    trackingMutation.mutate({
+      reviewId:                pkg.reviewId,
+      submittedDate:           submittedDate || undefined,
+      permitApplicationNumber: appNumber || undefined,
+      reviewingAuthority:      authority || undefined,
+      submissionStatus:        subStatus,
+      permitNumber:            permitNum || undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Stage Checklist */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-3">Stage Readiness</p>
+        <StageRow
+          label="Code Strategy"
+          exists={status?.codeStrategy.exists ?? false}
+          status={status?.codeStrategy.status ?? null}
+          approvedAt={status?.codeStrategy.approvedAt ?? null}
+        />
+        <StageRow
+          label="Calculations Package"
+          exists={status?.calculations.exists ?? false}
+          status={status?.calculations.status ?? null}
+          approvedAt={status?.calculations.approvedAt ?? null}
+        />
+        <StageRow
+          label="Permit Package"
+          exists={status?.permitPackage.exists ?? false}
+          status={status?.permitPackage.exists ? "approved" : null}
+          approvedAt={status?.permitPackage.approvedAt ?? null}
+        />
+      </div>
+
+      {/* Ready for Submission banner */}
+      {status?.readyForSubmission && (
+        <div className="rounded-lg bg-green-50 border border-green-300 p-4 flex items-center gap-3">
+          <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">Ready for Submission</p>
+            <p className="text-xs text-green-600">All three stages approved. You may now submit to the AHJ.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Permit number banner */}
+      {pkg?.permitNumber && (
+        <div className="rounded-lg bg-blue-50 border border-blue-300 p-4">
+          <p className="text-xs text-blue-500 uppercase font-semibold tracking-wide mb-1">Permit Approved</p>
+          <p className="text-lg font-bold text-blue-800">{pkg.permitNumber}</p>
+          <p className="text-xs text-blue-600 mt-0.5">Permit Number</p>
+        </div>
+      )}
+
+      {/* Generate Package button (org admin only) */}
+      {isOrgAdmin && (
+        <Button
+          onClick={() => generateMutation.mutate({ projectId })}
+          disabled={generateMutation.isPending || !status?.codeStrategy.exists}
+          className="bg-gray-900 hover:bg-gray-800 text-white"
+        >
+          {generateMutation.isPending
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
+            : <><FileText className="w-4 h-4 mr-1.5" />{pkg?.exists ? "Regenerate Package" : "Generate Permit Package"}</>}
+        </Button>
+      )}
+
+      {/* Download buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          onClick={() => generatePdfMutation.mutate({ projectId })}
+          disabled={generatePdfMutation.isPending}
+        >
+          {generatePdfMutation.isPending
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
+            : <><FileText className="w-4 h-4 mr-1.5" />Download PDF Package</>}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => generateJsonMutation.mutate({ projectId })}
+          disabled={generateJsonMutation.isPending}
+        >
+          {generateJsonMutation.isPending
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Exporting…</>
+            : "Download Electronic Package (JSON)"}
+        </Button>
+      </div>
+
+      {/* Submission Tracking Form */}
+      {pkg?.exists && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+          <p className="text-sm font-semibold text-gray-700">Submission Tracking</p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Submitted Date</Label>
+              <Input
+                type="date"
+                value={submittedDate}
+                onChange={e => setSubmittedDate(e.target.value)}
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Permit Application Number</Label>
+              <Input
+                value={appNumber}
+                onChange={e => setAppNumber(e.target.value)}
+                placeholder="e.g. BP-2026-00123"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Reviewing Authority</Label>
+              <Input
+                value={authority}
+                onChange={e => setAuthority(e.target.value)}
+                placeholder="e.g. City of Calgary Development Services"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Submission Status</Label>
+              <Select value={subStatus} onValueChange={v => setSubStatus(v as SubmissionStatus)}>
+                <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(SUBMISSION_STATUS_LABELS) as [SubmissionStatus, string][]).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Permit Number</Label>
+              <Input
+                value={permitNum}
+                onChange={e => setPermitNum(e.target.value)}
+                placeholder="Filled in when permit approved"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveTracking} disabled={trackingMutation.isPending} className="bg-blue-700 hover:bg-blue-800 text-white">
+            {trackingMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : "Save Tracking"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
   const [, setLocation] = useLocation();
@@ -834,12 +1087,11 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
         />
       )}
 
-      {activeTab === "permit_package" && (
-        <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <p className="text-sm font-medium text-gray-700">Permit Package</p>
-          <p className="text-xs text-gray-400 mt-1">Available in Phase 5 — coming soon</p>
-        </div>
+      {activeTab === "permit_package" && me && (
+        <PermitPackageTab
+          projectId={numericProjectId}
+          userRole={me.role}
+        />
       )}
     </div>
   );

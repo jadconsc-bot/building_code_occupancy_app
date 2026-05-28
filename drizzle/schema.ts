@@ -1439,6 +1439,11 @@ export const permitReviews = mysqlTable("permitReviews", {
   reviewType: mysqlEnum("reviewType", ["code_strategy", "calculations", "permit_package"]).notNull(),
   decision: mysqlEnum("decision", ["approved", "revision_requested", "rejected"]).notNull(),
   notes: text("notes"),
+  submittedDate: date("submittedDate"),
+  permitApplicationNumber: varchar("permitApplicationNumber", { length: 100 }),
+  reviewingAuthority: varchar("reviewingAuthority", { length: 200 }),
+  submissionStatus: mysqlEnum("submissionStatus", ["not_submitted", "submitted", "under_review", "approved", "rejected"]).default("not_submitted"),
+  permitNumber: varchar("permitNumber", { length: 100 }),
   reviewedAt: timestamp("reviewedAt").defaultNow().notNull(),
 });
 
