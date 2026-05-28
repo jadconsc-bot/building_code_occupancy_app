@@ -35,7 +35,12 @@ async function fetchWithBrowser(url: string): Promise<{ content: string; status:
     await browser.close();
     return { content, status };
   } catch (err) {
-    return { content: '', status: 0, error: String(err) };
+    const msg = String(err);
+    if (msg.includes("Executable") || msg.includes("chromium") || msg.includes("not found") || msg.includes("ENOENT")) {
+      console.log("[ComplianceMonitor] Playwright not available on this instance — skipping browser-based sources");
+      return { content: '', status: 0 };
+    }
+    return { content: '', status: 0, error: msg };
   }
 }
 

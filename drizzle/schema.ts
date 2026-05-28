@@ -823,7 +823,7 @@ export const drawingPages = mysqlTable("drawingPages", {
   evalPassingRooms: int("evalPassingRooms"),
   evalTotalRooms: int("evalTotalRooms"),
   evalMissedRoomsJson: text("evalMissedRoomsJson"),
-  detectedScale: varchar("detectedScale", { length: 20 }),
+  detectedScale: varchar("detectedScale", { length: 100 }),
   calibrationScale: decimal("calibrationScale", { precision: 12, scale: 6 }),
   vectorExtracted: tinyint("vectorExtracted").default(0),
   vectorExtractedAt: timestamp("vectorExtractedAt"),

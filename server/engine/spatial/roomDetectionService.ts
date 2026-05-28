@@ -461,7 +461,7 @@ async function saveRoomsToDb(
   // Backfill the page dimensions so the client can compute a scale factor
   if (imgW > 0 && imgH > 0) {
     await db.update(drawingPages)
-      .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ?? null })
+      .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ? detectedScale.substring(0, 100) : null })
       .where(eq(drawingPages.id, pageId));
   }
 
