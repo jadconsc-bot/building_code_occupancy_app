@@ -176,11 +176,16 @@ function buildPromptContribution(payload: CorrectionPayload): string | null {
         `occupancy group changed from ${previousValue.occupancyGroup} ` +
         `to ${correctedValue.occupancyGroup} in ${planType} drawings.`
       );
-    case "boundary_redraw":
-      return (
-        `CORRECTION: Room "${previousValue.label}" boundary was redrawn. ` +
-        `Tighter fit to wall lines required in ${planType} drawings.`
-      );
+    case "boundary_redraw": {
+      const delta = (correctedValue as any).delta;
+      const hasDelta = delta && (delta.dx || delta.dy || delta.dw || delta.dh);
+      return hasDelta
+        ? `CORRECTION: Room "${previousValue.label}" boundary redrawn. ` +
+          `Offset: dx=${delta.dx}px dy=${delta.dy}px dw=${delta.dw}px dh=${delta.dh}px. ` +
+          `In ${planType} drawings, adjust bounding boxes by this systematic offset.`
+        : `CORRECTION: Room "${previousValue.label}" boundary redrawn. ` +
+          `Tighter fit to wall lines required in ${planType} drawings.`;
+    }
     case "false_positive_delete":
       return (
         `CORRECTION: "${previousValue.label}" is NOT a room — ` +

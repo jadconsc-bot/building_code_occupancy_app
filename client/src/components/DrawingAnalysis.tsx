@@ -195,6 +195,28 @@ interface DrawingAnalysisProps {
   projectId?: number;
 }
 
+// ─── Bounding-box drag/resize helpers (module-level, no hooks) ───────────────
+const BBOX_HANDLE_RADIUS = 5;
+type HandleId = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+const HANDLE_CURSORS: Record<HandleId, string> = {
+  nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
+  e: 'e-resize',   se: 'se-resize', s: 's-resize',
+  sw: 'sw-resize', w: 'w-resize',
+};
+function getHandlePositions(screenX: number, screenY: number, screenW: number, screenH: number) {
+  return [
+    { id: 'nw' as HandleId, x: screenX,              y: screenY               },
+    { id: 'n'  as HandleId, x: screenX + screenW / 2, y: screenY               },
+    { id: 'ne' as HandleId, x: screenX + screenW,     y: screenY               },
+    { id: 'e'  as HandleId, x: screenX + screenW,     y: screenY + screenH / 2 },
+    { id: 'se' as HandleId, x: screenX + screenW,     y: screenY + screenH     },
+    { id: 's'  as HandleId, x: screenX + screenW / 2, y: screenY + screenH     },
+    { id: 'sw' as HandleId, x: screenX,               y: screenY + screenH     },
+    { id: 'w'  as HandleId, x: screenX,               y: screenY + screenH / 2 },
+  ];
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
@@ -254,6 +276,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number }[]>([]);
   const boundaryRectDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const boundaryRectDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // SPEC-BBOX-DRAG-RESIZE — drag/resize state
+  const [interactingRoom, setInteractingRoom] = useState<{
+    roomId: number;
+    mode: 'move' | 'resize';
+    handle?: HandleId;
+    startMouseX: number;
+    startMouseY: number;
+    startBbox: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+  const [bboxOverrides, setBboxOverrides] = useState<
+    Map<number, { x: number; y: number; width: number; height: number }>
+  >(new Map());
+  const [originalBboxes, setOriginalBboxes] = useState<
+    Map<number, { x: number; y: number; width: number; height: number }>
+  >(new Map());
 
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
@@ -678,6 +716,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setAnalyzedPageDims(null);
     setEvalData(null);
     setRoomComplianceData([]);
+    setBboxOverrides(new Map());
+    setOriginalBboxes(new Map());
+    setInteractingRoom(null);
   }, [analysisId]);
 
   useEffect(() => {
@@ -1231,7 +1272,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
 
       for (const room of detectedRoomsData) {
-        const geometry = room.boundingBox;
+        const geometry = bboxOverrides.get(room.id) ?? room.boundingBox;
         if (!geometry) continue;
 
         const screenX = geometry.x * scaleX * zoom + pan.x;
@@ -1332,13 +1373,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           ctx.restore();
         }
 
-        // Amber ring highlight for every room in review mode
+        // Review mode: interactive handles + corrected/original border
         if (reviewMode) {
           ctx.save();
-          ctx.strokeStyle = 'rgba(245,158,11,0.80)';
-          ctx.lineWidth = 2.5;
+          const isCorrected = bboxOverrides.has(room.id);
+          ctx.strokeStyle = isCorrected ? 'rgba(245, 158, 11, 0.9)' : 'rgba(59, 130, 246, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 2]);
+          ctx.strokeRect(screenX, screenY, screenW, screenH);
           ctx.setLineDash([]);
-          ctx.strokeRect(screenX - 1, screenY - 1, screenW + 2, screenH + 2);
+          const handles = getHandlePositions(screenX, screenY, screenW, screenH);
+          for (const handle of handles) {
+            ctx.beginPath();
+            ctx.arc(handle.x, handle.y, BBOX_HANDLE_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+          if (isCorrected) {
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('✏ corrected', screenX + 2, screenY - 3);
+          }
           ctx.restore();
         }
       }
@@ -1681,7 +1741,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2359,7 +2419,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
-    // Review mode: click room to open correction popover
+    // Review mode: drag/resize bounding boxes
     if (reviewMode && detectedRoomsData.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
       const naturalH = imageRef.current?.naturalHeight ?? 0;
@@ -2368,18 +2428,76 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const sY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
         ? naturalH / analyzedPageDims.height : 1;
 
+      // Image-space coords (same space as boundingBox values)
+      const imgX = x / sX;
+      const imgY = y / sY;
+      // Canvas pixel coords (for hit-testing handles in screen space)
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+
+      // Check handles first (higher priority than room body)
+      let foundHandle: { roomId: number; id: HandleId } | null = null;
+      for (const room of detectedRoomsData) {
+        const g = bboxOverrides.get(room.id) ?? room.boundingBox;
+        if (!g) continue;
+        const rsx = g.x * sX * zoom + pan.x;
+        const rsy = g.y * sY * zoom + pan.y;
+        const rsw = g.width * sX * zoom;
+        const rsh = g.height * sY * zoom;
+        const handles = getHandlePositions(rsx, rsy, rsw, rsh);
+        for (const h of handles) {
+          if (Math.hypot(canvasX - h.x, canvasY - h.y) <= BBOX_HANDLE_RADIUS + 3) {
+            foundHandle = { roomId: room.id, id: h.id };
+            break;
+          }
+        }
+        if (foundHandle) break;
+      }
+
+      if (foundHandle) {
+        const { roomId, id: handleId } = foundHandle;
+        if (!originalBboxes.has(roomId)) {
+          setOriginalBboxes(prev => new Map(prev).set(
+            roomId,
+            bboxOverrides.get(roomId) ?? detectedRoomsData.find(r => r.id === roomId)!.boundingBox,
+          ));
+        }
+        setInteractingRoom({
+          roomId,
+          mode: 'resize',
+          handle: handleId,
+          startMouseX: imgX,
+          startMouseY: imgY,
+          startBbox: bboxOverrides.get(roomId) ?? detectedRoomsData.find(r => r.id === roomId)!.boundingBox,
+        });
+        return;
+      }
+
+      // Check room body (move)
       const clickedRoom = detectedRoomsData.find(room => {
-        const b = room.boundingBox;
-        if (!b) return false;
-        return x >= b.x * sX && x <= (b.x + b.width) * sX &&
-               y >= b.y * sY && y <= (b.y + b.height) * sY;
+        const g = bboxOverrides.get(room.id) ?? room.boundingBox;
+        if (!g) return false;
+        const rsx = g.x * sX * zoom + pan.x;
+        const rsy = g.y * sY * zoom + pan.y;
+        const rsw = g.width * sX * zoom;
+        const rsh = g.height * sY * zoom;
+        return canvasX >= rsx && canvasX <= rsx + rsw && canvasY >= rsy && canvasY <= rsy + rsh;
       });
       if (clickedRoom) {
-        setCorrectionPopover({ x: e.clientX, y: e.clientY, room: clickedRoom });
-        setSelectedRoomForCorrection(clickedRoom);
-      } else {
-        setCorrectionPopover(null);
+        if (!originalBboxes.has(clickedRoom.id)) {
+          setOriginalBboxes(prev => new Map(prev).set(clickedRoom.id, clickedRoom.boundingBox));
+        }
+        setInteractingRoom({
+          roomId: clickedRoom.id,
+          mode: 'move',
+          startMouseX: imgX,
+          startMouseY: imgY,
+          startBbox: bboxOverrides.get(clickedRoom.id) ?? clickedRoom.boundingBox,
+        });
+        return;
       }
+
+      setCorrectionPopover(null);
       return;
     }
 
@@ -2491,6 +2609,75 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Review mode: live bbox update during drag/resize
+    if (reviewMode) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const sX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const sY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+      const imgX = x / sX;
+      const imgY = y / sY;
+
+      if (interactingRoom) {
+        const dx = imgX - interactingRoom.startMouseX;
+        const dy = imgY - interactingRoom.startMouseY;
+        const s = interactingRoom.startBbox;
+        let newBbox = { ...s };
+
+        if (interactingRoom.mode === 'move') {
+          newBbox = { x: s.x + dx, y: s.y + dy, width: s.width, height: s.height };
+        } else {
+          switch (interactingRoom.handle) {
+            case 'nw': newBbox = { x: s.x + dx, y: s.y + dy, width: s.width - dx, height: s.height - dy }; break;
+            case 'n':  newBbox = { x: s.x,      y: s.y + dy, width: s.width,      height: s.height - dy }; break;
+            case 'ne': newBbox = { x: s.x,      y: s.y + dy, width: s.width + dx, height: s.height - dy }; break;
+            case 'e':  newBbox = { x: s.x,      y: s.y,      width: s.width + dx, height: s.height      }; break;
+            case 'se': newBbox = { x: s.x,      y: s.y,      width: s.width + dx, height: s.height + dy }; break;
+            case 's':  newBbox = { x: s.x,      y: s.y,      width: s.width,      height: s.height + dy }; break;
+            case 'sw': newBbox = { x: s.x + dx, y: s.y,      width: s.width - dx, height: s.height + dy }; break;
+            case 'w':  newBbox = { x: s.x + dx, y: s.y,      width: s.width - dx, height: s.height      }; break;
+          }
+          newBbox.width  = Math.max(newBbox.width,  30);
+          newBbox.height = Math.max(newBbox.height, 20);
+        }
+
+        newBbox = {
+          x: Math.round(newBbox.x),  y: Math.round(newBbox.y),
+          width: Math.round(newBbox.width), height: Math.round(newBbox.height),
+        };
+        setBboxOverrides(prev => new Map(prev).set(interactingRoom.roomId, newBbox));
+        drawCanvas();
+        return;
+      }
+
+      // Cursor update when not dragging
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+      let cursor = 'default';
+      outer: for (const room of detectedRoomsData) {
+        const g = bboxOverrides.get(room.id) ?? room.boundingBox;
+        if (!g) continue;
+        const rsx = g.x * sX * zoom + pan.x;
+        const rsy = g.y * sY * zoom + pan.y;
+        const rsw = g.width * sX * zoom;
+        const rsh = g.height * sY * zoom;
+        const handles = getHandlePositions(rsx, rsy, rsw, rsh);
+        for (const h of handles) {
+          if (Math.hypot(canvasX - h.x, canvasY - h.y) <= BBOX_HANDLE_RADIUS + 3) {
+            cursor = HANDLE_CURSORS[h.id];
+            break outer;
+          }
+        }
+        if (canvasX >= rsx && canvasX <= rsx + rsw && canvasY >= rsy && canvasY <= rsy + rsh) {
+          cursor = 'move';
+          break;
+        }
+      }
+      canvas.style.cursor = cursor;
+    }
 
     // Boundary redraw rect: update live draft
     if (boundaryRedrawMode === 'rect' && boundaryRectDragStartRef.current) {
@@ -2637,6 +2824,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Review mode: auto-save correction on drag/resize release
+    if (reviewMode && interactingRoom) {
+      const correctedBbox = bboxOverrides.get(interactingRoom.roomId);
+      const room = detectedRoomsData.find(r => r.id === interactingRoom.roomId);
+      const originalBbox = originalBboxes.get(interactingRoom.roomId) ?? room?.boundingBox;
+      if (correctedBbox && originalBbox && (
+        correctedBbox.x !== originalBbox.x ||
+        correctedBbox.y !== originalBbox.y ||
+        correctedBbox.width  !== originalBbox.width ||
+        correctedBbox.height !== originalBbox.height
+      )) {
+        saveCorrectionMutation.mutate({
+          roomId:         interactingRoom.roomId,
+          pageId:         currentPageId!,
+          correctionType: 'boundary_redraw',
+          previousValue: {
+            label:       room?.roomLabel ?? '',
+            boundingBox: originalBbox,
+          },
+          correctedValue: {
+            boundingBox: correctedBbox,
+            delta: {
+              dx: correctedBbox.x      - originalBbox.x,
+              dy: correctedBbox.y      - originalBbox.y,
+              dw: correctedBbox.width  - originalBbox.width,
+              dh: correctedBbox.height - originalBbox.height,
+            },
+          },
+          planType: aiResults?.drawingType ?? 'floor_plan',
+        });
+      }
+      setInteractingRoom(null);
+      return;
+    }
 
     // Boundary redraw rect: finalize and save correction
     if (boundaryRedrawMode === 'rect' && selectedRoomForCorrection && boundaryRectDragStartRef.current) {
