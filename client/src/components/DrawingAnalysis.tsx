@@ -293,6 +293,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     Map<number, { x: number; y: number; width: number; height: number }>
   >(new Map());
 
+  // SPEC-POLYGON-VERTEX-EDITOR — polygon vertex edit state
+  const [polygonEditMode, setPolygonEditMode] = useState<{
+    roomId: number;
+    vertices: { x: number; y: number }[];
+    originalVertices: { x: number; y: number }[] | null;
+  } | null>(null);
+  const [draggingVertexIdx, setDraggingVertexIdx] = useState<number | null>(null);
+
   const ROOM_OVERLAY_COLORS = {
     occupancy: {
       A: { fill: 'rgba(83,74,183,0.25)', stroke: 'rgba(83,74,183,0.8)' },
@@ -719,6 +727,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setBboxOverrides(new Map());
     setOriginalBboxes(new Map());
     setInteractingRoom(null);
+    setPolygonEditMode(null);
+    setDraggingVertexIdx(null);
   }, [analysisId]);
 
   useEffect(() => {
@@ -996,6 +1006,86 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showProjectSelector]);
+
+  // ── Polygon vertex editor handlers ───────────────────────────────────────
+
+  const handleCanvasContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (polygonEditMode && polygonEditMode.vertices.length > 3) {
+      const canvas = canvasRef.current;
+      if (!canvas) { e.preventDefault(); return; }
+      const rect = canvas.getBoundingClientRect();
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const peScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const peScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+      const verts = polygonEditMode.vertices;
+      for (let i = 0; i < verts.length; i++) {
+        const sx = verts[i].x * peScaleX * zoom + pan.x;
+        const sy = verts[i].y * peScaleY * zoom + pan.y;
+        if (Math.hypot(canvasX - sx, canvasY - sy) <= 10) {
+          e.preventDefault();
+          setPolygonEditMode(prev => prev
+            ? { ...prev, vertices: verts.filter((_, idx) => idx !== i) }
+            : null);
+          return;
+        }
+      }
+    }
+    e.preventDefault();
+  };
+
+  const handlePolygonEditCancel = () => {
+    setPolygonEditMode(null);
+    setDraggingVertexIdx(null);
+  };
+
+  const handlePolygonEditDone = () => {
+    if (!polygonEditMode || !currentPageId) return;
+    const room = detectedRoomsData.find(r => r.id === polygonEditMode.roomId);
+    if (!room) return;
+
+    const xs = polygonEditMode.vertices.map(v => v.x);
+    const ys = polygonEditMode.vertices.map(v => v.y);
+    const bbox = {
+      x:      Math.min(...xs),
+      y:      Math.min(...ys),
+      width:  Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
+
+    saveCorrectionMutation.mutate({
+      roomId:         polygonEditMode.roomId,
+      pageId:         currentPageId,
+      correctionType: 'boundary_redraw',
+      previousValue: {
+        label:       room.roomLabel,
+        boundingBox: room.boundingBox,
+        polygon:     (room as any).polygonJson ?? null,
+      },
+      correctedValue: {
+        boundingBox: bbox,
+        polygon:     polygonEditMode.vertices,
+        vertexCount: polygonEditMode.vertices.length,
+        source:      'manual_polygon',
+      },
+      planType: aiResults?.drawingType ?? 'floor_plan',
+    });
+
+    setBboxOverrides(prev => new Map(prev).set(polygonEditMode.roomId, bbox));
+    setDetectedRoomsData(prev => prev.map(r =>
+      r.id === polygonEditMode.roomId
+        ? { ...r, boundingBox: bbox, polygonJson: polygonEditMode.vertices } as any
+        : r,
+    ));
+    setPolygonEditMode(null);
+    toast.success(`Polygon saved — ${polygonEditMode.vertices.length} vertices`);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Converts cropRegionConfirmed (stored in naturalWidth pixel space) to the
   // server's full-image pixel space (analyzedPageDims), which is what Sharp's
@@ -1408,6 +1498,66 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     // ===== END ROOM OVERLAY LAYER =====
 
+    // ===== POLYGON EDIT MODE LAYER =====
+    // Phase C integration point: ray-cast polygons from WallSegments render here too.
+    // extractRoomPolygonFromWalls() in polygonExtractionService.ts (Phase C) will store
+    // vertices in detectedRooms.polygonJson with polygonSource='ray_cast'; admins refine
+    // using this same editor without any new rendering path.
+    if (polygonEditMode) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const peScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const peScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+      const verts = polygonEditMode.vertices;
+
+      ctx.save();
+
+      // 1. Filled polygon
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x * peScaleX * zoom + pan.x, verts[0].y * peScaleY * zoom + pan.y);
+      for (let i = 1; i < verts.length; i++) {
+        ctx.lineTo(verts[i].x * peScaleX * zoom + pan.x, verts[i].y * peScaleY * zoom + pan.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle   = 'rgba(20, 184, 166, 0.25)';
+      ctx.strokeStyle = 'rgba(20, 184, 166, 0.9)';
+      ctx.lineWidth   = 2;
+      ctx.fill();
+      ctx.stroke();
+
+      // 2. Vertex handles
+      for (let i = 0; i < verts.length; i++) {
+        const sx = verts[i].x * peScaleX * zoom + pan.x;
+        const sy = verts[i].y * peScaleY * zoom + pan.y;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+        ctx.fillStyle   = 'white';
+        ctx.strokeStyle = 'rgba(20, 184, 166, 0.9)';
+        ctx.lineWidth   = 2;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 3. Midpoint handles (click-to-add-vertex targets)
+      for (let i = 0; i < verts.length; i++) {
+        const next = (i + 1) % verts.length;
+        const mx = ((verts[i].x + verts[next].x) / 2) * peScaleX * zoom + pan.x;
+        const my = ((verts[i].y + verts[next].y) / 2) * peScaleY * zoom + pan.y;
+        ctx.beginPath();
+        ctx.arc(mx, my, 4, 0, Math.PI * 2);
+        ctx.fillStyle   = 'rgba(20, 184, 166, 0.4)';
+        ctx.strokeStyle = 'rgba(20, 184, 166, 0.8)';
+        ctx.lineWidth   = 1.5;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+    // ===== END POLYGON EDIT MODE LAYER =====
+
     // ===== TRAVEL DISTANCE OVERLAY LAYER =====
     if (showTravelDistanceOverlay && travelDistanceResults.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
@@ -1744,7 +1894,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -2422,6 +2572,49 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
+    // Polygon vertex editor: drag vertex or add vertex via midpoint
+    if (polygonEditMode) {
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const peScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const peScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+      const verts = polygonEditMode.vertices;
+
+      // Check vertex handles (drag existing vertex)
+      for (let i = 0; i < verts.length; i++) {
+        const sx = verts[i].x * peScaleX * zoom + pan.x;
+        const sy = verts[i].y * peScaleY * zoom + pan.y;
+        if (Math.hypot(canvasX - sx, canvasY - sy) <= 10) {
+          setDraggingVertexIdx(i);
+          return;
+        }
+      }
+
+      // Check midpoint handles (add new vertex)
+      for (let i = 0; i < verts.length; i++) {
+        const next = (i + 1) % verts.length;
+        const mx = ((verts[i].x + verts[next].x) / 2) * peScaleX * zoom + pan.x;
+        const my = ((verts[i].y + verts[next].y) / 2) * peScaleY * zoom + pan.y;
+        if (Math.hypot(canvasX - mx, canvasY - my) <= 7) {
+          if (verts.length < 32) {
+            const imgX = (canvasX - pan.x) / (peScaleX * zoom);
+            const imgY = (canvasY - pan.y) / (peScaleY * zoom);
+            const newVerts = [...verts];
+            newVerts.splice(i + 1, 0, { x: Math.round(imgX), y: Math.round(imgY) });
+            setPolygonEditMode(prev => prev ? { ...prev, vertices: newVerts } : null);
+            setDraggingVertexIdx(i + 1);
+          }
+          return;
+        }
+      }
+
+      return; // block all other interactions in polygon edit mode
+    }
+
     // Review mode: drag/resize bounding boxes
     if (reviewMode && detectedRoomsData.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
@@ -2612,6 +2805,42 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Polygon vertex editor: live vertex drag + cursor
+    if (polygonEditMode) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const peScaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const peScaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      if (draggingVertexIdx !== null) {
+        const imgX = (e.clientX - rect.left - pan.x) / (peScaleX * zoom);
+        const imgY = (e.clientY - rect.top  - pan.y) / (peScaleY * zoom);
+        const newVerts = [...polygonEditMode.vertices];
+        newVerts[draggingVertexIdx] = { x: Math.round(imgX), y: Math.round(imgY) };
+        setPolygonEditMode(prev => prev ? { ...prev, vertices: newVerts } : null);
+        drawCanvas();
+        return;
+      }
+
+      // Cursor hover
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+      const verts = polygonEditMode.vertices;
+      for (let i = 0; i < verts.length; i++) {
+        const sx = verts[i].x * peScaleX * zoom + pan.x;
+        const sy = verts[i].y * peScaleY * zoom + pan.y;
+        if (Math.hypot(canvasX - sx, canvasY - sy) <= 10) { canvas.style.cursor = 'crosshair'; return; }
+        const next = (i + 1) % verts.length;
+        const mx = ((verts[i].x + verts[next].x) / 2) * peScaleX * zoom + pan.x;
+        const my = ((verts[i].y + verts[next].y) / 2) * peScaleY * zoom + pan.y;
+        if (Math.hypot(canvasX - mx, canvasY - my) <= 7) { canvas.style.cursor = 'cell'; return; }
+      }
+      canvas.style.cursor = 'default';
+      return;
+    }
 
     // Review mode: live bbox update during drag/resize
     if (reviewMode) {
@@ -2827,6 +3056,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Polygon vertex editor: release vertex drag
+    if (polygonEditMode && draggingVertexIdx !== null) {
+      setDraggingVertexIdx(null);
+      return;
+    }
 
     // Review mode: auto-save correction on drag/resize release
     if (reviewMode && interactingRoom) {
@@ -4516,6 +4751,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       <PenLine className="w-4 h-4 mr-1" />
                       {reviewMode ? "Reviewing…" : "Review"}
                     </Button>
+                    {polygonEditMode && (
+                      <div className="flex items-center gap-2 border-r border-border pr-2">
+                        <span className="text-xs text-muted-foreground">
+                          {polygonEditMode.vertices.length} vertices
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handlePolygonEditCancel}
+                          className="text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handlePolygonEditDone}
+                          className="bg-teal-600 hover:bg-teal-700 text-white text-xs"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                          Save Polygon
+                        </Button>
+                      </div>
+                    )}
                     {reviewMode && boundaryRedrawMode && (
                       <Button
                         variant="outline"
@@ -5229,7 +5487,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
                       onTouchEnd={handleCanvasTouchEnd}
-                      onContextMenu={(e) => e.preventDefault()}
+                      onContextMenu={handleCanvasContextMenu}
                     />
                   </div>
                   {/* Drag handle — resize canvas height */}
@@ -5517,6 +5775,34 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             </Button>
                           </div>
                         </div>
+
+                        {/* Edit Polygon */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs"
+                          onClick={() => {
+                            const existingPolygon = (correctionPopover.room as any).polygonJson;
+                            const bbox = correctionPopover.room.boundingBox;
+                            const vertices = existingPolygon && existingPolygon.length >= 3
+                              ? existingPolygon
+                              : [
+                                  { x: bbox.x,              y: bbox.y               },
+                                  { x: bbox.x + bbox.width, y: bbox.y               },
+                                  { x: bbox.x + bbox.width, y: bbox.y + bbox.height },
+                                  { x: bbox.x,              y: bbox.y + bbox.height },
+                                ];
+                            setPolygonEditMode({
+                              roomId:           correctionPopover.room.id,
+                              vertices,
+                              originalVertices: vertices,
+                            });
+                            setCorrectionPopover(null);
+                          }}
+                        >
+                          <Pentagon className="w-3 h-3 mr-1" />
+                          Edit Polygon
+                        </Button>
 
                         {/* Delete false positive */}
                         <Button
