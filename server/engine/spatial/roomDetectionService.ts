@@ -17,6 +17,7 @@ import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
 import { getTrainingExamples } from '../../services/correctionService';
+import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const CROP_LEFT_PCT = 0.20;
@@ -79,6 +80,7 @@ export async function detectRoomsFromPage(
   province: string = 'AB',
   cropRegion?: { x: number; y: number; width: number; height: number },
   orgId?: number | null,
+  drawingSetContext?: ExtractedSetContext | null,
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
@@ -184,10 +186,17 @@ export async function detectRoomsFromPage(
 
     const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext);
 
+    const setContextPrefix = drawingSetContext
+      ? buildContextBlock(drawingSetContext, pageNumber)
+      : '';
+    const effectiveSystemPrompt = setContextPrefix
+      ? `${setContextPrefix}\n${ROOM_DETECTION_SYSTEM_PROMPT}`
+      : ROOM_DETECTION_SYSTEM_PROMPT;
+
     const response = await callAnthropicVision({
       imageBase64: visionBase64,
       mimeType: 'image/jpeg',
-      systemPrompt: ROOM_DETECTION_SYSTEM_PROMPT,
+      systemPrompt: effectiveSystemPrompt,
       userPrompt,
       jsonSchema: {},
       maxTokens: 16000,

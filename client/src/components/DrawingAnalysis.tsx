@@ -75,7 +75,9 @@ import {
   Clock,
   ChevronRight,
   Crop,
-  PenLine
+  PenLine,
+  BookOpen,
+  RefreshCw
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -386,6 +388,29 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // State for AI analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [setContext, setSetContext] = useState<{
+    projectName?: string | null;
+    projectAddress?: string | null;
+    architectFirm?: string | null;
+    buildingOccupancy?: string | null;
+    numberOfStoreys?: number | null;
+    basementPresent?: boolean | null;
+    constructionType?: string | null;
+    sprinklered?: boolean | null;
+    codeEdition?: string | null;
+    municipality?: string | null;
+    province?: string | null;
+    pageInventory?: Array<{ pageNum: number; title: string; type: string }>;
+    floorHierarchy?: Array<{ floor: string; pageNum: number }>;
+    confirmedScale?: string | null;
+    typicalCeilingHeightM?: number | null;
+    abbreviations?: Record<string, string>;
+    exitLocations?: Array<{ description: string; pageNum: number; direction: string }>;
+    stairLocations?: Array<{ pageNum: number; location: string }>;
+    currentRevision?: string | null;
+    revisionDate?: string | null;
+  } | null>(null);
+  const [isReadingContext, setIsReadingContext] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<{
     stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
     pct: number;
@@ -564,6 +589,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // New PD2.0-compliant mutation
   // tRPC utils for query invalidation (Phase 2)
   const utils = trpc.useUtils();
+  const extractContextMutation = trpc.drawingSetContext.extractContext.useMutation();
 
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
     onSuccess: async (data) => {
@@ -1130,6 +1156,53 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
   };
 
+  const resizeBase64Image = async (base64: string, targetWidth: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, targetWidth / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(dataUrl.replace(/^data:[^;]+;base64,/, ''));
+      };
+      img.onerror = reject;
+      img.src = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+    });
+  };
+
+  const handleReadFullSet = async () => {
+    if (!pdfPages.length || !activeProjectId || !analysisId) return;
+    setIsReadingContext(true);
+    try {
+      const thumbnailPages = await Promise.all(
+        pdfPages.slice(0, 20).map(async (page, i) => ({
+          pageNum: i + 1,
+          base64: await resizeBase64Image(page, 400),
+        }))
+      );
+      const result = await extractContextMutation.mutateAsync({
+        projectId:         activeProjectId,
+        drawingAnalysisId: analysisId,
+        pages:             thumbnailPages,
+      });
+      setSetContext(result.context);
+      toast.success(
+        `Context extracted — ${result.context.projectName ?? 'project'}, ` +
+        `${Object.keys(result.context.abbreviations ?? {}).length} abbreviations loaded`
+      );
+    } catch {
+      toast.error('Context extraction failed');
+    } finally {
+      setIsReadingContext(false);
+    }
+  };
+
   const handleClearOverlay = () => {
     setDetectedRoomsData([]);
     setEvalData(null);
@@ -1240,6 +1313,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       disclaimerAcknowledged: true,
       disclaimerVersion,
       cropRegion: toServerCropRegion(cropRegionConfirmed),
+      drawingSetContext: setContext ?? undefined,
     });
   };
 
@@ -5917,6 +5991,61 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                 {/* Side panel */}
                 <div className="w-full lg:w-80 space-y-4">
+
+                  {/* Drawing Set Context — shown when PDF has multiple pages */}
+                  {pdfPages.length > 1 && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-blue-800">Drawing Set Context</p>
+                          {setContext ? (
+                            <p className="text-xs text-blue-600 mt-0.5 truncate">
+                              {setContext.projectName ?? 'Project'} · {setContext.buildingOccupancy ?? 'Unknown type'} · {setContext.confirmedScale ?? 'Scale unknown'}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-blue-500 mt-0.5">Read all pages to improve detection accuracy</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={setContext ? "outline" : "default"}
+                          onClick={handleReadFullSet}
+                          disabled={isReadingContext || !analysisId}
+                          className="text-xs shrink-0"
+                        >
+                          {isReadingContext ? (
+                            <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Reading…</>
+                          ) : setContext ? (
+                            <><RefreshCw className="w-3 h-3 mr-1" />Re-read</>
+                          ) : (
+                            <><BookOpen className="w-3 h-3 mr-1" />Read Full Set</>
+                          )}
+                        </Button>
+                      </div>
+                      {setContext && (
+                        <div className="mt-2 pt-2 border-t border-blue-200 grid grid-cols-2 gap-1 text-xs">
+                          {setContext.municipality && (
+                            <span className="text-blue-700">📍 {setContext.municipality}</span>
+                          )}
+                          {setContext.codeEdition && (
+                            <span className="text-blue-700">📋 {setContext.codeEdition}</span>
+                          )}
+                          {setContext.numberOfStoreys && (
+                            <span className="text-blue-700">🏠 {setContext.numberOfStoreys} storeys{setContext.basementPresent ? ' + bsmt' : ''}</span>
+                          )}
+                          {setContext.confirmedScale && (
+                            <span className="text-blue-700">📐 {setContext.confirmedScale}</span>
+                          )}
+                          {Object.keys(setContext.abbreviations ?? {}).length > 0 && (
+                            <span className="text-blue-700 col-span-2">
+                              🔤 {Object.keys(setContext.abbreviations!).length} abbreviations loaded
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Municipality/Zone selection */}
                   <Card>
                     <CardHeader className="py-3">

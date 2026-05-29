@@ -245,6 +245,29 @@ export const drawingAnalysisRouter = router({
         height: z.number().int().positive(),
       }).optional(),
       municipality: z.string().max(100).optional(),
+      drawingSetContext: z.object({
+        projectName:           z.string().nullable().optional(),
+        projectAddress:        z.string().nullable().optional(),
+        architectFirm:         z.string().nullable().optional(),
+        clientName:            z.string().nullable().optional(),
+        buildingOccupancy:     z.string().nullable().optional(),
+        numberOfStoreys:       z.number().nullable().optional(),
+        basementPresent:       z.boolean().nullable().optional(),
+        constructionType:      z.string().nullable().optional(),
+        sprinklered:           z.boolean().nullable().optional(),
+        codeEdition:           z.string().nullable().optional(),
+        municipality:          z.string().nullable().optional(),
+        province:              z.string().nullable().optional(),
+        pageInventory:         z.array(z.object({ pageNum: z.number(), title: z.string(), type: z.string() })).optional(),
+        floorHierarchy:        z.array(z.object({ floor: z.string(), pageNum: z.number() })).optional(),
+        confirmedScale:        z.string().nullable().optional(),
+        typicalCeilingHeightM: z.number().nullable().optional(),
+        abbreviations:         z.record(z.string(), z.string()).optional(),
+        exitLocations:         z.array(z.object({ description: z.string(), pageNum: z.number(), direction: z.string() })).optional(),
+        stairLocations:        z.array(z.object({ pageNum: z.number(), location: z.string() })).optional(),
+        currentRevision:       z.string().nullable().optional(),
+        revisionDate:          z.string().nullable().optional(),
+      }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       // PD2.0 §6.3: Enforce disclaimer at API layer
@@ -592,7 +615,7 @@ export const drawingAnalysisRouter = router({
             }).catch(err => console.error('[WallEngine] Queue error:', err));
 
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined, callerOrgId)
+              detectRoomsFromPage(page1b64, page1Record.id, input.projectId, 1, projectContext, 'AB', activeCrop ?? undefined, callerOrgId, input.drawingSetContext as any ?? null)
             );
           })
           .catch(err => console.error('[RoomDetection] PDF page 1 detection failed:', err));
@@ -614,7 +637,7 @@ export const drawingAnalysisRouter = router({
             const syntheticPageId = result[0].insertId;
             console.log('[RoomDetection] Queuing room detection for page', syntheticPageId, clientCropRegion ? '(with crop region)' : '');
             return queuePageAnalysis(() =>
-              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext, 'AB', clientCropRegion ?? undefined, callerOrgId)
+              detectRoomsFromPage(input.imageBase64, syntheticPageId, input.projectId, 1, projectContext, 'AB', clientCropRegion ?? undefined, callerOrgId, input.drawingSetContext as any ?? null)
             );
           })
           .catch(err => console.error('[RoomDetection] Image detection failed:', err));

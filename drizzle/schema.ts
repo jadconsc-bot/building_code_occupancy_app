@@ -1538,3 +1538,48 @@ export const calculationsPackages = mysqlTable("calculationsPackages", {
 
 export type CalculationsPackage = typeof calculationsPackages.$inferSelect;
 export type InsertCalculationsPackage = typeof calculationsPackages.$inferInsert;
+
+export const drawingSetContexts = mysqlTable("drawingSetContexts", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+
+  projectName: varchar("projectName", { length: 200 }),
+  projectAddress: varchar("projectAddress", { length: 300 }),
+  architectFirm: varchar("architectFirm", { length: 200 }),
+  clientName: varchar("clientName", { length: 200 }),
+
+  buildingOccupancy: varchar("buildingOccupancy", { length: 50 }),
+  numberOfStoreys: int("numberOfStoreys"),
+  constructionType: varchar("constructionType", { length: 100 }),
+  sprinklered: tinyint("sprinklered").default(0),
+  basementPresent: tinyint("basementPresent").default(0),
+
+  codeEdition: varchar("codeEdition", { length: 50 }),
+  municipality: varchar("municipality", { length: 100 }),
+  province: varchar("province", { length: 5 }),
+
+  totalPages: int("totalPages"),
+  pageInventoryJson: json("pageInventoryJson"),
+  floorHierarchyJson: json("floorHierarchyJson"),
+
+  confirmedScale: varchar("confirmedScale", { length: 50 }),
+  overallWidthM: decimal("overallWidthM", { precision: 8, scale: 2 }),
+  overallDepthM: decimal("overallDepthM", { precision: 8, scale: 2 }),
+  typicalCeilingHeightM: decimal("typicalCeilingHeightM", { precision: 6, scale: 2 }),
+
+  abbreviationsJson: json("abbreviationsJson"),
+  exitLocationsJson: json("exitLocationsJson"),
+  stairLocationsJson: json("stairLocationsJson"),
+
+  currentRevision: varchar("currentRevision", { length: 20 }),
+  revisionDate: date("revisionDate"),
+
+  rawContextJson: json("rawContextJson"),
+
+  extractedAt: timestamp("extractedAt").defaultNow().notNull(),
+  extractedBy: int("extractedBy"),
+});
+
+export type DrawingSetContext = typeof drawingSetContexts.$inferSelect;
+export type InsertDrawingSetContext = typeof drawingSetContexts.$inferInsert;
