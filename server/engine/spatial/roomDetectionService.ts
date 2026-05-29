@@ -256,8 +256,8 @@ export async function detectRoomsFromPage(
     console.log(`[RoomDetection] Rejected ${rejectedOob} out-of-bounds room(s)`);
   }
 
-  const MIN_W = Math.max(imgW * 0.015, 20);
-  const MIN_H = Math.max(imgH * 0.010, 20);
+  const MIN_W = Math.max(imgW * 0.008, 20);
+  const MIN_H = Math.max(imgH * 0.007, 20);
   const sizedRooms = inBoundsRooms.filter(r => {
     if (r.boundingBox.width <= 0 || r.boundingBox.height <= 0 || r.boundingBox.width < MIN_W || r.boundingBox.height < MIN_H) {
       console.log(`[RoomDetection] Rejected undersized room "${r.label}" (${r.boundingBox.width}×${r.boundingBox.height}px vs min ${Math.round(MIN_W)}×${Math.round(MIN_H)})`);
