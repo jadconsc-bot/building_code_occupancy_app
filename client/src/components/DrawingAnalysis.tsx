@@ -1188,7 +1188,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       const result = await extractContextMutation.mutateAsync({
         projectId:         activeProjectId,
-        drawingAnalysisId: analysisId,
+        drawingAnalysisId: analysisId ?? 0,
         pages:             thumbnailPages,
       });
       setSetContext(result.context);
@@ -6010,7 +6010,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           size="sm"
                           variant={setContext ? "outline" : "default"}
                           onClick={handleReadFullSet}
-                          disabled={isReadingContext || !analysisId}
+                          disabled={isReadingContext || pdfPages.length === 0}
                           className="text-xs shrink-0"
                         >
                           {isReadingContext ? (
