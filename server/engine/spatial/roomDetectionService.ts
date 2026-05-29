@@ -211,10 +211,12 @@ export async function detectRoomsFromPage(
         }
       }
       if (r.boundingBox) {
-        r.boundingBox.x = Math.max(0, Math.min(r.boundingBox.x, imgW - 1));
-        r.boundingBox.y = Math.max(0, Math.min(r.boundingBox.y, imgH - 1));
-        r.boundingBox.width = Math.min(r.boundingBox.width, imgW - r.boundingBox.x);
-        r.boundingBox.height = Math.min(r.boundingBox.height, imgH - r.boundingBox.y);
+        const clampMaxX = cropRegion ? cropRegion.x + cropRegion.width : imgW;
+        const clampMaxY = cropRegion ? cropRegion.y + cropRegion.height : imgH;
+        r.boundingBox.x = Math.max(cropRegion?.x ?? 0, Math.min(r.boundingBox.x, clampMaxX - 1));
+        r.boundingBox.y = Math.max(cropRegion?.y ?? 0, Math.min(r.boundingBox.y, clampMaxY - 1));
+        r.boundingBox.width = Math.min(r.boundingBox.width, clampMaxX - r.boundingBox.x);
+        r.boundingBox.height = Math.min(r.boundingBox.height, clampMaxY - r.boundingBox.y);
       }
       rawRooms.push(r);
     }

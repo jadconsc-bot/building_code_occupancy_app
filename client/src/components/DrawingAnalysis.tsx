@@ -956,6 +956,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showProjectSelector]);
 
+  // Converts cropRegionConfirmed (stored in naturalWidth pixel space) to the
+  // server's full-image pixel space (analyzedPageDims), which is what Sharp's
+  // .extract() and the bounding-box restoration expect.
+  const toServerCropRegion = (crop: { x: number; y: number; width: number; height: number } | null | undefined) => {
+    if (!crop) return undefined;
+    const naturalW = imageRef.current?.naturalWidth ?? 0;
+    const naturalH = imageRef.current?.naturalHeight ?? 0;
+    const sX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+      ? naturalW / analyzedPageDims.width : 1;
+    const sY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+      ? naturalH / analyzedPageDims.height : 1;
+    return {
+      x: Math.round(crop.x / sX),
+      y: Math.round(crop.y / sY),
+      width: Math.round(crop.width / sX),
+      height: Math.round(crop.height / sY),
+    };
+  };
+
   // Core analysis logic — call this only after all guards have passed.
   // effectiveProjectId: uses selectedProjectId if set, otherwise falls back to first
   // available project so the server's positive-int constraint is always satisfied.
@@ -989,7 +1008,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             drawingType: drawingType as any,
             disclaimerAcknowledged: true,
             disclaimerVersion,
-            cropRegion: cropRegionConfirmed ?? undefined,
+            cropRegion: toServerCropRegion(cropRegionConfirmed),
           });
           allNotes.push(`--- Page ${pageNum} ---`);
           const mappedRecs = (data.recommendations as Array<{priority: string; clause: string; description: string}>)
@@ -1042,7 +1061,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       drawingType: drawingType as any,
       disclaimerAcknowledged: true,
       disclaimerVersion,
-      cropRegion: cropRegionConfirmed ?? undefined,
+      cropRegion: toServerCropRegion(cropRegionConfirmed),
     });
   };
 
