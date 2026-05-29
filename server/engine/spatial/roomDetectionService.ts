@@ -222,12 +222,11 @@ export async function detectRoomsFromPage(
       if (r.boundingBox) {
         const clampMaxX = cropRegion ? cropRegion.x + cropRegion.width : imgW;
         const clampMaxY = cropRegion ? cropRegion.y + cropRegion.height : imgH;
-        // Pull x/y up if too close to the boundary so width/height never collapse to 1px
-        const maxX = clampMaxX - 20;
-        const maxY = clampMaxY - 20;
-        r.boundingBox.x = Math.max(cropRegion?.x ?? 0, Math.min(r.boundingBox.x, maxX));
-        r.boundingBox.y = Math.max(cropRegion?.y ?? 0, Math.min(r.boundingBox.y, maxY));
-        r.boundingBox.width  = Math.max(20, Math.min(r.boundingBox.width,  clampMaxX - r.boundingBox.x));
+        const minX = cropRegion?.x ?? 0;
+        const minY = cropRegion?.y ?? 0;
+        r.boundingBox.x = Math.max(minX, Math.min(r.boundingBox.x, clampMaxX - 31));
+        r.boundingBox.y = Math.max(minY, Math.min(r.boundingBox.y, clampMaxY - 20));
+        r.boundingBox.width  = Math.max(31, Math.min(r.boundingBox.width,  clampMaxX - r.boundingBox.x));
         r.boundingBox.height = Math.max(20, Math.min(r.boundingBox.height, clampMaxY - r.boundingBox.y));
       }
       rawRooms.push(r);
