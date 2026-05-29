@@ -385,6 +385,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   
   // State for AI analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<{
+    stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
+    pct: number;
+    label: string;
+  }>({ stage: 'idle', pct: 0, label: '' });
   const [aiResults, setAiResults] = useState<{
     drawingType: string;
     scale: string | null;
@@ -583,6 +589,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setShowAiResults(true);
       if (!isMultiPageAnalysisRef.current) {
         setIsAnalyzing(false);
+        setAnalysisProgress({ stage: 'ocr', pct: 25, label: 'OCR complete, detecting rooms…' });
       }
 
 
@@ -622,6 +629,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       toast.error("Analysis failed: " + error.message);
       if (!isMultiPageAnalysisRef.current) {
         setIsAnalyzing(false);
+        setAnalysisProgress({ stage: 'idle', pct: 0, label: '' });
       }
     },
   });
@@ -737,6 +745,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(roomsData.rooms);
+      const hasPolygonsNow = roomsData.rooms.some((r: any) => r.polygonJson != null);
+      setAnalysisProgress(prev => {
+        if (prev.stage === 'idle') return prev;
+        if (hasPolygonsNow) return { stage: 'evaluating', pct: 75, label: 'Evaluating compliance…' };
+        return { stage: 'polygons', pct: 50, label: 'Rooms detected, tracing polygons…' };
+      });
+    } else if (roomsData !== undefined) {
+      setAnalysisProgress(prev =>
+        prev.stage === 'idle' ? prev : { stage: 'detecting', pct: 35, label: 'Detecting rooms…' }
+      );
     }
     if (roomsData?.pages && roomsData.pages.length > 0) {
       const p = roomsData.pages[0];
@@ -761,6 +779,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             ? JSON.parse(p.evalMissedRoomsJson as string)
             : [],
         });
+        setAnalysisProgress(prev =>
+          prev.stage === 'idle' ? prev : { stage: 'complete', pct: 100, label: 'Analysis complete' }
+        );
+        setTimeout(() => {
+          setAnalysisProgress(prev => prev.stage === 'complete' ? { stage: 'idle', pct: 0, label: '' } : prev);
+        }, 2000);
       }
     }
   }, [roomsData]);
@@ -1106,6 +1130,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
   };
 
+  const handleClearOverlay = () => {
+    setDetectedRoomsData([]);
+    setEvalData(null);
+    setRoomComplianceData([]);
+    setBboxOverrides(new Map());
+    setOriginalBboxes(new Map());
+    setInteractingRoom(null);
+    setPolygonEditMode(null);
+    setDraggingVertexIdx(null);
+    setAiResults(null);
+    setShowAiResults(false);
+    setRoomPollCount(0);
+  };
+
+  const handleStopAnalysis = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsAnalyzing(false);
+    setAnalysisProgress({ stage: 'idle', pct: 0, label: '' });
+    handleClearOverlay();
+  };
+
   // Core analysis logic — call this only after all guards have passed.
   // effectiveProjectId: uses selectedProjectId if set, otherwise falls back to first
   // available project so the server's positive-int constraint is always satisfied.
@@ -1116,6 +1162,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       : (projectListQuery.data?.[0]?.id ?? 1);
 
     setIsAnalyzing(true);
+    setAnalysisProgress({ stage: 'uploading', pct: 10, label: 'Uploading drawing…' });
 
     // Multi-page PDF path
     if (pdfPages.length > 0 && selectedPages.length > 0) {
@@ -4787,6 +4834,35 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </div>
                 )}
 
+                {detectedRoomsData.length > 0 && (
+                  <div className="flex items-center gap-1 border-r border-border pr-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearOverlay}
+                      title="Clear detected rooms overlay"
+                    >
+                      <Eraser className="w-4 h-4 mr-1" />
+                      Clear Overlay
+                    </Button>
+                  </div>
+                )}
+
+                {isAnalyzing && (
+                  <div className="flex items-center gap-1 border-r border-border pr-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStopAnalysis}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      title="Stop analysis"
+                    >
+                      <Square className="w-4 h-4 mr-1" />
+                      Stop
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="default"
@@ -5473,9 +5549,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
                     ref={containerRef}
-                    className="w-full border border-border rounded-t-lg overflow-hidden bg-gray-100 dark:bg-gray-900"
+                    className="w-full border border-border rounded-t-lg overflow-hidden bg-gray-100 dark:bg-gray-900 relative"
                     style={{ height: canvasHeight }}
                   >
+                    {analysisProgress.stage !== 'idle' && (
+                      <div className="absolute top-0 left-0 right-0 z-20 h-1 bg-gray-200">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-500"
+                          style={{ width: `${analysisProgress.pct}%` }}
+                        />
+                      </div>
+                    )}
                     <canvas
                       ref={canvasRef}
                       className={`w-full h-full cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
