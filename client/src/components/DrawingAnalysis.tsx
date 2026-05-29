@@ -1298,7 +1298,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const isSevere = useHeatmap && heatmapEntry &&
           (heatmapEntry.level === 'critical' || heatmapEntry.level === 'major');
 
-        const polygon: { x: number; y: number }[] | null = (room as any).polygonJson;
+        const polygon: { x: number; y: number }[] | null =
+          (reviewMode && bboxOverrides.has(room.id))
+            ? null
+            : (room as any).polygonJson;
         if (polygon && polygon.length >= 4) {
           ctx.beginPath();
           ctx.moveTo(polygon[0].x * scaleX * zoom + pan.x, polygon[0].y * scaleY * zoom + pan.y);
