@@ -3189,12 +3189,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const correctedBbox = bboxOverrides.get(interactingRoom.roomId);
       const room = detectedRoomsData.find(r => r.id === interactingRoom.roomId);
       const originalBbox = originalBboxes.get(interactingRoom.roomId) ?? room?.boundingBox;
-      if (correctedBbox && originalBbox && (
+
+      const didMove = correctedBbox && originalBbox && (
         correctedBbox.x !== originalBbox.x ||
         correctedBbox.y !== originalBbox.y ||
         correctedBbox.width  !== originalBbox.width ||
         correctedBbox.height !== originalBbox.height
-      )) {
+      );
+
+      if (!didMove && room) {
+        // Short click with no movement — open correction popover
+        setCorrectionPopover({ x: e.clientX, y: e.clientY, room });
+        setInteractingRoom(null);
+        return;
+      }
+
+      if (didMove && correctedBbox && originalBbox) {
         saveCorrectionMutation.mutate({
           roomId:         interactingRoom.roomId,
           pageId:         currentPageId!,
