@@ -1091,6 +1091,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const handlePolygonEditCancel = () => {
     setPolygonEditMode(null);
     setDraggingVertexIdx(null);
+    if (canvasRef.current) canvasRef.current.style.cursor = 'default';
   };
 
   const handlePolygonEditDone = () => {
@@ -1132,6 +1133,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         : r,
     ));
     setPolygonEditMode(null);
+    setDraggingVertexIdx(null);
+    if (canvasRef.current) canvasRef.current.style.cursor = 'default';
     toast.success(`Polygon saved — ${polygonEditMode.vertices.length} vertices`);
   };
 
@@ -4874,6 +4877,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           setSelectedRoomForCorrection(null);
                           setBoundaryRedrawMode(null);
                           setPolygonPoints([]);
+                          setPolygonEditMode(null);
+                          setDraggingVertexIdx(null);
                         }
                       }}
                       title={reviewMode ? "Exit Review Mode" : "Enter Review Mode — click rooms to correct labels, occupancy, or boundaries"}
