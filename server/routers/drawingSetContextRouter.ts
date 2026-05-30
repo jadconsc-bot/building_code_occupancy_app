@@ -9,7 +9,7 @@ export const drawingSetContextRouter = router({
   extractContext: protectedProcedure
     .input(z.object({
       projectId:         z.number().int().positive(),
-      drawingAnalysisId: z.number().int().positive(),
+      drawingAnalysisId: z.number().int().min(0),
       pages: z.array(z.object({
         pageNum: z.number().int().positive(),
         base64:  z.string().min(1),

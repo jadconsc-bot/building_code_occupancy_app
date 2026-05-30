@@ -1550,7 +1550,7 @@ export type InsertCalculationsPackage = typeof calculationsPackages.$inferInsert
 export const drawingSetContexts = mysqlTable("drawingSetContexts", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
-  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  drawingAnalysisId: int("drawingAnalysisId").default(0).notNull(),
 
   projectName: varchar("projectName", { length: 200 }),
   projectAddress: varchar("projectAddress", { length: 300 }),
