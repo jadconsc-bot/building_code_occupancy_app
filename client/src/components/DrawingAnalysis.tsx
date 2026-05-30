@@ -102,6 +102,114 @@ import {
 // Worker must be assigned after all imports (ES module parse order requirement)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
+// ─── Phase C: DDA Ray Casting ─────────────────────────────────────────────
+
+const PHASE_C_NUM_RAYS = 360;
+const PHASE_C_IGNORE_RADIUS = 25;
+const PHASE_C_EPSILON = 2.0;
+
+interface RayCastResult {
+  vertices: { x: number; y: number }[];
+  rawHits: number;
+  source: 'ray_cast';
+}
+
+function ddaRayCast(
+  imageData: ImageData,
+  seedX: number,
+  seedY: number,
+  numRays: number = PHASE_C_NUM_RAYS,
+  ignoreRadius: number = PHASE_C_IGNORE_RADIUS,
+  threshold: number = 128,
+): RayCastResult {
+  const { data, width, height } = imageData;
+  const maxDist = Math.sqrt(width * width + height * height) + 10;
+
+  const isWall = (x: number, y: number): boolean => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return true;
+    const dx = x - seedX, dy = y - seedY;
+    if (dx * dx + dy * dy < ignoreRadius * ignoreRadius) return false;
+    const i = (y * width + x) * 4;
+    const brightness = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    return brightness < threshold;
+  };
+
+  const hits: { x: number; y: number }[] = [];
+
+  for (let r = 0; r < numRays; r++) {
+    const theta = (r / numRays) * Math.PI * 2;
+    const dx = Math.cos(theta);
+    const dy = Math.sin(theta);
+
+    let cx = Math.floor(seedX);
+    let cy = Math.floor(seedY);
+    const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+    const stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+
+    let tMaxX = dx !== 0
+      ? Math.abs(((stepX > 0 ? cx + 1 : cx) - seedX) / dx)
+      : Infinity;
+    let tMaxY = dy !== 0
+      ? Math.abs(((stepY > 0 ? cy + 1 : cy) - seedY) / dy)
+      : Infinity;
+    const tDeltaX = dx !== 0 ? Math.abs(1 / dx) : Infinity;
+    const tDeltaY = dy !== 0 ? Math.abs(1 / dy) : Infinity;
+
+    let t = 0;
+    let hitX = cx, hitY = cy;
+
+    while (t < maxDist) {
+      if (isWall(cx, cy)) { hitX = cx; hitY = cy; break; }
+      if (tMaxX < tMaxY) {
+        t = tMaxX; tMaxX += tDeltaX; cx += stepX;
+      } else {
+        t = tMaxY; tMaxY += tDeltaY; cy += stepY;
+      }
+      if (t >= maxDist) {
+        hitX = Math.round(seedX + dx * maxDist);
+        hitY = Math.round(seedY + dy * maxDist);
+        break;
+      }
+    }
+    hits.push({ x: hitX, y: hitY });
+  }
+
+  const simplified = dpSimplify(hits, PHASE_C_EPSILON);
+  return { vertices: simplified, rawHits: hits.length, source: 'ray_cast' };
+}
+
+function dpSimplify(
+  pts: { x: number; y: number }[],
+  epsilon: number,
+): { x: number; y: number }[] {
+  if (pts.length <= 2) return pts;
+  let dmax = 0, idx = 0;
+  const end = pts.length - 1;
+  for (let i = 1; i < end; i++) {
+    const d = dpPerpDist(pts[i], pts[0], pts[end]);
+    if (d > dmax) { dmax = d; idx = i; }
+  }
+  if (dmax > epsilon) {
+    const left = dpSimplify(pts.slice(0, idx + 1), epsilon);
+    const right = dpSimplify(pts.slice(idx), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+  return [pts[0], pts[end]];
+}
+
+function dpPerpDist(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  return Math.abs(dy * p.x - dx * p.y + b.x * a.y - b.y * a.x) / len;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface TravelDistanceResult {
   roomId: number;
   roomLabel: string;
@@ -6056,22 +6164,64 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </div>
                         </div>
 
-                        {/* Edit Polygon */}
+                        {/* Edit Polygon — Phase C DDA ray cast */}
                         <Button
                           size="sm"
                           variant="outline"
                           className="w-full h-7 text-xs"
                           onClick={() => {
-                            const existingPolygon = (correctionPopover.room as any).polygonJson;
-                            const bbox = correctionPopover.room.boundingBox;
-                            const vertices = existingPolygon && existingPolygon.length >= 3
-                              ? existingPolygon
-                              : [
-                                  { x: bbox.x,              y: bbox.y               },
-                                  { x: bbox.x + bbox.width, y: bbox.y               },
-                                  { x: bbox.x + bbox.width, y: bbox.y + bbox.height },
-                                  { x: bbox.x,              y: bbox.y + bbox.height },
-                                ];
+                            const bbox = bboxOverrides.get(correctionPopover.room.id) ?? correctionPopover.room.boundingBox;
+                            const canvas = canvasRef.current;
+                            let vertices: { x: number; y: number }[];
+
+                            const rectFallback = [
+                              { x: bbox.x,              y: bbox.y               },
+                              { x: bbox.x + bbox.width, y: bbox.y               },
+                              { x: bbox.x + bbox.width, y: bbox.y + bbox.height },
+                              { x: bbox.x,              y: bbox.y + bbox.height },
+                            ];
+
+                            if (canvas) {
+                              const naturalW = imageRef.current?.naturalWidth ?? 0;
+                              const naturalH = imageRef.current?.naturalHeight ?? 0;
+                              const sX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+                                ? naturalW / analyzedPageDims.width : 1;
+                              const sY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+                                ? naturalH / analyzedPageDims.height : 1;
+
+                              const seedCanvasX = (bbox.x + bbox.width / 2) * sX * zoom + pan.x;
+                              const seedCanvasY = (bbox.y + bbox.height / 2) * sY * zoom + pan.y;
+
+                              const ctx2d = canvas.getContext('2d');
+                              if (ctx2d) {
+                                const imageData = ctx2d.getImageData(0, 0, canvas.width, canvas.height);
+                                const result = ddaRayCast(
+                                  imageData,
+                                  Math.round(seedCanvasX),
+                                  Math.round(seedCanvasY),
+                                );
+
+                                console.log(
+                                  `[PolygonExtraction] DDA ray cast: ${result.rawHits} rays → ` +
+                                  `${result.vertices.length} vertices (source: ray_cast)`
+                                );
+
+                                if (result.vertices.length >= 4) {
+                                  vertices = result.vertices.map(v => ({
+                                    x: Math.round((v.x - pan.x) / (sX * zoom)),
+                                    y: Math.round((v.y - pan.y) / (sY * zoom)),
+                                  }));
+                                } else {
+                                  console.log('[PolygonExtraction] Ray cast degenerate — falling back to rect');
+                                  vertices = rectFallback;
+                                }
+                              } else {
+                                vertices = rectFallback;
+                              }
+                            } else {
+                              vertices = rectFallback;
+                            }
+
                             setPolygonEditMode({
                               roomId:           correctionPopover.room.id,
                               vertices,
@@ -6083,6 +6233,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           <Pentagon className="w-3 h-3 mr-1" />
                           Edit Polygon
                         </Button>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Tip: draw lines across door openings first to close gaps
+                        </p>
 
                         {/* Delete false positive */}
                         <Button
