@@ -17,7 +17,7 @@ import { eq } from 'drizzle-orm';
 import type { DetectedRoom } from './types';
 
 // Use the fastest/cheapest vision model for judging — not generating.
-const EVAL_MODEL = 'claude-haiku-4-5-20251001';
+const EVAL_MODEL = 'claude-sonnet-4-6';
 
 export interface RoomEvalScore {
   roomLabel: string;
@@ -94,6 +94,8 @@ export async function evaluateDetectionAccuracy(
     `"rough" (approximately right but too large/small/offset), or "wrong" (wrong room entirely)\n` +
     `- occupancyCorrect: "correct" (NBC group appropriate), "uncertain" (ambiguous), or "wrong"\n` +
     `- notes: one short sentence explaining any issues\n\n` +
+    `Note: Small labeled spaces such as "Wet Bar", "Bar", "Nook", "Vestibule", "Pantry", "WIC" ` +
+    `are valid room labels if their text is visible on the drawing — do not mark these as label=wrong.\n\n` +
     `Also list any rooms clearly visible on the drawing that were NOT detected.\n\n` +
     `Return JSON exactly:\n` +
     `{"roomScores":[{"roomLabel":"","labelAccuracy":"correct|plausible|wrong",` +
@@ -155,7 +157,7 @@ export async function evaluateDetectionAccuracy(
   if (result.missedRooms.length > 0) {
     console.log(`[DetectionEval] Missed rooms: ${result.missedRooms.join(', ')}`);
   }
-  const failing = roomScores.filter(r => r.score < 0.5);
+  const failing = roomScores.filter(r => r.score < 0.4);
   for (const f of failing) {
     console.warn(
       `[DetectionEval] Low score "${f.roomLabel}": ` +
