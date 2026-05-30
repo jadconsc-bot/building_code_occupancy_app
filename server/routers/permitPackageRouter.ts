@@ -282,9 +282,24 @@ export const permitPackageRouter = router({
       doc.text("Project Information", M + 5, y); y += 7;
       doc.setFont("helvetica", "normal"); doc.setFontSize(9);
 
+      const zoneLabel = project.zoneCode
+        ? project.zoneName
+          ? `${project.zoneCode} — ${project.zoneName}`
+          : project.zoneCode
+        : "—";
+      const zoneSource = project.zoneCode && project.zoneConfirmedAt
+        ? ` (confirmed ${new Date(project.zoneConfirmedAt).toISOString().slice(0, 10)} from ${
+            project.zoneLookupSource === 'geocoded_calgary'
+              ? 'City of Calgary Land Use Viewer'
+              : project.zoneLookupSource === 'geocoded_edmonton'
+              ? 'City of Edmonton Open Data'
+              : 'city data'
+          })`
+        : "";
       const projectLines: [string, string][] = [
         ["Project Name",    project.name],
         ["Address",         project.address ?? "—"],
+        ["Zone",            zoneLabel + zoneSource],
         ["Province",        strategy?.province ?? project.province ?? "—"],
         ["Code Edition",    strategy?.codeEdition ?? project.codeEdition ?? "—"],
         ["Construction Type", strategy?.constructionType ?? "—"],

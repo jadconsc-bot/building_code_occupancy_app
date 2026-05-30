@@ -107,6 +107,14 @@ export const projects = mysqlTable("projects", {
   zoningCategory: varchar("zoningCategory", { length: 50 }), // e.g. "RM-4", "C-1"
   storeys: int("storeys"), // number of storeys above grade
   buildingHeight: decimal("buildingHeight", { precision: 6, scale: 2 }), // metres above grade
+  municipality:     varchar("municipality", { length: 100 }),
+  zoneCode:         varchar("zoneCode", { length: 50 }),
+  zoneName:         varchar("zoneName", { length: 200 }),
+  zoneLookupSource: mysqlEnum("zoneLookupSource", ["manual", "geocoded_calgary", "geocoded_edmonton", "geocoded_other"]).default("manual"),
+  parcelLat:        decimal("parcelLat", { precision: 10, scale: 7 }),
+  parcelLng:        decimal("parcelLng", { precision: 10, scale: 7 }),
+  communityName:    varchar("communityName", { length: 100 }),
+  zoneConfirmedAt:  timestamp("zoneConfirmedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

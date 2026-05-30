@@ -77,7 +77,8 @@ import {
   Crop,
   PenLine,
   BookOpen,
-  RefreshCw
+  RefreshCw,
+  MapPin
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -411,6 +412,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     revisionDate?: string | null;
   } | null>(null);
   const [isReadingContext, setIsReadingContext] = useState(false);
+
+  // Zone auto-lookup state
+  const [addressInput, setAddressInput] = useState('');
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [zoneResult, setZoneResult] = useState<{
+    zoneCode: string; zoneName: string; communityName: string | null;
+    confirmedAddress: string | null; lat: number; lng: number;
+    source: 'calgary_arcgis' | 'edmonton_open_data' | 'not_found';
+  } | null>(null);
+  const [zoneConfirmed, setZoneConfirmed] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
   const [analysisProgress, setAnalysisProgress] = useState<{
     stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
     pct: number;
@@ -590,6 +603,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // tRPC utils for query invalidation (Phase 2)
   const utils = trpc.useUtils();
   const extractContextMutation = trpc.drawingSetContext.extractContext.useMutation();
+  const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
+  const saveZoneMutation = trpc.zoneLookup.saveToProject.useMutation();
 
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
     onSuccess: async (data) => {
@@ -1207,10 +1222,88 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         `Context extracted — ${result.context.projectName ?? 'project'}, ` +
         `${Object.keys(result.context.abbreviations ?? {}).length} abbreviations loaded`
       );
+      if (result.context.projectAddress && !addressInput) {
+        const extractedAddress = result.context.projectAddress;
+        const extractedMun = result.context.municipality ?? '';
+        setAddressInput(extractedAddress);
+        if (extractedMun) {
+          const munLower = extractedMun.toLowerCase();
+          if (munLower.includes('calgary')) setSelectedMunicipalityId('calgary');
+          else if (munLower.includes('edmonton')) setSelectedMunicipalityId('edmonton');
+          // Trigger lookup directly with the known values (avoids stale-closure on selectedMunicipalityId)
+          setTimeout(async () => {
+            setIsLookingUp(true);
+            setLookupError(null);
+            setZoneResult(null);
+            try {
+              const lookupResult = await zoneLookupMutation.mutateAsync({
+                address: extractedAddress.trim(),
+                municipality: munLower.includes('calgary') ? 'calgary' : 'edmonton',
+                province: 'AB',
+              });
+              if ('error' in lookupResult) {
+                setLookupError((lookupResult as any).error);
+              } else {
+                setZoneResult(lookupResult as any);
+              }
+            } catch {
+              setLookupError('Auto-lookup failed — select zone manually');
+            } finally {
+              setIsLookingUp(false);
+            }
+          }, 300);
+        }
+      }
     } catch {
       toast.error('Context extraction failed');
     } finally {
       setIsReadingContext(false);
+    }
+  };
+
+  const handleAddressLookup = async () => {
+    if (!addressInput.trim() || !selectedMunicipalityId) return;
+    setIsLookingUp(true);
+    setLookupError(null);
+    setZoneResult(null);
+    try {
+      const result = await zoneLookupMutation.mutateAsync({
+        address:      addressInput.trim(),
+        municipality: selectedMunicipalityId,
+        province:     'AB',
+      });
+      if ('error' in result) {
+        setLookupError((result as any).error);
+      } else {
+        setZoneResult(result as any);
+      }
+    } catch {
+      setLookupError('Lookup failed — check address and try again');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleApplyZone = async () => {
+    if (!zoneResult || !activeProjectId) return;
+    setSelectedZone(zoneResult.zoneCode);
+    setZoneConfirmed(true);
+    try {
+      await saveZoneMutation.mutateAsync({
+        projectId:     activeProjectId,
+        address:       addressInput,
+        municipality:  selectedMunicipalityId,
+        province:      'AB',
+        zoneCode:      zoneResult.zoneCode,
+        zoneName:      zoneResult.zoneName,
+        communityName: zoneResult.communityName,
+        lat:           zoneResult.lat,
+        lng:           zoneResult.lng,
+        source:        zoneResult.source,
+      });
+      toast.success(`Zone ${zoneResult.zoneCode} confirmed from city data`);
+    } catch {
+      toast.error('Failed to save zone to project');
     }
   };
 
@@ -6075,11 +6168,68 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       <CardTitle className="text-sm">Compliance Settings</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {/* Address → Zone auto-lookup */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Project Address</Label>
+                        <div className="flex gap-1.5">
+                          <Input
+                            value={addressInput}
+                            onChange={e => setAddressInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddressLookup()}
+                            placeholder="109 Silverhorn Terrace SW"
+                            className="text-sm h-8 flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleAddressLookup}
+                            disabled={isLookingUp || !addressInput.trim()}
+                            className="h-8 px-2 shrink-0"
+                            title="Look up zone for this address"
+                          >
+                            {isLookingUp
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <MapPin className="w-3.5 h-3.5" />
+                            }
+                          </Button>
+                        </div>
+                        {zoneResult && (
+                          <div className="rounded-md bg-green-50 border border-green-200 p-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-semibold text-green-800">{zoneResult.zoneCode}</p>
+                                <p className="text-xs text-green-700 mt-0.5">{zoneResult.zoneName}</p>
+                                {zoneResult.communityName && (
+                                  <p className="text-xs text-green-600 mt-0.5">{zoneResult.communityName}</p>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleApplyZone}
+                                className="text-xs h-6 border-green-400 text-green-700 hover:bg-green-100 shrink-0"
+                              >
+                                Apply
+                              </Button>
+                            </div>
+                            <p className="text-xs text-green-500 mt-1">
+                              Source: {zoneResult.source === 'calgary_arcgis'
+                                ? 'City of Calgary Land Use Viewer'
+                                : 'City of Edmonton Open Data'}
+                            </p>
+                          </div>
+                        )}
+                        {lookupError && (
+                          <p className="text-xs text-amber-600">⚠ {lookupError} — select zone manually below</p>
+                        )}
+                      </div>
+
                       <div>
                         <Label className="text-xs">Municipality</Label>
                         <Select value={selectedMunicipalityId} onValueChange={(v) => {
                           setSelectedMunicipalityId(v);
                           setSelectedZone("");
+                          setZoneConfirmed(false);
                         }}>
                           <SelectTrigger>
                             <SelectValue />
@@ -6094,8 +6244,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-xs">Zone</Label>
-                        <Select value={selectedZone} onValueChange={setSelectedZone}>
+                        <Label className="text-xs">
+                          Zone
+                          {zoneConfirmed && (
+                            <span className="ml-1.5 text-green-600 font-normal text-[10px]">✓ confirmed from city data</span>
+                          )}
+                        </Label>
+                        <Select value={selectedZone} onValueChange={v => { setSelectedZone(v); setZoneConfirmed(false); }}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select zone" />
                           </SelectTrigger>

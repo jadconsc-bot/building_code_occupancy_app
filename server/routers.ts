@@ -33,6 +33,7 @@ import { calculationsPackageRouter } from "./routers/calculationsPackageRouter";
 import { permitPackageRouter } from "./routers/permitPackageRouter";
 import { wallEngineRouter } from "./routers/wallEngineRouter";
 import { drawingSetContextRouter } from "./routers/drawingSetContextRouter";
+import { zoneLookupRouter } from "./routers/zoneLookupRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 
 export const appRouter = router({
@@ -67,6 +68,7 @@ export const appRouter = router({
   permitPackage: permitPackageRouter,
   wallEngine: wallEngineRouter,
   drawingSetContext: drawingSetContextRouter,
+  zoneLookup: zoneLookupRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {
