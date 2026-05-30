@@ -900,6 +900,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         if (hasPolygonsNow) return { stage: 'evaluating', pct: 75, label: 'Evaluating compliance…' };
         return { stage: 'polygons', pct: 50, label: 'Rooms detected, tracing polygons…' };
       });
+      // Eval runs fire-and-forget async — polling stops once polygons arrive so
+      // evalAccuracy may never be fetched. Force complete after 12s grace period.
+      if (hasPolygonsNow) {
+        setTimeout(() => {
+          setAnalysisProgress(prev => {
+            if (prev.stage !== 'evaluating') return prev;
+            setIsAnalyzing(false);
+            setTimeout(() => setAnalysisProgress(p => p.stage === 'complete' ? { stage: 'idle', pct: 0, label: '' } : p), 2000);
+            return { stage: 'complete', pct: 100, label: 'Analysis complete' };
+          });
+        }, 12000);
+      }
     } else if (roomsData !== undefined) {
       setAnalysisProgress(prev =>
         prev.stage === 'idle' ? prev : { stage: 'detecting', pct: 35, label: 'Detecting rooms…' }
@@ -5080,7 +5092,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </div>
                 )}
 
-                {drawingImage && (user?.role === 'admin' || user?.role === 'rule_editor') && (
+                {drawingImage && (user?.role === 'admin' || user?.role === 'rule_editor' || user?.role === 'professional') && (
                   <div className="flex items-center gap-1 border-r border-border pr-2">
                     <Button
                       variant={reviewMode ? "default" : "outline"}
