@@ -813,6 +813,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         }, 2000);
       }
     }
+    const pollCapApproaching = roomPollCount >= 16;
+    const hasRoomsInData = !!(roomsData?.rooms && roomsData.rooms.length > 0);
+    const alreadyComplete = analysisProgress.stage === 'complete' || analysisProgress.stage === 'idle';
+    if (pollCapApproaching && hasRoomsInData && !alreadyComplete) {
+      setAnalysisProgress({ stage: 'complete', pct: 100, label: 'Analysis complete' });
+      setIsAnalyzing(false);
+      setTimeout(() => setAnalysisProgress(p => p.stage === 'complete' ? { stage: 'idle', pct: 0, label: '' } : p), 2000);
+    }
   }, [roomsData]);
 
   // Legacy mutation (kept for backward compat, now unused)

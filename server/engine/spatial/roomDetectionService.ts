@@ -148,26 +148,42 @@ export async function detectRoomsFromPage(
     const croppedBase64 = croppedBuffer.toString('base64');
 
     const longestDim = Math.max(croppedW, croppedH);
-    const visionScale = longestDim > CLAUDE_VISION_MAX_PX ? CLAUDE_VISION_MAX_PX / longestDim : 1.0;
-    const visionW = Math.max(1, Math.round(croppedW * visionScale));
-    const visionH = Math.max(1, Math.round(croppedH * visionScale));
+    const targetScale = longestDim > CLAUDE_VISION_MAX_PX ? CLAUDE_VISION_MAX_PX / longestDim : 1.0;
+    const targetW = Math.max(1, Math.round(croppedW * targetScale));
+    const targetH = Math.max(1, Math.round(croppedH * targetScale));
 
-    const visionBuffer = visionScale < 1.0
-      ? await sharp(croppedBuffer)
-          .resize(visionW, visionH, { fit: 'fill' })
-          .jpeg({ quality: 90 })
-          .toBuffer()
-      : croppedBuffer;
+    let visionBuffer: Buffer;
+    let scaleX: number;
+    let scaleY: number;
+
+    if (targetScale < 1.0) {
+      visionBuffer = await sharp(croppedBuffer)
+        .resize(targetW, targetH, { fit: 'fill' })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      const meta = await sharp(visionBuffer).metadata();
+      const actualVisionW = meta.width ?? targetW;
+      const actualVisionH = meta.height ?? targetH;
+      scaleX = actualVisionW / croppedW;
+      scaleY = actualVisionH / croppedH;
+      console.log(`[RoomDetection] Vision resize: { croppedW: ${croppedW}, croppedH: ${croppedH}, actualVisionW: ${actualVisionW}, actualVisionH: ${actualVisionH}, scaleX: ${scaleX.toFixed(4)}, scaleY: ${scaleY.toFixed(4)}, axisMatch: ${scaleX === scaleY} }`);
+    } else {
+      visionBuffer = croppedBuffer;
+      scaleX = 1.0;
+      scaleY = 1.0;
+    }
 
     const visionBase64 = visionBuffer.toString('base64');
 
     let labelContext = '';
     let legendContext = '';
+    let ocrLabelSet = new Set<string>();
     try {
       const ocrResult = await extractLabelsFromImage(croppedBase64, croppedW, croppedH);
       const legend = extractLegend(ocrResult.allLabels, croppedW, croppedH);
       legendContext = formatLegendForPrompt(legend);
       const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
+      ocrLabelSet = new Set(ocrResult.allLabels.map((l: any) => l.text.trim().toLowerCase()));
       if (roomLabels.length > 0) {
         labelContext =
           `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
@@ -184,7 +200,7 @@ export async function detectRoomsFromPage(
       console.warn(`[RoomDetection] ${region.label} Azure OCR failed, proceeding without labels:`, err);
     }
 
-    const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext);
+    const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext, ocrLabelSet);
 
     const setContextPrefix = drawingSetContext
       ? buildContextBlock(drawingSetContext, pageNumber)
@@ -208,15 +224,15 @@ export async function detectRoomsFromPage(
 
     for (const r of raw.rooms ?? []) {
       if (r.boundingBox) {
-        r.boundingBox.x = Math.round(r.boundingBox.x / visionScale) + cropOffsetX;
-        r.boundingBox.y = Math.round(r.boundingBox.y / visionScale) + cropOffsetY + region.top;
-        r.boundingBox.width = Math.round(r.boundingBox.width / visionScale);
-        r.boundingBox.height = Math.round(r.boundingBox.height / visionScale);
+        r.boundingBox.x = Math.round(r.boundingBox.x / scaleX) + cropOffsetX;
+        r.boundingBox.y = Math.round(r.boundingBox.y / scaleY) + cropOffsetY + region.top;
+        r.boundingBox.width = Math.round(r.boundingBox.width / scaleX);
+        r.boundingBox.height = Math.round(r.boundingBox.height / scaleY);
       }
       for (const f of r.features ?? []) {
         if (f.position) {
-          f.position.x = Math.round(f.position.x / visionScale) + cropOffsetX;
-          f.position.y = Math.round(f.position.y / visionScale) + cropOffsetY + region.top;
+          f.position.x = Math.round(f.position.x / scaleX) + cropOffsetX;
+          f.position.y = Math.round(f.position.y / scaleY) + cropOffsetY + region.top;
         }
       }
       if (r.boundingBox) {
@@ -228,6 +244,16 @@ export async function detectRoomsFromPage(
         r.boundingBox.y = Math.max(minY, Math.min(r.boundingBox.y, clampMaxY - 20));
         r.boundingBox.width  = Math.max(31, Math.min(r.boundingBox.width,  clampMaxX - r.boundingBox.x));
         r.boundingBox.height = Math.max(20, Math.min(r.boundingBox.height, clampMaxY - r.boundingBox.y));
+      }
+      const labelLower = r.label?.trim().toLowerCase() ?? '';
+      const isOcrMatch = ocrLabelSet.size === 0 ||
+        ocrLabelSet.has(labelLower) ||
+        [...ocrLabelSet].some(l => l.includes(labelLower) || labelLower.includes(l)) ||
+        labelLower.startsWith('unlabeled') ||
+        ['corridor', 'stair', 'hallway', 'lobby', 'common', 'circulation'].some(k => labelLower.includes(k));
+      if (!isOcrMatch && (r.confidence ?? 1) < 0.75) {
+        console.log(`[RoomDetection] Rejected hallucinated label "${r.label}"`);
+        continue;
       }
       rawRooms.push(r);
     }

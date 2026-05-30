@@ -29,7 +29,14 @@ export function buildRoomDetectionPrompt(
   labelContext: string = '',
   legendContext: string = '',
   templateContext: string = '',
+  ocrLabelSet?: Set<string>,
 ): string {
+  const ocrLabelList = ocrLabelSet && ocrLabelSet.size > 0
+    ? [...ocrLabelSet].slice(0, 40).join(', ')
+    : '';
+  const labelConstraint = ocrLabelList
+    ? `12. LABEL CONSTRAINT: Only use room labels visible as text in this drawing. Valid labels detected by OCR: ${ocrLabelList}\nIf no matching label exists use 'Unlabeled Room', 'Unlabeled Washroom', 'Unlabeled Bedroom', or 'Corridor'. Do NOT invent labels like 'Wet Bar', 'Wine Room', 'Media Room', 'Library' unless that exact text appears in the drawing.`
+    : '';
   return `${legendContext}${templateContext}
 Analyze this architectural floor plan drawing.
 Detect ALL rooms, spaces, and architectural features visible in this floor plan.
@@ -47,6 +54,7 @@ Critical rules:
 9. DO NOT detect equipment labels, procurement symbols, or specification call-outs as rooms. These are graphical shapes that annotate equipment — not enclosed floor plan spaces. Ignore any shape whose text contains: "DESIGN-BUILDER", "CONTRACTOR", "PROVIDED & INSTALLED", "BY OWNER", "BY OTHERS", "N.I.C.", "NOT IN CONTRACT", "OWNER SUPPLIED", "LEGEND", "REVISION", "KEYNOTE", "PARTITION PLAN", "LOWER FLOOR", "FOUNDATION PLAN", "ROOF PLAN". Also ignore: revision clouds (irregular scalloped outlines used to mark drawing changes), north arrows, scale bars, drawing title bubbles, and legend key boxes. These shapes have NO bounding box in the rooms array.
 10. DOOR WIDTH METADATA: For each feature of type "door" or "door_fire_rated", look for a dimension annotation immediately adjacent to the door symbol (e.g. "900", "2'-6\"", "36\"", "860mm", "0.9m", "2'-8\""). If a dimension annotation is clearly visible near the door, convert it to millimetres and record it as metadata: { "width": <number in mm> }. Imperial conversions: 2'-0"=610mm, 2'-6"=762mm, 2'-8"=813mm, 2'-10"=864mm, 3'-0"=914mm, 3'-6"=1067mm, 4'-0"=1219mm. If no dimension annotation is clearly visible adjacent to the door, omit metadata entirely — do not guess.
 11. WASHROOMS AND BATHROOMS: Even when unlabeled, detect any space containing toilet, bathroom sink, or bathtub fixtures. These are almost always present between residential units and in mechanical cores. Label as "Washroom", "Bathroom", or "W/C" based on size and fixtures visible.
+${labelConstraint}
 ${labelContext}
 Return JSON: {"rooms":[{"label":"string","boundingBox":{"x":0,"y":0,"width":0,"height":0},"areaSqm":0,"floorLevel":"string","occupancyGroup":"A|B|C|D|E|F","occupancyDivision":null,"confidence":0.0,"features":[{"type":"string","position":{"x":0,"y":0},"confidence":0.0,"metadata":{"width":900}}],"flags":[]}],"metadata":{"drawingType":"string","scale":"string","floorLevel":"string","totalDetectedArea":0,"northArrow":false,"dimensionsVisible":false,"language":"en","drawingQuality":"string"}}`;
 }
