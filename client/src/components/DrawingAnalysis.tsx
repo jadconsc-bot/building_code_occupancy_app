@@ -1324,7 +1324,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   };
 
   const handleReadFullSet = async () => {
-    if (!pdfPages.length || !activeProjectId || !analysisId) return;
+    if (!pdfPages.length || !activeProjectId) return;
     setIsReadingContext(true);
     try {
       const thumbnailPages = await Promise.all(
@@ -6311,6 +6311,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </div>
                       {setContext && (
                         <div className="mt-2 pt-2 border-t border-blue-200 grid grid-cols-2 gap-1 text-xs">
+                          {!analysisId && (
+                            <span className="col-span-2 inline-flex items-center gap-1 text-green-700 font-medium">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                              Context loaded — will be injected into next analysis
+                            </span>
+                          )}
                           {setContext.municipality && (
                             <span className="text-blue-700">📍 {setContext.municipality}</span>
                           )}
