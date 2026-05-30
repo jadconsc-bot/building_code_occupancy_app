@@ -1155,6 +1155,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ? { ...r, boundingBox: bbox, polygonJson: polygonEditMode.vertices } as any
         : r,
     ));
+    setOriginalBboxes(prev => new Map(prev).set(polygonEditMode.roomId, bbox));
     setPolygonEditMode(null);
     setDraggingVertexIdx(null);
     if (canvasRef.current) canvasRef.current.style.cursor = 'default';
@@ -1614,7 +1615,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           (heatmapEntry.level === 'critical' || heatmapEntry.level === 'major');
 
         const polygon: { x: number; y: number }[] | null =
-          (reviewMode && bboxOverrides.has(room.id))
+          bboxOverrides.has(room.id)
             ? null
             : (room as any).polygonJson;
         if (polygon && polygon.length >= 4) {
@@ -3328,6 +3329,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           },
           planType: aiResults?.drawingType ?? 'floor_plan',
         });
+        setDetectedRoomsData(prev => prev.map(r =>
+          r.id === interactingRoom.roomId
+            ? { ...r, boundingBox: correctedBbox }
+            : r
+        ));
       }
       setInteractingRoom(null);
       return;
