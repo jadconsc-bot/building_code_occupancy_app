@@ -1580,6 +1580,12 @@ export const drawingSetContexts = mysqlTable("drawingSetContexts", {
   exitLocationsJson: json("exitLocationsJson"),
   stairLocationsJson: json("stairLocationsJson"),
 
+  doorScheduleJson: json("doorScheduleJson"),
+  windowScheduleJson: json("windowScheduleJson"),
+  schedulePageNumbers: json("schedulePageNumbers"),
+  totalDoorTypes: int("totalDoorTypes").default(0),
+  totalWindowTypes: int("totalWindowTypes").default(0),
+
   currentRevision: varchar("currentRevision", { length: 20 }),
   revisionDate: date("revisionDate"),
 

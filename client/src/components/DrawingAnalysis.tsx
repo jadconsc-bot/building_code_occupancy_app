@@ -521,6 +521,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     stairLocations?: Array<{ pageNum: number; location: string }>;
     currentRevision?: string | null;
     revisionDate?: string | null;
+    doorSchedule?: Array<{ typeId: string; widthMm: number | null; heightMm: number | null; doorType: string | null; fireRatingMin: number | null; notes: string | null }>;
+    windowSchedule?: Array<{ typeId: string; widthMm: number | null; heightMm: number | null; glazingType: string | null; operationType: string | null; notes: string | null }>;
+    schedulePageNumbers?: number[];
   } | null>(null);
   const [isReadingContext, setIsReadingContext] = useState(false);
 
@@ -6384,6 +6387,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           {Object.keys(setContext.abbreviations ?? {}).length > 0 && (
                             <span className="text-blue-700 col-span-2">
                               🔤 {Object.keys(setContext.abbreviations!).length} abbreviations loaded
+                            </span>
+                          )}
+                          {(setContext.doorSchedule?.length ?? 0) > 0 && (
+                            <span className="text-blue-700 col-span-2">
+                              🚪 {setContext.doorSchedule!.length} door types loaded
+                            </span>
+                          )}
+                          {(setContext.windowSchedule?.length ?? 0) > 0 && (
+                            <span className="text-blue-700 col-span-2">
+                              🪟 {setContext.windowSchedule!.length} window types loaded
                             </span>
                           )}
                         </div>

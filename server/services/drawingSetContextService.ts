@@ -3,8 +3,9 @@
  *
  * Reads all pages of a drawing set in a single Claude call to extract
  * project metadata, building classification, abbreviations, floor hierarchy,
- * and exit locations. This context is injected into every subsequent room
- * detection prompt so each page analysis is aware of the full building.
+ * exit locations, and door/window schedules. This context is injected into
+ * every subsequent room detection prompt so each page analysis is aware of
+ * the full building.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -44,32 +45,79 @@ SPATIAL CONTEXT: exit locations (which floor plan page, which side, what type), 
 
 REVISION: current revision number/letter, most recent revision date (YYYY-MM-DD format).
 
+DOOR AND WINDOW SCHEDULES:
+Scan ALL pages carefully for schedule tables. These are typically found on dedicated schedule pages or in the lower portion of floor plan sheets. They appear as tables with columns for type ID, width, height, and other specifications.
+
+DOOR SCHEDULE — look for a table titled "Door Schedule" or similar:
+For each door type listed:
+- typeId: the door tag ID (e.g. "D201", "D202", "101", "A")
+- widthMm: door width converted to millimetres
+  (if shown in feet/inches: 2'-0"=610mm, 2'-6"=762mm, 2'-8"=813mm, 2'-10"=864mm,
+   3'-0"=914mm, 3'-6"=1067mm, 4'-0"=1219mm)
+- heightMm: door height in millimetres (6'-8"=2032mm, 7'-0"=2134mm)
+- doorType: door material/type if noted (e.g. "Solid Core", "Hollow Core", "Glass")
+- fireRatingMin: fire rating in minutes if noted (20, 45, 60, 90), or null
+- notes: any other relevant notes, or null
+
+WINDOW SCHEDULE — look for a table titled "Window Schedule" or similar:
+For each window type listed:
+- typeId: the window tag ID (e.g. "211", "W1", "A")
+- widthMm: window width in millimetres
+- heightMm: window height in millimetres
+- glazingType: glazing specification if noted (e.g. "Low-E", "Triple", "Double")
+- operationType: window operation type if noted (e.g. "Casement", "Fixed", "Awning", "Slider")
+- notes: any relevant notes, or null
+
+Also note which pages contain schedule tables in schedulePageNumbers.
+If no schedule is found, return empty arrays.
+
 IMPORTANT: if information is not clearly visible, use null — never guess.
 
 Respond ONLY with valid JSON:
 {
-  "projectName": "string | null",
-  "projectAddress": "string | null",
-  "architectFirm": "string | null",
-  "clientName": "string | null",
-  "buildingOccupancy": "string | null",
-  "numberOfStoreys": "number | null",
-  "basementPresent": "boolean | null",
-  "constructionType": "string | null",
-  "sprinklered": "boolean | null",
-  "codeEdition": "string | null",
-  "municipality": "string | null",
-  "province": "string | null",
-  "pageInventory": [{"pageNum": 0, "title": "string", "type": "string"}],
-  "floorHierarchy": [{"floor": "string", "pageNum": 0}],
-  "confirmedScale": "string | null",
-  "typicalCeilingHeightM": "number | null",
-  "abbreviations": {"ABBREV": "Full Name"},
-  "exitLocations": [{"description": "string", "pageNum": 0, "direction": "string"}],
-  "stairLocations": [{"pageNum": 0, "location": "string"}],
-  "currentRevision": "string | null",
-  "revisionDate": "string | null"
+  "projectName": null,
+  "projectAddress": null,
+  "architectFirm": null,
+  "clientName": null,
+  "buildingOccupancy": null,
+  "numberOfStoreys": null,
+  "basementPresent": null,
+  "constructionType": null,
+  "sprinklered": null,
+  "codeEdition": null,
+  "municipality": null,
+  "province": null,
+  "pageInventory": [{"pageNum": 0, "title": "", "type": ""}],
+  "floorHierarchy": [{"floor": "", "pageNum": 0}],
+  "confirmedScale": null,
+  "typicalCeilingHeightM": null,
+  "abbreviations": {},
+  "exitLocations": [{"description": "", "pageNum": 0, "direction": ""}],
+  "stairLocations": [{"pageNum": 0, "location": ""}],
+  "currentRevision": null,
+  "revisionDate": null,
+  "doorSchedule": [{"typeId": "", "widthMm": null, "heightMm": null, "doorType": null, "fireRatingMin": null, "notes": null}],
+  "windowSchedule": [{"typeId": "", "widthMm": null, "heightMm": null, "glazingType": null, "operationType": null, "notes": null}],
+  "schedulePageNumbers": []
 }`;
+}
+
+export interface DoorScheduleEntry {
+  typeId: string;
+  widthMm: number | null;
+  heightMm: number | null;
+  doorType: string | null;
+  fireRatingMin: number | null;
+  notes: string | null;
+}
+
+export interface WindowScheduleEntry {
+  typeId: string;
+  widthMm: number | null;
+  heightMm: number | null;
+  glazingType: string | null;
+  operationType: string | null;
+  notes: string | null;
 }
 
 export interface ExtractedSetContext {
@@ -94,6 +142,9 @@ export interface ExtractedSetContext {
   stairLocations: Array<{ pageNum: number; location: string }>;
   currentRevision: string | null;
   revisionDate: string | null;
+  doorSchedule: DoorScheduleEntry[];
+  windowSchedule: WindowScheduleEntry[];
+  schedulePageNumbers: number[];
 }
 
 async function resizeToThumbnail(base64: string, targetWidth: number): Promise<string> {
@@ -131,6 +182,9 @@ function safeParseContextJSON(raw: string): ExtractedSetContext {
       stairLocations:         Array.isArray(parsed.stairLocations) ? parsed.stairLocations : [],
       currentRevision:        parsed.currentRevision ?? null,
       revisionDate:           parsed.revisionDate ?? null,
+      doorSchedule:           Array.isArray(parsed.doorSchedule) ? parsed.doorSchedule : [],
+      windowSchedule:         Array.isArray(parsed.windowSchedule) ? parsed.windowSchedule : [],
+      schedulePageNumbers:    Array.isArray(parsed.schedulePageNumbers) ? parsed.schedulePageNumbers : [],
     };
   } catch {
     return {
@@ -140,6 +194,7 @@ function safeParseContextJSON(raw: string): ExtractedSetContext {
       municipality: null, province: null, pageInventory: [], floorHierarchy: [],
       confirmedScale: null, typicalCeilingHeightM: null, abbreviations: {},
       exitLocations: [], stairLocations: [], currentRevision: null, revisionDate: null,
+      doorSchedule: [], windowSchedule: [], schedulePageNumbers: [],
     };
   }
 }
@@ -176,7 +231,7 @@ export async function extractDrawingSetContext(
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
+    max_tokens: 4096,
     system: CONTEXT_EXTRACTION_SYSTEM,
     messages: [{
       role: 'user',
@@ -216,6 +271,11 @@ export async function extractDrawingSetContext(
       abbreviationsJson:     parsed.abbreviations,
       exitLocationsJson:     parsed.exitLocations,
       stairLocationsJson:    parsed.stairLocations,
+      doorScheduleJson:      parsed.doorSchedule.length > 0 ? parsed.doorSchedule : null,
+      windowScheduleJson:    parsed.windowSchedule.length > 0 ? parsed.windowSchedule : null,
+      schedulePageNumbers:   parsed.schedulePageNumbers.length > 0 ? parsed.schedulePageNumbers : null,
+      totalDoorTypes:        parsed.doorSchedule.length,
+      totalWindowTypes:      parsed.windowSchedule.length,
       currentRevision:       parsed.currentRevision,
       revisionDate:          parsed.revisionDate ? new Date(parsed.revisionDate) : null,
       rawContextJson:        { raw, parsed },
@@ -280,6 +340,30 @@ export function buildContextBlock(
     for (const exit of ctx.exitLocations) {
       parts.push(`  - ${exit.description} (p.${exit.pageNum}, ${exit.direction})`);
     }
+  }
+
+  if (ctx.doorSchedule && ctx.doorSchedule.length > 0) {
+    parts.push('');
+    parts.push('DOOR SCHEDULE (from drawing set):');
+    for (const d of ctx.doorSchedule.slice(0, 20)) {
+      const dims = d.widthMm && d.heightMm ? `${d.widthMm}mm × ${d.heightMm}mm` : 'dimensions not found';
+      const fr = d.fireRatingMin ? `, ${d.fireRatingMin}min FRR` : '';
+      const dtype = d.doorType ? `, ${d.doorType}` : '';
+      parts.push(`  ${d.typeId}: ${dims}${dtype}${fr}`);
+    }
+    parts.push('Use these exact dimensions when recording door features.');
+  }
+
+  if (ctx.windowSchedule && ctx.windowSchedule.length > 0) {
+    parts.push('');
+    parts.push('WINDOW SCHEDULE (from drawing set):');
+    for (const w of ctx.windowSchedule.slice(0, 20)) {
+      const dims = w.widthMm && w.heightMm ? `${w.widthMm}mm × ${w.heightMm}mm` : 'dimensions not found';
+      const glaze = w.glazingType ? `, ${w.glazingType}` : '';
+      const op = w.operationType ? ` ${w.operationType}` : '';
+      parts.push(`  ${w.typeId}: ${dims}${glaze}${op}`);
+    }
+    parts.push('Use these exact dimensions when recording window features.');
   }
 
   parts.push('');
