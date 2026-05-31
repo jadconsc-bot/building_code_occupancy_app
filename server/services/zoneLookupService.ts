@@ -5,7 +5,7 @@ export interface ZoneLookupResult {
   confirmedAddress: string | null;
   lat: number;
   lng: number;
-  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'not_found';
+  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'not_found';
 }
 
 export async function lookupZone(
@@ -34,8 +34,18 @@ export async function lookupZone(
   if (mun.includes('chestermere')) {
     return lookupChestermere(address);
   }
+  if (mun.includes('st. albert') || mun.includes('st albert') || mun.includes('stalbert')) {
+    return lookupStAlbert(coords.lat, coords.lng);
+  }
+  if (mun.includes('strathcona')) {
+    return lookupStrathcona(coords.lat, coords.lng);
+  }
   if (mun.includes('rocky view') || mun.includes('rocky_view')) {
     console.log('[ZoneLookup] Rocky View County — no public API, manual selection required');
+    return null;
+  }
+  if (mun.includes('red deer')) {
+    console.log('[ZoneLookup] Red Deer — no public API, manual selection required');
     return null;
   }
 
@@ -78,15 +88,13 @@ async function lookupCalgary(
   lng: number,
 ): Promise<ZoneLookupResult | null> {
   const url = new URL(
-    'https://gis.calgary.ca/arcgis/rest/services/pub_Planning/LandUse/MapServer/0/query'
+    'https://services1.arcgis.com/AVP60cs0Q9PEA8rH/arcgis/rest/services/Calgary_Land_Use/FeatureServer/0/query'
   );
   url.searchParams.set('geometry', `${lng},${lat}`);
   url.searchParams.set('geometryType', 'esriGeometryPoint');
   url.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
   url.searchParams.set('inSR', '4326');
-  url.searchParams.set('outFields',
-    'LAND_USE_DISTRICT_CODE,LAND_USE_DISTRICT_NAME,COMMUNITY_NAME,PARCEL_ADDRESS'
-  );
+  url.searchParams.set('outFields', 'LU_CODE,DESCRIPTION,LABEL');
   url.searchParams.set('returnGeometry', 'false');
   url.searchParams.set('f', 'json');
 
@@ -101,13 +109,13 @@ async function lookupCalgary(
     const feature = data?.features?.[0]?.attributes;
     if (!feature) return null;
 
-    console.log(`[ZoneLookup] Calgary result: ${feature.LAND_USE_DISTRICT_CODE} — ${feature.COMMUNITY_NAME}`);
+    console.log(`[ZoneLookup] Calgary result: ${feature.LU_CODE} — ${feature.DESCRIPTION}`);
 
     return {
-      zoneCode:         feature.LAND_USE_DISTRICT_CODE,
-      zoneName:         feature.LAND_USE_DISTRICT_NAME,
-      communityName:    feature.COMMUNITY_NAME,
-      confirmedAddress: feature.PARCEL_ADDRESS,
+      zoneCode:         feature.LU_CODE,
+      zoneName:         feature.DESCRIPTION,
+      communityName:    null,
+      confirmedAddress: null,
       lat, lng,
       source: 'calgary_arcgis',
     };
@@ -278,13 +286,105 @@ async function lookupAirdrie(address: string): Promise<ZoneLookupResult | null> 
   }
 }
 
+async function lookupStAlbert(
+  lat: number,
+  lng: number,
+): Promise<ZoneLookupResult | null> {
+  const url = new URL(
+    'https://services1.arcgis.com/fyyY0cNXvmUWvX1x/arcgis/rest/services/LandUseDistricts/FeatureServer/0/query'
+  );
+  url.searchParams.set('geometry', `${lng},${lat}`);
+  url.searchParams.set('geometryType', 'esriGeometryPoint');
+  url.searchParams.set('inSR', '4326');
+  url.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
+  url.searchParams.set('outFields', 'DISTRICTING');
+  url.searchParams.set('returnGeometry', 'false');
+  url.searchParams.set('f', 'json');
+
+  // Truncation map for DISTRICTING values that lose their closing parenthesis
+  const truncationMap: Record<string, string> = {
+    'Industrial and Commercial Serv': 'ICS',
+    'Public, Private, and Instituti': 'PPI',
+    'Medium Density Residential (MD': 'MDR',
+  };
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data?.features?.[0]?.attributes;
+    if (!feature?.DISTRICTING) return null;
+
+    const districting: string = feature.DISTRICTING;
+    const truncated = truncationMap[districting];
+    const parenMatch = districting.match(/\(([A-Z0-9]+)\)/);
+    const zoneCode = truncated ?? parenMatch?.[1] ?? districting;
+
+    console.log(`[ZoneLookup] St. Albert result: ${zoneCode} — ${districting}`);
+
+    return {
+      zoneCode,
+      zoneName: districting.replace(/\s*\([A-Z0-9]+\)\s*$/, '').trim(),
+      communityName: null,
+      confirmedAddress: null,
+      lat, lng,
+      source: 'st_albert_arcgis',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function lookupStrathcona(
+  lat: number,
+  lng: number,
+): Promise<ZoneLookupResult | null> {
+  const url = new URL(
+    'https://services.arcgis.com/B7ZrK1Hv4P1dsm9R/arcgis/rest/services/Land_Use_Bylaw/FeatureServer/0/query'
+  );
+  url.searchParams.set('geometry', `${lng},${lat}`);
+  url.searchParams.set('geometryType', 'esriGeometryPoint');
+  url.searchParams.set('inSR', '4326');
+  url.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
+  url.searchParams.set('outFields', 'lub_zoning,lub_description');
+  url.searchParams.set('returnGeometry', 'false');
+  url.searchParams.set('f', 'json');
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data?.features?.[0]?.attributes;
+    if (!feature?.lub_zoning) return null;
+
+    console.log(`[ZoneLookup] Strathcona result: ${feature.lub_zoning} — ${feature.lub_description}`);
+
+    return {
+      zoneCode:         feature.lub_zoning,
+      zoneName:         feature.lub_description ?? feature.lub_zoning,
+      communityName:    null,
+      confirmedAddress: null,
+      lat, lng,
+      source: 'strathcona_arcgis',
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function lookupEdmonton(
   lat: number,
   lng: number,
 ): Promise<ZoneLookupResult | null> {
-  const url = new URL('https://data.edmonton.ca/resource/e4bc-9ngp.json');
-  url.searchParams.set('$where', `within_circle(shape, ${lat}, ${lng}, 10)`);
-  url.searchParams.set('$select', 'zone,zone_description,address');
+  const url = new URL('https://data.edmonton.ca/resource/fixa-tstc.json');
+  url.searchParams.set('$where', `intersects(geometry_multipolygon, 'POINT(${lng} ${lat})')`);
+  url.searchParams.set('$select', 'zoning,description');
   url.searchParams.set('$limit', '1');
 
   try {
@@ -295,13 +395,15 @@ async function lookupEdmonton(
 
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data?.length) return null;
+    if (!Array.isArray(data) || !data[0]?.zoning) return null;
+
+    console.log(`[ZoneLookup] Edmonton result: ${data[0].zoning} — ${data[0].description}`);
 
     return {
-      zoneCode:         data[0].zone,
-      zoneName:         data[0].zone_description,
+      zoneCode:         data[0].zoning,
+      zoneName:         data[0].description ?? data[0].zoning,
       communityName:    null,
-      confirmedAddress: data[0].address,
+      confirmedAddress: null,
       lat, lng,
       source: 'edmonton_open_data',
     };

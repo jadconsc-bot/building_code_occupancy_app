@@ -533,7 +533,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [zoneResult, setZoneResult] = useState<{
     zoneCode: string; zoneName: string; communityName: string | null;
     confirmedAddress: string | null; lat: number; lng: number;
-    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'not_found';
+    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'not_found';
   } | null>(null);
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -1389,9 +1389,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           else if (munLower.includes('edmonton')) detectedMunId = 'edmonton';
           setSelectedMunicipalityId(detectedMunId);
 
-          // Rocky View has no public zone API — skip auto-lookup
-          if (detectedMunId === 'rocky_view_county') {
-            setLookupError('Rocky View County zone lookup not available');
+          // Rocky View and Red Deer have no public zone API — skip auto-lookup
+          if (detectedMunId === 'rocky_view_county' || detectedMunId === 'red_deer') {
+            setLookupError(`${detectedMunId === 'red_deer' ? 'Red Deer' : 'Rocky View County'} zone lookup not available`);
           } else {
             // Trigger lookup directly with the known values (avoids stale-closure on selectedMunicipalityId)
             setTimeout(async () => {
@@ -6514,7 +6514,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                   ? 'City of Airdrie GIS'
                                   : zoneResult.source === 'chestermere_arcgis'
                                     ? 'City of Chestermere Open Data'
-                                    : 'City of Edmonton Open Data'}
+                                    : zoneResult.source === 'st_albert_arcgis'
+                                      ? 'City of St. Albert Open Data'
+                                      : zoneResult.source === 'strathcona_arcgis'
+                                        ? 'Strathcona County Open Data'
+                                        : 'City of Edmonton Open Data'}
                             </p>
                           </div>
                         )}
@@ -6530,6 +6534,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                   className="underline text-amber-700"
                                 >
                                   gis.rockyview.ca/planning
+                                </a>
+                                {' '}to find your zone, then select manually below
+                              </>
+                            ) : selectedMunicipalityId === 'red_deer' ? (
+                              <>
+                                ⚠ Red Deer zone lookup not available — visit{' '}
+                                <a
+                                  href="https://data-reddeer.opendata.arcgis.com/"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline text-amber-700"
+                                >
+                                  data-reddeer.opendata.arcgis.com
                                 </a>
                                 {' '}to find your zone, then select manually below
                               </>
