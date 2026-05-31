@@ -1760,9 +1760,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           (heatmapEntry.level === 'critical' || heatmapEntry.level === 'major');
 
         const polygon: { x: number; y: number }[] | null =
-          bboxOverrides.has(room.id)
-            ? null
-            : (room as any).polygonJson;
+          (room as any).polygonJson ?? null;
         if (polygon && polygon.length >= 4) {
           ctx.beginPath();
           ctx.moveTo(polygon[0].x * scaleX * zoom + pan.x, polygon[0].y * scaleY * zoom + pan.y);
@@ -4410,7 +4408,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
-  }, []);
+  }, [disclaimerAcknowledged]);
 
   // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
   if (!disclaimerAcknowledged) {
