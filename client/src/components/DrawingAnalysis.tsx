@@ -1333,6 +1333,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const handleContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (isScrollSyncingRef.current) return;
+    if (!showScrollbars) return;
     const el = e.currentTarget;
     setPan({ x: -el.scrollLeft, y: -el.scrollTop });
   };
@@ -4375,6 +4376,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !showScrollbars) return;
+    if (!el.scrollWidth || el.scrollWidth <= el.clientWidth) return;
     const targetLeft = Math.max(0, -pan.x);
     const targetTop  = Math.max(0, -pan.y);
     if (el.scrollLeft === targetLeft && el.scrollTop === targetTop) return;
@@ -4391,6 +4393,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     if (!canvas) return;
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -5940,6 +5943,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
+                      onWheel={handleCanvasWheel}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
                       onTouchEnd={handleCanvasTouchEnd}
