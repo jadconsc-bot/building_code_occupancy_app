@@ -1379,6 +1379,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           else if (munLower.includes('airdrie')) detectedMunId = 'airdrie';
           else if (munLower.includes('chestermere')) detectedMunId = 'chestermere';
           else if (munLower.includes('rocky view') || munLower.includes('rockyview')) detectedMunId = 'rocky_view_county';
+          else if (munLower.includes('red deer')) detectedMunId = 'red_deer';
+          else if (munLower.includes('cochrane')) detectedMunId = 'cochrane';
+          else if (munLower.includes('okotoks')) detectedMunId = 'okotoks';
+          else if (munLower.includes('st. albert') || munLower.includes('st albert') || munLower.includes('saint albert')) detectedMunId = 'st_albert';
+          else if (munLower.includes('strathcona')) detectedMunId = 'strathcona_county';
+          else if (munLower.includes('spruce grove')) detectedMunId = 'spruce_grove';
+          else if (munLower.includes('leduc')) detectedMunId = 'leduc';
           else if (munLower.includes('edmonton')) detectedMunId = 'edmonton';
           setSelectedMunicipalityId(detectedMunId);
 
@@ -6549,6 +6556,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <SelectItem value="airdrie">Airdrie</SelectItem>
                             <SelectItem value="chestermere">Chestermere</SelectItem>
                             <SelectItem value="rocky_view_county">Rocky View County</SelectItem>
+                            <SelectItem value="red_deer">Red Deer</SelectItem>
+                            <SelectItem value="cochrane">Cochrane</SelectItem>
+                            <SelectItem value="okotoks">Okotoks</SelectItem>
+                            <SelectItem value="st_albert">St. Albert</SelectItem>
+                            <SelectItem value="strathcona_county">Strathcona County</SelectItem>
+                            <SelectItem value="leduc">Leduc</SelectItem>
+                            <SelectItem value="spruce_grove">Spruce Grove</SelectItem>
                             <SelectItem value="lethbridge">Lethbridge</SelectItem>
                             <SelectItem value="vancouver">Vancouver</SelectItem>
                           </SelectContent>

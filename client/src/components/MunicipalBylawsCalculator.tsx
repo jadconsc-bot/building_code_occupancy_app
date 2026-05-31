@@ -54,11 +54,18 @@ function municipalityNameToId(name: string): string | null {
   const n = name.toLowerCase();
   if (n.includes('calgary'))                                    return 'calgary';
   if (n.includes('edmonton'))                                   return 'edmonton';
-  if (n.includes('airdrie'))                                    return 'airdrie';
-  if (n.includes('chestermere'))                               return 'chestermere';
-  if (n.includes('rocky view') || n.includes('rocky_view'))    return 'rocky_view_county';
-  if (n.includes('lethbridge'))                                 return 'lethbridge';
-  if (n.includes('vancouver'))                                  return 'vancouver';
+  if (n.includes('airdrie'))                                               return 'airdrie';
+  if (n.includes('chestermere'))                                          return 'chestermere';
+  if (n.includes('rocky view') || n.includes('rocky_view'))               return 'rocky_view_county';
+  if (n.includes('red deer'))                                             return 'red_deer';
+  if (n.includes('cochrane'))                                             return 'cochrane';
+  if (n.includes('okotoks'))                                              return 'okotoks';
+  if (n.includes('st. albert') || n.includes('st albert') || n.includes('saint albert')) return 'st_albert';
+  if (n.includes('strathcona'))                                           return 'strathcona_county';
+  if (n.includes('spruce grove'))                                         return 'spruce_grove';
+  if (n.includes('leduc'))                                                return 'leduc';
+  if (n.includes('lethbridge'))                                           return 'lethbridge';
+  if (n.includes('vancouver'))                                            return 'vancouver';
   return null;
 }
 
