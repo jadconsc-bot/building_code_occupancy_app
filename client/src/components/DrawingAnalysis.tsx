@@ -698,6 +698,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
   const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
   const [drawingType, setDrawingType] = useState<string>("auto");
+  const [phaseC_rayCount, setPhaseC_rayCount] = useState(90);
   
   // Drawing Analysis Persistence (Phase 2)
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
@@ -1334,6 +1335,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     if (isScrollSyncingRef.current) return;
     const el = e.currentTarget;
     setPan({ x: -el.scrollLeft, y: -el.scrollTop });
+  };
+
+  useEffect(() => {
+    const stored = localStorage.getItem('cc_ray_count');
+    if (stored) setPhaseC_rayCount(Math.max(36, Math.min(360, parseInt(stored))));
+  }, []);
+
+  const handleRayCountChange = (v: number) => {
+    setPhaseC_rayCount(v);
+    localStorage.setItem('cc_ray_count', String(v));
   };
 
   const handleReadFullSet = async () => {
@@ -6231,6 +6242,27 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </div>
                         </div>
 
+                        {/* Ray count slider */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Polygon rays</Label>
+                            <span className="text-xs text-muted-foreground">{phaseC_rayCount}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={36}
+                            max={360}
+                            step={18}
+                            value={phaseC_rayCount}
+                            onChange={e => handleRayCountChange(parseInt(e.target.value))}
+                            className="w-full h-1.5 accent-teal-600"
+                          />
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span>Fast</span>
+                            <span>Detailed</span>
+                          </div>
+                        </div>
+
                         {/* Edit Polygon — Phase C DDA ray cast */}
                         <Button
                           size="sm"
@@ -6266,6 +6298,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                   imageData,
                                   Math.round(seedCanvasX),
                                   Math.round(seedCanvasY),
+                                  phaseC_rayCount,
                                 );
 
                                 console.log(
@@ -6541,6 +6574,27 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               <span className="text-[10px] leading-tight">{desc}</span>
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* Default polygon ray count */}
+                      <div className="space-y-1 pt-2 border-t border-border">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Default polygon rays</Label>
+                          <span className="text-xs text-muted-foreground">{phaseC_rayCount} rays</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={36}
+                          max={360}
+                          step={18}
+                          value={phaseC_rayCount}
+                          onChange={e => handleRayCountChange(parseInt(e.target.value))}
+                          className="w-full h-1.5 accent-teal-600"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>36 — Fast</span>
+                          <span>360 — Detailed</span>
                         </div>
                       </div>
 
