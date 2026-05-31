@@ -1340,7 +1340,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   useEffect(() => {
     const stored = localStorage.getItem('cc_ray_count');
-    if (stored) setPhaseC_rayCount(Math.max(36, Math.min(360, parseInt(stored))));
+    if (stored) setPhaseC_rayCount(Math.max(10, Math.min(360, parseInt(stored))));
   }, []);
 
   const handleRayCountChange = (v: number) => {
@@ -6252,7 +6252,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </div>
                           <input
                             type="range"
-                            min={36}
+                            min={10}
                             max={360}
                             step={18}
                             value={phaseC_rayCount}
@@ -6587,7 +6587,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         </div>
                         <input
                           type="range"
-                          min={36}
+                          min={10}
                           max={360}
                           step={18}
                           value={phaseC_rayCount}
