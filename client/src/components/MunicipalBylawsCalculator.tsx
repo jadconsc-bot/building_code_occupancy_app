@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -10,22 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { 
-  MapPin, 
-  Building2, 
-  Ruler, 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
+import {
+  MapPin,
+  Building2,
+  Ruler,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
   Info,
   ExternalLink,
   ArrowLeftRight,
   Calculator,
   Layers,
-  Download
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { exportMunicipalBylawsToExcel } from '@/lib/excelExport';
 import { toast } from 'sonner';
+import { trpc } from '@/lib/trpc';
+import { useProject } from '@/contexts/ProjectContext';
 import {
   municipalities,
   getMunicipalityById,
@@ -39,6 +42,23 @@ import {
   Municipality,
   ZoneRegulation,
 } from '@/lib/municipalBylawsData';
+
+// Airdrie GIS returns codes without hyphens (R1, C2); static data uses R-1, C-2
+function normalizeZoneCode(raw: string): string {
+  return raw.replace(/^([A-Za-z]+)(\d+)([A-Za-z]*)$/, (_, p, n, s) =>
+    s ? `${p.toUpperCase()}-${n}${s.toUpperCase()}` : `${p.toUpperCase()}-${n}`
+  );
+}
+
+function municipalityNameToId(name: string): string | null {
+  const n = name.toLowerCase();
+  if (n.includes('calgary'))    return 'calgary';
+  if (n.includes('edmonton'))   return 'edmonton';
+  if (n.includes('airdrie'))    return 'airdrie';
+  if (n.includes('lethbridge')) return 'lethbridge';
+  if (n.includes('vancouver'))  return 'vancouver';
+  return null;
+}
 
 export function MunicipalBylawsCalculator() {
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>('edmonton');
@@ -65,6 +85,31 @@ export function MunicipalBylawsCalculator() {
   // Comparison state
   const [comparisonType, setComparisonType] = useState<'single-detached' | 'duplex' | 'multi-family'>('single-detached');
 
+  // Zone auto-detection
+  const [zoneSource, setZoneSource] = useState<'manual' | 'project' | 'gis'>('manual');
+  const [addressInput, setAddressInput] = useState('');
+
+  const { activeProjectId } = useProject();
+  const { data: project } = trpc.projects.get.useQuery(
+    { id: activeProjectId ?? 0 },
+    { enabled: !!activeProjectId },
+  );
+  const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
+
+  // Pre-populate from saved project zone on mount / project change
+  useEffect(() => {
+    if (!project?.municipality || !project?.zoneCode) return;
+    const munId = municipalityNameToId(project.municipality);
+    if (!munId) return;
+    const allZones = getAllZonesForMunicipality(munId);
+    const normalized = normalizeZoneCode(project.zoneCode);
+    const match = allZones.find(z => z.zoneCode === normalized || z.zoneCode === project.zoneCode);
+    if (!match) return;
+    setSelectedMunicipality(munId);
+    setSelectedZone(match.zoneCode);
+    setZoneSource('project');
+  }, [project?.id]);
+
   const municipality = useMemo(() => getMunicipalityById(selectedMunicipality), [selectedMunicipality]);
   const zones = useMemo(() => getAllZonesForMunicipality(selectedMunicipality), [selectedMunicipality]);
   const zone = useMemo(() => getZoneByCode(selectedMunicipality, selectedZone), [selectedMunicipality, selectedZone]);
@@ -72,6 +117,36 @@ export function MunicipalBylawsCalculator() {
   const handleMunicipalityChange = (value: string) => {
     setSelectedMunicipality(value);
     setSelectedZone('');
+    setZoneSource('manual');
+  };
+
+  const handleAddressLookup = async () => {
+    const trimmed = addressInput.trim();
+    if (!trimmed) return;
+    const munName = municipalities.find(m => m.id === selectedMunicipality)?.name ?? 'Calgary';
+    try {
+      const result = await zoneLookupMutation.mutateAsync({
+        address: trimmed,
+        municipality: munName,
+        province: 'AB',
+      });
+      if ('error' in result || !('zoneCode' in result)) {
+        toast.error('Zone not found for this address');
+        return;
+      }
+      const allZones = getAllZonesForMunicipality(selectedMunicipality);
+      const normalized = normalizeZoneCode(result.zoneCode);
+      const match = allZones.find(z => z.zoneCode === normalized || z.zoneCode === result.zoneCode);
+      if (!match) {
+        toast.warning(`Zone ${result.zoneCode} detected but not in bylaw data — select manually`);
+        return;
+      }
+      setSelectedZone(match.zoneCode);
+      setZoneSource('gis');
+      toast.success(`Zone ${match.zoneCode} confirmed from City GIS`);
+    } catch {
+      toast.error('Zone lookup failed');
+    }
   };
 
   const checkSetbackCompliance = () => {
@@ -190,12 +265,47 @@ export function MunicipalBylawsCalculator() {
             </div>
           </div>
 
+          {/* Address lookup */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Auto-detect zone from address</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder={`e.g. 100 Main St NE — uses selected municipality`}
+                value={addressInput}
+                onChange={e => setAddressInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddressLookup(); }}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                onClick={handleAddressLookup}
+                disabled={zoneLookupMutation.isPending || !addressInput.trim()}
+                className="gap-2 shrink-0"
+              >
+                {zoneLookupMutation.isPending
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <MapPin className="w-4 h-4" />}
+                Lookup
+              </Button>
+            </div>
+          </div>
+
+          {/* Zone source badge */}
+          {zoneSource !== 'manual' && (
+            <div>
+              <Badge variant="outline" className="gap-1 text-green-700 border-green-300 bg-green-50 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
+                <CheckCircle2 className="w-3 h-3" />
+                {zoneSource === 'project' ? 'Loaded from saved project zone' : 'Confirmed from City GIS'}
+              </Badge>
+            </div>
+          )}
+
           {municipality && (
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span>Bylaw: {municipality.bylawName} #{municipality.bylawNumber}</span>
-              <a 
-                href={municipality.sourceUrl} 
-                target="_blank" 
+              <a
+                href={municipality.sourceUrl}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline"
               >
