@@ -5,7 +5,7 @@ export interface ZoneLookupResult {
   confirmedAddress: string | null;
   lat: number;
   lng: number;
-  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'not_found';
+  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'not_found';
 }
 
 export async function lookupZone(
@@ -30,6 +30,9 @@ export async function lookupZone(
   }
   if (mun.includes('airdrie')) {
     return lookupAirdrie(address);
+  }
+  if (mun.includes('chestermere')) {
+    return lookupChestermere(address);
   }
   if (mun.includes('rocky view') || mun.includes('rocky_view')) {
     console.log('[ZoneLookup] Rocky View County — no public API, manual selection required');
@@ -107,6 +110,90 @@ async function lookupCalgary(
       confirmedAddress: feature.PARCEL_ADDRESS,
       lat, lng,
       source: 'calgary_arcgis',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function lookupChestermere(address: string): Promise<ZoneLookupResult | null> {
+  const civicMatch = address.match(/^\s*(\d+)/);
+  if (!civicMatch) return null;
+  const civicNum = parseInt(civicMatch[1]);
+  const remainder = address.slice(civicMatch[0].length).trim().toUpperCase();
+  const streetMatch = remainder.match(/^([A-Z]+)/);
+  if (!streetMatch) return null;
+  const streetName = streetMatch[1];
+
+  // Step 1: geocode via Chestermere address points (geometry is multipoint)
+  const geocodeUrl = new URL(
+    'https://services5.arcgis.com/xPoG9m86qjKWAzys/arcgis/rest/services/ADDRESS_POINTS/FeatureServer/0/query'
+  );
+  geocodeUrl.searchParams.set('where', `ADDRESS_HO = '${civicNum}' AND ADDRESS_ST LIKE '${streetName}%'`);
+  geocodeUrl.searchParams.set('outFields', 'ADDRESS');
+  geocodeUrl.searchParams.set('returnGeometry', 'true');
+  geocodeUrl.searchParams.set('outSR', '4326');
+  geocodeUrl.searchParams.set('resultRecordCount', '1');
+  geocodeUrl.searchParams.set('f', 'json');
+
+  let lat: number, lng: number, confirmedAddress: string | null = null;
+  try {
+    const geoRes = await fetch(geocodeUrl.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!geoRes.ok) return null;
+    const geoData = await geoRes.json();
+    const feature = geoData?.features?.[0];
+    if (!feature) {
+      console.log(`[ZoneLookup] Chestermere address not found: ${address}`);
+      return null;
+    }
+    // Geometry arrives as multipoint: { points: [[lng, lat], ...] }
+    const pts = feature.geometry?.points;
+    if (!pts?.[0]) return null;
+    [lng, lat] = pts[0];
+    confirmedAddress = feature.attributes?.ADDRESS ?? null;
+    console.log(`[ZoneLookup] Chestermere geocoded: ${confirmedAddress} → ${lat}, ${lng}`);
+  } catch {
+    return null;
+  }
+
+  // Step 2: query future land use by coordinate
+  const zoneUrl = new URL(
+    'https://services5.arcgis.com/xPoG9m86qjKWAzys/arcgis/rest/services/Future_Land_Use_Approved_Only/FeatureServer/0/query'
+  );
+  zoneUrl.searchParams.set('geometry', `${lng},${lat}`);
+  zoneUrl.searchParams.set('geometryType', 'esriGeometryPoint');
+  zoneUrl.searchParams.set('inSR', '4326');
+  zoneUrl.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
+  zoneUrl.searchParams.set('outFields', 'Landuse_F,LU_Desc,Community');
+  zoneUrl.searchParams.set('returnGeometry', 'false');
+  zoneUrl.searchParams.set('f', 'json');
+
+  try {
+    const zoneRes = await fetch(zoneUrl.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!zoneRes.ok) return null;
+    const zoneData = await zoneRes.json();
+    const feat = zoneData?.features?.[0]?.attributes;
+    if (!feat) {
+      // Address found but outside Future Land Use coverage area
+      console.log(`[ZoneLookup] Chestermere: ${confirmedAddress} outside Future Land Use coverage`);
+      return null;
+    }
+
+    console.log(`[ZoneLookup] Chestermere result: ${feat.Landuse_F} — ${feat.LU_Desc}`);
+
+    return {
+      zoneCode:         feat.Landuse_F,
+      zoneName:         feat.LU_Desc,
+      communityName:    feat.Community ?? null,
+      confirmedAddress,
+      lat, lng,
+      source: 'chestermere_arcgis',
     };
   } catch {
     return null;

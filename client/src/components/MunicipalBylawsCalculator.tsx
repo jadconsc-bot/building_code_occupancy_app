@@ -55,6 +55,7 @@ function municipalityNameToId(name: string): string | null {
   if (n.includes('calgary'))                                    return 'calgary';
   if (n.includes('edmonton'))                                   return 'edmonton';
   if (n.includes('airdrie'))                                    return 'airdrie';
+  if (n.includes('chestermere'))                               return 'chestermere';
   if (n.includes('rocky view') || n.includes('rocky_view'))    return 'rocky_view_county';
   if (n.includes('lethbridge'))                                 return 'lethbridge';
   if (n.includes('vancouver'))                                  return 'vancouver';

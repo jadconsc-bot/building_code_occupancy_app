@@ -533,7 +533,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [zoneResult, setZoneResult] = useState<{
     zoneCode: string; zoneName: string; communityName: string | null;
     confirmedAddress: string | null; lat: number; lng: number;
-    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'not_found';
+    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'not_found';
   } | null>(null);
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -1377,6 +1377,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           let detectedMunId = 'edmonton';
           if (munLower.includes('calgary')) detectedMunId = 'calgary';
           else if (munLower.includes('airdrie')) detectedMunId = 'airdrie';
+          else if (munLower.includes('chestermere')) detectedMunId = 'chestermere';
           else if (munLower.includes('rocky view') || munLower.includes('rockyview')) detectedMunId = 'rocky_view_county';
           else if (munLower.includes('edmonton')) detectedMunId = 'edmonton';
           setSelectedMunicipalityId(detectedMunId);
@@ -6504,7 +6505,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                 ? 'City of Calgary Land Use Viewer'
                                 : zoneResult.source === 'airdrie_arcgis'
                                   ? 'City of Airdrie GIS'
-                                  : 'City of Edmonton Open Data'}
+                                  : zoneResult.source === 'chestermere_arcgis'
+                                    ? 'City of Chestermere Open Data'
+                                    : 'City of Edmonton Open Data'}
                             </p>
                           </div>
                         )}
@@ -6544,6 +6547,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <SelectItem value="edmonton">Edmonton</SelectItem>
                             <SelectItem value="calgary">Calgary</SelectItem>
                             <SelectItem value="airdrie">Airdrie</SelectItem>
+                            <SelectItem value="chestermere">Chestermere</SelectItem>
                             <SelectItem value="rocky_view_county">Rocky View County</SelectItem>
                             <SelectItem value="lethbridge">Lethbridge</SelectItem>
                             <SelectItem value="vancouver">Vancouver</SelectItem>
