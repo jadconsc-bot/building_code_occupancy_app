@@ -343,7 +343,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   
   // State for canvas interaction
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(zoom);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  const panRef = useRef(pan);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
   
@@ -489,6 +491,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [wallLengthInputs, setWallLengthInputs] = useState<Partial<Record<'N' | 'S' | 'E' | 'W', number>>>({});
   // Canvas vertical resize
   const [canvasHeight, setCanvasHeight] = useState(600);
+  const [showScrollbars, setShowScrollbars] = useState(false);
   const [wwrPanelHeight, setWwrPanelHeight] = useState(400);
   const [isDraggingDimension, setIsDraggingDimension] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null);
@@ -624,6 +627,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isScrollSyncingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -1321,6 +1325,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       img.onerror = reject;
       img.src = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
     });
+  };
+
+  const handleContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isScrollSyncingRef.current) return;
+    const el = e.currentTarget;
+    setPan({ x: -el.scrollLeft, y: -el.scrollTop });
   };
 
   const handleReadFullSet = async () => {
@@ -3451,7 +3461,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         });
         setDetectedRoomsData(prev => prev.map(r =>
           r.id === interactingRoom.roomId
-            ? { ...r, boundingBox: correctedBbox }
+            ? { ...r, boundingBox: correctedBbox, polygonJson: null } as any
             : r
         ));
       }
@@ -4343,17 +4353,46 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   }, [canvasHeight, drawCanvas]);
 
-  // Register wheel and touch events directly with { passive: false } so that
-  // e.preventDefault() inside the handlers is allowed by the browser.
-  // React 17+ attaches synthetic events at the root with passive:true, so any
-  // preventDefault() call inside onWheel/onTouch* silently fails and generates
-  // "Unable to preventDefault inside passive event listener" console errors.
+  // Keep zoom/pan refs in sync so the native wheel handler never sees stale values.
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { panRef.current = pan; }, [pan]);
+
+  // Sync pan state → container scroll position so the scrollbar thumb tracks drag-to-pan.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !showScrollbars) return;
+    const targetLeft = Math.max(0, -pan.x);
+    const targetTop  = Math.max(0, -pan.y);
+    if (el.scrollLeft === targetLeft && el.scrollTop === targetTop) return;
+    isScrollSyncingRef.current = true;
+    el.scrollLeft = targetLeft;
+    el.scrollTop  = targetTop;
+    requestAnimationFrame(() => { isScrollSyncingRef.current = false; });
+  }, [pan, showScrollbars]);
+
+  // Native wheel listener with { passive: false } so e.preventDefault() is honoured.
+  // React 17+ attaches synthetic onWheel as passive, silently ignoring preventDefault.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const preventWheel = (e: WheelEvent) => e.preventDefault();
-    canvas.addEventListener('wheel', preventWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', preventWheel);
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const currentZoom = zoomRef.current;
+      const currentPan  = panRef.current;
+      const newZoom = Math.max(0.1, Math.min(20, currentZoom * delta));
+      const zoomRatio = newZoom / currentZoom;
+      setPan({
+        x: mouseX - zoomRatio * (mouseX - currentPan.x),
+        y: mouseY - zoomRatio * (mouseY - currentPan.y),
+      });
+      setZoom(newZoom);
+    };
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
   }, []);
 
   // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
@@ -5865,8 +5904,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
                     ref={containerRef}
-                    className="w-full border border-border rounded-t-lg overflow-hidden bg-gray-100 dark:bg-gray-900 relative"
-                    style={{ height: canvasHeight }}
+                    className={`w-full border border-border rounded-t-lg bg-gray-100 dark:bg-gray-900 relative [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground ${showScrollbars ? 'overflow-auto' : 'overflow-hidden'}`}
+                    style={{ height: canvasHeight, scrollbarWidth: showScrollbars ? 'thin' : 'none', scrollbarColor: 'var(--border) transparent' } as React.CSSProperties}
+                    onMouseEnter={() => setShowScrollbars(true)}
+                    onMouseLeave={() => setShowScrollbars(false)}
+                    onScroll={handleContainerScroll}
                   >
                     {analysisProgress.stage !== 'idle' && (
                       <div className="absolute top-0 left-0 right-0 z-20 h-1 bg-gray-200">
@@ -5878,17 +5920,27 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     )}
                     <canvas
                       ref={canvasRef}
-                      className={`w-full h-full cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
+                      className={`w-full sticky top-0 left-0 cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
+                      style={{ height: canvasHeight }}
                       onMouseDown={handleCanvasMouseDown}
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
-                      onWheel={handleCanvasWheel}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
                       onTouchEnd={handleCanvasTouchEnd}
                       onContextMenu={handleCanvasContextMenu}
                     />
+                    {analyzedPageDims && zoom > 1.05 && (
+                      <div
+                        style={{
+                          width: analyzedPageDims.width * zoom,
+                          height: Math.max(0, analyzedPageDims.height * zoom - canvasHeight),
+                          pointerEvents: 'none',
+                        }}
+                        aria-hidden="true"
+                      />
+                    )}
                   </div>
                   {/* Drag handle — resize canvas height */}
                   <div
