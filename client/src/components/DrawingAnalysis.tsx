@@ -533,7 +533,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [zoneResult, setZoneResult] = useState<{
     zoneCode: string; zoneName: string; communityName: string | null;
     confirmedAddress: string | null; lat: number; lng: number;
-    source: 'calgary_arcgis' | 'edmonton_open_data' | 'not_found';
+    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'not_found';
   } | null>(null);
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -1374,30 +1374,40 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         setAddressInput(extractedAddress);
         if (extractedMun) {
           const munLower = extractedMun.toLowerCase();
-          if (munLower.includes('calgary')) setSelectedMunicipalityId('calgary');
-          else if (munLower.includes('edmonton')) setSelectedMunicipalityId('edmonton');
-          // Trigger lookup directly with the known values (avoids stale-closure on selectedMunicipalityId)
-          setTimeout(async () => {
-            setIsLookingUp(true);
-            setLookupError(null);
-            setZoneResult(null);
-            try {
-              const lookupResult = await zoneLookupMutation.mutateAsync({
-                address: extractedAddress.trim(),
-                municipality: munLower.includes('calgary') ? 'calgary' : 'edmonton',
-                province: 'AB',
-              });
-              if ('error' in lookupResult) {
-                setLookupError((lookupResult as any).error);
-              } else {
-                setZoneResult(lookupResult as any);
+          let detectedMunId = 'edmonton';
+          if (munLower.includes('calgary')) detectedMunId = 'calgary';
+          else if (munLower.includes('airdrie')) detectedMunId = 'airdrie';
+          else if (munLower.includes('rocky view') || munLower.includes('rockyview')) detectedMunId = 'rocky_view_county';
+          else if (munLower.includes('edmonton')) detectedMunId = 'edmonton';
+          setSelectedMunicipalityId(detectedMunId);
+
+          // Rocky View has no public zone API — skip auto-lookup
+          if (detectedMunId === 'rocky_view_county') {
+            setLookupError('Rocky View County zone lookup not available');
+          } else {
+            // Trigger lookup directly with the known values (avoids stale-closure on selectedMunicipalityId)
+            setTimeout(async () => {
+              setIsLookingUp(true);
+              setLookupError(null);
+              setZoneResult(null);
+              try {
+                const lookupResult = await zoneLookupMutation.mutateAsync({
+                  address: extractedAddress.trim(),
+                  municipality: detectedMunId,
+                  province: 'AB',
+                });
+                if ('error' in lookupResult) {
+                  setLookupError((lookupResult as any).error);
+                } else {
+                  setZoneResult(lookupResult as any);
+                }
+              } catch {
+                setLookupError('Auto-lookup failed — select zone manually');
+              } finally {
+                setIsLookingUp(false);
               }
-            } catch {
-              setLookupError('Auto-lookup failed — select zone manually');
-            } finally {
-              setIsLookingUp(false);
-            }
-          }, 300);
+            }, 300);
+          }
         }
       }
     } catch {
@@ -6492,12 +6502,31 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <p className="text-xs text-green-500 mt-1">
                               Source: {zoneResult.source === 'calgary_arcgis'
                                 ? 'City of Calgary Land Use Viewer'
-                                : 'City of Edmonton Open Data'}
+                                : zoneResult.source === 'airdrie_arcgis'
+                                  ? 'City of Airdrie GIS'
+                                  : 'City of Edmonton Open Data'}
                             </p>
                           </div>
                         )}
                         {lookupError && (
-                          <p className="text-xs text-amber-600">⚠ {lookupError} — select zone manually below</p>
+                          <p className="text-xs text-amber-600">
+                            {selectedMunicipalityId === 'rocky_view_county' ? (
+                              <>
+                                ⚠ Rocky View County zone lookup not available — visit{' '}
+                                <a
+                                  href="https://gis.rockyview.ca/planning/"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline text-amber-700"
+                                >
+                                  gis.rockyview.ca/planning
+                                </a>
+                                {' '}to find your zone, then select manually below
+                              </>
+                            ) : (
+                              <>⚠ {lookupError} — select zone manually below</>
+                            )}
+                          </p>
                         )}
                       </div>
 
@@ -6515,6 +6544,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <SelectItem value="edmonton">Edmonton</SelectItem>
                             <SelectItem value="calgary">Calgary</SelectItem>
                             <SelectItem value="airdrie">Airdrie</SelectItem>
+                            <SelectItem value="rocky_view_county">Rocky View County</SelectItem>
                             <SelectItem value="lethbridge">Lethbridge</SelectItem>
                             <SelectItem value="vancouver">Vancouver</SelectItem>
                           </SelectContent>

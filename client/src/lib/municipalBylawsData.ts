@@ -1615,6 +1615,208 @@ export const municipalities: Municipality[] = [
       },
     ],
   },
+  {
+    id: 'rocky_view_county',
+    name: 'Rocky View County',
+    province: 'Alberta',
+    bylawName: 'Land Use Bylaw',
+    bylawNumber: 'C-8000-2020',
+    lastUpdated: '2020-01-01',
+    sourceUrl: 'https://www.rockyview.ca/build-plan-and-develop/planning/land-use-bylaw',
+    generalRegulations: {
+      deckMaxHeight: 1.2,
+      fenceMaxHeight: 1.83,
+      accessoryBuildingMaxArea: 65,
+      accessoryBuildingMaxHeight: 4.5,
+    },
+    zones: [
+      {
+        zoneCode: 'R-RUR',
+        zoneName: 'Rural Residential',
+        description: 'Low-density rural residential on large parcels',
+        setbacks: {
+          front: 10.0,
+          rear: 7.5,
+          sideInterior: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 15,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 20000, // 2.0 ha converted to m²
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: ['Minimum lot area is 2.0 hectares (20,000 m²)'],
+      },
+      {
+        zoneCode: 'R-1',
+        zoneName: 'Residential One',
+        description: 'Single detached dwellings in hamlet areas',
+        setbacks: {
+          front: 6.0,
+          rear: 7.5,
+          sideInterior: 1.2,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 40,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 557,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'R-2',
+        zoneName: 'Residential Two',
+        description: 'Semi-detached and duplex dwellings',
+        setbacks: {
+          front: 6.0,
+          rear: 7.5,
+          sideInterior: 1.2,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 45,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 557,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'R-3',
+        zoneName: 'Residential Three',
+        description: 'Multi-unit residential',
+        setbacks: {
+          front: 6.0,
+          rear: 7.5,
+          sideInterior: 1.5,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          maxStoreys: 4,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 50,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 557,
+          minWidth: 18.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'C-1',
+        zoneName: 'Hamlet Commercial',
+        description: 'Small-scale commercial serving hamlet areas',
+        setbacks: {
+          front: 3.0,
+          rear: 3.0,
+          sideInterior: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 10.0,
+          maxStoreys: 2,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 400,
+          minWidth: 15.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'I-1',
+        zoneName: 'Light Industrial',
+        description: 'Light industrial and service commercial',
+        setbacks: {
+          front: 7.5,
+          rear: 4.5,
+          sideInterior: 3.0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 14.0,
+          unit: 'meters',
+        },
+        coverage: {
+          maxSiteCoverage: 60,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 2000,
+          minWidth: 30.0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+      },
+      {
+        zoneCode: 'DC',
+        zoneName: 'Direct Control',
+        description: 'Regulations set by individual DC bylaw',
+        setbacks: {
+          front: 0,
+          rear: 0,
+          sideInterior: 0,
+          unit: 'meters',
+        },
+        height: {
+          maxHeight: 0,
+          unit: 'meters',
+          notes: 'Set by individual DC bylaw',
+        },
+        coverage: {
+          maxSiteCoverage: 0,
+          unit: 'percent',
+        },
+        lotRequirements: {
+          minArea: 0,
+          minWidth: 0,
+          areaUnit: 'sqm',
+          widthUnit: 'meters',
+        },
+        specialNotes: [
+          'Regulations set by individual Direct Control bylaw — contact Rocky View County Development Services for site-specific requirements',
+        ],
+      },
+    ],
+  },
 ];
 
 // Helper functions
