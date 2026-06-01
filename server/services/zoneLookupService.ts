@@ -5,7 +5,7 @@ export interface ZoneLookupResult {
   confirmedAddress: string | null;
   lat: number;
   lng: number;
-  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'not_found';
+  source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'okotoks_arcgis' | 'not_found';
 }
 
 export async function lookupZone(
@@ -40,12 +40,19 @@ export async function lookupZone(
   if (mun.includes('strathcona')) {
     return lookupStrathcona(coords.lat, coords.lng);
   }
+  if (mun.includes('okotoks')) {
+    return lookupOkotoks(coords.lat, coords.lng);
+  }
   if (mun.includes('rocky view') || mun.includes('rocky_view')) {
     console.log('[ZoneLookup] Rocky View County — no public API, manual selection required');
     return null;
   }
   if (mun.includes('red deer')) {
     console.log('[ZoneLookup] Red Deer — no public API, manual selection required');
+    return null;
+  }
+  if (mun.includes('spruce grove')) {
+    console.log('[ZoneLookup] Spruce Grove — no public API, manual selection required');
     return null;
   }
 
@@ -372,6 +379,50 @@ async function lookupStrathcona(
       confirmedAddress: null,
       lat, lng,
       source: 'strathcona_arcgis',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function lookupOkotoks(
+  lat: number,
+  lng: number,
+): Promise<ZoneLookupResult | null> {
+  const url = new URL(
+    'https://services3.arcgis.com/Fl5sQFvYY7w7mPQj/arcgis/rest/services/Land_Use_Designations/FeatureServer/7/query'
+  );
+  url.searchParams.set('geometry', `${lng},${lat}`);
+  url.searchParams.set('geometryType', 'esriGeometryPoint');
+  url.searchParams.set('inSR', '4326');
+  url.searchParams.set('spatialRel', 'esriSpatialRelIntersects');
+  url.searchParams.set('outFields', 'LU_Code,New_LU');
+  url.searchParams.set('returnGeometry', 'false');
+  url.searchParams.set('f', 'json');
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data?.features?.[0]?.attributes;
+    if (!feature?.LU_Code) return null;
+
+    // Strip trailing " District (CODE)" to get a clean zone name
+    const rawName: string = feature.New_LU ?? feature.LU_Code;
+    const zoneName = rawName.replace(/\s*\([A-Z0-9]+\)\s*$/, '').trim();
+
+    console.log(`[ZoneLookup] Okotoks result: ${feature.LU_Code} — ${zoneName}`);
+
+    return {
+      zoneCode:         feature.LU_Code,
+      zoneName,
+      communityName:    null,
+      confirmedAddress: null,
+      lat, lng,
+      source: 'okotoks_arcgis',
     };
   } catch {
     return null;

@@ -533,7 +533,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [zoneResult, setZoneResult] = useState<{
     zoneCode: string; zoneName: string; communityName: string | null;
     confirmedAddress: string | null; lat: number; lng: number;
-    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'not_found';
+    source: 'calgary_arcgis' | 'edmonton_open_data' | 'airdrie_arcgis' | 'chestermere_arcgis' | 'st_albert_arcgis' | 'strathcona_arcgis' | 'okotoks_arcgis' | 'not_found';
   } | null>(null);
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -1389,9 +1389,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           else if (munLower.includes('edmonton')) detectedMunId = 'edmonton';
           setSelectedMunicipalityId(detectedMunId);
 
-          // Rocky View and Red Deer have no public zone API — skip auto-lookup
-          if (detectedMunId === 'rocky_view_county' || detectedMunId === 'red_deer') {
-            setLookupError(`${detectedMunId === 'red_deer' ? 'Red Deer' : 'Rocky View County'} zone lookup not available`);
+          // Rocky View, Red Deer, and Spruce Grove have no public zone API — skip auto-lookup
+          if (detectedMunId === 'rocky_view_county' || detectedMunId === 'red_deer' || detectedMunId === 'spruce_grove') {
+            const label = detectedMunId === 'red_deer' ? 'Red Deer' : detectedMunId === 'spruce_grove' ? 'Spruce Grove' : 'Rocky View County';
+            setLookupError(`${label} zone lookup not available`);
           } else {
             // Trigger lookup directly with the known values (avoids stale-closure on selectedMunicipalityId)
             setTimeout(async () => {
@@ -6518,7 +6519,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                       ? 'City of St. Albert Open Data'
                                       : zoneResult.source === 'strathcona_arcgis'
                                         ? 'Strathcona County Open Data'
-                                        : 'City of Edmonton Open Data'}
+                                        : zoneResult.source === 'okotoks_arcgis'
+                                          ? 'Town of Okotoks Open Data'
+                                          : 'City of Edmonton Open Data'}
                             </p>
                           </div>
                         )}
@@ -6547,6 +6550,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                   className="underline text-amber-700"
                                 >
                                   data-reddeer.opendata.arcgis.com
+                                </a>
+                                {' '}to find your zone, then select manually below
+                              </>
+                            ) : selectedMunicipalityId === 'spruce_grove' ? (
+                              <>
+                                ⚠ Spruce Grove zone lookup not available — visit{' '}
+                                <a
+                                  href="https://www.sprucegrove.org/business/planning-development/land-use-bylaw/"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline text-amber-700"
+                                >
+                                  sprucegrove.org/planning
                                 </a>
                                 {' '}to find your zone, then select manually below
                               </>

@@ -140,6 +140,10 @@ export function MunicipalBylawsCalculator() {
       toast.warning('Red Deer zone lookup not available — select zone manually');
       return;
     }
+    if (selectedMunicipality === 'spruce_grove') {
+      toast.warning('Spruce Grove zone lookup not available — select zone manually');
+      return;
+    }
     const munName = municipalities.find(m => m.id === selectedMunicipality)?.name ?? 'Calgary';
     try {
       const result = await zoneLookupMutation.mutateAsync({
