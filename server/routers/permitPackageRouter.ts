@@ -12,6 +12,7 @@ import {
   projectCalculatorResults,
   siteAnalyses,
   fireAssemblies,
+  detectedRooms,
 } from "../../drizzle/schema";
 import { getRequiredFRR } from "../services/fireSeparationService";
 import { jsPDF } from "jspdf";
@@ -872,7 +873,118 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
-      // ── Page 8 — Accessibility & Plumbing ───────────────────────────────────
+      // ── Page 8 — Fire Wall Schedule (conditional) ───────────────────────────
+      if (allFireAssemblies.length > 0) {
+        doc.addPage();
+        doc.setFillColor(31, 41, 55);
+        doc.rect(0, 0, W, 18, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+        doc.text("Fire Wall Schedule", M, 13);
+        doc.setTextColor(0, 0, 0);
+        y = 28;
+
+        const wallRows = [...allFireAssemblies].sort((a, b) => {
+          const sn = (a.sequenceNum ?? 0) - (b.sequenceNum ?? 0);
+          if (sn !== 0) return sn;
+          return (a.stackSuffix ?? "a") < (b.stackSuffix ?? "a") ? -1 : 1;
+        });
+
+        const regularWalls = wallRows.filter(w => !w.isStacked || w.stackSuffix === "a");
+        const stackedWalls = wallRows.filter(w => w.isStacked);
+
+        y = addSectionHeader(doc, "Fire-Rated Wall Assemblies", y, W, M);
+        autoTable(doc, {
+          startY: y,
+          head: [["Code", "Name / Spaces", "FRR Drawn", "FRR Req'd", "ULC Design", "Assembly", "Length", "Status"]],
+          body: regularWalls.map(w => [
+            w.wallCode ?? w.assemblyLabel ?? "—",
+            w.wallName ?? `${w.labelA ?? "—"} / ${w.labelB ?? "—"}`,
+            w.isStacked ? `${w.frrDrawn}hr (A)` : `${w.frrDrawn}hr`,
+            w.frrRequired ? `${w.frrRequired}hr` : "—",
+            w.ulcDesign ?? "—",
+            w.assemblyDesc ?? "—",
+            w.lengthM ? `${Number(w.lengthM).toFixed(1)}m` : "—",
+            w.isCompliant === true ? "PASS" : w.isCompliant === false ? "FAIL" : "—",
+          ]),
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 7.5 },
+          bodyStyles: { fontSize: 7.5 },
+          columnStyles: {
+            0: { cellWidth: 16, fontStyle: "bold" },
+            1: { cellWidth: 38 },
+            2: { cellWidth: 16, halign: "center" },
+            3: { cellWidth: 16, halign: "center" },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 40 },
+            6: { cellWidth: 14, halign: "center" },
+            7: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+          },
+          didParseCell(data: any) {
+            if (data.section === "body" && data.column.index === 7) {
+              if (data.cell.raw === "PASS") data.cell.styles.textColor = [22, 163, 74];
+              if (data.cell.raw === "FAIL") data.cell.styles.textColor = [220, 38, 38];
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+
+        if (stackedWalls.length > 0) {
+          y = addSectionHeader(doc, "Stacked Assemblies", y, W, M);
+          const stackGroups: Record<number, typeof stackedWalls> = {};
+          for (const w of stackedWalls) {
+            const key = w.sequenceNum ?? 0;
+            stackGroups[key] = stackGroups[key] ?? [];
+            stackGroups[key].push(w);
+          }
+          autoTable(doc, {
+            startY: y,
+            head: [["Code", "Layer", "FRR", "ULC Design", "Effective FRR", "Req'd FRR", "Status"]],
+            body: Object.values(stackGroups).flatMap(group => {
+              const sorted = [...group].sort((a, b) => (a.stackSuffix ?? "") < (b.stackSuffix ?? "") ? -1 : 1);
+              return sorted.map((w, i) => [
+                w.wallCode ?? "—",
+                `Layer ${(w.stackSuffix ?? "a").toUpperCase()}`,
+                `${w.frrDrawn}hr`,
+                w.ulcDesign ?? "—",
+                i === 0 ? `${w.effectiveFrr}hr combined` : "↑",
+                i === 0 ? (w.frrRequired ? `${w.frrRequired}hr` : "—") : "",
+                i === 0 ? (w.isCompliant === true ? "PASS" : w.isCompliant === false ? "FAIL" : "—") : "",
+              ]);
+            }),
+            theme: "grid",
+            headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 7.5 },
+            bodyStyles: { fontSize: 7.5 },
+            columnStyles: {
+              0: { cellWidth: 18, fontStyle: "bold" },
+              1: { cellWidth: 20 },
+              2: { cellWidth: 14, halign: "center" },
+              3: { cellWidth: 22 },
+              4: { cellWidth: 24, halign: "center", fontStyle: "bold" },
+              5: { cellWidth: 16, halign: "center" },
+              6: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+            },
+            didParseCell(data: any) {
+              if (data.section === "body" && data.column.index === 6) {
+                if (data.cell.raw === "PASS") data.cell.styles.textColor = [22, 163, 74];
+                if (data.cell.raw === "FAIL") data.cell.styles.textColor = [220, 38, 38];
+              }
+            },
+            margin: { left: M, right: M },
+          });
+          y = (doc as any).lastAutoTable.finalY + 8;
+        }
+
+        const totalLen = allFireAssemblies.reduce((s, w) => s + (Number(w.lengthM) || 0), 0);
+        const compCount = allFireAssemblies.filter(w => w.isCompliant).length;
+        doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(75, 85, 99);
+        doc.text(`Total fire-rated wall assemblies: ${allFireAssemblies.length}   Compliant: ${compCount}/${allFireAssemblies.length}   Total length: ${totalLen.toFixed(1)}m`, M, y + 4);
+        doc.text("NBC Reference: Table 3.1.3.4, Sentence 3.1.3.4(1)", M, y + 10);
+        doc.setTextColor(0, 0, 0);
+      }
+
+      // ── Page 9/10 — Accessibility & Plumbing ───────────────────────────────
       doc.addPage();
       doc.setFillColor(31, 41, 55);
       doc.rect(0, 0, W, 18, "F");
@@ -940,7 +1052,7 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
-      // ── Page 9 — Structural & Environmental ─────────────────────────────────
+      // ── Page 10/11 — Structural & Environmental ─────────────────────────────
       doc.addPage();
       doc.setFillColor(31, 41, 55);
       doc.rect(0, 0, W, 18, "F");
@@ -1523,5 +1635,77 @@ export const permitPackageRouter = router({
       };
 
       return { rows, summary: counts };
+    }),
+
+  getFireSeparationStatus: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [project] = await db
+        .select({ userId: projects.userId })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "org_admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const rooms = await db
+        .select({ occupancyGroup: detectedRooms.occupancyGroup, roomLabel: detectedRooms.roomLabel })
+        .from(detectedRooms)
+        .where(eq(detectedRooms.projectId, input.projectId));
+
+      const assemblies = await db
+        .select()
+        .from(fireAssemblies)
+        .where(eq(fireAssemblies.projectId, input.projectId));
+
+      const groups = [...new Set(rooms.map(r => r.occupancyGroup).filter(Boolean))] as string[];
+
+      type PairStatus = "compliant" | "non_compliant" | "missing";
+      const pairs: Array<{
+        groupA: string; groupB: string;
+        labelA: string; labelB: string;
+        required: number;
+        drawn: number | null;
+        wallCode: string | null;
+        status: PairStatus;
+      }> = [];
+
+      for (let i = 0; i < groups.length; i++) {
+        for (let j = i; j < groups.length; j++) {
+          const groupA = groups[i];
+          const groupB = groups[j];
+          const required = getRequiredFRR(groupA, groupB);
+          if (required === 0) continue;
+
+          const drawn = assemblies.find(a =>
+            (a.occupancyA === groupA && a.occupancyB === groupB) ||
+            (a.occupancyA === groupB && a.occupancyB === groupA)
+          );
+
+          const roomA = rooms.find(r => r.occupancyGroup === groupA);
+          const roomB = rooms.find(r => r.occupancyGroup === groupB);
+
+          const drawnFrr = drawn
+            ? Number(drawn.effectiveFrr ?? drawn.frrDrawn)
+            : null;
+
+          pairs.push({
+            groupA, groupB,
+            labelA: roomA?.roomLabel ?? groupA,
+            labelB: roomB?.roomLabel ?? groupB,
+            required,
+            drawn: drawnFrr,
+            wallCode: drawn?.wallCode ?? null,
+            status: !drawn ? "missing" : drawn.isCompliant ? "compliant" : "non_compliant",
+          });
+        }
+      }
+
+      return { pairs };
     }),
 });

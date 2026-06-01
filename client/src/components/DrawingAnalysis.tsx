@@ -105,8 +105,11 @@ import {
   AssemblyType,
   FIRE_ASSEMBLY_STYLES,
   drawFireAssemblyLine,
+  drawWallTag,
   detectRoomsOnSides,
   frrFromType,
+  frrLabel,
+  type WallTagCompliance,
 } from "@/lib/fireAssemblyStyles";
 import { pxToMetres } from "@/lib/scaleUtils";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
@@ -731,7 +734,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     assemblyType: AssemblyType;
     frrDrawn: number;
     frrRequired: number | null;
+    effectiveFrr: number | null;
     isCompliant: boolean | null;
+    isStacked: boolean;
     gap: number | null;
     occupancyA: string | null;
     occupancyB: string | null;
@@ -740,6 +745,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     lengthM: number | null;
     remediationJson: any[] | null;
     assemblyLabel: string;
+    wallCode: string;
+    wallName: string | null;
     savedId: number | null;
   }>>([]);
   const [activeFireStrokePoints, setActiveFireStrokePoints] = useState<{ x: number; y: number }[]>([]);
@@ -748,6 +755,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     x: number; y: number; strokeId: string;
   } | null>(null);
   const saveFireAssemblyMutation = trpc.fireAssembly.save.useMutation();
+  const renameWallMutation = trpc.fireAssembly.renameWall.useMutation();
+  const [firePopoverEditName, setFirePopoverEditName] = useState("");
+  const [firePopoverIsEditingName, setFirePopoverIsEditingName] = useState(false);
+  const [pendingPair, setPendingPair] = useState<{ groupA: string; groupB: string; label: string } | null>(null);
 
   // tRPC mutations for persistence
   const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
@@ -1288,6 +1299,36 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     if (canvasRef.current) canvasRef.current.style.cursor = 'default';
   };
 
+  // Read URL params on mount to pre-configure fire assembly tool
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const autoFrr = params.get("autoFrr");
+    const pairA   = params.get("pairA");
+    const pairB   = params.get("pairB");
+    const label   = params.get("pairLabel");
+
+    if (autoFrr) {
+      const frr = parseFloat(autoFrr);
+      const assemblyType: AssemblyType =
+        frr === 0.5 ? "0.5hr" :
+        frr === 1.0 ? "1hr"   :
+        frr === 1.5 ? "1.5hr" :
+        frr === 2.0 ? "2hr"   : "fire_separation";
+
+      setFireAssemblyType(assemblyType);
+      setActiveTool("fire_assembly");
+
+      if (pairA && pairB) {
+        setPendingPair({ groupA: pairA, groupB: pairB, label: label ? decodeURIComponent(label) : `${pairA}/${pairB}` });
+      }
+
+      toast.info(
+        `Fire wall mode: ${frr}hr FRR required${label ? ` — ${decodeURIComponent(label)}` : ""}`,
+        { duration: 6000 }
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const finishFireAssemblyStroke = async () => {
     if (activeFireStrokePoints.length < 2) {
       setIsDrawingFireAssembly(false);
@@ -1324,13 +1365,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const lengthM = pxToMetres(lengthPx, { pixelsPerDrawingUnit, ratio: selectedScale.ratio, scaleSystem });
 
     const strokeId = `fa-${Date.now()}`;
+    const tempCode = FIRE_ASSEMBLY_STYLES[fireAssemblyType].label;
     const newStroke = {
       id: strokeId,
       points: pts,
       assemblyType: fireAssemblyType,
       frrDrawn,
       frrRequired,
+      effectiveFrr: null as number | null,
       isCompliant,
+      isStacked: false,
       gap,
       occupancyA,
       occupancyB,
@@ -1338,7 +1382,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       labelB: roomB?.label ?? null,
       lengthM: lengthM > 0 ? lengthM : null,
       remediationJson: remediation.length > 0 ? remediation : null,
-      assemblyLabel: FIRE_ASSEMBLY_STYLES[fireAssemblyType].label,
+      assemblyLabel: tempCode,
+      wallCode: tempCode,
+      wallName: null as string | null,
       savedId: null as number | null,
     };
 
@@ -1351,17 +1397,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Persist to DB if we have enough context
     if (activeProjectId && currentPageId) {
       try {
-        const { id: savedId } = await saveFireAssemblyMutation.mutateAsync({
+        const result = await saveFireAssemblyMutation.mutateAsync({
           drawingAnalysisId: analysisId ?? 0,
           pageId: currentPageId,
           projectId: activeProjectId,
           assemblyType: fireAssemblyType,
           frrDrawn,
-          frrRequired,
-          isCompliant,
-          gap: gap > 0 ? gap : undefined,
-          roomAId: roomA?.id,
-          roomBId: roomB?.id,
           occupancyA,
           occupancyB,
           labelA: roomA?.label,
@@ -1369,11 +1410,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           lengthPx,
           lengthM: lengthM > 0 ? lengthM : undefined,
           pointsJson: pts,
-          remediationJson: remediation.length > 0 ? remediation : undefined,
-          assemblyLabel: FIRE_ASSEMBLY_STYLES[fireAssemblyType].label,
         });
+
+        if (result.stackMatch) {
+          toast.success(
+            `Stacked assembly: ${result.stackMatch.codeA} + ${result.stackMatch.codeB} = ${result.stackMatch.effectiveFrr}hr effective FRR`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.success(`${result.wallCode} saved — ${result.isCompliant ? "✓ Compliant" : "✗ Non-compliant"}`);
+        }
+
         setFireAssemblyStrokes(prev =>
-          prev.map(s => s.id === strokeId ? { ...s, savedId } : s)
+          prev.map(s => s.id === strokeId ? {
+            ...s,
+            savedId: result.id,
+            wallCode: result.wallCode,
+            wallName: result.wallName ?? null,
+            assemblyLabel: result.wallCode,
+            effectiveFrr: result.effectiveFrr,
+            isStacked: result.isStacked,
+            isCompliant: result.isCompliant,
+          } : s)
         );
       } catch {
         // non-fatal — stroke stays in local state
@@ -2386,14 +2444,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // ===== CROP REGION LAYER =====
-    // Fire assembly lines
+    // Fire assembly lines + tags
     for (const stroke of fireAssemblyStrokes) {
       const screenPts = stroke.points.map(p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y }));
-      drawFireAssemblyLine(ctx, screenPts, stroke.assemblyType, stroke.isCompliant, stroke.assemblyLabel);
+      drawFireAssemblyLine(ctx, screenPts, stroke.assemblyType, stroke.isCompliant);
+      const style = FIRE_ASSEMBLY_STYLES[stroke.assemblyType];
+      const compliance: WallTagCompliance =
+        stroke.isCompliant === true  ? "pass"    :
+        stroke.isCompliant === false ? "fail"    :
+        "unknown";
+      drawWallTag(
+        ctx, screenPts,
+        stroke.wallCode || stroke.assemblyLabel,
+        stroke.frrDrawn,
+        stroke.effectiveFrr,
+        stroke.isStacked,
+        compliance,
+        style.color,
+      );
     }
     if (isDrawingFireAssembly && activeFireStrokePoints.length >= 1) {
       const screenPts = activeFireStrokePoints.map(p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y }));
-      drawFireAssemblyLine(ctx, screenPts, fireAssemblyType, null, FIRE_ASSEMBLY_STYLES[fireAssemblyType].label);
+      drawFireAssemblyLine(ctx, screenPts, fireAssemblyType, null);
     }
 
     const cropToDraw = cropRegionDraftRef.current ?? cropRegionConfirmed;
@@ -5572,6 +5644,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                 <div className="ml-auto flex items-center gap-2">
                   <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-orange-300 text-orange-700 hover:bg-orange-50 disabled:opacity-40"
+                    disabled={detectedRoomsData.length === 0}
+                    title={detectedRoomsData.length === 0 ? "Run AI Analysis first to detect occupancy groups" : "Check required fire separations in Occupancy Advisor"}
+                    onClick={() => setLocation(
+                      `/drawing-analyzer?from=drawing-analyzer&projectId=${activeProjectId ?? ""}&highlight=missing-separations`
+                    )}
+                  >
+                    <Flame className="w-3.5 h-3.5 mr-1.5" />
+                    Check Separations
+                  </Button>
+                  <Button
                     onClick={handleSendToPermitting}
                     disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting}
                     variant="outline"
@@ -6272,6 +6357,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         Scale not calibrated — fire assembly lengths won't be accurate. Use the Calibrate button first.
                       </div>
                     )}
+                    {pendingPair && (
+                      <div className="absolute top-2 left-2 right-2 z-20 bg-orange-50 border border-orange-200 rounded px-3 py-2 text-xs text-orange-800 flex items-center gap-2">
+                        <Flame className="w-3.5 h-3.5 shrink-0" />
+                        Drawing {fireAssemblyType} wall between <strong className="mx-0.5">{pendingPair.label}</strong> — draw a line across the wall between these spaces, then double-click to finish.
+                        <button className="ml-auto text-orange-500 hover:text-orange-700" onClick={() => setPendingPair(null)}>✕</button>
+                      </div>
+                    )}
                     <canvas
                       ref={canvasRef}
                       className={`w-full sticky top-0 left-0 cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
@@ -6464,7 +6556,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     if (!stroke) return null;
                     return (
                       <div
-                        className="fixed z-[60] bg-popover border border-border rounded-lg shadow-xl p-4 w-72 text-sm"
+                        className="fixed z-[60] bg-popover border border-border rounded-lg shadow-xl p-4 w-80 text-sm"
                         style={{ left: fireAssemblyPopover.x + 8, top: fireAssemblyPopover.y - 8 }}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -6472,16 +6564,58 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <Flame className="w-4 h-4 text-orange-500" />
                             Fire Assembly
                           </span>
-                          <button className="text-muted-foreground hover:text-foreground" onClick={() => setFireAssemblyPopover(null)}>✕</button>
+                          <button className="text-muted-foreground hover:text-foreground" onClick={() => { setFireAssemblyPopover(null); setFirePopoverIsEditingName(false); }}>✕</button>
                         </div>
+
+                        {/* Wall name + rename */}
+                        <div className="flex items-center gap-2 mb-2">
+                          {firePopoverIsEditingName ? (
+                            <>
+                              <input
+                                className="flex-1 border border-border rounded px-2 py-1 text-xs h-7"
+                                value={firePopoverEditName}
+                                onChange={e => setFirePopoverEditName(e.target.value)}
+                                autoFocus
+                                onKeyDown={async e => {
+                                  if (e.key === "Enter" && stroke.savedId && activeProjectId) {
+                                    await renameWallMutation.mutateAsync({ id: stroke.savedId, projectId: activeProjectId, wallName: firePopoverEditName });
+                                    setFireAssemblyStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, wallName: firePopoverEditName } : s));
+                                    setFirePopoverIsEditingName(false);
+                                  }
+                                  if (e.key === "Escape") setFirePopoverIsEditingName(false);
+                                }}
+                              />
+                              <Button size="sm" className="h-7 px-2 text-xs"
+                                onClick={async () => {
+                                  if (stroke.savedId && activeProjectId) {
+                                    await renameWallMutation.mutateAsync({ id: stroke.savedId, projectId: activeProjectId, wallName: firePopoverEditName });
+                                    setFireAssemblyStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, wallName: firePopoverEditName } : s));
+                                  }
+                                  setFirePopoverIsEditingName(false);
+                                }}
+                              >Save</Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setFirePopoverIsEditingName(false)}>✕</Button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs font-medium flex-1 truncate">{stroke.wallName ?? stroke.wallCode}</span>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground"
+                                onClick={() => { setFirePopoverEditName(stroke.wallName ?? ""); setFirePopoverIsEditingName(true); }}
+                              >✎ Rename</Button>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Code + stacked badge */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-xs">{stroke.wallCode}</span>
+                          {stroke.isStacked && <Badge variant="outline" className="text-xs py-0">Stacked assembly</Badge>}
+                        </div>
+
                         <div className="space-y-1.5 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Type</span>
-                            <span className="font-medium">{FIRE_ASSEMBLY_STYLES[stroke.assemblyType].label}</span>
-                          </div>
-                          <div className="flex justify-between">
                             <span className="text-muted-foreground">FRR Drawn</span>
-                            <span className="font-medium">{stroke.frrDrawn}hr</span>
+                            <span className="font-medium">{stroke.frrDrawn}hr{stroke.effectiveFrr && stroke.isStacked ? ` → ${stroke.effectiveFrr}hr effective` : ""}</span>
                           </div>
                           {stroke.frrRequired != null && (
                             <div className="flex justify-between">

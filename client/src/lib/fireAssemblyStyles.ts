@@ -24,6 +24,14 @@ export function frrFromType(type: AssemblyType): number {
   return 0;
 }
 
+export function frrLabel(frr: number): string {
+  if (frr === 0.5) return "½HR";
+  if (frr === 1.0) return "1HR";
+  if (frr === 1.5) return "1½HR";
+  if (frr === 2.0) return "2HR";
+  return `${frr}HR`;
+}
+
 export function drawFireAssemblyLine(
   ctx: CanvasRenderingContext2D,
   points: AssemblyPoint[],
@@ -44,17 +52,74 @@ export function drawFireAssemblyLine(
     ctx.lineTo(points[i].x, points[i].y);
   }
   ctx.stroke();
-
-  // Midpoint label
-  const mid = points[Math.floor(points.length / 2)];
-  const displayLabel = label ?? style.label;
   ctx.setLineDash([]);
-  ctx.font = "bold 11px sans-serif";
-  ctx.fillStyle = "#ffffff";
-  const tw = ctx.measureText(displayLabel).width;
-  ctx.fillRect(mid.x - tw / 2 - 3, mid.y - 12, tw + 6, 16);
-  ctx.fillStyle = style.color;
-  ctx.fillText(displayLabel, mid.x - tw / 2, mid.y);
+  ctx.restore();
+}
+
+export type WallTagCompliance = "pass" | "fail" | "marginal" | "unknown";
+
+export function drawWallTag(
+  ctx: CanvasRenderingContext2D,
+  points: AssemblyPoint[],
+  wallCode: string,
+  frr: number,
+  effectiveFrr: number | null,
+  isStacked: boolean,
+  compliance: WallTagCompliance,
+  color: string,
+) {
+  if (points.length < 2) return;
+  const mid = points[Math.floor(points.length / 2)];
+
+  const displayFrr = effectiveFrr ?? frr;
+  const label = frrLabel(displayFrr);
+  const tagW = 44;
+  const tagH = isStacked ? 30 : 26;
+
+  ctx.save();
+
+  // Convert hex color to rgba for background
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 1.5;
+
+  // @ts-ignore — roundRect is available in modern browsers
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    (ctx as any).roundRect(mid.x - tagW / 2, mid.y - tagH - 4, tagW, tagH, 3);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(mid.x - tagW / 2, mid.y - tagH - 4, tagW, tagH);
+    ctx.strokeRect(mid.x - tagW / 2, mid.y - tagH - 4, tagW, tagH);
+  }
+
+  if (isStacked) {
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(mid.x - tagW / 2, mid.y - tagH - 4, tagW, 7);
+    ctx.fillStyle = "white";
+    ctx.font = "bold 6px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("STACKED", mid.x, mid.y - tagH + 2);
+  }
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.font = `bold 8px sans-serif`;
+  ctx.fillText(wallCode, mid.x, mid.y - tagH / 2 - 2 + (isStacked ? 4 : 0));
+
+  ctx.font = "bold 9px sans-serif";
+  ctx.fillText(label, mid.x, mid.y - 10);
+
+  // Compliance dot
+  const dotColor =
+    compliance === "pass"     ? "#86efac" :
+    compliance === "fail"     ? "#fca5a5" :
+    compliance === "marginal" ? "#fcd34d" : "#e2e8f0";
+  ctx.fillStyle = dotColor;
+  ctx.beginPath();
+  ctx.arc(mid.x + tagW / 2 - 5, mid.y - tagH + 3, 3, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.restore();
 }
@@ -77,7 +142,6 @@ export function detectRoomsOnSides(
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len === 0) return { roomA: null, roomB: null };
 
-  // Normal vectors perpendicular to the line
   const nx = -dy / len;
   const ny = dx / len;
   const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };

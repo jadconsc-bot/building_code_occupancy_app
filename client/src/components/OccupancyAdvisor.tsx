@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
   Dialog,
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2, X, Layers } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2, X, Layers, Flame, Circle, PenLine } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -180,6 +181,93 @@ function makeStackZone(code: string): StackZone | null {
   const entry = ALL_NBC_CODES.find(c => c.code === code);
   if (!visual || !entry) return null;
   return { code, name: entry.name, ...visual, area_m2: 100 };
+}
+
+// ── Fire Separation Panel ─────────────────────────────────────────────────────
+
+function FireSeparationPanel({ projectId }: { projectId: number }) {
+  const [, setLocation] = useLocation();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { data } = trpc.permitPackage.getFireSeparationStatus.useQuery(
+    { projectId },
+    { enabled: projectId > 0, refetchOnWindowFocus: false }
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("highlight") === "missing-separations" && panelRef.current) {
+      panelRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [data]);
+
+  if (!data?.pairs.length) return null;
+
+  const missing      = data.pairs.filter(p => p.status === "missing");
+  const compliant    = data.pairs.filter(p => p.status === "compliant");
+
+  return (
+    <div ref={panelRef} className="rounded-lg border border-border p-4 space-y-3 mt-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Flame className="w-4 h-4 text-orange-500" />
+          Fire Separation Required
+        </h3>
+        <Badge variant={missing.length > 0 ? "destructive" : "secondary"} className="text-xs">
+          {compliant.length}/{data.pairs.length} drawn
+        </Badge>
+      </div>
+
+      <div className="space-y-1.5">
+        {data.pairs.map((pair, i) => (
+          <div key={i} className={`flex items-center justify-between p-2 rounded text-xs ${
+            pair.status === "compliant"     ? "bg-green-50 border border-green-100" :
+            pair.status === "non_compliant" ? "bg-red-50 border border-red-100"    :
+                                              "bg-amber-50 border border-amber-100"
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              {pair.status === "compliant"     && <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />}
+              {pair.status === "non_compliant" && <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />}
+              {pair.status === "missing"       && <Circle className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+              <span className="font-medium truncate">{pair.labelA} / {pair.labelB}</span>
+              <span className="text-muted-foreground shrink-0">Grp {pair.groupA}+{pair.groupB}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+              <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${
+                pair.status === "compliant" ? "bg-green-100 text-green-800" : "bg-slate-100"
+              }`}>
+                {pair.drawn != null ? `${pair.drawn}hr` : "—"} / {pair.required}hr
+              </span>
+              {pair.wallCode && (
+                <span className="font-mono text-xs bg-slate-200 px-1 rounded">{pair.wallCode}</span>
+              )}
+              {pair.status !== "compliant" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                  onClick={() => setLocation(
+                    `/drawing-analyzer?autoFrr=${pair.required}&pairA=${pair.groupA}&pairB=${pair.groupB}&pairLabel=${encodeURIComponent(pair.labelA + "/" + pair.labelB)}`
+                  )}
+                >
+                  Draw {pair.required}hr →
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full text-xs"
+        onClick={() => setLocation(`/drawing-analyzer?highlight=fire-walls`)}
+      >
+        <PenLine className="w-3.5 h-3.5 mr-1.5" />
+        Open Drawing Analyzer — Fire Wall Mode
+      </Button>
+    </div>
+  );
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -682,6 +770,9 @@ export function OccupancyAdvisor({
             </div>
           </div>
         )}
+
+        {/* ── Fire Separation Panel (shown when project has rooms) ── */}
+        {projectId && <FireSeparationPanel projectId={projectId} />}
 
         {/* ── Screen 2: Candidates ── */}
         {screen === 2 && (
