@@ -11,7 +11,9 @@ import {
   drawingAnalyses,
   projectCalculatorResults,
   siteAnalyses,
+  fireAssemblies,
 } from "../../drizzle/schema";
+import { getRequiredFRR } from "../services/fireSeparationService";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -260,6 +262,11 @@ export const permitPackageRouter = router({
         if (!row) return null;
         try { return JSON.parse(row.resultData) as Record<string, unknown>; } catch { return null; }
       };
+
+      const allFireAssemblies = await db
+        .select()
+        .from(fireAssemblies)
+        .where(eq(fireAssemblies.projectId, input.projectId));
 
       const calcOccupantLoad  = getCalc("occupantLoad");
       const calcExitReqs      = getCalc("exitRequirements");
@@ -992,7 +999,156 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
-      // ── Page 10 — Professional Stamp Block ───────────────────────────────────
+      // ── Page 10 — Compliance Excellence Summary ──────────────────────────────
+      doc.addPage();
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Compliance Excellence Summary", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 26;
+
+      type SummaryStatus = "exceeds" | "meets" | "marginal" | "deficient";
+      type SummaryRow = { category: string; label: string; provided: string; required: string; margin: string; status: SummaryStatus; nbcRef: string };
+      const compRows: SummaryRow[] = [];
+
+      function pdfMargin(provided: number, required: number, lowerIsBetter = false): { m: number; status: SummaryStatus } {
+        if (required === 0) return { m: 0, status: "meets" };
+        const m = lowerIsBetter ? required - provided : provided - required;
+        const pct = m / Math.abs(required);
+        if (pct > 0.05) return { m, status: "exceeds" };
+        if (pct >= 0) return { m, status: "meets" };
+        if (pct >= -0.05) return { m, status: "marginal" };
+        return { m, status: "deficient" };
+      }
+
+      const olD = getCalc("occupantLoad");
+      if (olD) {
+        const cap = Number(olD.exitCapacity ?? olD.capacity ?? 0);
+        const occ = Number(olD.occupantLoad ?? olD.totalOccupantLoad ?? 0);
+        if (cap > 0 && occ > 0) {
+          const { m, status } = pdfMargin(cap, occ);
+          compRows.push({ category: "Life Safety", label: "Occupant Load vs Exit Capacity", provided: `${cap}`, required: `${occ}`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}`, status, nbcRef: "NBC 4.1.5.3" });
+        }
+      }
+      const tdD = getCalc("travelDistance");
+      if (tdD) {
+        const prov = Number(tdD.travelDistance ?? tdD.maxTravelDistance ?? 0);
+        const req = Number(tdD.requiredMax ?? tdD.maxAllowed ?? 45);
+        if (prov > 0) {
+          const { m, status } = pdfMargin(prov, req, true);
+          compRows.push({ category: "Life Safety", label: "Travel Distance", provided: `${prov}m`, required: `≤${req}m`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}m`, status, nbcRef: "NBC 3.4.2.5" });
+        }
+      }
+      const fsD = getCalc("fireSeparation");
+      if (fsD) {
+        const prov = Number(fsD.providedFRR ?? fsD.frrProvided ?? 0);
+        const req = Number(fsD.requiredFRR ?? fsD.frrRequired ?? 0);
+        if (req > 0) {
+          const { m, status } = pdfMargin(prov, req);
+          compRows.push({ category: "Fire Protection", label: "Fire Separation FRR (Calc)", provided: `${prov}hr`, required: `${req}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: "NBC 3.1.3.4" });
+        }
+      }
+      for (const fa of allFireAssemblies) {
+        const frrD = Number(fa.frrDrawn ?? 0);
+        const frrR = fa.frrRequired != null ? Number(fa.frrRequired) : (fa.occupancyA && fa.occupancyB ? getRequiredFRR(fa.occupancyA, fa.occupancyB) : 0);
+        const { m, status } = pdfMargin(frrD, frrR);
+        compRows.push({ category: "Fire Protection", label: `Fire Wall: ${fa.labelA ?? fa.occupancyA ?? "?"} / ${fa.labelB ?? fa.occupancyB ?? "?"}`, provided: `${frrD}hr`, required: `${frrR}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: fa.nbcReference ?? "NBC 3.1.3.4" });
+      }
+      const slD = getCalc("snowLoad");
+      if (slD) {
+        const prov = Number(slD.structuralCapacity ?? slD.roofCapacity ?? 0);
+        const req = Number(slD.snowLoad ?? slD.totalLoad ?? 0);
+        if (prov > 0 && req > 0) {
+          const { m, status } = pdfMargin(prov, req);
+          compRows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${prov}kPa`, required: `${req}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        }
+      }
+      const sdD = getCalc("stairDesign");
+      if (sdD) {
+        const riser = Number(sdD.riserHeight ?? sdD.riser ?? 0);
+        const riserMax = Number(sdD.maxRiserHeight ?? sdD.riserMax ?? 200);
+        if (riser > 0) {
+          const { m, status } = pdfMargin(riser, riserMax, true);
+          compRows.push({ category: "Life Safety", label: "Stair Riser Height", provided: `${riser}mm`, required: `≤${riserMax}mm`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}mm`, status, nbcRef: "NBC 9.8.4" });
+        }
+      }
+
+      const statusColor = (s: SummaryStatus): [number, number, number] => {
+        if (s === "exceeds")   return [22, 163, 74];
+        if (s === "meets")     return [59, 130, 246];
+        if (s === "marginal")  return [234, 179, 8];
+        return [220, 38, 38];
+      };
+
+      const exceedsCount  = compRows.filter(r => r.status === "exceeds").length;
+      const meetsCount    = compRows.filter(r => r.status === "meets").length;
+      const marginalCount = compRows.filter(r => r.status === "marginal").length;
+      const deficientCount = compRows.filter(r => r.status === "deficient").length;
+
+      // Stats bar
+      const barW = (W - 2 * M) / 4;
+      const statsItems = [
+        { label: "Exceeds", count: exceedsCount, color: [22, 163, 74] as [number,number,number] },
+        { label: "Meets", count: meetsCount, color: [59, 130, 246] as [number,number,number] },
+        { label: "Marginal", count: marginalCount, color: [234, 179, 8] as [number,number,number] },
+        { label: "Deficient", count: deficientCount, color: [220, 38, 38] as [number,number,number] },
+      ];
+      statsItems.forEach(({ label, count, color }, i) => {
+        doc.setFillColor(...color);
+        doc.rect(M + i * barW, y, barW - 2, 14, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+        doc.text(String(count), M + i * barW + (barW - 2) / 2, y + 8, { align: "center" });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7);
+        doc.text(label, M + i * barW + (barW - 2) / 2, y + 12.5, { align: "center" });
+      });
+      doc.setTextColor(0, 0, 0);
+      y += 20;
+
+      if (compRows.length === 0) {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No calculator data saved yet. Complete calculators to populate this summary.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      } else {
+        const categories = [...new Set(compRows.map(r => r.category))];
+        for (const cat of categories) {
+          y = addSectionHeader(doc, cat, y, W, M);
+          const catRows = compRows.filter(r => r.category === cat);
+          autoTable(doc, {
+            startY: y,
+            head: [["Parameter", "Provided", "Required (NBC)", "Margin", "Status", "Ref"]],
+            body: catRows.map(r => [r.label, r.provided, r.required, r.margin, r.status.toUpperCase(), r.nbcRef]),
+            margin: { left: M, right: M },
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: "bold" },
+            columnStyles: {
+              0: { cellWidth: 55 },
+              4: { fontStyle: "bold" },
+            },
+            didParseCell(data) {
+              if (data.section === "body" && data.column.index === 4) {
+                const statusVal = catRows[data.row.index]?.status;
+                if (statusVal) {
+                  const [r, g, b] = statusColor(statusVal);
+                  data.cell.styles.textColor = [r, g, b];
+                }
+              }
+            },
+          });
+          y = (doc as any).lastAutoTable.finalY + 6;
+        }
+      }
+
+      // Closing professional statement
+      doc.setFillColor(241, 245, 249);
+      doc.rect(M, y, W - 2 * M, 14, "F");
+      doc.setFont("helvetica", "italic"); doc.setFontSize(8); doc.setTextColor(30, 41, 59);
+      doc.text("This compliance summary is generated from saved calculator data and fire assembly drawings. It is intended for professional review only and does not constitute a regulatory approval.", M + 3, y + 5, { maxWidth: W - 2 * M - 6 });
+      doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+
+      // ── Page 11 — Professional Stamp Block ───────────────────────────────────
       doc.addPage();
 
       doc.setFillColor(31, 41, 55);
@@ -1232,6 +1388,140 @@ export const permitPackageRouter = router({
           snowLoad:          hasCalc('snowLoad'),
           beamSpan:          hasCalc('beamSpan'),
         },
+        fireAssemblies: {
+          exists: (await db
+            .select({ id: fireAssemblies.id })
+            .from(fireAssemblies)
+            .where(eq(fireAssemblies.projectId, input.projectId))
+            .limit(1)).length > 0,
+        },
       };
+    }),
+
+  getComplianceSummary: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [project] = await db
+        .select({ userId: projects.userId, grossFloorArea: projects.grossFloorArea, occupancyCode: projects.occupancyCode, storeys: projects.storeys })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "org_admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const allCalcResults = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.projectId, input.projectId))
+        .orderBy(desc(projectCalculatorResults.updatedAt));
+
+      const allAssemblies = await db
+        .select()
+        .from(fireAssemblies)
+        .where(eq(fireAssemblies.projectId, input.projectId));
+
+      type ComplianceStatus = "exceeds" | "meets" | "marginal" | "deficient" | "not_calculated";
+
+      function margin(provided: number, required: number, lowerIsBetter = false): { margin: number; status: ComplianceStatus } {
+        if (required === 0) return { margin: 0, status: "meets" };
+        const m = lowerIsBetter ? required - provided : provided - required;
+        const pct = m / Math.abs(required);
+        if (pct > 0.05) return { margin: m, status: "exceeds" };
+        if (pct >= 0) return { margin: m, status: "meets" };
+        if (pct >= -0.05) return { margin: m, status: "marginal" };
+        return { margin: m, status: "deficient" };
+      }
+
+      type SummaryRow = {
+        category: string;
+        label: string;
+        provided: string;
+        required: string;
+        margin: string;
+        status: ComplianceStatus;
+        nbcRef: string;
+      };
+
+      const rows: SummaryRow[] = [];
+
+      function getCalc(type: string): Record<string, unknown> | null {
+        const row = allCalcResults.find(r => r.calculatorType === type);
+        if (!row) return null;
+        try { return JSON.parse(row.resultData as string) as Record<string, unknown>; } catch { return null; }
+      }
+
+      // Occupant Load
+      const ol = getCalc("occupantLoad");
+      if (ol) {
+        const calculated = Number(ol.occupantLoad ?? ol.totalOccupantLoad ?? 0);
+        const capacity = Number(ol.exitCapacity ?? ol.capacity ?? 0);
+        if (capacity > 0) {
+          const { margin: m, status } = margin(capacity, calculated);
+          rows.push({ category: "Life Safety", label: "Occupant Load vs Exit Capacity", provided: `${capacity}`, required: `${calculated}`, margin: `${m > 0 ? "+" : ""}${m.toFixed(0)}`, status, nbcRef: "NBC 4.1.5.3" });
+        }
+      }
+
+      // Travel Distance
+      const td = getCalc("travelDistance");
+      if (td) {
+        const provided = Number(td.travelDistance ?? td.maxTravelDistance ?? 0);
+        const required = Number(td.requiredMax ?? td.maxAllowed ?? 45);
+        const { margin: m, status } = margin(provided, required, true);
+        rows.push({ category: "Life Safety", label: "Travel Distance", provided: `${provided}m`, required: `${required}m`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}m`, status, nbcRef: "NBC 3.4.2.5" });
+      }
+
+      // Fire Separation (from calculator)
+      const fs = getCalc("fireSeparation");
+      if (fs) {
+        const provided = Number(fs.providedFRR ?? fs.frrProvided ?? 0);
+        const required = Number(fs.requiredFRR ?? fs.frrRequired ?? 0);
+        const { margin: m, status } = margin(provided, required);
+        rows.push({ category: "Fire Protection", label: "Fire Separation FRR (Calc)", provided: `${provided}hr`, required: `${required}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: "NBC 3.1.3.4" });
+      }
+
+      // Fire Assemblies from drawings
+      for (const fa of allAssemblies) {
+        const frrDrawn = Number(fa.frrDrawn ?? 0);
+        const frrRequired = fa.frrRequired != null ? Number(fa.frrRequired) : null;
+        const reqFRR = frrRequired ?? (fa.occupancyA && fa.occupancyB ? getRequiredFRR(fa.occupancyA, fa.occupancyB) : 0);
+        const { margin: m, status } = margin(frrDrawn, reqFRR);
+        const label = `Fire Wall: ${fa.labelA ?? fa.occupancyA ?? "?"} / ${fa.labelB ?? fa.occupancyB ?? "?"}`;
+        rows.push({ category: "Fire Protection", label, provided: `${frrDrawn}hr`, required: `${reqFRR}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: fa.nbcReference ?? "NBC 3.1.3.4" });
+      }
+
+      // Stair Design
+      const sd = getCalc("stairDesign");
+      if (sd) {
+        const riser = Number(sd.riserHeight ?? sd.riser ?? 0);
+        const riserMax = Number(sd.maxRiserHeight ?? sd.riserMax ?? 200);
+        if (riser > 0) {
+          const { margin: m, status } = margin(riser, riserMax, true);
+          rows.push({ category: "Life Safety", label: "Stair Riser Height", provided: `${riser}mm`, required: `≤${riserMax}mm`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}mm`, status, nbcRef: "NBC 9.8.4" });
+        }
+      }
+
+      // Snow Load
+      const sl = getCalc("snowLoad");
+      if (sl) {
+        const provided = Number(sl.structuralCapacity ?? sl.roofCapacity ?? 0);
+        const required = Number(sl.snowLoad ?? sl.totalLoad ?? 0);
+        if (provided > 0 && required > 0) {
+          const { margin: m, status } = margin(provided, required);
+          rows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${provided}kPa`, required: `${required}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        }
+      }
+
+      const counts = {
+        exceeds:   rows.filter(r => r.status === "exceeds").length,
+        meets:     rows.filter(r => r.status === "meets").length,
+        marginal:  rows.filter(r => r.status === "marginal").length,
+        deficient: rows.filter(r => r.status === "deficient").length,
+      };
+
+      return { rows, summary: counts };
     }),
 });

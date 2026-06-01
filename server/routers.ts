@@ -35,6 +35,7 @@ import { wallEngineRouter } from "./routers/wallEngineRouter";
 import { drawingSetContextRouter } from "./routers/drawingSetContextRouter";
 import { zoneLookupRouter } from "./routers/zoneLookupRouter";
 import { siteAnalysisRouter } from "./routers/siteAnalysisRouter";
+import { fireAssemblyRouter } from "./routers/fireAssemblyRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 
 export const appRouter = router({
@@ -71,6 +72,7 @@ export const appRouter = router({
   drawingSetContext: drawingSetContextRouter,
   zoneLookup: zoneLookupRouter,
   siteAnalysis: siteAnalysisRouter,
+  fireAssembly: fireAssemblyRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

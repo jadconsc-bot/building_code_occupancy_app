@@ -1626,3 +1626,33 @@ export const siteAnalyses = mysqlTable("siteAnalyses", {
 
 export type SiteAnalysis = typeof siteAnalyses.$inferSelect;
 export type InsertSiteAnalysis = typeof siteAnalyses.$inferInsert;
+
+export const fireAssemblies = mysqlTable("fireAssemblies", {
+  id:                int("id").autoincrement().primaryKey(),
+  drawingAnalysisId: int("drawingAnalysisId").notNull(),
+  pageId:            int("pageId").notNull(),
+  projectId:         int("projectId").notNull(),
+  assemblyType:      mysqlEnum("assemblyType", ["none","0.5hr","1hr","1.5hr","2hr","fire_separation"]).notNull(),
+  frrDrawn:          decimal("frrDrawn",    { precision: 4, scale: 2 }).notNull(),
+  frrRequired:       decimal("frrRequired", { precision: 4, scale: 2 }),
+  isCompliant:       boolean("isCompliant"),
+  gap:               decimal("gap",         { precision: 4, scale: 2 }),
+  roomAId:           int("roomAId"),
+  roomBId:           int("roomBId"),
+  occupancyA:        varchar("occupancyA",  { length: 10 }),
+  occupancyB:        varchar("occupancyB",  { length: 10 }),
+  labelA:            varchar("labelA",      { length: 100 }),
+  labelB:            varchar("labelB",      { length: 100 }),
+  lengthPx:          decimal("lengthPx",    { precision: 10, scale: 2 }),
+  lengthM:           decimal("lengthM",     { precision: 8,  scale: 2 }),
+  wallHeightM:       decimal("wallHeightM", { precision: 6,  scale: 2 }).default("2.74"),
+  pointsJson:        json("pointsJson").notNull(),
+  nbcReference:      varchar("nbcReference", { length: 50 }).default("NBC Table 3.1.3.4"),
+  remediationJson:   json("remediationJson"),
+  assemblyLabel:     varchar("assemblyLabel", { length: 10 }),
+  createdAt:         timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:         timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FireAssembly = typeof fireAssemblies.$inferSelect;
+export type InsertFireAssembly = typeof fireAssemblies.$inferInsert;

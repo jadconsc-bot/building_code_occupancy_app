@@ -79,7 +79,8 @@ import {
   BookOpen,
   RefreshCw,
   MapPin,
-  FileCheck
+  FileCheck,
+  Flame
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -90,16 +91,25 @@ import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
 import { SaveCalculatorResultDialog } from "@/components/SaveCalculatorResultDialog";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
-import { 
-  ScaleSystem, 
-  ArchitecturalScale, 
-  getScalesBySystem, 
+import {
+  ScaleSystem,
+  ArchitecturalScale,
+  getScalesBySystem,
   getScaleById,
   imperialScales,
   metricScales,
   calculateRealDistance,
-  formatDistance 
+  formatDistance
 } from "@/lib/architecturalScales";
+import {
+  AssemblyType,
+  FIRE_ASSEMBLY_STYLES,
+  drawFireAssemblyLine,
+  detectRoomsOnSides,
+  frrFromType,
+} from "@/lib/fireAssemblyStyles";
+import { pxToMetres } from "@/lib/scaleUtils";
+import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 
 // Worker must be assigned after all imports (ES module parse order requirement)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -352,7 +362,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
   
   // State for annotation tools
-  const [activeTool, setActiveTool] = useState<"select" | "dimension" | "label" | "area" | "pan">("select");
+  const [activeTool, setActiveTool] = useState<"select" | "dimension" | "label" | "area" | "pan" | "fire_assembly">("select");
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -712,6 +722,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [isSendingToPermitting, setIsSendingToPermitting] = useState(false);
   const saveAnalysisMutation = trpc.siteAnalysis.save.useMutation();
   const saveCalcResultMutation = trpc.projectsLegacy.calculatorResults.save.useMutation();
+
+  // Fire assembly tool state
+  const [fireAssemblyType, setFireAssemblyType] = useState<AssemblyType>("none");
+  const [fireAssemblyStrokes, setFireAssemblyStrokes] = useState<Array<{
+    id: string;
+    points: { x: number; y: number }[];
+    assemblyType: AssemblyType;
+    frrDrawn: number;
+    frrRequired: number | null;
+    isCompliant: boolean | null;
+    gap: number | null;
+    occupancyA: string | null;
+    occupancyB: string | null;
+    labelA: string | null;
+    labelB: string | null;
+    lengthM: number | null;
+    remediationJson: any[] | null;
+    assemblyLabel: string;
+    savedId: number | null;
+  }>>([]);
+  const [activeFireStrokePoints, setActiveFireStrokePoints] = useState<{ x: number; y: number }[]>([]);
+  const [isDrawingFireAssembly, setIsDrawingFireAssembly] = useState(false);
+  const [fireAssemblyPopover, setFireAssemblyPopover] = useState<{
+    x: number; y: number; strokeId: string;
+  } | null>(null);
+  const saveFireAssemblyMutation = trpc.fireAssembly.save.useMutation();
 
   // tRPC mutations for persistence
   const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
@@ -1250,6 +1286,99 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setPolygonEditMode(null);
     setDraggingVertexIdx(null);
     if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+  };
+
+  const finishFireAssemblyStroke = async () => {
+    if (activeFireStrokePoints.length < 2) {
+      setIsDrawingFireAssembly(false);
+      setActiveFireStrokePoints([]);
+      return;
+    }
+    const pts = [...activeFireStrokePoints];
+    setIsDrawingFireAssembly(false);
+    setActiveFireStrokePoints([]);
+
+    // Detect rooms on each side
+    const roomRects = detectedRoomsData.map((r: any) => {
+      const ov = bboxOverrides.get(r.id);
+      const bbox = ov ?? r.bbox ?? r.boundingBox;
+      return { id: r.id, label: r.label ?? r.roomType ?? "Room", occupancyGroup: r.occupancyGroup ?? "D", bbox };
+    });
+    const { roomA, roomB } = detectRoomsOnSides(pts[0], pts[pts.length - 1], roomRects);
+
+    const occupancyA = roomA?.occupancyGroup ?? "D";
+    const occupancyB = roomB?.occupancyGroup ?? "D";
+    const frrDrawn = frrFromType(fireAssemblyType);
+    const frrRequired = getRequiredFRR(occupancyA, occupancyB);
+    const isCompliant = frrDrawn >= frrRequired;
+    const gap = frrRequired - frrDrawn;
+    const remediation = computeRemediation(frrDrawn, frrRequired, occupancyA, occupancyB);
+
+    // Compute length in metres
+    let lengthPx = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const dx = pts[i + 1].x - pts[i].x;
+      const dy = pts[i + 1].y - pts[i].y;
+      lengthPx += Math.sqrt(dx * dx + dy * dy);
+    }
+    const lengthM = pxToMetres(lengthPx, { pixelsPerDrawingUnit, ratio: selectedScale.ratio, scaleSystem });
+
+    const strokeId = `fa-${Date.now()}`;
+    const newStroke = {
+      id: strokeId,
+      points: pts,
+      assemblyType: fireAssemblyType,
+      frrDrawn,
+      frrRequired,
+      isCompliant,
+      gap,
+      occupancyA,
+      occupancyB,
+      labelA: roomA?.label ?? null,
+      labelB: roomB?.label ?? null,
+      lengthM: lengthM > 0 ? lengthM : null,
+      remediationJson: remediation.length > 0 ? remediation : null,
+      assemblyLabel: FIRE_ASSEMBLY_STYLES[fireAssemblyType].label,
+      savedId: null as number | null,
+    };
+
+    setFireAssemblyStrokes(prev => [...prev, newStroke]);
+
+    if (!isCompliant && remediation.length > 0) {
+      toast.error(`Fire separation deficient: ${occupancyA}↔${occupancyB} requires ${frrRequired}hr, drawn ${frrDrawn}hr`);
+    }
+
+    // Persist to DB if we have enough context
+    if (activeProjectId && currentPageId) {
+      try {
+        const { id: savedId } = await saveFireAssemblyMutation.mutateAsync({
+          drawingAnalysisId: analysisId ?? 0,
+          pageId: currentPageId,
+          projectId: activeProjectId,
+          assemblyType: fireAssemblyType,
+          frrDrawn,
+          frrRequired,
+          isCompliant,
+          gap: gap > 0 ? gap : undefined,
+          roomAId: roomA?.id,
+          roomBId: roomB?.id,
+          occupancyA,
+          occupancyB,
+          labelA: roomA?.label,
+          labelB: roomB?.label,
+          lengthPx,
+          lengthM: lengthM > 0 ? lengthM : undefined,
+          pointsJson: pts,
+          remediationJson: remediation.length > 0 ? remediation : undefined,
+          assemblyLabel: FIRE_ASSEMBLY_STYLES[fireAssemblyType].label,
+        });
+        setFireAssemblyStrokes(prev =>
+          prev.map(s => s.id === strokeId ? { ...s, savedId } : s)
+        );
+      } catch {
+        // non-fatal — stroke stays in local state
+      }
+    }
   };
 
   const handlePolygonEditDone = () => {
@@ -2257,6 +2386,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // ===== CROP REGION LAYER =====
+    // Fire assembly lines
+    for (const stroke of fireAssemblyStrokes) {
+      const screenPts = stroke.points.map(p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y }));
+      drawFireAssemblyLine(ctx, screenPts, stroke.assemblyType, stroke.isCompliant, stroke.assemblyLabel);
+    }
+    if (isDrawingFireAssembly && activeFireStrokePoints.length >= 1) {
+      const screenPts = activeFireStrokePoints.map(p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y }));
+      drawFireAssemblyLine(ctx, screenPts, fireAssemblyType, null, FIRE_ASSEMBLY_STYLES[fireAssemblyType].label);
+    }
+
     const cropToDraw = cropRegionDraftRef.current ?? cropRegionConfirmed;
     if (cropToDraw && imageLoaded) {
       const { x, y, width, height } = cropToDraw;
@@ -2289,7 +2428,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3284,6 +3423,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       // Check if clicking on an annotation
       const clickedAnnotation = findAnnotationAtPoint({ x, y });
       setSelectedAnnotation(clickedAnnotation?.id || null);
+      // Check fire assembly popover
+      const hitStroke = fireAssemblyStrokes.find(s => {
+        for (let i = 0; i < s.points.length - 1; i++) {
+          const dx = s.points[i + 1].x - s.points[i].x;
+          const dy = s.points[i + 1].y - s.points[i].y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len === 0) continue;
+          const t = Math.max(0, Math.min(1, ((x - s.points[i].x) * dx + (y - s.points[i].y) * dy) / (len * len)));
+          const px = s.points[i].x + t * dx;
+          const py = s.points[i].y + t * dy;
+          if (Math.sqrt((x - px) ** 2 + (y - py) ** 2) < 12 / zoom) return true;
+        }
+        return false;
+      });
+      if (hitStroke) {
+        const screenX = e.clientX - (canvasRef.current?.getBoundingClientRect().left ?? 0);
+        const screenY = e.clientY - (canvasRef.current?.getBoundingClientRect().top ?? 0);
+        setFireAssemblyPopover({ x: screenX, y: screenY, strokeId: hitStroke.id });
+      }
+    } else if (activeTool === "fire_assembly") {
+      if (!isDrawingFireAssembly) {
+        setIsDrawingFireAssembly(true);
+        setActiveFireStrokePoints([{ x, y }]);
+      } else {
+        setActiveFireStrokePoints(prev => [...prev, { x, y }]);
+      }
     }
   };
 
@@ -4838,6 +5003,40 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </Button>
                 </div>
 
+                {/* Fire Assembly Tool */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Button
+                    variant={activeTool === "fire_assembly" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      setActiveTool(activeTool === "fire_assembly" ? "select" : "fire_assembly");
+                      setIsDrawingFireAssembly(false);
+                      setActiveFireStrokePoints([]);
+                    }}
+                    title="Draw Fire Assembly Line (double-click to finish)"
+                    className={activeTool === "fire_assembly" ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
+                  >
+                    <Flame className="w-4 h-4" />
+                  </Button>
+                  {activeTool === "fire_assembly" && (
+                    <select
+                      value={fireAssemblyType}
+                      onChange={e => setFireAssemblyType(e.target.value as AssemblyType)}
+                      className="text-xs border border-border rounded px-1 py-0.5 bg-background h-8"
+                      title="Fire assembly rating"
+                    >
+                      {(Object.keys(FIRE_ASSEMBLY_STYLES) as AssemblyType[]).filter(k => k !== "none").map(k => (
+                        <option key={k} value={k}>{FIRE_ASSEMBLY_STYLES[k].label}</option>
+                      ))}
+                    </select>
+                  )}
+                  {activeTool === "fire_assembly" && isDrawingFireAssembly && (
+                    <Button size="sm" variant="outline" className="text-xs h-8 px-2" onClick={finishFireAssemblyStroke}>
+                      Finish
+                    </Button>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <Button
                     variant="ghost"
@@ -6067,6 +6266,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         />
                       </div>
                     )}
+                    {activeTool === "fire_assembly" && pixelsPerDrawingUnit === 0 && (
+                      <div className="absolute top-2 left-2 right-2 z-20 bg-amber-50 border border-amber-300 rounded px-3 py-2 text-xs text-amber-800 flex items-center gap-2">
+                        <Flame className="w-3.5 h-3.5 shrink-0" />
+                        Scale not calibrated — fire assembly lengths won't be accurate. Use the Calibrate button first.
+                      </div>
+                    )}
                     <canvas
                       ref={canvasRef}
                       className={`w-full sticky top-0 left-0 cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
@@ -6075,6 +6280,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
+                      onDoubleClick={() => { if (activeTool === "fire_assembly" && isDrawingFireAssembly) { finishFireAssemblyStroke(); } }}
                       onWheel={handleCanvasWheel}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
@@ -6248,6 +6454,80 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             </div>
                           </>
                         )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Fire Assembly Compliance Popover */}
+                  {fireAssemblyPopover && (() => {
+                    const stroke = fireAssemblyStrokes.find(s => s.id === fireAssemblyPopover.strokeId);
+                    if (!stroke) return null;
+                    return (
+                      <div
+                        className="fixed z-[60] bg-popover border border-border rounded-lg shadow-xl p-4 w-72 text-sm"
+                        style={{ left: fireAssemblyPopover.x + 8, top: fireAssemblyPopover.y - 8 }}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-semibold flex items-center gap-1.5">
+                            <Flame className="w-4 h-4 text-orange-500" />
+                            Fire Assembly
+                          </span>
+                          <button className="text-muted-foreground hover:text-foreground" onClick={() => setFireAssemblyPopover(null)}>✕</button>
+                        </div>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Type</span>
+                            <span className="font-medium">{FIRE_ASSEMBLY_STYLES[stroke.assemblyType].label}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">FRR Drawn</span>
+                            <span className="font-medium">{stroke.frrDrawn}hr</span>
+                          </div>
+                          {stroke.frrRequired != null && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">FRR Required (NBC)</span>
+                              <span className={`font-medium ${stroke.isCompliant ? "text-green-600" : "text-red-600"}`}>{stroke.frrRequired}hr</span>
+                            </div>
+                          )}
+                          {stroke.occupancyA && stroke.occupancyB && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Between</span>
+                              <span className="font-medium">{stroke.labelA ?? stroke.occupancyA} / {stroke.labelB ?? stroke.occupancyB}</span>
+                            </div>
+                          )}
+                          {stroke.lengthM != null && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Length</span>
+                              <span className="font-medium">{stroke.lengthM.toFixed(2)} m</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Status</span>
+                            <span className={`font-bold ${stroke.isCompliant ? "text-green-600" : "text-red-600"}`}>
+                              {stroke.isCompliant ? "Compliant" : "Deficient"}
+                            </span>
+                          </div>
+                        </div>
+                        {stroke.remediationJson && stroke.remediationJson.length > 0 && (
+                          <div className="mt-3 border-t pt-2 space-y-1.5">
+                            <p className="text-xs font-semibold text-red-700">Remediation Required</p>
+                            {stroke.remediationJson.map((item: any, i: number) => (
+                              <div key={i} className="text-xs text-red-600">
+                                <span className="font-mono">{item.code}</span> — {item.description}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-3 flex justify-end">
+                          <Button size="sm" variant="destructive" className="text-xs h-7 px-2"
+                            onClick={() => {
+                              setFireAssemblyStrokes(prev => prev.filter(s => s.id !== fireAssemblyPopover.strokeId));
+                              setFireAssemblyPopover(null);
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     );
                   })()}

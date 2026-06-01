@@ -48,6 +48,8 @@ export function PermitCompletenessPanel({ projectId, onGenerate, isGenerating }:
     { label: 'Barrier-free access',       done: completeness.calculators.barrierFree },
     { label: 'Plumbing fixtures',         done: completeness.calculators.plumbingFixture },
     { label: 'Snow load',                 done: completeness.calculators.snowLoad },
+    { label: 'Fire assembly drawings',    done: completeness.fireAssemblies.exists,
+      note: completeness.fireAssemblies.exists ? '(from drawing analyzer)' : undefined },
   ];
 
   const complete = sections.filter(s => s.done).length;
