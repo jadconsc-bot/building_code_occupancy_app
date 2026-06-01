@@ -1597,3 +1597,26 @@ export const drawingSetContexts = mysqlTable("drawingSetContexts", {
 
 export type DrawingSetContext = typeof drawingSetContexts.$inferSelect;
 export type InsertDrawingSetContext = typeof drawingSetContexts.$inferInsert;
+
+export const siteAnalyses = mysqlTable("siteAnalyses", {
+  id:              int("id").autoincrement().primaryKey(),
+  projectId:       int("projectId").notNull(),
+  lotWidthM:       decimal("lotWidthM",       { precision: 8,  scale: 2 }),
+  lotDepthM:       decimal("lotDepthM",       { precision: 8,  scale: 2 }),
+  lotAreaSqm:      decimal("lotAreaSqm",      { precision: 10, scale: 2 }),
+  buildingWidthM:  decimal("buildingWidthM",  { precision: 8,  scale: 2 }),
+  buildingDepthM:  decimal("buildingDepthM",  { precision: 8,  scale: 2 }),
+  buildingHeightM: decimal("buildingHeightM", { precision: 8,  scale: 2 }),
+  frontSetbackM:   decimal("frontSetbackM",   { precision: 6,  scale: 2 }),
+  rearSetbackM:    decimal("rearSetbackM",    { precision: 6,  scale: 2 }),
+  sideSetbackM:    decimal("sideSetbackM",    { precision: 6,  scale: 2 }),
+  siteCoveragePct: decimal("siteCoveragePct", { precision: 5,  scale: 2 }),
+  isCompliant:     boolean("isCompliant").default(false),
+  zoneCode:        varchar("zoneCode",     { length: 50 }),
+  municipality:    varchar("municipality", { length: 100 }),
+  createdAt:       timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:       timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SiteAnalysis = typeof siteAnalyses.$inferSelect;
+export type InsertSiteAnalysis = typeof siteAnalyses.$inferInsert;

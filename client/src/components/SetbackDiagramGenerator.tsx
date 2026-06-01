@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, CheckCircle2, Download, RefreshCw, Maximize2, Building2, Ruler, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, RefreshCw, Maximize2, Building2, Ruler, Info, Save, Loader2 } from "lucide-react";
 import { municipalities, getMunicipalityById, getZoneByCode, ZoneRegulation } from "@/lib/municipalBylawsData";
+import { trpc } from "@/lib/trpc";
+import { useProject } from "@/contexts/ProjectContext";
+import { toast } from "sonner";
 
 interface LotDimensions {
   width: number;
@@ -29,6 +32,8 @@ interface ProposedSetbacks {
 
 export function SetbackDiagramGenerator() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { activeProjectId } = useProject();
+  const saveAnalysisMutation = trpc.siteAnalysis.save.useMutation();
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("edmonton");
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>("");
   const [selectedZone, setSelectedZone] = useState<ZoneRegulation | null>(null);
@@ -383,6 +388,36 @@ export function SetbackDiagramGenerator() {
     link.click();
   };
 
+  // Save site analysis to active project
+  const handleSaveToProject = async () => {
+    if (!activeProjectId || activeProjectId <= 0) {
+      toast.error("No active project — open a project first");
+      return;
+    }
+    const sideSetback = Math.min(proposedSetbacks.left, proposedSetbacks.right);
+    try {
+      await saveAnalysisMutation.mutateAsync({
+        projectId:       activeProjectId,
+        lotWidthM:       lotDimensions.width,
+        lotDepthM:       lotDimensions.depth,
+        lotAreaSqm:      lotArea,
+        buildingWidthM:  buildingDimensions.width,
+        buildingDepthM:  buildingDimensions.depth,
+        buildingHeightM: buildingDimensions.height,
+        frontSetbackM:   proposedSetbacks.front,
+        rearSetbackM:    proposedSetbacks.rear,
+        sideSetbackM:    sideSetback,
+        siteCoveragePct: siteCoverage,
+        isCompliant:     complianceResults.compliant,
+        zoneCode:        selectedZoneCode || undefined,
+        municipality:    selectedMunicipalityId || undefined,
+      });
+      toast.success("Site analysis saved to project");
+    } catch {
+      toast.error("Failed to save site analysis");
+    }
+  };
+
   // Calculate site statistics
   const lotArea = lotDimensions.width * lotDimensions.depth;
   const buildingArea = buildingDimensions.width * buildingDimensions.depth;
@@ -676,13 +711,25 @@ export function SetbackDiagramGenerator() {
                 <Download className="w-4 h-4 mr-2" />
                 Download PNG
               </Button>
-              <Button 
+              <Button
+                onClick={handleSaveToProject}
+                disabled={saveAnalysisMutation.isPending || !activeProjectId}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                {saveAnalysisMutation.isPending
+                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  : <Save className="w-4 h-4 mr-2" />}
+                Save to Project
+              </Button>
+              <Button
                 onClick={() => {
                   setLotDimensions({ width: 15, depth: 35 });
                   setBuildingDimensions({ width: 10, depth: 15, height: 8 });
                   setProposedSetbacks({ front: 6, rear: 7.5, left: 1.2, right: 1.2 });
-                }} 
-                variant="outline" 
+                }}
+                variant="outline"
                 size="sm"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />

@@ -316,7 +316,9 @@ export function MunicipalBylawsCalculator() {
             <div>
               <Badge variant="outline" className="gap-1 text-green-700 border-green-300 bg-green-50 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
                 <CheckCircle2 className="w-3 h-3" />
-                {zoneSource === 'project' ? 'Loaded from saved project zone' : 'Confirmed from City GIS'}
+                {zoneSource === 'project'
+                  ? `✓ from project: ${selectedZone}`
+                  : 'Confirmed from City GIS'}
               </Badge>
             </div>
           )}

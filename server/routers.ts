@@ -34,6 +34,7 @@ import { permitPackageRouter } from "./routers/permitPackageRouter";
 import { wallEngineRouter } from "./routers/wallEngineRouter";
 import { drawingSetContextRouter } from "./routers/drawingSetContextRouter";
 import { zoneLookupRouter } from "./routers/zoneLookupRouter";
+import { siteAnalysisRouter } from "./routers/siteAnalysisRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 
 export const appRouter = router({
@@ -69,6 +70,7 @@ export const appRouter = router({
   wallEngine: wallEngineRouter,
   drawingSetContext: drawingSetContextRouter,
   zoneLookup: zoneLookupRouter,
+  siteAnalysis: siteAnalysisRouter,
   auth: router({
     me: protectedProcedure.query(opts => opts.ctx.user),
     logout: protectedProcedure.mutation(({ ctx }) => {

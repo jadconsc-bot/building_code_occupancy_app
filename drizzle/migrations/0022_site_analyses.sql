@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS siteAnalyses (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  projectId       INT NOT NULL,
+  lotWidthM       DECIMAL(8,2),
+  lotDepthM       DECIMAL(8,2),
+  lotAreaSqm      DECIMAL(10,2),
+  buildingWidthM  DECIMAL(8,2),
+  buildingDepthM  DECIMAL(8,2),
+  buildingHeightM DECIMAL(8,2),
+  frontSetbackM   DECIMAL(6,2),
+  rearSetbackM    DECIMAL(6,2),
+  sideSetbackM    DECIMAL(6,2),
+  siteCoveragePct DECIMAL(5,2),
+  isCompliant     BOOLEAN DEFAULT FALSE,
+  zoneCode        VARCHAR(50),
+  municipality    VARCHAR(100),
+  createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (projectId) REFERENCES projects(id)
+);
