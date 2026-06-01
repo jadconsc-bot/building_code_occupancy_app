@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -298,7 +299,7 @@ export function ProjectDashboard() {
                     </Button>
                     <Button className="w-full rounded-none" variant="default" onClick={() => {
                       localStorage.setItem(`project-${project.id}`, JSON.stringify(project));
-                      alert(`Project "${project.name}" saved successfully!`);
+                      toast.success(`Project "${project.name}" saved successfully`);
                     }}>
                       <Plus className="w-4 h-4 mr-2" />
                       Save Project

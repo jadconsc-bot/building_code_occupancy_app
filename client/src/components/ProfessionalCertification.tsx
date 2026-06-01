@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, FileSignature, AlertCircle, Shield, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface ComplianceSnapshot {
   snapshotId: string;
@@ -45,7 +46,7 @@ export function ProfessionalCertification({ snapshot }: { snapshot: ComplianceSn
 
   const handleVerify = () => {
     if (!certification.professionalName || !certification.licenseNumber || !certification.licenseType) {
-      alert("Please fill in all professional information");
+      toast.error("Please fill in all professional information");
       return;
     }
     setCertificationStep("certify");
@@ -78,7 +79,7 @@ export function ProfessionalCertification({ snapshot }: { snapshot: ComplianceSn
       setCertificationStep("complete");
     } catch (error) {
       console.error("Certification failed:", error);
-      alert("Certification failed. Please try again.");
+      toast.error("Certification failed. Please try again.");
     } finally {
       setIsSigning(false);
     }

@@ -358,7 +358,7 @@ export default function Home() {
     if (selectedGroup) {
       const url = `${window.location.origin}/#${selectedGroup.code}`;
       navigator.clipboard.writeText(url);
-      alert("Link copied to clipboard!");
+      toast.success("Link copied to clipboard!");
     }
   };
 

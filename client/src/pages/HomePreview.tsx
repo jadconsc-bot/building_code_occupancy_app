@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle, XCircle, Lock, ArrowRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
+import { toast } from "sonner";
 
 type Result = "pass" | "conditional" | "fail" | "not_applicable";
 
@@ -69,7 +70,7 @@ export default function HomePreview() {
       });
 
       if (stripeError) {
-        alert(stripeError.message);
+        toast.error(stripeError.message);
       } else {
         setLocation(`/home/processing?pi=${paymentIntentId}`);
       }

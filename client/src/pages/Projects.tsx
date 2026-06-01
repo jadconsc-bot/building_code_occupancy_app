@@ -17,6 +17,7 @@ import { useLocation } from "wouter";
 import { ProjectComplianceCard } from "@/components/ProjectComplianceCard";
 import { ProjectWizard } from "@/components/ProjectWizard";
 import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
+import { toast } from "sonner";
 
 export default function Projects() {
   const [, setLocation] = useLocation();
@@ -50,7 +51,7 @@ export default function Projects() {
       if (context?.previousProjects) {
         trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
       }
-      alert("Failed to update project: " + err.message);
+      toast.error("Failed to update project: " + err.message);
     },
     onSuccess: () => {
       refetch();
@@ -72,7 +73,7 @@ export default function Projects() {
       if (context?.previousProjects) {
         trpc.useUtils().projects.list.setData(undefined, context.previousProjects);
       }
-      alert("Failed to delete project: " + err.message);
+      toast.error("Failed to delete project: " + err.message);
     },
     onSuccess: () => refetch(),
   });
@@ -110,8 +111,8 @@ export default function Projects() {
   }
 
   async function handleUpdateProject() {
-    if (!editFormData.name.trim()) { alert("Project name is required"); return; }
-    if (!editFormData.occupancyCode.trim()) { alert("Occupancy code is required"); return; }
+    if (!editFormData.name.trim()) { toast.error("Project name is required"); return; }
+    if (!editFormData.occupancyCode.trim()) { toast.error("Occupancy code is required"); return; }
     if (editingProjectId !== null) {
       await updateProjectMutation.mutateAsync({
         id: editingProjectId,

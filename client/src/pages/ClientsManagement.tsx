@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit2, Trash2, Search, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function ClientsManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,7 +60,7 @@ export default function ClientsManagement() {
       if (context?.previousClients) {
         trpc.useUtils().clients.list.setData(undefined, context.previousClients);
       }
-      alert("Failed to create client: " + err.message);
+      toast.error("Failed to create client: " + err.message);
     },
     onSuccess: () => {
       refetch();
@@ -84,7 +85,7 @@ export default function ClientsManagement() {
       if (context?.previousClients) {
         trpc.useUtils().clients.list.setData(undefined, context.previousClients);
       }
-      alert("Failed to update client: " + err.message);
+      toast.error("Failed to update client: " + err.message);
     },
     onSuccess: () => {
       refetch();
@@ -109,7 +110,7 @@ export default function ClientsManagement() {
       if (context?.previousClients) {
         trpc.useUtils().clients.list.setData(undefined, context.previousClients);
       }
-      alert("Failed to delete client: " + err.message);
+      toast.error("Failed to delete client: " + err.message);
     },
     onSuccess: () => {
       refetch();
@@ -158,7 +159,7 @@ export default function ClientsManagement() {
 
   const handleCreateClient = async () => {
     if (!formData.name.trim()) {
-      alert("Client name is required");
+      toast.error("Client name is required");
       return;
     }
 
@@ -195,7 +196,7 @@ export default function ClientsManagement() {
 
   const handleUpdateClient = async () => {
     if (!formData.name.trim()) {
-      alert("Client name is required");
+      toast.error("Client name is required");
       return;
     }
 

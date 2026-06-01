@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation, useSearch } from "wouter";
 import { useProject } from "@/contexts/ProjectContext";
@@ -879,7 +879,16 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
     { enabled: !!projectId }
   );
 
-  const meQuery = trpc.auth.me.useQuery();
+  const meResolvedRef = useRef(false);
+  const meQuery = trpc.auth.me.useQuery(undefined, {
+    staleTime:             5 * 60_000,
+    refetchOnWindowFocus:  false,
+    refetchOnMount:        false,
+    enabled:               !meResolvedRef.current,
+  });
+  if (meQuery.data && !meResolvedRef.current) {
+    meResolvedRef.current = true;
+  }
 
   const project = projectQuery.data;
   const snapshots = snapshotsQuery.data ?? [];

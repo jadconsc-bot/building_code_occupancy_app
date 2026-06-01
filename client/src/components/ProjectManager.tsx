@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,7 @@ export function ProjectManager({ onProjectSelect, activeProjectId }: ProjectMana
 
   const handleCreateProject = () => {
     if (!formData.name.trim()) {
-      alert("Project name is required");
+      toast.error("Project name is required");
       return;
     }
     createMutation.mutate({

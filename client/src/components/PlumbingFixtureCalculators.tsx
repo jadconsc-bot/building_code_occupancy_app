@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -313,7 +314,7 @@ function generateFixtureSchedulePDF(data: FixtureScheduleData): void {
   // Create a printable HTML document
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    alert('Please allow popups to generate the fixture schedule PDF');
+    toast.error('Please allow popups to generate the fixture schedule PDF');
     return;
   }
 

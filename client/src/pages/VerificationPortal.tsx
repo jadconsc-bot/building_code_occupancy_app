@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Clock, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function VerificationPortal() {
   const [verificationCode, setVerificationCode] = useState("");
@@ -17,7 +18,7 @@ export default function VerificationPortal() {
 
   const handleVerify = () => {
     if (!verificationCode.trim()) {
-      alert("Please enter a verification code");
+      toast.error("Please enter a verification code");
       return;
     }
 

@@ -48,6 +48,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 /**
  * Calculation detail view
@@ -77,7 +78,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
 
   const handleExport = async () => {
     // TODO: Implement exportForLegal endpoint in Phase 5
-    alert('Export feature coming soon - will be implemented in Phase 5');
+    toast.info('Export feature coming soon - will be implemented in Phase 5');
     /*
     try {
       const result = await exportMutation.mutateAsync({
@@ -95,16 +96,16 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
       link.click();
       URL.revokeObjectURL(url);
 
-      alert(`Export successful: Calculation exported as ${exportFormat.toUpperCase()}`);
+      toast.success(`Export successful: Calculation exported as ${exportFormat.toUpperCase()}`);
     } catch (error) {
-      alert('Failed to export calculation');
+      toast.error('Failed to export calculation');
     }
     */
   };
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(calculationId);
-    alert('Calculation ID copied to clipboard');
+    toast.success('Calculation ID copied to clipboard');
   };
 
   if (isLoading) {
@@ -328,11 +329,11 @@ export default function CalculationHistoryPage() {
   // Delete mutation
   const deleteMutation = trpc.calculations.delete.useMutation({
     onSuccess: () => {
-      alert('Calculation deleted successfully');
+      toast.success('Calculation deleted successfully');
       refetch();
     },
     onError: () => {
-      alert('Failed to delete calculation');
+      toast.error('Failed to delete calculation');
     },
   });
 

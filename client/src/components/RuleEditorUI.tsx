@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,12 +59,12 @@ export const RuleEditorUI: React.FC<RuleEditorUIProps> = ({
     e.preventDefault();
 
     if (!formData.ruleId || !formData.title || !formData.justification) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
     if (currentUser.role !== "admin" && currentUser.role !== "editor") {
-      alert("You do not have permission to submit rule changes");
+      toast.error("You do not have permission to submit rule changes");
       return;
     }
 
@@ -80,7 +81,7 @@ export const RuleEditorUI: React.FC<RuleEditorUIProps> = ({
       onClose();
     } catch (error) {
       console.error("Error submitting rule change:", error);
-      alert("Failed to submit rule change. Please try again.");
+      toast.error("Failed to submit rule change. Please try again.");
     }
   };
 
