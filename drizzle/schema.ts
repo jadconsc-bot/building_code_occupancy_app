@@ -1619,6 +1619,7 @@ export const siteAnalyses = mysqlTable("siteAnalyses", {
   accessoryHeightM:     decimal("accessoryHeightM",     { precision: 8, scale: 2 }),
   accessoryAreaSqm:     decimal("accessoryAreaSqm",     { precision: 8, scale: 2 }),
   accessoryIsCompliant: boolean("accessoryIsCompliant"),
+  source:               varchar("source", { length: 50 }).default("manual"),
   createdAt:            timestamp("createdAt").defaultNow().notNull(),
   updatedAt:            timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -10,6 +10,7 @@ import {
   permitReviews,
   drawingAnalyses,
   projectCalculatorResults,
+  siteAnalyses,
 } from "../../drizzle/schema";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1171,5 +1172,66 @@ export const permitPackageRouter = router({
         .where(eq(permitReviews.id, input.reviewId));
 
       return { updated: true };
+    }),
+
+  // ── getCompleteness ───────────────────────────────────────────────────────────
+  getCompleteness: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [project] = await db
+        .select({ id: projects.id, userId: projects.userId, address: projects.address, zoneCode: projects.zoneCode, zoneConfirmedAt: projects.zoneConfirmedAt })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+
+      if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      if (project.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "org_admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const [siteAnalysis] = await db
+        .select({ id: siteAnalyses.id, source: siteAnalyses.source, isCompliant: siteAnalyses.isCompliant })
+        .from(siteAnalyses)
+        .where(eq(siteAnalyses.projectId, input.projectId))
+        .orderBy(desc(siteAnalyses.createdAt))
+        .limit(1);
+
+      const calcResults = await db
+        .select({ calculatorType: projectCalculatorResults.calculatorType })
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.projectId, input.projectId));
+
+      const hasCalc = (type: string) => calcResults.some(r => r.calculatorType === type);
+
+      return {
+        project: {
+          hasAddress:    !!project.address,
+          hasZone:       !!project.zoneCode,
+          zoneConfirmed: !!project.zoneConfirmedAt,
+        },
+        siteAnalysis: {
+          exists:      !!siteAnalysis,
+          source:      siteAnalysis?.source ?? null,
+          isCompliant: siteAnalysis?.isCompliant ?? null,
+        },
+        calculators: {
+          occupantLoad:      hasCalc('occupantLoad'),
+          exitRequirements:  hasCalc('exitRequirements'),
+          travelDistance:    hasCalc('travelDistance'),
+          stairDesign:       hasCalc('stairDesign'),
+          guardHandrail:     hasCalc('guardHandrail'),
+          accessibilityRamp: hasCalc('accessibilityRamp'),
+          fireSeparation:    hasCalc('fireSeparation'),
+          fireAlarm:         hasCalc('fireAlarm'),
+          ventilationRate:   hasCalc('ventilationRate'),
+          barrierFree:       hasCalc('barrierFree'),
+          plumbingFixture:   hasCalc('plumbingFixture'),
+          snowLoad:          hasCalc('snowLoad'),
+          beamSpan:          hasCalc('beamSpan'),
+        },
+      };
     }),
 });

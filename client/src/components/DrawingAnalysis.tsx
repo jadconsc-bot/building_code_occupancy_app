@@ -78,8 +78,10 @@ import {
   PenLine,
   BookOpen,
   RefreshCw,
-  MapPin
+  MapPin,
+  FileCheck
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { DisclaimerGate } from "@/components/DisclaimerGate";
@@ -705,6 +707,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [drawingAnalysisHistory, setDrawingAnalysisHistory] = useState<any[]>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showAllFindings, setShowAllFindings] = useState(false);
+
+  const [, setLocation] = useLocation();
+  const [isSendingToPermitting, setIsSendingToPermitting] = useState(false);
+  const saveAnalysisMutation = trpc.siteAnalysis.save.useMutation();
+  const saveCalcResultMutation = trpc.projectsLegacy.calculatorResults.save.useMutation();
 
   // tRPC mutations for persistence
   const saveDrawingAnalysisMutation = trpc.saveDrawingAnalysis.useMutation();
@@ -2825,6 +2832,100 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   };
 
   // Export drawing with all strokes and annotations as PNG
+  const handleSendToPermitting = async () => {
+    if (!activeProjectId || detectedRoomsData.length === 0) return;
+    setIsSendingToPermitting(true);
+    try {
+      // 1. Union bounding box of all rooms (respecting user overrides)
+      const boxes = detectedRoomsData.map((r: any) => {
+        const bb = bboxOverrides.get(r.id) ?? r.boundingBox;
+        return { minX: bb.x, minY: bb.y, maxX: bb.x + bb.width, maxY: bb.y + bb.height };
+      });
+      const unionMinX = Math.min(...boxes.map(b => b.minX));
+      const unionMinY = Math.min(...boxes.map(b => b.minY));
+      const unionMaxX = Math.max(...boxes.map(b => b.maxX));
+      const unionMaxY = Math.max(...boxes.map(b => b.maxY));
+      const footprintWidthPx = unionMaxX - unionMinX;
+      const footprintDepthPx = unionMaxY - unionMinY;
+
+      // 2. Convert pixels → metres using calibration state
+      const pxToMetres = (px: number): number | null => {
+        if (pixelsPerDrawingUnit <= 0) return null;
+        const drawingUnits = px / pixelsPerDrawingUnit;
+        const realUnits = drawingUnits * selectedScale.ratio;
+        return scaleSystem === 'imperial' ? realUnits * 0.0254 : realUnits * 0.001;
+      };
+
+      const footprintWidthM = pxToMetres(footprintWidthPx) ?? 0;
+      const footprintDepthM = pxToMetres(footprintDepthPx) ?? 0;
+      const scaleUncalibrated = pixelsPerDrawingUnit <= 0;
+      if (scaleUncalibrated) {
+        toast.warning('Scale not calibrated — dimensions will be 0. Use the Calibrate tool first for accurate results.');
+      }
+
+      // 3. Occupant load from rooms — NBC Table 4.1.5.3
+      const loadFactors: Record<string, number> = {
+        'A':   1.2,  'A-1': 0.65, 'A-2': 1.2, 'A-3': 4.6, 'A-4': 4.6,
+        'B':  11.1,  'B-1': 11.1, 'B-2': 11.1, 'B-3': 11.1,
+        'C':   0,
+        'D':   9.3,
+        'E':   2.8,
+        'F':  30,    'F-1': 30,   'F-2': 30,   'F-3': 30,
+      };
+
+      let totalOccupantLoad = 0;
+      const breakdown: Array<{ roomLabel: string; occupancyGroup: string; areaSqm: number; occupantLoad: number }> = [];
+      for (const room of detectedRoomsData) {
+        const group = ((room as any).occupancyGroup ?? 'D').toUpperCase();
+        const areaSqm = parseFloat((room as any).areaSqm) || 0;
+        const factor = loadFactors[group] ?? 9.3;
+        const load = group === 'C' ? 1 : (factor > 0 ? Math.ceil(areaSqm / factor) : 1);
+        breakdown.push({ roomLabel: (room as any).roomLabel, occupancyGroup: group, areaSqm, occupantLoad: load });
+        totalOccupantLoad += load;
+      }
+
+      const footprintAreaM2 = footprintWidthM * footprintDepthM;
+
+      // 4. Save site analysis
+      await saveAnalysisMutation.mutateAsync({
+        projectId:       activeProjectId,
+        lotWidthM:       0,
+        lotDepthM:       0,
+        lotAreaSqm:      0,
+        buildingWidthM:  footprintWidthM,
+        buildingDepthM:  footprintDepthM,
+        buildingHeightM: 0,
+        frontSetbackM:   0,
+        rearSetbackM:    0,
+        sideSetbackM:    0,
+        siteCoveragePct: 0,
+        isCompliant:     false,
+        source:          'drawing_analyzer',
+      });
+
+      // 5. Save occupant load result
+      await saveCalcResultMutation.mutateAsync({
+        projectId:      activeProjectId,
+        calculatorType: 'occupantLoad',
+        inputData:      JSON.stringify({ rooms: breakdown.map(b => ({ roomLabel: b.roomLabel, occupancyGroup: b.occupancyGroup, areaSqm: b.areaSqm })) }),
+        resultData:     JSON.stringify({
+          occupantLoad: totalOccupantLoad,
+          areaPerPerson: totalOccupantLoad > 0 && footprintAreaM2 > 0
+            ? +(footprintAreaM2 / totalOccupantLoad).toFixed(2)
+            : 0,
+          breakdown,
+        }),
+      });
+
+      toast.success('Site analysis populated from drawing — verify setbacks in project');
+      setLocation(`/project/${activeProjectId}?tab=permit_package`);
+    } catch (err: any) {
+      toast.error('Failed to send to permitting: ' + (err?.message ?? 'Unknown error'));
+    } finally {
+      setIsSendingToPermitting(false);
+    }
+  };
+
   const handleExportDrawing = () => {
     const canvas = canvasRef.current;
     if (!canvas || !imageRef.current) return;
@@ -5271,6 +5372,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    onClick={handleSendToPermitting}
+                    disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting}
+                    variant="outline"
+                    size="sm"
+                    className="border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40"
+                    title="Save site analysis and occupant load to project permit package"
+                  >
+                    {isSendingToPermitting
+                      ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      : <FileCheck className="w-4 h-4 mr-1.5" />
+                    }
+                    Send to Permitting
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

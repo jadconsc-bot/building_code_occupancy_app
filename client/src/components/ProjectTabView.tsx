@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useProject } from "@/contexts/ProjectContext";
+import { PermitCompletenessPanel } from "@/components/PermitCompletenessPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -641,7 +642,7 @@ function StageRow({ label, exists, status, approvedAt }: {
   );
 }
 
-function PermitPackageTab({ projectId, userRole }: { projectId: number; userRole: string }) {
+function PermitPackageTab({ projectId, userRole, projectName }: { projectId: number; userRole: string; projectName: string }) {
   const isOrgAdmin = userRole === "org_admin" || userRole === "admin";
 
   const statusQuery = trpc.permitPackage.getStatus.useQuery({ projectId });
@@ -651,9 +652,11 @@ function PermitPackageTab({ projectId, userRole }: { projectId: number; userRole
   });
   const generatePdfMutation = trpc.permitPackage.generatePDF.useMutation({
     onSuccess: (data) => {
+      const safeName = (projectName || String(projectId)).replace(/[^a-zA-Z0-9]/g, '-').slice(0, 30);
+      const date = new Date().toISOString().slice(0, 10);
       const link = document.createElement("a");
       link.href = data.pdfBase64;
-      link.download = `permit-package-${projectId}.pdf`;
+      link.download = `CodeComply_PermitPackage_${safeName}_${date}.pdf`;
       link.click();
       toast.success("PDF downloaded");
     },
@@ -765,25 +768,27 @@ function PermitPackageTab({ projectId, userRole }: { projectId: number; userRole
         </Button>
       )}
 
-      {/* Download buttons */}
+      {/* Permit Completeness + PDF Generation */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-4">Permit Package Completeness</p>
+        <PermitCompletenessPanel
+          projectId={projectId}
+          onGenerate={() => generatePdfMutation.mutate({ projectId })}
+          isGenerating={generatePdfMutation.isPending}
+        />
+      </div>
+
+      {/* Electronic package export */}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
-          onClick={() => generatePdfMutation.mutate({ projectId })}
-          disabled={generatePdfMutation.isPending}
-        >
-          {generatePdfMutation.isPending
-            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
-            : <><FileText className="w-4 h-4 mr-1.5" />Download PDF Package</>}
-        </Button>
-        <Button
-          variant="outline"
+          size="sm"
           onClick={() => generateJsonMutation.mutate({ projectId })}
           disabled={generateJsonMutation.isPending}
         >
           {generateJsonMutation.isPending
             ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Exporting…</>
-            : "Download Electronic Package (JSON)"}
+            : <><FileText className="w-4 h-4 mr-1.5" />Download Electronic Package (JSON)</>}
         </Button>
       </div>
 
@@ -855,7 +860,10 @@ function PermitPackageTab({ projectId, userRole }: { projectId: number; userRole
 export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabViewProps) {
   const [, setLocation] = useLocation();
   const { setActiveProjectId } = useProject();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const tabFromUrl = searchParams.get("tab") as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(tabFromUrl ?? "overview");
 
   if (!projectId) return <div>Loading...</div>;
 
@@ -1091,6 +1099,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
         <PermitPackageTab
           projectId={numericProjectId}
           userRole={me.role}
+          projectName={projectQuery.data?.name ?? ''}
         />
       )}
     </div>
