@@ -9,6 +9,7 @@ import {
   calculationsPackages,
   permitReviews,
   drawingAnalyses,
+  projectCalculatorResults,
 } from "../../drizzle/schema";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,6 +55,19 @@ function resultColor(r: string): [number, number, number] {
   if (r === "PASS") return [22, 163, 74];
   if (r === "FAIL") return [220, 38, 38];
   return [107, 114, 128];
+}
+
+function addSectionHeader(doc: jsPDF, text: string, y: number, pageW: number, M: number): number {
+  doc.setFillColor(241, 245, 249);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.rect(M, y, pageW - 2 * M, 8, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(30, 41, 59);
+  doc.text(text, M + 3, y + 5.5);
+  doc.setTextColor(0, 0, 0);
+  return y + 12;
 }
 
 async function fetchPackageData(projectId: number, db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
@@ -233,6 +247,32 @@ export const permitPackageRouter = router({
 
       const { project, strategy, calcPkg, pkgReview } = await fetchPackageData(input.projectId, db);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const allCalcResults = await db
+        .select()
+        .from(projectCalculatorResults)
+        .where(eq(projectCalculatorResults.projectId, input.projectId))
+        .orderBy(desc(projectCalculatorResults.updatedAt));
+
+      const getCalc = (type: string): Record<string, unknown> | null => {
+        const row = allCalcResults.find(r => r.calculatorType === type);
+        if (!row) return null;
+        try { return JSON.parse(row.resultData) as Record<string, unknown>; } catch { return null; }
+      };
+
+      const calcOccupantLoad  = getCalc("occupantLoad");
+      const calcExitReqs      = getCalc("exitRequirements");
+      const calcTravelDist    = getCalc("travelDistance");
+      const calcStairDesign   = getCalc("stairDesign");
+      const calcGuardHandrail = getCalc("guardHandrail");
+      const calcAccessRamp    = getCalc("accessibilityRamp");
+      const calcFireSep       = getCalc("fireSeparation");
+      const calcFireAlarm     = getCalc("fireAlarm");
+      const calcVentilation   = getCalc("ventilationRate");
+      const calcBarrierFree   = getCalc("barrierFree");
+      const calcPlumbing      = getCalc("plumbingFixture");
+      const calcSnowLoad      = getCalc("snowLoad");
+      const calcBeamSpan      = getCalc("beamSpan");
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
       const occupantRows = (calcPkg?.occupantLoadByGroup ?? []) as OccupantGroupRow[];
@@ -536,7 +576,422 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0);
       }
 
-      // ── Page 5 — Professional Stamp Block ────────────────────────────────────
+      // ── Page 5 — Occupancy & Construction Limits ────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Occupancy & Construction Limits", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Occupant Load — NBC Table 4.1.5.3", y, W, M);
+      if (calcOccupantLoad) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Occupant Load", String(calcOccupantLoad.occupantLoad ?? "—")],
+            ["Area per Person (m²/person)", String(calcOccupantLoad.areaPerPerson ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No occupant load calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Exit Requirements — NBC 3.3.1.9", y, W, M);
+      if (calcExitReqs) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Number of Exits Required", String(calcExitReqs.numExits ?? "—")],
+            ["Min Width per Exit (mm)", String(calcExitReqs.minWidthPerExit ?? "—")],
+            ["Total Exit Width (mm)", String(calcExitReqs.totalExitWidth ?? "—")],
+            ["Reasoning", String(calcExitReqs.reasoning ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No exit requirements calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Travel Distance — NBC 3.4.2.5", y, W, M);
+      if (calcTravelDist) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Max Allowed (m)", String(calcTravelDist.maxAllowed ?? "—")],
+            ["Actual Distance (m)", String(calcTravelDist.actual ?? "—")],
+            ["Compliant", calcTravelDist.compliant === true ? "PASS" : calcTravelDist.compliant === false ? "FAIL" : "—"],
+            ["Margin (m)", String(calcTravelDist.margin ?? "—")],
+            ["Dead End Limit (m)", String(calcTravelDist.deadEndLimit ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          didParseCell: (data: any) => {
+            if (data.section === "body" && data.column.index === 1) {
+              const v = String(data.cell.raw);
+              if (v === "PASS") { data.cell.styles.textColor = [22, 163, 74]; data.cell.styles.fontStyle = "bold"; }
+              else if (v === "FAIL") { data.cell.styles.textColor = [220, 38, 38]; data.cell.styles.fontStyle = "bold"; }
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No travel distance calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Page 6 — Life Safety ─────────────────────────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Life Safety", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Stair Design — NBC 3.4.6", y, W, M);
+      if (calcStairDesign) {
+        const stairReq = (calcStairDesign.requirements ?? {}) as Record<string, unknown>;
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Riser Height (mm)", String(calcStairDesign.actualRiser ?? "—")],
+            ["Max Riser (mm)", String(stairReq.maxRiser ?? "—")],
+            ["Tread Depth (mm)", String(calcStairDesign.treadDepth ?? "—")],
+            ["Min Tread (mm)", String(stairReq.minTread ?? "—")],
+            ["Number of Risers", String(calcStairDesign.numRisers ?? "—")],
+            ["Number of Treads", String(calcStairDesign.numTreads ?? "—")],
+            ["Total Run (mm)", String(calcStairDesign.totalRun ?? "—")],
+            ["Headroom (mm)", String(calcStairDesign.headroom ?? "—")],
+            ["Handrail Height (mm)", String(calcStairDesign.handrailHeight ?? "—")],
+            ["Compliant", calcStairDesign.compliant === true ? "PASS" : calcStairDesign.compliant === false ? "FAIL" : "—"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          didParseCell: (data: any) => {
+            if (data.section === "body" && data.column.index === 1) {
+              const v = String(data.cell.raw);
+              if (v === "PASS") { data.cell.styles.textColor = [22, 163, 74]; data.cell.styles.fontStyle = "bold"; }
+              else if (v === "FAIL") { data.cell.styles.textColor = [220, 38, 38]; data.cell.styles.fontStyle = "bold"; }
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No stair design calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Guards & Handrails — NBC 3.3.1.17 / 3.3.1.18", y, W, M);
+      if (calcGuardHandrail) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Guard Required", calcGuardHandrail.guardRequired === true ? "Yes" : calcGuardHandrail.guardRequired === false ? "No" : "—"],
+            ["Min Guard Height (mm)", String(calcGuardHandrail.minGuardHeight ?? "—")],
+            ["Max Opening Size (mm)", String(calcGuardHandrail.maxOpeningSize ?? "—")],
+            ["Load Requirement", String(calcGuardHandrail.loadRequirement ?? "—")],
+            ["Handrail Required", calcGuardHandrail.handrailRequired === true ? "Yes" : calcGuardHandrail.handrailRequired === false ? "No" : "—"],
+            ["Handrail Height (mm)", String(calcGuardHandrail.handrailHeight ?? "—")],
+            ["Compliant", calcGuardHandrail.compliant === true ? "PASS" : calcGuardHandrail.compliant === false ? "FAIL" : "—"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          didParseCell: (data: any) => {
+            if (data.section === "body" && data.column.index === 1) {
+              const v = String(data.cell.raw);
+              if (v === "PASS") { data.cell.styles.textColor = [22, 163, 74]; data.cell.styles.fontStyle = "bold"; }
+              else if (v === "FAIL") { data.cell.styles.textColor = [220, 38, 38]; data.cell.styles.fontStyle = "bold"; }
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No guard/handrail calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Accessibility Ramp — NBC 3.8.3.4", y, W, M);
+      if (calcAccessRamp) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Slope (rise:run)", String(calcAccessRamp.slope ?? "—")],
+            ["Min Run (mm)", String(calcAccessRamp.minRun ?? "—")],
+            ["Number of Runs", String(calcAccessRamp.numRuns ?? "—")],
+            ["Rise per Run (mm)", String(calcAccessRamp.actualRisePerRun ?? "—")],
+            ["Run Length per Section (mm)", String(calcAccessRamp.runLengthPerSection ?? "—")],
+            ["Number of Landings", String(calcAccessRamp.numLandings ?? "—")],
+            ["Total Horizontal Length (mm)", String(calcAccessRamp.totalHorizontal ?? "—")],
+            ["Handrail Height (mm)", String(calcAccessRamp.handrailHeight ?? "—")],
+            ["Handrail Extension (mm)", String(calcAccessRamp.handrailExtension ?? "—")],
+            ["Edge Protection", String(calcAccessRamp.edgeProtection ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No accessibility ramp calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Page 7 — Fire & Mechanical ───────────────────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Fire & Mechanical", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Fire Separation — NBC 3.1.7", y, W, M);
+      if (calcFireSep) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Fire Resistance Rating", String(calcFireSep.rating ?? "—")],
+            ["Severity", String(calcFireSep.severity ?? "—")],
+            ["Description", String(calcFireSep.description ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No fire separation calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Fire Alarm — NBC 3.2.4", y, W, M);
+      if (calcFireAlarm) {
+        const faReqs = Array.isArray(calcFireAlarm.requirements) ? (calcFireAlarm.requirements as string[]).join("; ") : "—";
+        const faNbc  = Array.isArray(calcFireAlarm.nbcReferences) ? (calcFireAlarm.nbcReferences as string[]).join(", ") : "—";
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["System Required", calcFireAlarm.systemRequired === true ? "Yes" : calcFireAlarm.systemRequired === false ? "No" : "—"],
+            ["System Type", String(calcFireAlarm.systemType ?? "—")],
+            ["Detection Required", calcFireAlarm.detectionRequired === true ? "Yes" : calcFireAlarm.detectionRequired === false ? "No" : "—"],
+            ["Voice Communication", calcFireAlarm.voiceCommunication === true ? "Yes" : calcFireAlarm.voiceCommunication === false ? "No" : "—"],
+            ["Requirements", faReqs],
+            ["NBC References", faNbc],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No fire alarm calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Ventilation — NBC 6.2", y, W, M);
+      if (calcVentilation) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Space Description", String(calcVentilation.description ?? "—")],
+            ["Volume (m³)", String(calcVentilation.volume ?? "—")],
+            ["Occupants", String(calcVentilation.occupants ?? "—")],
+            ["Ventilation Rate (L/s)", String(calcVentilation.ventilationRate ?? "—")],
+            ["Air Changes per Hour", String(calcVentilation.ach ?? "—")],
+            ["Per Person Rate (L/s/person)", String(calcVentilation.perPersonRate ?? "—")],
+            ["Per Area Rate (L/s/m²)", String(calcVentilation.perAreaRate ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No ventilation calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Page 8 — Accessibility & Plumbing ───────────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Accessibility & Plumbing", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Barrier-Free Access — NBC 3.8", y, W, M);
+      if (calcBarrierFree) {
+        const bfAddReqs = Array.isArray(calcBarrierFree.additionalRequirements)
+          ? (calcBarrierFree.additionalRequirements as string[]).join("; ")
+          : String(calcBarrierFree.additionalRequirements ?? "—");
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Access Required", calcBarrierFree.accessRequired === true ? "Yes" : calcBarrierFree.accessRequired === false ? "No" : "—"],
+            ["Min Accessible Washrooms", String(calcBarrierFree.minAccessibleWashrooms ?? "—")],
+            ["Min Accessible Parking", String(calcBarrierFree.minAccessibleParking ?? "—")],
+            ["Additional Requirements", bfAddReqs],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No barrier-free calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Plumbing Fixtures — NBC 7.4", y, W, M);
+      if (calcPlumbing) {
+        const bd = (calcPlumbing.breakdown ?? {}) as Record<string, unknown>;
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Toilets", String(bd.toilets ?? "—")],
+            ["Sinks", String(bd.sinks ?? "—")],
+            ["Showers", String(bd.showers ?? "—")],
+            ["Bathtubs", String(bd.bathtubs ?? "—")],
+            ["Washing Machines", String(bd.washers ?? "—")],
+            ["Dishwashers", String(bd.dishwashers ?? "—")],
+            ["Total Fixture Units", String(calcPlumbing.totalFU ?? "—")],
+            ["Drain Size", String(calcPlumbing.drainSize ?? "—")],
+            ["Vent Size", String(calcPlumbing.ventSize ?? "—")],
+            ["Main Supply Size", String(calcPlumbing.mainSupplySize ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No plumbing fixture calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Page 9 — Structural & Environmental ─────────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Structural & Environmental", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Snow Load — NBC 4.1.6", y, W, M);
+      if (calcSnowLoad) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Location", String(calcSnowLoad.location ?? "—")],
+            ["Ground Snow Load Ss (kPa)", String(calcSnowLoad.Ss ?? "—")],
+            ["Importance Factor Is", String(calcSnowLoad.Is ?? "—")],
+            ["Slope Factor Cs", String(calcSnowLoad.Cs ?? "—")],
+            ["Wind Factor Cw", String(calcSnowLoad.Cw ?? "—")],
+            ["Rain Load Sr (kPa)", String(calcSnowLoad.Sr ?? "—")],
+            ["Rain Companion Load (kPa)", String(calcSnowLoad.rainLoad ?? "—")],
+            ["Design Snow Load (kPa)", String(calcSnowLoad.totalLoad ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No snow load calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Beam Span — NBC Part 9 Span Tables", y, W, M);
+      if (calcBeamSpan) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Maximum Allowable Span", String(calcBeamSpan.maxSpan ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No beam span calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Page 10 — Professional Stamp Block ───────────────────────────────────
       doc.addPage();
 
       doc.setFillColor(31, 41, 55);
