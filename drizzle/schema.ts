@@ -1611,11 +1611,16 @@ export const siteAnalyses = mysqlTable("siteAnalyses", {
   rearSetbackM:    decimal("rearSetbackM",    { precision: 6,  scale: 2 }),
   sideSetbackM:    decimal("sideSetbackM",    { precision: 6,  scale: 2 }),
   siteCoveragePct: decimal("siteCoveragePct", { precision: 5,  scale: 2 }),
-  isCompliant:     boolean("isCompliant").default(false),
-  zoneCode:        varchar("zoneCode",     { length: 50 }),
-  municipality:    varchar("municipality", { length: 100 }),
-  createdAt:       timestamp("createdAt").defaultNow().notNull(),
-  updatedAt:       timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  isCompliant:          boolean("isCompliant").default(false),
+  zoneCode:             varchar("zoneCode",     { length: 50 }),
+  municipality:         varchar("municipality", { length: 100 }),
+  accessoryWidthM:      decimal("accessoryWidthM",      { precision: 8, scale: 2 }),
+  accessoryDepthM:      decimal("accessoryDepthM",      { precision: 8, scale: 2 }),
+  accessoryHeightM:     decimal("accessoryHeightM",     { precision: 8, scale: 2 }),
+  accessoryAreaSqm:     decimal("accessoryAreaSqm",     { precision: 8, scale: 2 }),
+  accessoryIsCompliant: boolean("accessoryIsCompliant"),
+  createdAt:            timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:            timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type SiteAnalysis = typeof siteAnalyses.$inferSelect;

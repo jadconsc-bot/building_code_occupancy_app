@@ -17,9 +17,14 @@ const siteAnalysisInput = z.object({
   rearSetbackM:    z.number(),
   sideSetbackM:    z.number(),
   siteCoveragePct: z.number(),
-  isCompliant:     z.boolean(),
-  zoneCode:        z.string().optional(),
-  municipality:    z.string().optional(),
+  isCompliant:          z.boolean(),
+  zoneCode:             z.string().optional(),
+  municipality:         z.string().optional(),
+  accessoryWidthM:      z.number().optional(),
+  accessoryDepthM:      z.number().optional(),
+  accessoryHeightM:     z.number().optional(),
+  accessoryAreaSqm:     z.number().optional(),
+  accessoryIsCompliant: z.boolean().optional(),
 });
 
 export const siteAnalysisRouter = router({
@@ -52,9 +57,14 @@ export const siteAnalysisRouter = router({
         rearSetbackM:    toDecimal(input.rearSetbackM),
         sideSetbackM:    toDecimal(input.sideSetbackM),
         siteCoveragePct: toDecimal(input.siteCoveragePct),
-        isCompliant:     input.isCompliant,
-        zoneCode:        input.zoneCode,
-        municipality:    input.municipality,
+        isCompliant:          input.isCompliant,
+        zoneCode:             input.zoneCode,
+        municipality:         input.municipality,
+        accessoryWidthM:      input.accessoryWidthM !== undefined ? toDecimal(input.accessoryWidthM) : undefined,
+        accessoryDepthM:      input.accessoryDepthM !== undefined ? toDecimal(input.accessoryDepthM) : undefined,
+        accessoryHeightM:     input.accessoryHeightM !== undefined ? toDecimal(input.accessoryHeightM) : undefined,
+        accessoryAreaSqm:     input.accessoryAreaSqm !== undefined ? toDecimal(input.accessoryAreaSqm) : undefined,
+        accessoryIsCompliant: input.accessoryIsCompliant,
       });
 
       return { success: true };
