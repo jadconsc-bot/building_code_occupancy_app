@@ -48,6 +48,7 @@ export function PermitCompletenessPanel({ projectId, onGenerate, isGenerating }:
     { label: 'Barrier-free access',       done: completeness.calculators.barrierFree },
     { label: 'Plumbing fixtures',         done: completeness.calculators.plumbingFixture },
     { label: 'Snow load',                 done: completeness.calculators.snowLoad },
+    { label: 'Thermal resistance (RSI)', done: completeness.calculators.thermalResistance },
     { label: 'Fire assembly drawings',    done: completeness.fireAssemblies.exists,
       note: completeness.fireAssemblies.exists ? '(from drawing analyzer)' : undefined },
   ];

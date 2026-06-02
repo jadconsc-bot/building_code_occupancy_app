@@ -282,6 +282,7 @@ export const permitPackageRouter = router({
       const calcPlumbing      = getCalc("plumbingFixture");
       const calcSnowLoad      = getCalc("snowLoad");
       const calcBeamSpan      = getCalc("beamSpan");
+      const calcThermal       = getCalc("thermalResistance");
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
       const occupantRows = (calcPkg?.occupantLoadByGroup ?? []) as OccupantGroupRow[];
@@ -1111,6 +1112,78 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
+      y = addSectionHeader(doc, "Thermal Performance — NBC 9.36", y, W, M);
+      if (calcThermal) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Layer", "Material", "Thickness (mm)", "RSI", "R-value"]],
+          body: [
+            ...(calcThermal.layers as any[]).map((l: any) => [
+              l.layerNum ?? "",
+              l.material ?? l.name ?? "—",
+              String(l.thicknessMm ?? l.thickness ?? "—"),
+              String(l.rsi ?? l.RSI ?? "—"),
+              String(l.rValue ?? "—"),
+            ]),
+            ["", "TOTAL ASSEMBLY", "",
+              String(calcThermal.totalRSI ?? "—"),
+              String(calcThermal.effectiveRValue ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 8 },
+          columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 28, halign: "center" },
+            3: { cellWidth: 20, halign: "center" },
+            4: { cellWidth: 20, halign: "center" },
+          },
+          didParseCell(data: any) {
+            if (
+              data.section === "body" &&
+              data.row.index === (calcThermal.layers as any[]).length
+            ) {
+              data.cell.styles.fontStyle = "bold";
+              const rsi = Number(calcThermal.totalRSI ?? 0);
+              const req = Number(calcThermal.requiredRSI ?? 0);
+              if (req > 0) {
+                data.cell.styles.textColor = rsi >= req
+                  ? [22, 163, 74]
+                  : [220, 38, 38];
+              }
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 4;
+
+        const rsiProv = Number(calcThermal.totalRSI ?? 0);
+        const rsiReq  = Number(calcThermal.requiredRSI ?? 0);
+        if (rsiReq > 0) {
+          const margin = rsiProv - rsiReq;
+          const status = margin > 0 ? "EXCEEDS" : margin === 0 ? "MEETS" : "FAILS";
+          const color: [number, number, number] = margin > 0
+            ? [22, 163, 74] : margin === 0
+            ? [59, 130, 246] : [220, 38, 38];
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...color);
+          doc.text(
+            `${status} NBC 9.36 minimum — RSI ${rsiProv.toFixed(2)} provided,` +
+            ` RSI ${rsiReq.toFixed(2)} required (margin: ${margin >= 0 ? "+" : ""}${margin.toFixed(2)})`,
+            M, y + 4
+          );
+          doc.setTextColor(0, 0, 0);
+          doc.setFont("helvetica", "normal");
+          y += 10;
+        }
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No thermal resistance calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
       // ── Page 10 — Compliance Excellence Summary ──────────────────────────────
       doc.addPage();
       doc.setFillColor(15, 23, 42);
@@ -1184,6 +1257,23 @@ export const permitPackageRouter = router({
         if (riser > 0) {
           const { m, status } = pdfMargin(riser, riserMax, true);
           compRows.push({ category: "Life Safety", label: "Stair Riser Height", provided: `${riser}mm`, required: `≤${riserMax}mm`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}mm`, status, nbcRef: "NBC 9.8.4" });
+        }
+      }
+      if (calcThermal) {
+        const prov = Number(calcThermal.totalRSI ?? 0);
+        const req  = Number(calcThermal.requiredRSI ?? 0);
+        if (prov > 0 && req > 0) {
+          const { m, status } = pdfMargin(prov, req);
+          const assemblyLabel = String(calcThermal.assemblyType ?? "wall");
+          compRows.push({
+            category: "Energy",
+            label: `${assemblyLabel.charAt(0).toUpperCase() + assemblyLabel.slice(1)} Assembly RSI`,
+            provided: `RSI ${prov.toFixed(2)}`,
+            required: `RSI ${req.toFixed(2)} (NBC 9.36)`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}`,
+            status,
+            nbcRef: "NBC 9.36",
+          });
         }
       }
 
@@ -1499,6 +1589,7 @@ export const permitPackageRouter = router({
           plumbingFixture:   hasCalc('plumbingFixture'),
           snowLoad:          hasCalc('snowLoad'),
           beamSpan:          hasCalc('beamSpan'),
+          thermalResistance: hasCalc('thermalResistance'),
         },
         fireAssemblies: {
           exists: (await db
@@ -1624,6 +1715,26 @@ export const permitPackageRouter = router({
         if (provided > 0 && required > 0) {
           const { margin: m, status } = margin(provided, required);
           rows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${provided}kPa`, required: `${required}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        }
+      }
+
+      // Thermal Resistance
+      const thermal = getCalc("thermalResistance");
+      if (thermal) {
+        const prov = Number(thermal.totalRSI ?? 0);
+        const req  = Number(thermal.requiredRSI ?? 0);
+        if (prov > 0 && req > 0) {
+          const { margin: m, status } = margin(prov, req);
+          const assemblyLabel = String(thermal.assemblyType ?? "wall");
+          rows.push({
+            category: "Energy",
+            label: `${assemblyLabel.charAt(0).toUpperCase() + assemblyLabel.slice(1)} Assembly RSI`,
+            provided: `RSI ${prov.toFixed(2)}`,
+            required: `RSI ${req.toFixed(2)} (NBC 9.36)`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}`,
+            status,
+            nbcRef: "NBC 9.36",
+          });
         }
       }
 

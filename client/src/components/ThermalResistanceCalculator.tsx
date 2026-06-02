@@ -9,6 +9,156 @@ import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-rea
 import { CalculatorActions } from "@/components/CalculatorActions";
 import { SaveButton } from "@/components/CalculatorWithSave";
 
+// ─── Layer colour palette ──────────────────────────────────────────────────────
+function layerColor(material: string): string {
+  const m = material.toLowerCase();
+  if (m.includes("gypsum") || m.includes("drywall") || m.includes("gwb")) return "#e2e8f0";
+  if (m.includes("osb") || m.includes("sheathing") || m.includes("plywood")) return "#d97706";
+  if (m.includes("fiberglass") || m.includes("mineral wool") || m.includes("batt")) return "#86efac";
+  if (m.includes("spray foam") || m.includes("xps") || m.includes("eps") || m.includes("polyiso")) return "#6ee7b7";
+  if (m.includes("vapour") || m.includes("vapor") || m.includes("barrier")) return "#fbbf24";
+  if (m.includes("siding") || m.includes("brick") || m.includes("veneer") || m.includes("cladding")) return "#94a3b8";
+  if (m.includes("air")) return "#bfdbfe";
+  if (m.includes("concrete") || m.includes("masonry") || m.includes("block")) return "#9ca3af";
+  if (m.includes("stud") || m.includes("framing") || m.includes("lumber")) return "#92400e";
+  return "#cbd5e1";
+}
+
+// ─── Wall Assembly Cross-Section Diagram ──────────────────────────────────────
+function WallAssemblyDiagram({
+  layers,
+  climateZone,
+  assemblyType,
+  minimumRequirements,
+}: {
+  layers: Layer[];
+  climateZone: string;
+  assemblyType: string;
+  minimumRequirements: Record<string, Record<string, number>>;
+}) {
+  if (layers.length === 0) return null;
+
+  const BAND_LEFT  = 40;
+  const BAND_RIGHT = 560;
+  const BAND_W     = BAND_RIGHT - BAND_LEFT; // 520
+  const BAND_TOP   = 32;
+  const BAND_BOT   = 142;
+  const BAND_H     = BAND_BOT - BAND_TOP;   // 110
+  const MIN_BW     = 20;
+
+  const totalThicknessMm = layers.reduce((s, l) => s + l.thickness, 0);
+  const nominalRSI       = layers.reduce((s, l) => s + l.rValue, 0);
+  const effectiveRSI     = (nominalRSI + 0.15) * 0.80;
+  const requiredRSI      = minimumRequirements[climateZone]?.[assemblyType] ?? 0;
+  const statusColor      = effectiveRSI >= requiredRSI * 1.05
+    ? "#16a34a" : effectiveRSI >= requiredRSI ? "#3b82f6" : "#dc2626";
+
+  // Compute proportional widths with minimum floor
+  const rawWidths = layers.map(l =>
+    totalThicknessMm > 0
+      ? Math.max((l.thickness / totalThicknessMm) * BAND_W, MIN_BW)
+      : BAND_W / layers.length
+  );
+  const totalRaw  = rawWidths.reduce((s, w) => s + w, 0);
+  const scaledW   = rawWidths.map(w => (w / totalRaw) * BAND_W);
+
+  // x start positions
+  const xs: number[] = [];
+  let cx = BAND_LEFT;
+  for (const w of scaledW) { xs.push(cx); cx += w; }
+
+  const midY = (BAND_TOP + BAND_BOT) / 2;
+
+  // Truncate material names for rotated labels inside band
+  function shortName(mat: string): string {
+    return mat.replace(/\s*\(.*?\)/g, "").trim();
+  }
+
+  return (
+    <svg viewBox="0 0 600 205" className="w-full rounded border bg-white" style={{ maxHeight: 230 }}>
+      {/* Code reference bar */}
+      <text x="300" y="11" textAnchor="middle" fontSize="8" fill="#6b7280" fontFamily="sans-serif">
+        {assemblyType.charAt(0).toUpperCase() + assemblyType.slice(1)} Assembly
+        {" · Zone " + climateZone}
+        {requiredRSI > 0 ? ` · NBC 9.36 min RSI ${requiredRSI.toFixed(2)}` : ""}
+      </text>
+
+      {/* Heat flow indicator */}
+      <text x="557" y="26" fontSize="8" fill="#9ca3af" fontFamily="sans-serif" textAnchor="end">
+        ← heat loss
+      </text>
+      <line x1="558" y1="23" x2="566" y2="23" stroke="#9ca3af" strokeWidth="1" markerEnd="url(#arrowL)" />
+
+      {/* INTERIOR / EXTERIOR labels */}
+      <text
+        x="18" y={midY} textAnchor="middle" fontSize="8" fill="#374151"
+        fontFamily="sans-serif" fontWeight="bold"
+        transform={`rotate(-90,18,${midY})`}
+      >INTERIOR</text>
+      <text
+        x="583" y={midY} textAnchor="middle" fontSize="8" fill="#374151"
+        fontFamily="sans-serif" fontWeight="bold"
+        transform={`rotate(-90,583,${midY})`}
+      >EXTERIOR</text>
+
+      {/* Layer bands */}
+      {layers.map((layer, i) => {
+        const bx = xs[i];
+        const bw = scaledW[i];
+        const color = layerColor(layer.material);
+        const label = shortName(layer.material);
+        const fontSize = bw > 35 ? 8 : 7;
+
+        return (
+          <g key={layer.id}>
+            <rect x={bx} y={BAND_TOP} width={bw} height={BAND_H}
+              fill={color} fillOpacity={0.7} stroke={color} strokeWidth={1} />
+            {bw >= 14 && (
+              <text
+                x={bx + bw / 2} y={midY}
+                textAnchor="middle" dominantBaseline="middle"
+                fontSize={fontSize} fill="#1f2937" fontFamily="sans-serif"
+                transform={`rotate(-90,${bx + bw / 2},${midY})`}
+              >
+                {label.length * (fontSize * 0.55) > BAND_H
+                  ? label.slice(0, Math.floor(BAND_H / (fontSize * 0.6))) + "…"
+                  : label}
+              </text>
+            )}
+            {/* RSI below band */}
+            <text x={bx + bw / 2} y={BAND_BOT + 11}
+              textAnchor="middle" fontSize="7" fill="#4b5563" fontFamily="sans-serif">
+              {layer.rValue.toFixed(2)}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Separator lines */}
+      <line x1={BAND_LEFT} y1={BAND_TOP} x2={BAND_LEFT} y2={BAND_BOT} stroke="#9ca3af" strokeWidth="1" />
+      <line x1={BAND_RIGHT} y1={BAND_TOP} x2={BAND_RIGHT} y2={BAND_BOT} stroke="#9ca3af" strokeWidth="1" />
+      <line x1={BAND_LEFT} y1={BAND_BOT} x2={BAND_RIGHT} y2={BAND_BOT} stroke="#d1d5db" strokeWidth="1" />
+
+      {/* RSI axis label */}
+      <text x={BAND_LEFT} y={BAND_BOT + 11} textAnchor="start" fontSize="7" fill="#9ca3af" fontFamily="sans-serif">RSI:</text>
+
+      {/* Summary line */}
+      <text x="300" y="175" textAnchor="middle" fontSize="9"
+        fill={statusColor} fontFamily="sans-serif" fontWeight="bold">
+        {`Total Assembly RSI: ${effectiveRSI.toFixed(2)}`}
+        {requiredRSI > 0
+          ? effectiveRSI >= requiredRSI
+            ? ` ✓ MEETS NBC 9.36 (min ${requiredRSI.toFixed(2)})`
+            : ` ✗ BELOW REQUIRED — min ${requiredRSI.toFixed(2)}`
+          : ""}
+      </text>
+      <text x="300" y="188" textAnchor="middle" fontSize="8" fill="#6b7280" fontFamily="sans-serif">
+        {`Effective R-${(effectiveRSI * 5.678).toFixed(1)} (imperial) · nominal RSI ${nominalRSI.toFixed(2)} · 80% bridging factor applied`}
+      </text>
+    </svg>
+  );
+}
+
 interface Layer {
   id: string;
   material: string;
@@ -105,14 +255,28 @@ export function ThermalResistanceCalculator() {
     const rValueImperial = effectiveRSIWithBridging * 5.678;
 
     setResults({
-      totalRSI: totalRSI.toFixed(2),
-      effectiveRSI: effectiveRSI.toFixed(2),
-      effectiveRSIWithBridging: effectiveRSIWithBridging.toFixed(2),
-      rValueImperial: rValueImperial.toFixed(1),
-      minRequired: minRequired.toFixed(2),
+      // Fields used by permit package PDF (getCalc parses resultData)
+      totalRSI:      parseFloat(effectiveRSIWithBridging.toFixed(2)),
+      effectiveRValue: parseFloat(rValueImperial.toFixed(1)),
+      requiredRSI:   parseFloat(minRequired.toFixed(2)),
+      meetsCode:     compliant,
+      margin:        parseFloat(margin.toFixed(2)),
+      assemblyType,
+      layers: layers.map((l, idx) => ({
+        layerNum:    idx + 1,
+        material:    l.material,
+        thicknessMm: l.thickness,
+        rsi:         parseFloat(l.rValue.toFixed(2)),
+        rValue:      parseFloat((l.rValue * 5.678).toFixed(1)),
+      })),
+      // Display-only fields
+      nominalRSI:              parseFloat(totalRSI.toFixed(2)),
+      effectiveRSI:            parseFloat(effectiveRSI.toFixed(2)),
+      effectiveRSIWithBridging: parseFloat(effectiveRSIWithBridging.toFixed(2)),
+      rValueImperial:          parseFloat(rValueImperial.toFixed(1)),
+      minRequired:             parseFloat(minRequired.toFixed(2)),
       compliant,
-      margin: margin.toFixed(2),
-      thermalBridgingFactor: (thermalBridgingFactor * 100).toFixed(0)
+      thermalBridgingFactor:   parseFloat((thermalBridgingFactor * 100).toFixed(0)),
     });
   };
 
@@ -150,7 +314,7 @@ export function ThermalResistanceCalculator() {
                 ["Layer Details", ""],
                 ...layers.map((layer, idx) => [`Layer ${idx + 1}`, `${layer.material} - ${layer.thickness}mm - RSI ${layer.rValue.toFixed(2)}`]),
                 ["", ""],
-                ["Total RSI (Nominal)", results.totalRSI],
+                ["Total RSI (Nominal)", results.nominalRSI],
                 ["Effective RSI", results.effectiveRSI],
                 ["Minimum Required", results.minRequired],
                 ["Compliant", results.compliant ? "Yes" : "No"],
@@ -258,8 +422,16 @@ export function ThermalResistanceCalculator() {
           ))}
         </div>
 
-        <Button 
-          onClick={calculateThermalResistance} 
+        {/* Real-time wall assembly cross-section diagram */}
+        <WallAssemblyDiagram
+          layers={layers}
+          climateZone={climateZone}
+          assemblyType={assemblyType}
+          minimumRequirements={minimumRequirements}
+        />
+
+        <Button
+          onClick={calculateThermalResistance}
           className="w-full bg-primary hover:bg-primary/90"
         >
           Calculate Thermal Resistance
@@ -296,7 +468,7 @@ export function ThermalResistanceCalculator() {
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 bg-muted/50 rounded border border-border">
                 <p className="text-xs text-muted-foreground mb-1">Nominal RSI</p>
-                <p className="text-lg font-bold text-primary">{results.totalRSI}</p>
+                <p className="text-lg font-bold text-primary">{results.nominalRSI}</p>
               </div>
               <div className="p-3 bg-muted/50 rounded border border-border">
                 <p className="text-xs text-muted-foreground mb-1">With Surfaces</p>
