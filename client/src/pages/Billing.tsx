@@ -62,6 +62,10 @@ export default function Billing() {
       setCheckingOut(null);
     },
   });
+  const portalMutation = trpc.subscriptions.createPortalSession.useMutation({
+    onSuccess: (data) => { window.location.href = data.url; },
+    onError: (err) => toast.error(err.message ?? "Failed to open billing portal"),
+  });
 
   const currentRole = me?.role ?? "free";
   const isPro = currentRole === "professional" || currentRole === "org_admin" || currentRole === "admin";
@@ -165,17 +169,19 @@ export default function Billing() {
 
           {isPro && (
             <Card>
-              <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                You're on a paid plan. To manage your subscription, update payment method, or cancel, visit the{" "}
-                <a
-                  href="https://billing.stripe.com/p/login/test_00g"
-                  className="text-primary underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <CardContent className="py-6 flex flex-col items-center gap-3">
+                <p className="text-sm text-muted-foreground text-center">
+                  Manage your subscription, update payment method, or cancel via the Stripe customer portal.
+                </p>
+                <Button
+                  onClick={() => portalMutation.mutate()}
+                  disabled={portalMutation.isPending}
+                  variant="outline"
                 >
-                  Stripe customer portal
-                </a>
-                .
+                  {portalMutation.isPending
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening portal…</>
+                    : "Manage Subscription"}
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -188,20 +194,21 @@ export default function Billing() {
               <CardTitle>Payment Method</CardTitle>
               <CardDescription>Managed securely via Stripe</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center gap-3 text-muted-foreground">
-              <CreditCard className="w-6 h-6" />
-              <p className="text-sm">
-                Payment details are managed through Stripe. Visit the{" "}
-                <a
-                  href="https://billing.stripe.com/p/login/test_00g"
-                  className="text-primary underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Stripe customer portal
-                </a>{" "}
-                to update your payment method or download invoices.
-              </p>
+            <CardContent className="flex flex-col items-start gap-3">
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <CreditCard className="w-6 h-6 shrink-0" />
+                <p className="text-sm">Payment details and invoices are managed securely through Stripe.</p>
+              </div>
+              <Button
+                onClick={() => portalMutation.mutate()}
+                disabled={portalMutation.isPending}
+                variant="outline"
+                size="sm"
+              >
+                {portalMutation.isPending
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening portal…</>
+                  : "Open Billing Portal"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -180,4 +180,30 @@ export const subscriptionRouter = router({
 
       return { checkoutUrl: session.url! };
     }),
+
+  createPortalSession: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [sub] = await db
+        .select({ stripeCustomerId: userSubscriptions.stripeCustomerId })
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, ctx.user.id))
+        .limit(1);
+
+      if (!sub?.stripeCustomerId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No billing account found. Please subscribe first." });
+      }
+
+      const stripe = createStripeClient();
+      const appRoot = "https://buildingcodeoccupancyapp-production-4adf.up.railway.app";
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: sub.stripeCustomerId,
+        return_url: `${appRoot}/billing`,
+        configuration: "bpc_1TdwD2AqM4TPeb3egS1ndTNg",
+      });
+
+      return { url: portalSession.url };
+    }),
 });
