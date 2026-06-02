@@ -16,10 +16,10 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, router } from "../_core/trpc.js";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
 import { getDb } from "../db.js";
 import { homeReports, userSubscriptions } from "../../drizzle/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
 import { createPaymentIntent } from "../services/stripeService.js";
 import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
@@ -318,5 +318,27 @@ export const homeRouter = router({
         reportGeneratedAt: report.reportGeneratedAt,
         downloadExpiresAt: report.downloadExpiresAt,
       };
+    }),
+
+  getMyReports: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db || !ctx.user.email) return [];
+      return db
+        .select({
+          id:                homeReports.id,
+          paymentStatus:     homeReports.paymentStatus,
+          reportGeneratedAt: homeReports.reportGeneratedAt,
+          downloadExpiresAt: homeReports.downloadExpiresAt,
+          reportToken:       homeReports.reportToken,
+          projectType:       homeReports.projectType,
+          overallResult:     homeReports.overallResult,
+          province:          homeReports.province,
+          createdAt:         homeReports.createdAt,
+        })
+        .from(homeReports)
+        .where(eq(homeReports.email, ctx.user.email))
+        .orderBy(desc(homeReports.createdAt))
+        .limit(20);
     }),
 });

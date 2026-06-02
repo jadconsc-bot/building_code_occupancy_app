@@ -291,6 +291,18 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
     .set({ paymentStatus: "paid", downloadExpiresAt: expiresAt })
     .where(eq(homeReports.id, report.id));
 
+  // Upgrade to home_user role if account exists with this email and is still 'free'
+  const [userRow] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.email, report.email))
+    .limit(1);
+
+  if (userRow && userRow.role === "free") {
+    await db.update(users).set({ role: "home_user" }).where(eq(users.id, userRow.id));
+    console.log(`[StripeWebhook] User ${userRow.id} upgraded to home_user`);
+  }
+
   // Generate raw download token — only the hash is stored
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");

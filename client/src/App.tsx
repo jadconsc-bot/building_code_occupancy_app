@@ -37,6 +37,8 @@ import HomeProcessing from "./pages/HomeProcessing";
 import HomeReport from "./pages/HomeReport";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
+import { RequireRole } from "./components/RequireRole";
+import { HomeReportHistory } from "./components/HomeReportHistory";
 import { useLocation } from "wouter";
 
 function BillingSuccess() {
@@ -77,11 +79,27 @@ function Router() {
         <Route path={"/"} component={Dashboard} />
         <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
-        <Route path={"/compliance/:projectId"} component={Compliance} />
-        <Route path={"/compliance"} component={Compliance} />
+        <Route path={"/compliance/:projectId"}>
+          <RequireRole minRole="professional" featureName="Compliance Engine">
+            <Compliance />
+          </RequireRole>
+        </Route>
+        <Route path={"/compliance"}>
+          <RequireRole minRole="professional" featureName="Compliance Engine">
+            <Compliance />
+          </RequireRole>
+        </Route>
         <Route path={"/rule-management"} component={RuleManagement} />
-        <Route path={"/calculation-history"} component={CalculationHistory} />
-        <Route path={"/clients"} component={ClientsManagement} />
+        <Route path={"/calculation-history"}>
+          <RequireRole minRole="professional" featureName="Calculation History">
+            <CalculationHistory />
+          </RequireRole>
+        </Route>
+        <Route path={"/clients"}>
+          <RequireRole minRole="professional" featureName="Client Management">
+            <ClientsManagement />
+          </RequireRole>
+        </Route>
         <Route path={"/sharing"} component={ProjectSharing} />
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
@@ -90,10 +108,19 @@ function Router() {
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
         <Route path={"/documentation"} component={Documentation} />
-        <Route path={"/drawing-analyzer"} component={DrawingAnalyzerPage} />
+        <Route path={"/drawing-analyzer"}>
+          <RequireRole minRole="professional" featureName="Drawing Analyzer">
+            <DrawingAnalyzerPage />
+          </RequireRole>
+        </Route>
         <Route path={"/settings"} component={Settings} />
         <Route path={"/project/:projectId"} component={ProjectDetailPage} />
         <Route path={"/home"} component={HomeLanding} />
+        <Route path={"/home/reports"}>
+          <RequireRole minRole="home_user" featureName="Home Report History">
+            <HomeReportHistory />
+          </RequireRole>
+        </Route>
         <Route path={"/home/preview"} component={HomePreview} />
         <Route path={"/home/processing"} component={HomeProcessing} />
         <Route path={"/home/report/:rawToken"} component={HomeReport} />

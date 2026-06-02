@@ -43,14 +43,15 @@ import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 
-type UserRole = 'free' | 'basic' | 'professional' | 'rule_editor' | 'admin';
+type UserRole = 'free' | 'home_user' | 'basic' | 'professional' | 'rule_editor' | 'admin';
 
 const ROLE_RANK: Record<UserRole, number> = {
-  free: 0,
-  basic: 1,
-  professional: 2,
-  rule_editor: 3,
-  admin: 4,
+  free:         0,
+  home_user:    1,
+  basic:        2,
+  professional: 3,
+  rule_editor:  4,
+  admin:        5,
 };
 
 function hasRole(userRole: UserRole, required: UserRole): boolean {
@@ -147,6 +148,14 @@ const NAV_FEATURES: NavFeature[] = [
     description: 'Manage subscription and invoices',
     requiredRole: 'basic',
     upgradeMessage: 'Upgrade to access billing',
+    primaryNav: false,
+  },
+  {
+    label: 'My Reports',
+    icon: FileText,
+    href: '/home/reports',
+    description: 'View your Home compliance reports',
+    requiredRole: 'home_user',
     primaryNav: false,
   },
   {
