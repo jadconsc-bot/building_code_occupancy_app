@@ -6,7 +6,7 @@ import { TRPCError } from "@trpc/server";
 import { callAnthropicVision } from './services/anthropicVisionService';
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
-import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog } from "../drizzle/schema";
+import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog, userSubscriptions } from "../drizzle/schema";
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 import { protectedProcedure } from "./_core/trpc";
@@ -74,7 +74,23 @@ export const appRouter = router({
   siteAnalysis: siteAnalysisRouter,
   fireAssembly: fireAssemblyRouter,
   auth: router({
-    me: protectedProcedure.query(opts => opts.ctx.user),
+    me: protectedProcedure.query(async (opts) => {
+      const db = await getDb();
+      if (!db) return { ...opts.ctx.user, isFoundingMember: false, homeReportsRemaining: 0 };
+      const [sub] = await db
+        .select({
+          isFoundingMember:    userSubscriptions.isFoundingMember,
+          homeReportsRemaining: userSubscriptions.homeReportsRemaining,
+        })
+        .from(userSubscriptions)
+        .where(eq(userSubscriptions.userId, opts.ctx.user.id))
+        .limit(1);
+      return {
+        ...opts.ctx.user,
+        isFoundingMember:    (sub?.isFoundingMember ?? 0) === 1,
+        homeReportsRemaining: sub?.homeReportsRemaining ?? 0,
+      };
+    }),
     logout: protectedProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

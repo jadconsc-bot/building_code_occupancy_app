@@ -14,8 +14,8 @@
 
 import type { Request, Response } from "express";
 import { getDb } from "../db.js";
-import { homeReports, users, userSubscriptions } from "../../drizzle/schema.js";
-import { eq } from "drizzle-orm";
+import { foundingMemberCounter, homeReports, users, userSubscriptions } from "../../drizzle/schema.js";
+import { eq, sql } from "drizzle-orm";
 import { constructWebhookEvent } from "../services/stripeService.js";
 import { randomBytes, createHash } from "crypto";
 import { generateHomeReportPdf, getProjectTypeLabel } from "../services/homePdfService.js";
@@ -27,6 +27,7 @@ import {
   STRIPE_PRO_MONTHLY_PRICE_ID,
   STRIPE_PRO_ANNUAL_PRICE_ID,
   STRIPE_TEAM_PRICE_ID,
+  STRIPE_FOUNDING_PRICE_ID,
 } from "../_core/stripeEnv.js";
 import { createStripeClient } from "../services/stripeService.js";
 
@@ -43,6 +44,7 @@ function roleFromPriceId(priceId: string): "professional" | "org_admin" | "free"
   if (priceId === STRIPE_PRO_MONTHLY_PRICE_ID) return "professional";
   if (priceId === STRIPE_PRO_ANNUAL_PRICE_ID)  return "professional";
   if (priceId === STRIPE_TEAM_PRICE_ID)        return "org_admin";
+  if (priceId === STRIPE_FOUNDING_PRICE_ID)    return "professional";
   return "free";
 }
 
@@ -200,6 +202,19 @@ async function processSubscriptionUpsert(subscription: StripeSubscriptionLike): 
     .update(userSubscriptions)
     .set({ stripeSubscriptionId: subscription.id, status: "active" })
     .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId));
+
+  if (priceId === STRIPE_FOUNDING_PRICE_ID) {
+    await db
+      .update(userSubscriptions)
+      .set({ isFoundingMember: 1, homeReportsRemaining: 10 })
+      .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId));
+
+    await db
+      .update(foundingMemberCounter)
+      .set({ claimed: sql`claimed + 1` });
+
+    console.log(`[StripeWebhook] User ${sub.userId} granted founding member status with 10 home reports`);
+  }
 
   console.log(`[StripeWebhook] User ${sub.userId} upgraded to ${newRole} (subscription ${subscription.id})`);
 }

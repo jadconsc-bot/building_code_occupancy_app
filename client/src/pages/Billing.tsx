@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Loader2, Zap, Building2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { FoundingMemberBanner } from "@/components/FoundingMemberBanner";
 
 const ROLE_LABEL: Record<string, string> = {
   free:         "Free",
@@ -97,6 +98,8 @@ export default function Billing() {
 
         {/* Subscription Tab */}
         <TabsContent value="subscription" className="space-y-6">
+          {!isPro && <FoundingMemberBanner />}
+
           {/* Current plan */}
           <Card>
             <CardHeader>

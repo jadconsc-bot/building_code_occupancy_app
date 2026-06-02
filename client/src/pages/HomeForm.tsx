@@ -172,9 +172,15 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
         formAnswers: { projectType, ...answers } as any,
       });
 
+      // Founding member: skip payment, go straight to report
+      if (result.foundingMemberReport && result.reportToken) {
+        setLocation(`/home/report/${result.reportToken}`);
+        return;
+      }
+
       // Store paymentIntentId + clientSecret for Stripe Elements on the preview page
-      sessionStorage.setItem("cc_home_pi", result.paymentIntentId);
-      sessionStorage.setItem("cc_home_cs", result.clientSecret);
+      sessionStorage.setItem("cc_home_pi", result.paymentIntentId ?? "");
+      sessionStorage.setItem("cc_home_cs", result.clientSecret ?? "");
       setLocation(`/home/preview?pi=${result.paymentIntentId}`);
     } catch (err: any) {
       toast.error(err?.message ?? "Something went wrong — please try again");

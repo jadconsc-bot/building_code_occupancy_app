@@ -18,8 +18,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, router } from "../_core/trpc.js";
 import { getDb } from "../db.js";
-import { homeReports } from "../../drizzle/schema.js";
-import { eq } from "drizzle-orm";
+import { homeReports, userSubscriptions } from "../../drizzle/schema.js";
+import { eq, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
 import { createPaymentIntent } from "../services/stripeService.js";
 import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
@@ -80,7 +80,7 @@ export const homeRouter = router({
       email: z.string().email(),
       formAnswers: rawFormSchema,
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
@@ -116,6 +116,55 @@ export const homeRouter = router({
 
       const reportId = result[0].insertId;
 
+      // Founding member: bypass payment if they have reports remaining
+      const userId = ctx.user?.id;
+      if (userId) {
+        const [sub] = await db
+          .select({
+            isFoundingMember:    userSubscriptions.isFoundingMember,
+            homeReportsRemaining: userSubscriptions.homeReportsRemaining,
+          })
+          .from(userSubscriptions)
+          .where(eq(userSubscriptions.userId, userId))
+          .limit(1);
+
+        if (sub?.isFoundingMember === 1 && (sub?.homeReportsRemaining ?? 0) > 0) {
+          const rawToken = randomBytes(32).toString("hex");
+          const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+          await db.update(homeReports)
+            .set({
+              reportToken: tokenHash,
+              paymentStatus: "paid",
+              downloadExpiresAt: expiresAt,
+              reportGeneratedAt: now,
+            })
+            .where(eq(homeReports.id, reportId));
+
+          await db.update(userSubscriptions)
+            .set({ homeReportsRemaining: sql`homeReportsRemaining - 1` })
+            .where(eq(userSubscriptions.userId, userId));
+
+          console.log(`[HomeRouter] Founding member ${userId} used 1 included report (${(sub.homeReportsRemaining) - 1} remaining)`);
+
+          return {
+            clientSecret: null,
+            paymentIntentId: null,
+            reportId,
+            overallResult,
+            reportToken: rawToken,
+            foundingMemberReport: true,
+            previewItems: complianceItems.slice(0, 2).map((i) => ({
+              ruleId: i.ruleId,
+              description: i.description,
+              result: i.result,
+            })),
+          };
+        }
+      }
+
       // Create Stripe PaymentIntent
       let clientSecret: string;
       let paymentIntentId: string;
@@ -129,6 +178,8 @@ export const homeRouter = router({
           paymentIntentId: `dev_pi_${reportId}`,
           reportId,
           overallResult,
+          reportToken: null,
+          foundingMemberReport: false,
           previewItems: complianceItems.slice(0, 2).map((i) => ({
             ruleId: i.ruleId,
             description: i.description,
@@ -147,6 +198,8 @@ export const homeRouter = router({
         paymentIntentId,
         reportId,
         overallResult,
+        reportToken: null,
+        foundingMemberReport: false,
         previewItems: complianceItems.slice(0, 2).map((i) => ({
           ruleId: i.ruleId,
           description: i.description,

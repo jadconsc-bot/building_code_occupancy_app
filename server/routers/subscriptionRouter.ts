@@ -10,13 +10,14 @@ import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { subscriptionService } from '../services/SubscriptionService';
 import { monetizationService } from '../services/MonetizationService';
 import { getDb } from '../db';
-import { userSubscriptions } from '../../drizzle/schema';
+import { foundingMemberCounter, userSubscriptions } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
 import { createStripeClient } from '../services/stripeService';
 import {
   STRIPE_PRO_MONTHLY_PRICE_ID,
   STRIPE_PRO_ANNUAL_PRICE_ID,
   STRIPE_TEAM_PRICE_ID,
+  STRIPE_FOUNDING_PRICE_ID,
 } from '../_core/stripeEnv';
 
 export const subscriptionRouter = router({
@@ -116,23 +117,50 @@ export const subscriptionRouter = router({
       };
     }),
 
+  getFoundingCounter: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      const [row] = db
+        ? await db.select().from(foundingMemberCounter).limit(1)
+        : [];
+      return {
+        claimed:   row?.claimed   ?? 247,
+        cap:       row?.cap       ?? 1000,
+        remaining: (row?.cap ?? 1000) - (row?.claimed ?? 247),
+        isSoldOut: (row?.claimed ?? 247) >= (row?.cap ?? 1000),
+      };
+    }),
+
   createCheckoutSession: protectedProcedure
     .input(z.object({
-      planType: z.enum(["pro_monthly", "pro_annual", "team"]),
-    }))
+      planType: z.enum(["pro_monthly", "pro_annual", "team"]).optional(),
+      priceId:  z.string().optional(),
+    }).refine(d => d.planType || d.priceId, { message: "planType or priceId required" }))
     .mutation(async ({ input, ctx }) => {
       const PRICE_MAP: Record<string, string> = {
         pro_monthly: STRIPE_PRO_MONTHLY_PRICE_ID,
         pro_annual:  STRIPE_PRO_ANNUAL_PRICE_ID,
         team:        STRIPE_TEAM_PRICE_ID,
       };
-      const priceId = PRICE_MAP[input.planType];
+
+      const priceId = input.priceId ?? (input.planType ? PRICE_MAP[input.planType] : "");
       if (!priceId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `Price not configured for plan: ${input.planType}` });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Price not configured for this plan" });
       }
 
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      // Founding member: validate price ID and check slots
+      const isFoundingPurchase = STRIPE_FOUNDING_PRICE_ID && priceId === STRIPE_FOUNDING_PRICE_ID;
+      if (isFoundingPurchase) {
+        const [counter] = await db.select().from(foundingMemberCounter).limit(1);
+        if (counter && counter.claimed >= counter.cap) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Founding offer sold out" });
+        }
+      } else if (!Object.values(PRICE_MAP).includes(priceId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unrecognized price ID" });
+      }
 
       // Retrieve existing Stripe customer ID if any
       const [existingSub] = await db
@@ -169,13 +197,16 @@ export const subscriptionRouter = router({
       }
 
       const appRoot = "https://buildingcodeoccupancyapp-production-4adf.up.railway.app";
+      const subscriptionMeta: Record<string, string> = { userId: String(ctx.user.id) };
+      if (isFoundingPurchase) subscriptionMeta.foundingMember = "true";
+
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
         success_url: `${appRoot}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appRoot}/billing`,
-        subscription_data: { metadata: { userId: String(ctx.user.id) } },
+        subscription_data: { metadata: subscriptionMeta },
       });
 
       return { checkoutUrl: session.url! };

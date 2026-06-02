@@ -589,12 +589,26 @@ export const userSubscriptions = mysqlTable("userSubscriptions", {
   cancelledAt: timestamp("cancelledAt"),
   stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }), // Stripe subscription ID
   stripeCustomerId: varchar("stripeCustomerId", { length: 255 }), // Stripe customer ID
+  isFoundingMember: tinyint("isFoundingMember").notNull().default(0),
+  homeReportsRemaining: int("homeReportsRemaining").notNull().default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type UserSubscription = typeof userSubscriptions.$inferSelect;
 export type InsertUserSubscription = typeof userSubscriptions.$inferInsert;
+
+/**
+ * Founding Member Counter - Tracks global LTP offer slots
+ */
+export const foundingMemberCounter = mysqlTable("foundingMemberCounter", {
+  id: int("id").autoincrement().primaryKey(),
+  claimed: int("claimed").notNull().default(247),
+  cap: int("cap").notNull().default(1000),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FoundingMemberCounter = typeof foundingMemberCounter.$inferSelect;
 
 /**
  * Usage Metrics - Track feature usage for ROI visibility

@@ -316,7 +316,14 @@ export function NavigationHeader() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>
-                    <div>{user.email}</div>
+                    <div className="flex items-center gap-2">
+                      <span>{user.email}</span>
+                      {(user as any).isFoundingMember && (
+                        <span className="bg-amber-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
+                          FOUNDING
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground capitalize font-normal mt-0.5">
                       {userRole === 'rule_editor' ? 'Rule Editor' : userRole.charAt(0).toUpperCase() + userRole.slice(1)} Plan
                     </div>
