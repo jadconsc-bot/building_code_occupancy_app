@@ -31,6 +31,7 @@ import {
 
 const HANDLED_EVENTS = new Set([
   "payment_intent.succeeded",
+  "checkout.session.completed",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -68,6 +69,12 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
       case "payment_intent.succeeded": {
         const pi = event.data.object as { id: string };
         await processSuccessfulPayment(pi.id);
+        break;
+      }
+      case "checkout.session.completed": {
+        const session = event.data.object as { customer: string; subscription: string };
+        console.log(`[StripeWebhook] Checkout completed — customer ${session.customer}, subscription ${session.subscription}`);
+        // subscription.created fires separately and handles role upgrade
         break;
       }
       case "customer.subscription.created":

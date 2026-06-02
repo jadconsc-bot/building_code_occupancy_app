@@ -39,6 +39,23 @@ import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { useLocation } from "wouter";
 
+function BillingSuccess() {
+  return (
+    <div className="max-w-lg mx-auto px-4 pt-20 text-center space-y-4">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h1 className="text-2xl font-bold text-gray-900">Subscription Activated!</h1>
+      <p className="text-gray-600">Your plan is now active. It may take a moment for your account to reflect the new features.</p>
+      <a href="/" className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity">
+        Go to Dashboard
+      </a>
+    </div>
+  );
+}
+
 function ProjectDetailPage({ params }: { params: { projectId: string } }) {
   const [, setLocation] = useLocation();
   return (
@@ -68,6 +85,7 @@ function Router() {
         <Route path={"/sharing"} component={ProjectSharing} />
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
+        <Route path={"/billing/success"} component={BillingSuccess} />
         <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
