@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS teamWaitlist (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(320) NOT NULL,
+  source VARCHAR(50) DEFAULT 'billing_page',
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_email (email)
+);

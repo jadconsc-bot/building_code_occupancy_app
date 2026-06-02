@@ -611,6 +611,19 @@ export const foundingMemberCounter = mysqlTable("foundingMemberCounter", {
 export type FoundingMemberCounter = typeof foundingMemberCounter.$inferSelect;
 
 /**
+ * Team Plan Waitlist
+ */
+export const teamWaitlist = mysqlTable("teamWaitlist", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  source: varchar("source", { length: 50 }).default("billing_page"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TeamWaitlist = typeof teamWaitlist.$inferSelect;
+export type InsertTeamWaitlist = typeof teamWaitlist.$inferInsert;
+
+/**
  * Usage Metrics - Track feature usage for ROI visibility
  */
 export const usageMetrics = mysqlTable("usageMetrics", {

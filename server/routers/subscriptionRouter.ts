@@ -10,7 +10,7 @@ import { protectedProcedure, publicProcedure, router } from '../_core/trpc';
 import { subscriptionService } from '../services/SubscriptionService';
 import { monetizationService } from '../services/MonetizationService';
 import { getDb } from '../db';
-import { foundingMemberCounter, userSubscriptions } from '../../drizzle/schema';
+import { foundingMemberCounter, userSubscriptions, teamWaitlist } from '../../drizzle/schema';
 import { eq } from 'drizzle-orm';
 import { createStripeClient } from '../services/stripeService';
 import {
@@ -210,6 +210,22 @@ export const subscriptionRouter = router({
       });
 
       return { checkoutUrl: session.url! };
+    }),
+
+  joinTeamWaitlist: publicProcedure
+    .input(z.object({
+      email: z.string().email(),
+      source: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      await db.insert(teamWaitlist)
+        .values({ email: input.email, source: input.source ?? "billing_page" })
+        .onDuplicateKeyUpdate({ set: { source: input.source ?? "billing_page" } });
+
+      return { success: true };
     }),
 
   createPortalSession: protectedProcedure
