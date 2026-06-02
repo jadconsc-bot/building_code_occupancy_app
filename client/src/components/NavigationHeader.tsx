@@ -154,8 +154,7 @@ const NAV_FEATURES: NavFeature[] = [
     icon: Users,
     href: '/clients',
     description: 'Manage client contacts',
-    requiredRole: 'admin',
-    adminOnly: true,
+    requiredRole: 'professional',
     primaryNav: false,
   },
   {

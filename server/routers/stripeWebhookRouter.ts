@@ -28,6 +28,7 @@ import {
   STRIPE_PRO_ANNUAL_PRICE_ID,
   STRIPE_TEAM_PRICE_ID,
 } from "../_core/stripeEnv.js";
+import { createStripeClient } from "../services/stripeService.js";
 
 const HANDLED_EVENTS = new Set([
   "payment_intent.succeeded",
@@ -108,6 +109,69 @@ interface StripeSubscriptionLike {
   items: { data: Array<{ price: { id: string } }> };
 }
 
+type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+/**
+ * Look up which user owns a Stripe customer ID.
+ * Primary path: userSubscriptions.stripeCustomerId match.
+ * Fallback for old users: fetch customer email from Stripe, match users.email,
+ * then backfill the userSubscriptions row so future webhooks hit the primary path.
+ */
+async function findUserByStripeCustomer(
+  db: Db,
+  stripeCustomerId: string,
+): Promise<{ userId: number } | null> {
+  const [sub] = await db
+    .select({ userId: userSubscriptions.userId })
+    .from(userSubscriptions)
+    .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId))
+    .limit(1);
+
+  if (sub) return sub;
+
+  // Fallback: resolve via Stripe customer email
+  try {
+    const stripe = createStripeClient();
+    const customer = await stripe.customers.retrieve(stripeCustomerId);
+    if (customer.deleted || !("email" in customer) || !customer.email) {
+      console.log(`[StripeWebhook] Email fallback: customer ${stripeCustomerId} has no email`);
+      return null;
+    }
+
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, customer.email))
+      .limit(1);
+
+    if (!user) {
+      console.log(`[StripeWebhook] Email fallback: no user found for email ${customer.email}`);
+      return null;
+    }
+
+    // Backfill so the next webhook takes the fast path
+    const now = new Date();
+    await db
+      .insert(userSubscriptions)
+      .values({
+        userId: user.id,
+        planId: 0,
+        stripeCustomerId,
+        status: "active" as any,
+        billingCycle: "monthly" as any,
+        currentPeriodStart: now,
+        currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      })
+      .onDuplicateKeyUpdate({ set: { stripeCustomerId } });
+
+    console.log(`[StripeWebhook] Email fallback: linked customer ${stripeCustomerId} to user ${user.id}`);
+    return { userId: user.id };
+  } catch (err) {
+    console.error(`[StripeWebhook] Email fallback failed for customer ${stripeCustomerId}:`, err);
+    return null;
+  }
+}
+
 async function processSubscriptionUpsert(subscription: StripeSubscriptionLike): Promise<void> {
   const stripeCustomerId = subscription.customer;
   const priceId = subscription.items.data[0]?.price?.id ?? "";
@@ -121,14 +185,9 @@ async function processSubscriptionUpsert(subscription: StripeSubscriptionLike): 
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
 
-  const [sub] = await db
-    .select({ userId: userSubscriptions.userId })
-    .from(userSubscriptions)
-    .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId))
-    .limit(1);
-
+  const sub = await findUserByStripeCustomer(db, stripeCustomerId);
   if (!sub) {
-    console.log(`[StripeWebhook] No userSubscription found for customer ${stripeCustomerId}`);
+    console.log(`[StripeWebhook] No user found for customer ${stripeCustomerId} — skipping`);
     return;
   }
 
@@ -149,14 +208,9 @@ async function processSubscriptionDeleted(subscription: { customer: string; id: 
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
 
-  const [sub] = await db
-    .select({ userId: userSubscriptions.userId })
-    .from(userSubscriptions)
-    .where(eq(userSubscriptions.stripeCustomerId, subscription.customer))
-    .limit(1);
-
+  const sub = await findUserByStripeCustomer(db, subscription.customer);
   if (!sub) {
-    console.log(`[StripeWebhook] No userSubscription found for customer ${subscription.customer}`);
+    console.log(`[StripeWebhook] No user found for customer ${subscription.customer} — skipping`);
     return;
   }
 
@@ -177,14 +231,9 @@ async function processInvoicePaymentFailed(invoice: { customer: string }): Promi
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
 
-  const [sub] = await db
-    .select({ userId: userSubscriptions.userId })
-    .from(userSubscriptions)
-    .where(eq(userSubscriptions.stripeCustomerId, invoice.customer))
-    .limit(1);
-
+  const sub = await findUserByStripeCustomer(db, invoice.customer);
   if (!sub) {
-    console.log(`[StripeWebhook] No userSubscription found for customer ${invoice.customer}`);
+    console.log(`[StripeWebhook] No user found for customer ${invoice.customer} — skipping`);
     return;
   }
 
