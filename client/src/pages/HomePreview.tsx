@@ -1,18 +1,23 @@
 /**
  * /home/preview — Partial compliance preview + Stripe Elements payment.
- * Rev 2: Uses paymentIntentId from sessionStorage (set by HomeForm after createReport).
+ * Rev 3: Real CardElement UI via @stripe/react-stripe-js.
  * Payment via Stripe Elements (clientSecret from sessionStorage).
  * On payment success → redirect to /home/processing?pi=xxx
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle, XCircle, Lock, ArrowRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 
 type Result = "pass" | "conditional" | "fail" | "not_applicable";
+
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string)
+  : null;
 
 function ResultIcon({ result }: { result: Result }) {
   if (result === "pass") return <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />;
@@ -39,38 +44,40 @@ function resultTextColor(result: Result) {
   return "text-amber-700";
 }
 
-export default function HomePreview() {
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const paymentIntentId = params.get("pi") ?? sessionStorage.getItem("cc_home_pi") ?? "";
-  const clientSecret = sessionStorage.getItem("cc_home_cs") ?? "";
-  const [, setLocation] = useLocation();
-  const [paying, setPaying] = useState(false);
+// ─── Inner checkout form — must be inside <Elements> ─────────────────────────
 
-  const { data, isLoading, error } = trpc.home.getPreview.useQuery(
-    { paymentIntentId },
-    { enabled: !!paymentIntentId, retry: false },
-  );
+interface CheckoutFormProps {
+  clientSecret: string;
+  paymentIntentId: string;
+}
+
+function CheckoutForm({ clientSecret, paymentIntentId }: CheckoutFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const [, setLocation] = useLocation();
 
   async function handlePay() {
-    const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
-    if (!publishableKey || !clientSecret) {
-      // Dev mode — skip to processing page
+    if (!stripe || !elements || !clientSecret) {
+      // Dev mode — no Stripe key or clientSecret available
       setLocation(`/home/processing?pi=${paymentIntentId}`);
+      return;
+    }
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      toast.error("Card element not ready. Please refresh and try again.");
       return;
     }
 
     setPaying(true);
     try {
-      const stripe = await loadStripe(publishableKey);
-      if (!stripe) throw new Error("Stripe failed to load");
-
       const { error: stripeError } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: { token: "tok_visa" } as any }, // placeholder — real card element needed in Phase 2 UI
+        payment_method: { card: cardElement },
       });
 
       if (stripeError) {
-        toast.error(stripeError.message);
+        toast.error(stripeError.message ?? "Payment failed");
       } else {
         setLocation(`/home/processing?pi=${paymentIntentId}`);
       }
@@ -78,6 +85,75 @@ export default function HomePreview() {
       setPaying(false);
     }
   }
+
+  return (
+    <>
+      <div className="border border-blue-300 rounded-lg p-3 mb-4 bg-white">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: "16px",
+                color: "#1B3A6B",
+                "::placeholder": { color: "#94a3b8" },
+              },
+              invalid: { color: "#ef4444" },
+            },
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="text-2xl font-bold text-gray-900">$29</span>
+          <span className="text-gray-500 text-sm ml-1">CAD</span>
+        </div>
+        <Button
+          onClick={handlePay}
+          disabled={paying || !stripe}
+          className="bg-blue-700 hover:bg-blue-800 text-white px-6"
+        >
+          {paying
+            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…</>
+            : <>Pay & Unlock <ArrowRight className="w-4 h-4 ml-1" /></>}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// ─── Dev-mode pay button (no Stripe key) ─────────────────────────────────────
+
+function DevPayButton({ paymentIntentId }: { paymentIntentId: string }) {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-2xl font-bold text-gray-900">$29</span>
+        <span className="text-gray-500 text-sm ml-1">CAD</span>
+      </div>
+      <Button
+        onClick={() => setLocation(`/home/processing?pi=${paymentIntentId}`)}
+        className="bg-blue-700 hover:bg-blue-800 text-white px-6"
+      >
+        Pay & Unlock <ArrowRight className="w-4 h-4 ml-1" />
+      </Button>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function HomePreview() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const paymentIntentId = params.get("pi") ?? sessionStorage.getItem("cc_home_pi") ?? "";
+  const clientSecret = sessionStorage.getItem("cc_home_cs") ?? "";
+  const [, setLocation] = useLocation();
+
+  const { data, isLoading, error } = trpc.home.getPreview.useQuery(
+    { paymentIntentId },
+    { enabled: !!paymentIntentId, retry: false },
+  );
 
   if (!paymentIntentId) {
     return (
@@ -121,9 +197,11 @@ export default function HomePreview() {
           <div>
             <span className={`font-semibold ${resultTextColor(overallResult)}`}>Overall: {resultLabel(overallResult)}</span>
             <p className="text-sm text-gray-600 mt-0.5">
-              {overallResult === "pass" ? "Preliminary check passed. See full report for details."
-                : overallResult === "fail" ? "Issues found. Full report includes guidance to fix them."
-                : "Some items need attention. Full report explains what to do."}
+              {overallResult === "pass"
+                ? "Preliminary check passed. See full report for details."
+                : overallResult === "fail"
+                  ? "Issues found. Full report includes guidance to fix them."
+                  : "Some items need attention. Full report explains what to do."}
             </p>
           </div>
         </div>
@@ -154,12 +232,15 @@ export default function HomePreview() {
           <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /> Required permits + inspections checklist</li>
           <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /> PDF emailed + 30-day download link</li>
         </ul>
-        <div className="flex items-center justify-between">
-          <div><span className="text-2xl font-bold text-gray-900">$29</span><span className="text-gray-500 text-sm ml-1">CAD</span></div>
-          <Button onClick={handlePay} disabled={paying} className="bg-blue-700 hover:bg-blue-800 text-white px-6">
-            {paying ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…</> : <>Pay & Unlock <ArrowRight className="w-4 h-4 ml-1" /></>}
-          </Button>
-        </div>
+
+        {stripePromise && clientSecret ? (
+          <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <CheckoutForm clientSecret={clientSecret} paymentIntentId={paymentIntentId} />
+          </Elements>
+        ) : (
+          <DevPayButton paymentIntentId={paymentIntentId} />
+        )}
+
         <p className="text-xs text-gray-400 mt-3">Secure checkout via Stripe.</p>
       </div>
 

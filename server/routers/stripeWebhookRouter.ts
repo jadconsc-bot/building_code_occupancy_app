@@ -1,25 +1,20 @@
 /**
- * Stripe Webhook Handler — CodeComply Home
+ * Stripe Webhook Handler — CodeComply Home + Pro Subscriptions
  *
  * Registered as a raw Express route BEFORE express.json() middleware
  * so that req.body is the raw Buffer needed for Stripe signature verification.
  *
- * Handles: payment_intent.succeeded
- *   1. Verify Stripe signature (rejects tampered requests)
- *   2. Idempotency guard — skip if report already paid
- *   3. Mark paymentStatus = 'paid', set downloadExpiresAt (30 days)
- *   4. Generate PDF (via homeReportPdfService)
- *   5. Store PDF in S3 (pdfStorageKey)
- *   6. Generate raw download token, store SHA-256 hash in DB
- *   7. Send email with raw token link
- *
- * Rev 2 Fix 2: PDF triggered by webhook — never by client redirect.
- * Rev 2 Fix 1: Raw token in email only; SHA-256 hash in DB.
+ * Handles:
+ *   payment_intent.succeeded           — Home $29 one-time report purchase
+ *   customer.subscription.created      — Pro/Team subscription start → role upgrade
+ *   customer.subscription.updated      — Plan change → re-evaluate role
+ *   customer.subscription.deleted      — Cancellation → downgrade to free
+ *   invoice.payment_failed             — Payment failure → downgrade to free
  */
 
 import type { Request, Response } from "express";
 import { getDb } from "../db.js";
-import { homeReports } from "../../drizzle/schema.js";
+import { homeReports, users, userSubscriptions } from "../../drizzle/schema.js";
 import { eq } from "drizzle-orm";
 import { constructWebhookEvent } from "../services/stripeService.js";
 import { randomBytes, createHash } from "crypto";
@@ -28,6 +23,26 @@ import { sendReportEmail } from "../services/homeEmailService.js";
 import { evaluateHomeCompliance } from "../engine/home/part9Rules.js";
 import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
 import type { ComplianceReport } from "../services/homeComplianceEngine.js";
+import {
+  STRIPE_PRO_MONTHLY_PRICE_ID,
+  STRIPE_PRO_ANNUAL_PRICE_ID,
+  STRIPE_TEAM_PRICE_ID,
+} from "../_core/stripeEnv.js";
+
+const HANDLED_EVENTS = new Set([
+  "payment_intent.succeeded",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.payment_failed",
+]);
+
+function roleFromPriceId(priceId: string): "professional" | "org_admin" | "free" {
+  if (priceId === STRIPE_PRO_MONTHLY_PRICE_ID) return "professional";
+  if (priceId === STRIPE_PRO_ANNUAL_PRICE_ID)  return "professional";
+  if (priceId === STRIPE_TEAM_PRICE_ID)        return "org_admin";
+  return "free";
+}
 
 export async function handleStripeWebhook(req: Request, res: Response): Promise<void> {
   let event;
@@ -43,23 +58,138 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
     return;
   }
 
-  if (event.type !== "payment_intent.succeeded") {
+  if (!HANDLED_EVENTS.has(event.type)) {
     res.json({ received: true });
     return;
   }
 
-  const paymentIntent = event.data.object as { id: string; metadata?: { reportId?: string } };
-  const paymentIntentId = paymentIntent.id;
-
   try {
-    await processSuccessfulPayment(paymentIntentId);
+    switch (event.type) {
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as { id: string };
+        await processSuccessfulPayment(pi.id);
+        break;
+      }
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        await processSubscriptionUpsert(event.data.object as StripeSubscriptionLike);
+        break;
+      }
+      case "customer.subscription.deleted": {
+        await processSubscriptionDeleted(event.data.object as { customer: string; id: string });
+        break;
+      }
+      case "invoice.payment_failed": {
+        await processInvoicePaymentFailed(event.data.object as { customer: string });
+        break;
+      }
+    }
     res.json({ received: true });
   } catch (err) {
-    console.error(`[StripeWebhook] Processing error for ${paymentIntentId}:`, err);
+    console.error(`[StripeWebhook] Processing error for ${event.type}:`, err);
     // Return 200 — do not let Stripe retry for application errors
     res.json({ received: true, warning: "Processing error logged" });
   }
 }
+
+// ─── Subscription helpers ─────────────────────────────────────────────────────
+
+interface StripeSubscriptionLike {
+  id: string;
+  customer: string;
+  status: string;
+  items: { data: Array<{ price: { id: string } }> };
+}
+
+async function processSubscriptionUpsert(subscription: StripeSubscriptionLike): Promise<void> {
+  const stripeCustomerId = subscription.customer;
+  const priceId = subscription.items.data[0]?.price?.id ?? "";
+  const newRole = roleFromPriceId(priceId);
+
+  if (newRole === "free") {
+    console.log(`[StripeWebhook] Unknown price ID ${priceId} — skipping role upgrade`);
+    return;
+  }
+
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+
+  const [sub] = await db
+    .select({ userId: userSubscriptions.userId })
+    .from(userSubscriptions)
+    .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId))
+    .limit(1);
+
+  if (!sub) {
+    console.log(`[StripeWebhook] No userSubscription found for customer ${stripeCustomerId}`);
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ role: newRole })
+    .where(eq(users.id, sub.userId));
+
+  await db
+    .update(userSubscriptions)
+    .set({ stripeSubscriptionId: subscription.id, status: "active" })
+    .where(eq(userSubscriptions.stripeCustomerId, stripeCustomerId));
+
+  console.log(`[StripeWebhook] User ${sub.userId} upgraded to ${newRole} (subscription ${subscription.id})`);
+}
+
+async function processSubscriptionDeleted(subscription: { customer: string; id: string }): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+
+  const [sub] = await db
+    .select({ userId: userSubscriptions.userId })
+    .from(userSubscriptions)
+    .where(eq(userSubscriptions.stripeCustomerId, subscription.customer))
+    .limit(1);
+
+  if (!sub) {
+    console.log(`[StripeWebhook] No userSubscription found for customer ${subscription.customer}`);
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ role: "free" })
+    .where(eq(users.id, sub.userId));
+
+  await db
+    .update(userSubscriptions)
+    .set({ stripeSubscriptionId: null, status: "cancelled" })
+    .where(eq(userSubscriptions.stripeCustomerId, subscription.customer));
+
+  console.log(`[StripeWebhook] User ${sub.userId} downgraded to free (subscription deleted)`);
+}
+
+async function processInvoicePaymentFailed(invoice: { customer: string }): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+
+  const [sub] = await db
+    .select({ userId: userSubscriptions.userId })
+    .from(userSubscriptions)
+    .where(eq(userSubscriptions.stripeCustomerId, invoice.customer))
+    .limit(1);
+
+  if (!sub) {
+    console.log(`[StripeWebhook] No userSubscription found for customer ${invoice.customer}`);
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ role: "free" })
+    .where(eq(users.id, sub.userId));
+
+  console.log(`[StripeWebhook] User ${sub.userId} downgraded to free (invoice payment failed)`);
+}
+
+// ─── Home report payment ──────────────────────────────────────────────────────
 
 async function processSuccessfulPayment(paymentIntentId: string): Promise<void> {
   const db = await getDb();
@@ -102,7 +232,6 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
   let pdfStorageKey: string | null = null;
 
   try {
-    // Re-run compliance from stored form answers to get the full result shape
     const rawAnswers = report.formAnswersJson as RawFormSubmission;
     const adapted = adaptFormAnswers(rawAnswers);
     const complianceItems = evaluateHomeCompliance(adapted);
@@ -131,7 +260,6 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
       generatedAt: now,
     });
 
-    // Store in S3 if configured; otherwise log the buffer size
     const awsBucket = process.env.AWS_S3_BUCKET;
     if (awsBucket) {
       const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
@@ -149,10 +277,8 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
     }
   } catch (err) {
     console.error(`[StripeWebhook] PDF generation failed for report ${report.id}:`, err);
-    // Don't block token update — user can still access the report page
   }
 
-  // Store the SHA-256 hash (never the raw token) + pdfStorageKey
   await db.update(homeReports)
     .set({
       reportToken: tokenHash,
@@ -161,11 +287,10 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
     })
     .where(eq(homeReports.id, report.id));
 
-  // Send email with raw token in the link
   try {
     await sendReportEmail({
       to: report.email,
-      reportToken: rawToken, // raw token for email link only
+      reportToken: rawToken,
       projectTypeLabel,
       downloadUrl,
       expiresAt,
