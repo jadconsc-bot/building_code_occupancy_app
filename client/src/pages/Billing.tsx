@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Loader2, Zap, Building2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
@@ -47,14 +48,24 @@ const PLANS = [
     label: "Team",
     price: "$149",
     period: "/month",
-    features: ["Everything in Pro", "Up to 10 team members", "Shared project library", "Admin dashboard", "Dedicated support"],
+    features: [
+      "Everything in Pro",
+      "Multi-user workspace",
+      "Shared project library",
+      "In-app collaboration",
+      "Team admin dashboard",
+      "Dedicated support",
+      "Launching Q4 2026",
+    ],
     icon: Building2,
     highlight: false,
+    comingSoon: true,
   },
 ];
 
 export default function Billing() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
 
   const { data: me } = trpc.auth.me.useQuery();
   const checkoutMutation = trpc.subscriptions.createCheckoutSession.useMutation({
@@ -127,17 +138,30 @@ export default function Billing() {
               {PLANS.map((plan) => {
                 const Icon = plan.icon;
                 const isLoading = checkingOut === plan.planType;
+                const isTeam = (plan as any).comingSoon === true;
+
                 return (
-                  <Card key={plan.planType} className={plan.highlight ? "border-primary shadow-md" : ""}>
+                  <Card
+                    key={plan.planType}
+                    className={[
+                      plan.highlight ? "border-primary shadow-md" : "",
+                      isTeam ? "opacity-90" : "",
+                    ].join(" ")}
+                  >
                     {plan.highlight && (
                       <div className="bg-primary text-primary-foreground text-xs font-semibold text-center py-1 rounded-t-lg">
                         Most Popular
                       </div>
                     )}
                     <CardHeader>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Icon className="w-5 h-5 text-primary" />
                         <CardTitle className="text-lg">{plan.label}</CardTitle>
+                        {isTeam && (
+                          <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">
+                            Coming Soon — Q4 2026
+                          </Badge>
+                        )}
                       </div>
                       <div>
                         <span className="text-3xl font-bold">{plan.price}</span>
@@ -156,13 +180,45 @@ export default function Billing() {
                       <Button
                         className="w-full"
                         variant={plan.highlight ? "default" : "outline"}
-                        onClick={() => handleUpgrade(plan.planType)}
-                        disabled={!!checkingOut}
+                        onClick={() => !isTeam && handleUpgrade(plan.planType)}
+                        disabled={isTeam || !!checkingOut}
                       >
                         {isLoading
                           ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                          : isTeam
+                          ? "Coming Soon"
                           : `Upgrade to ${plan.label}`}
                       </Button>
+
+                      {/* Waitlist capture for Team plan */}
+                      {isTeam && (
+                        <div className="pt-2 border-t border-border space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            Be notified when Team plan launches
+                          </p>
+                          <div className="flex gap-2">
+                            <Input
+                              type="email"
+                              placeholder="your@email.com"
+                              value={waitlistEmail}
+                              onChange={(e) => setWaitlistEmail(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 shrink-0"
+                              onClick={() => {
+                                if (!waitlistEmail.trim()) return;
+                                toast.success("We'll notify you when Team launches!");
+                                setWaitlistEmail("");
+                              }}
+                            >
+                              Notify Me
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
