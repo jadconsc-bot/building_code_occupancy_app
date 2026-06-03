@@ -61,6 +61,25 @@ export interface HomeFormAnswers {
   // Basement development
   basementInsulationRValue?: number;
   hasInsulation?: boolean;
+  // NBC 9.10.7 — egress window dimensions (clear opening)
+  egressWindowHeightMm?: number;
+  egressWindowWidthMm?: number;
+  egressWindowSillMm?: number;
+  // NBC 9.9.10 — window well (below-grade bedrooms)
+  isBelowGradeBedroom?: boolean;
+  windowWellProjectionMm?: number;
+  windowWellDepthMm?: number;
+  windowSwingType?: "inswing" | "outswing" | "slider" | "double_hung";
+  windowWellSashDepthMm?: number;
+  windowWellHasCover?: boolean;
+  windowWellCoverOpensInside?: boolean;
+  windowWellHasLadder?: boolean;
+  // NBC 9.10.14 — spatial separation
+  limitingDistanceM?: number;
+  exposingFaceAreaM2?: number;
+  totalOpeningAreaM2?: number;
+  facesStreet?: boolean;
+  fireResponseOver10Min?: boolean;
 }
 
 export interface RuleResult {
@@ -390,14 +409,314 @@ const CALGARY_SMOKE_ALARM_RULE: Part9Rule = {
   },
 };
 
+// ─── NBC 9.10.7 Egress Window Dimensions ────────────────────────────────────
+// The existing area rules (P9-EGRESS-*) check area only.
+// This rule checks the specific dimension requirements: 380×380mm clear, sill ≤900mm.
+
+const EGRESS_WINDOW_DIMENSION_RULE: Part9Rule = {
+  ruleId: "P9-EGRESS-DIM-NATIONAL",
+  description: "Egress window clear dimensions and sill height (NBC 9.10.7)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    const h = answers.egressWindowHeightMm;
+    const w = answers.egressWindowWidthMm;
+    const sill = answers.egressWindowSillMm;
+
+    if (h === undefined && w === undefined && sill === undefined) {
+      return {
+        result: "conditional",
+        plainLanguage:
+          "Verify egress window dimensions: minimum 380mm clear height, 380mm clear width, sill ≤900mm above finished floor (NBC 9.10.7.1).",
+        codeReference: "NBC 9.10.7.1",
+      };
+    }
+
+    const failures: string[] = [];
+    if (h !== undefined && h < 380)
+      failures.push(`clear height ${h}mm < 380mm minimum`);
+    if (w !== undefined && w < 380)
+      failures.push(`clear width ${w}mm < 380mm minimum`);
+    if (sill !== undefined && sill > 900)
+      failures.push(`sill height ${sill}mm exceeds 900mm maximum`);
+
+    if (failures.length > 0) {
+      return {
+        result: "fail",
+        plainLanguage: `Egress window fails dimension requirements: ${failures.join("; ")}.`,
+        whatToDo:
+          "Window must have minimum 380mm clear height AND 380mm clear width, with sill height ≤900mm above finished floor. " +
+          "Clear dimensions are measured at the operable opening, not the rough frame. NBC 9.10.7.1(1).",
+        codeReference: "NBC 9.10.7.1",
+      };
+    }
+
+    return {
+      result: "pass",
+      plainLanguage:
+        `Egress window meets NBC 9.10.7 dimensions: ` +
+        `${h !== undefined ? h + "mm H" : "H not provided"} × ` +
+        `${w !== undefined ? w + "mm W" : "W not provided"} clear opening` +
+        `${sill !== undefined ? ", sill at " + sill + "mm" : ""}.`,
+      codeReference: "NBC 9.10.7.1",
+    };
+  },
+};
+
+// ─── NBC 9.9.10 Window Well ──────────────────────────────────────────────────
+
+const WINDOW_WELL_RULES: Part9Rule[] = [
+  {
+    ruleId: "P9-WELL-PROJECTION",
+    description: "Window well clear projection (NBC 9.9.10.1(3))",
+    province: "national",
+    projectTypes: ["secondary_suite", "basement_development"],
+    evaluate: (answers) => {
+      if (!answers.isBelowGradeBedroom) {
+        return {
+          result: "not_applicable",
+          plainLanguage: "Window well check not applicable — bedroom is not below grade.",
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      if (answers.windowWellProjectionMm === undefined) {
+        return {
+          result: "conditional",
+          plainLanguage:
+            "Below-grade bedroom present — verify window well projection ≥760mm clear from window face to well wall. " +
+            "For outswing windows, the open sash must not reduce clearance below 760mm.",
+          codeReference: "NBC 9.9.10.1(3)",
+        };
+      }
+
+      const sashDepth =
+        answers.windowSwingType === "outswing"
+          ? (answers.windowWellSashDepthMm ?? 0)
+          : 0;
+      const effective = answers.windowWellProjectionMm - sashDepth;
+      const shortfall = 760 - effective;
+
+      if (shortfall > 0) {
+        return {
+          result: "fail",
+          plainLanguage:
+            `Window well projection insufficient: ${effective}mm clear ` +
+            `(${answers.windowWellProjectionMm}mm total` +
+            `${sashDepth > 0 ? ` minus ${sashDepth}mm outswing sash` : ""}) — requires 760mm.`,
+          whatToDo:
+            answers.windowSwingType === "outswing"
+              ? `Increase well projection to ${answers.windowWellProjectionMm + shortfall}mm total ` +
+                `(760mm must remain clear beyond the fully open sash). NBC 9.9.10.1(3).`
+              : `Increase well projection to at least 760mm from window face. NBC 9.9.10.1(3).`,
+          codeReference: "NBC 9.9.10.1(3)",
+        };
+      }
+
+      return {
+        result: "pass",
+        plainLanguage:
+          `Window well projection: ${effective}mm clear ≥ 760mm required.` +
+          `${sashDepth > 0 ? " (measured beyond fully open sash)" : ""}`,
+        codeReference: "NBC 9.9.10.1(3)",
+      };
+    },
+  },
+  {
+    ruleId: "P9-WELL-LADDER",
+    description: "Window well ladder/steps if depth >1200mm (NBC 9.9.10)",
+    province: "national",
+    projectTypes: ["secondary_suite", "basement_development"],
+    evaluate: (answers) => {
+      if (!answers.isBelowGradeBedroom) {
+        return {
+          result: "not_applicable",
+          plainLanguage: "Window well ladder check not applicable.",
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      if (answers.windowWellDepthMm === undefined) {
+        return {
+          result: "conditional",
+          plainLanguage:
+            "Provide window well depth to determine if a permanent ladder is required (required if >1200mm).",
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      if (answers.windowWellDepthMm > 1200 && !answers.windowWellHasLadder) {
+        return {
+          result: "fail",
+          plainLanguage:
+            `Window well is ${answers.windowWellDepthMm}mm deep — permanent ladder or built-in steps required for wells deeper than 1200mm.`,
+          whatToDo:
+            "Install a permanent ladder or built-in steps within the well. " +
+            "Steps must not reduce the 760mm clear projection. NBC 9.9.10.",
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      if (answers.windowWellDepthMm > 1200) {
+        return {
+          result: "pass",
+          plainLanguage: `Window well ${answers.windowWellDepthMm}mm deep — permanent ladder/steps provided.`,
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      return {
+        result: "pass",
+        plainLanguage: `Window well ${answers.windowWellDepthMm}mm deep — no ladder required (≤1200mm).`,
+        codeReference: "NBC 9.9.10",
+      };
+    },
+  },
+  {
+    ruleId: "P9-WELL-COVER",
+    description: "Window well cover openable from inside (NBC 9.9.10.1(5))",
+    province: "national",
+    projectTypes: ["secondary_suite", "basement_development"],
+    evaluate: (answers) => {
+      if (!answers.isBelowGradeBedroom || !answers.windowWellHasCover) {
+        return {
+          result: "not_applicable",
+          plainLanguage: "Window well cover check not applicable.",
+          codeReference: "NBC 9.9.10",
+        };
+      }
+      if (answers.windowWellCoverOpensInside === false) {
+        return {
+          result: "fail",
+          plainLanguage:
+            "Window well cover MUST be openable from inside without keys, tools, or special knowledge.",
+          whatToDo:
+            "Replace with a cover that opens freely from inside. Any locking mechanism or resistance to opening is prohibited — this is an emergency egress path. NBC 9.9.10.1(5).",
+          codeReference: "NBC 9.9.10.1(5)",
+        };
+      }
+      return {
+        result: "pass",
+        plainLanguage: "Window well cover opens from inside without tools — compliant.",
+        codeReference: "NBC 9.9.10.1(5)",
+      };
+    },
+  },
+];
+
+// ─── NBC 9.10.14 Spatial Separation ─────────────────────────────────────────
+
+const SPATIAL_SEPARATION_RULE: Part9Rule = {
+  ruleId: "P9-SPATIAL-NATIONAL",
+  description: "Spatial separation / unprotected opening area (NBC 9.10.14)",
+  province: "national",
+  projectTypes: [
+    "secondary_suite",
+    "basement_development",
+    "new_single_family",
+    "addition_renovation",
+    "detached_garage",
+  ],
+  evaluate: (answers) => {
+    if (answers.limitingDistanceM === undefined) {
+      return {
+        result: "conditional",
+        plainLanguage:
+          "Provide the limiting distance (LD) from the building face to the property line to evaluate " +
+          "spatial separation and unprotected opening area (NBC 9.10.14). " +
+          "A 1.5m setback allows only 2.25m² of unprotected openings — a typical house face has 4–6m².",
+        codeReference: "NBC 9.10.14",
+      };
+    }
+
+    let ld = answers.limitingDistanceM;
+
+    // Rural fire response penalty — halve the limiting distance
+    if (answers.fireResponseOver10Min && !answers.sprinklered) ld = ld / 2;
+
+    // Street-facing face at grade with LD ≥ 9m — unlimited
+    if (answers.facesStreet && ld >= 9) {
+      return {
+        result: "pass",
+        plainLanguage: `Street-facing face with LD ${ld.toFixed(1)}m ≥ 9m — unlimited openings permitted (NBC 9.10.14).`,
+        codeReference: "NBC 9.10.14",
+      };
+    }
+
+    // LD < 1.2m — all openings must be fire-rated
+    if (ld < 1.2) {
+      const provided = answers.totalOpeningAreaM2 ?? 0;
+      return {
+        result: provided > 0 ? "fail" : "conditional",
+        plainLanguage:
+          provided > 0
+            ? `Limiting distance ${ld.toFixed(2)}m < 1.2m — NO unprotected openings permitted. ` +
+              `${provided.toFixed(2)}m² of openings must use fire-rated closures.`
+            : `Limiting distance ${ld.toFixed(2)}m < 1.2m — no unprotected openings. ` +
+              `Confirm all openings use fire-rated closures. NBC 9.10.14.4(2).`,
+        whatToDo:
+          provided > 0
+            ? "All windows and doors on this face must be fire-rated closures (wired glass or fire-rated glazing in rated frames). NBC 9.10.14.4(2)."
+            : undefined,
+        codeReference: "NBC 9.10.14.4(2)",
+      };
+    }
+
+    // Max allowed = LD² (residential/office/low-hazard) × sprinkler bonus
+    const maxArea = Math.min(
+      ld * ld * (answers.sprinklered ? 2 : 1),
+      answers.exposingFaceAreaM2 ?? Infinity,
+    );
+    const provided = answers.totalOpeningAreaM2;
+
+    if (provided === undefined || answers.exposingFaceAreaM2 === undefined) {
+      const cappedMaxArea = answers.exposingFaceAreaM2
+        ? Math.min(ld * ld * (answers.sprinklered ? 2 : 1), answers.exposingFaceAreaM2)
+        : ld * ld * (answers.sprinklered ? 2 : 1);
+      return {
+        result: "conditional",
+        plainLanguage:
+          `LD = ${ld.toFixed(2)}m → maximum unprotected openings = ${cappedMaxArea.toFixed(2)} m² ` +
+          `(LD²${answers.sprinklered ? " × 2 sprinklered" : ""}). ` +
+          "Provide total opening area to verify compliance.",
+        codeReference: "NBC 9.10.14.4",
+      };
+    }
+
+    const isCompliant = provided <= maxArea;
+    const excess = provided - maxArea;
+
+    if (isCompliant) {
+      return {
+        result: "pass",
+        plainLanguage:
+          `Spatial separation: ${provided.toFixed(2)}m² openings ≤ ${maxArea.toFixed(2)}m² maximum ` +
+          `(LD=${ld.toFixed(1)}m). Compliant.`,
+        codeReference: "NBC 9.10.14.4",
+      };
+    }
+
+    return {
+      result: "fail",
+      plainLanguage:
+        `Spatial separation FAIL: ${provided.toFixed(2)}m² openings exceed maximum ` +
+        `${maxArea.toFixed(2)}m² (LD=${ld.toFixed(1)}m). Exceeds by ${excess.toFixed(2)}m².`,
+      whatToDo:
+        `Reduce unprotected openings on this face by ${excess.toFixed(2)}m², OR ` +
+        `increase the setback from the property line, OR ` +
+        `use fire-rated glazing to double the allowance, OR ` +
+        `install a sprinkler system. NBC 9.10.14.4(3).`,
+      codeReference: "NBC 9.10.14.4",
+    };
+  },
+};
+
 // ─── All rules ───────────────────────────────────────────────────────────────
 
 export const PART9_RULES: Part9Rule[] = [
   ...CEILING_HEIGHT_RULES,
   ...EGRESS_WINDOW_RULES,
+  EGRESS_WINDOW_DIMENSION_RULE,
+  ...WINDOW_WELL_RULES,
   SMOKE_ALARM_RULE,
   CO_DETECTOR_RULE,
   FIRE_SEPARATION_RULE,
+  SPATIAL_SEPARATION_RULE,
   DECK_GUARD_RAIL_RULE,
   DECK_FOOTING_RULE,
   CALGARY_SMOKE_ALARM_RULE,

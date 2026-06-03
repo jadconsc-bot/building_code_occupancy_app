@@ -42,6 +42,7 @@ import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
 import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
 import { CeilingHeightTable } from "@/components/CeilingHeightTable";
 import { FireSeparationCalculator } from "@/components/FireSeparationCalculator";
+import { SpatialSeparationCalculator } from "@/components/SpatialSeparationCalculator";
 import { OccupantLoadCalculator } from "@/components/OccupantLoadCalculator";
 import { ExitRequirementsCalculator } from "@/components/ExitRequirementsCalculator";
 import { TravelDistanceCalculator } from "@/components/TravelDistanceCalculator";
@@ -2784,6 +2785,7 @@ export default function Home() {
                     </p>
                     <div className="space-y-6">
                       <FireSeparationCalculator />
+                      <SpatialSeparationCalculator />
                       <OccupantLoadCalculator />
                       <ExitRequirementsCalculator />
                       <TravelDistanceCalculator />

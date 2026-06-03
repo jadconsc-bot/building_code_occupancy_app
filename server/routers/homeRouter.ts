@@ -62,6 +62,25 @@ const rawFormSchema = z.object({
   guardRailHeightFt: z.number().positive().optional(),
   insulation: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
   insulationRValue: z.number().positive().optional(),
+  // NBC 9.10.7 egress window dimensions
+  egressWindowHeightMm: z.number().positive().optional(),
+  egressWindowWidthMm:  z.number().positive().optional(),
+  egressWindowSillMm:   z.number().nonnegative().optional(),
+  // NBC 9.9.10 window well
+  isBelowGradeBedroom:        z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  windowWellProjectionMm:     z.number().positive().optional(),
+  windowWellDepthMm:          z.number().positive().optional(),
+  windowSwingType:            z.enum(["inswing", "outswing", "slider", "double_hung"]).optional(),
+  windowWellSashDepthMm:      z.number().positive().optional(),
+  windowWellHasCover:         z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  windowWellCoverOpensInside: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  windowWellHasLadder:        z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  // NBC 9.10.14 spatial separation
+  limitingDistanceM:     z.number().positive().optional(),
+  exposingFaceAreaM2:    z.number().positive().optional(),
+  totalOpeningAreaM2:    z.number().nonnegative().optional(),
+  facesStreet:           z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  fireResponseOver10Min: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────

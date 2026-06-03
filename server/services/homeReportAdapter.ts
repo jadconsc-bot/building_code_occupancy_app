@@ -59,6 +59,25 @@ export interface RawFormSubmission {
   // Basement
   insulationRValue?: number | string;
   insulation?: string | boolean;
+  // NBC 9.10.7 egress window dimensions
+  egressWindowHeightMm?: number | string;
+  egressWindowWidthMm?: number | string;
+  egressWindowSillMm?: number | string;
+  // NBC 9.9.10 window well
+  isBelowGradeBedroom?: string | boolean;
+  windowWellProjectionMm?: number | string;
+  windowWellDepthMm?: number | string;
+  windowSwingType?: string;
+  windowWellSashDepthMm?: number | string;
+  windowWellHasCover?: string | boolean;
+  windowWellCoverOpensInside?: string | boolean;
+  windowWellHasLadder?: string | boolean;
+  // NBC 9.10.14 spatial separation
+  limitingDistanceM?: number | string;
+  exposingFaceAreaM2?: number | string;
+  totalOpeningAreaM2?: number | string;
+  facesStreet?: string | boolean;
+  fireResponseOver10Min?: string | boolean;
 }
 
 function toBool(value: string | boolean | undefined): boolean | undefined {
@@ -138,6 +157,28 @@ export function adaptFormAnswers(raw: RawFormSubmission): HomeFormAnswers {
     // Basement
     hasInsulation: toBool(raw.insulation),
     basementInsulationRValue: toNum(raw.insulationRValue),
+
+    // NBC 9.10.7 egress window dimensions
+    egressWindowHeightMm: toNum(raw.egressWindowHeightMm),
+    egressWindowWidthMm:  toNum(raw.egressWindowWidthMm),
+    egressWindowSillMm:   toNum(raw.egressWindowSillMm),
+
+    // NBC 9.9.10 window well
+    isBelowGradeBedroom:        toBool(raw.isBelowGradeBedroom),
+    windowWellProjectionMm:     toNum(raw.windowWellProjectionMm),
+    windowWellDepthMm:          toNum(raw.windowWellDepthMm),
+    windowSwingType:            raw.windowSwingType as HomeFormAnswers["windowSwingType"],
+    windowWellSashDepthMm:      toNum(raw.windowWellSashDepthMm),
+    windowWellHasCover:         toBool(raw.windowWellHasCover),
+    windowWellCoverOpensInside: toBool(raw.windowWellCoverOpensInside),
+    windowWellHasLadder:        toBool(raw.windowWellHasLadder),
+
+    // NBC 9.10.14 spatial separation
+    limitingDistanceM:    toNum(raw.limitingDistanceM),
+    exposingFaceAreaM2:   toNum(raw.exposingFaceAreaM2),
+    totalOpeningAreaM2:   toNum(raw.totalOpeningAreaM2),
+    facesStreet:          toBool(raw.facesStreet),
+    fireResponseOver10Min: toBool(raw.fireResponseOver10Min),
   };
 }
 

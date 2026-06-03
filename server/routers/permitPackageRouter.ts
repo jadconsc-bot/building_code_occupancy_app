@@ -283,6 +283,7 @@ export const permitPackageRouter = router({
       const calcSnowLoad      = getCalc("snowLoad");
       const calcBeamSpan      = getCalc("beamSpan");
       const calcThermal       = getCalc("thermalResistance");
+      const calcSpatial       = getCalc("spatialSeparation");
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
       const occupantRows = (calcPkg?.occupantLoadByGroup ?? []) as OccupantGroupRow[];
@@ -874,6 +875,33 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
+      y = addSectionHeader(doc, "Spatial Separation — NBC 9.10.14", y, W, M);
+      if (calcSpatial) {
+        const maxAllowed = calcSpatial.maxAllowedOpeningM2 == null ? "Unlimited" : `${Number(calcSpatial.maxAllowedOpeningM2).toFixed(2)} m²`;
+        const compliantStr = calcSpatial.isCompliant === true ? "PASS" : calcSpatial.isCompliant === false ? "FAIL" : "—";
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Limiting Distance (LD)", `${Number(calcSpatial.effectiveLimitingDistanceM ?? 0).toFixed(2)} m`],
+            ["Maximum Unprotected Openings", String(maxAllowed)],
+            ["Provided Opening Area", `${Number(calcSpatial.providedOpeningM2 ?? 0).toFixed(2)} m²`],
+            ["Fire-Rated Closures Required", calcSpatial.requiresFireRatedClosures === true ? "Yes" : "No"],
+            ["Compliance Status", compliantStr],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No spatial separation calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
       // ── Page 8 — Fire Wall Schedule (conditional) ───────────────────────────
       if (allFireAssemblies.length > 0) {
         doc.addPage();
@@ -1277,6 +1305,23 @@ export const permitPackageRouter = router({
         }
       }
 
+      if (calcSpatial) {
+        const maxAllowed = Number(calcSpatial.maxAllowedOpeningM2 ?? 0);
+        const provided   = Number(calcSpatial.providedOpeningM2   ?? 0);
+        if (!calcSpatial.isUnlimited && maxAllowed > 0) {
+          const { m, status } = pdfMargin(provided, maxAllowed, true);
+          compRows.push({
+            category: "Fire Protection",
+            label: "Spatial Separation (NBC 9.10.14)",
+            provided: `${provided.toFixed(2)} m²`,
+            required: `≤ ${maxAllowed.toFixed(2)} m²`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)} m²`,
+            status,
+            nbcRef: "NBC 9.10.14",
+          });
+        }
+      }
+
       const statusColor = (s: SummaryStatus): [number, number, number] => {
         if (s === "exceeds")   return [22, 163, 74];
         if (s === "meets")     return [59, 130, 246];
@@ -1590,6 +1635,7 @@ export const permitPackageRouter = router({
           snowLoad:          hasCalc('snowLoad'),
           beamSpan:          hasCalc('beamSpan'),
           thermalResistance: hasCalc('thermalResistance'),
+          spatialSeparation: hasCalc('spatialSeparation'),
         },
         fireAssemblies: {
           exists: (await db
@@ -1734,6 +1780,25 @@ export const permitPackageRouter = router({
             margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}`,
             status,
             nbcRef: "NBC 9.36",
+          });
+        }
+      }
+
+      // Spatial Separation
+      const ss = getCalc("spatialSeparation");
+      if (ss && !ss.isUnlimited) {
+        const maxAllowed = Number(ss.maxAllowedOpeningM2 ?? 0);
+        const provided   = Number(ss.providedOpeningM2   ?? 0);
+        if (maxAllowed > 0) {
+          const { margin: m, status } = margin(provided, maxAllowed, true);
+          rows.push({
+            category: "Fire Protection",
+            label: "Spatial Separation (NBC 9.10.14)",
+            provided: `${provided.toFixed(2)} m²`,
+            required: `≤ ${maxAllowed.toFixed(2)} m²`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)} m²`,
+            status,
+            nbcRef: "NBC 9.10.14",
           });
         }
       }
