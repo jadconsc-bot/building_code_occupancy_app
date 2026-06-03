@@ -78,6 +78,21 @@ export interface RawFormSubmission {
   totalOpeningAreaM2?: number | string;
   facesStreet?: string | boolean;
   fireResponseOver10Min?: string | boolean;
+  // CEC electrical
+  hasKitchenGFCI?: string | boolean;
+  hasBathroomGFCI?: string | boolean;
+  hasBedroomAFCI?: string | boolean;
+  smokeAlarmType?: string;
+  hasSubPanel?: string | boolean;
+  serviceAmps?: number | string;
+  // NBC Part 7 plumbing
+  hasBackwaterValve?: string | boolean;
+  suiteToilets?: number | string;
+  suiteSinks?: number | string;
+  suiteShowers?: number | string;
+  suiteBathtubs?: number | string;
+  suiteWashers?: number | string;
+  hasSuiteFloorDrain?: string | boolean;
 }
 
 function toBool(value: string | boolean | undefined): boolean | undefined {
@@ -179,6 +194,23 @@ export function adaptFormAnswers(raw: RawFormSubmission): HomeFormAnswers {
     totalOpeningAreaM2:   toNum(raw.totalOpeningAreaM2),
     facesStreet:          toBool(raw.facesStreet),
     fireResponseOver10Min: toBool(raw.fireResponseOver10Min),
+
+    // CEC electrical
+    hasKitchenGFCI:   toBool(raw.hasKitchenGFCI),
+    hasBathroomGFCI:  toBool(raw.hasBathroomGFCI),
+    hasBedroomAFCI:   toBool(raw.hasBedroomAFCI),
+    smokeAlarmType:   raw.smokeAlarmType as HomeFormAnswers["smokeAlarmType"],
+    hasSubPanel:      toBool(raw.hasSubPanel),
+    serviceAmps:      toNum(raw.serviceAmps),
+
+    // NBC Part 7 plumbing
+    hasBackwaterValve:  toBool(raw.hasBackwaterValve),
+    suiteToilets:       toNum(raw.suiteToilets),
+    suiteSinks:         toNum(raw.suiteSinks),
+    suiteShowers:       toNum(raw.suiteShowers),
+    suiteBathtubs:      toNum(raw.suiteBathtubs),
+    suiteWashers:       toNum(raw.suiteWashers),
+    hasSuiteFloorDrain: toBool(raw.hasSuiteFloorDrain),
   };
 }
 

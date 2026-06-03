@@ -80,6 +80,21 @@ export interface HomeFormAnswers {
   totalOpeningAreaM2?: number;
   facesStreet?: boolean;
   fireResponseOver10Min?: boolean;
+  // CEC electrical
+  hasKitchenGFCI?: boolean;
+  hasBathroomGFCI?: boolean;
+  hasBedroomAFCI?: boolean;
+  smokeAlarmType?: "hardwired" | "battery" | "unknown";
+  hasSubPanel?: boolean;
+  serviceAmps?: number;
+  // NBC Part 7 plumbing
+  hasBackwaterValve?: boolean;
+  suiteToilets?: number;
+  suiteSinks?: number;
+  suiteShowers?: number;
+  suiteBathtubs?: number;
+  suiteWashers?: number;
+  hasSuiteFloorDrain?: boolean;
 }
 
 export interface RuleResult {
@@ -706,6 +721,219 @@ const SPATIAL_SEPARATION_RULE: Part9Rule = {
   },
 };
 
+// ─── CEC Electrical Rules ────────────────────────────────────────────────────
+
+const ELEC_GFCI_KITCHEN_RULE: Part9Rule = {
+  ruleId: "P9-ELEC-GFCI-KITCHEN",
+  description: "GFCI protection at kitchen countertop outlets (CEC 26-700)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.hasKitchen) return { result: "not_applicable", plainLanguage: "No kitchen — GFCI kitchen rule not applicable.", codeReference: "CEC 26-700" };
+    if (answers.hasKitchenGFCI === undefined) return {
+      result: "conditional",
+      plainLanguage: "Confirm GFCI protection at all kitchen countertop receptacles within 1.5m of a sink (CEC 26-700(9)).",
+      codeReference: "CEC 26-700(9)",
+    };
+    if (answers.hasKitchenGFCI) return { result: "pass", plainLanguage: "Kitchen countertop outlets have GFCI protection — compliant.", codeReference: "CEC 26-700(9)" };
+    return {
+      result: "fail",
+      plainLanguage: "Kitchen countertop outlets must have GFCI protection (CEC 26-700(9)).",
+      whatToDo: "Replace outlets within 1.5m of the kitchen sink with GFCI receptacles, or install a GFCI breaker on the kitchen circuit. Minimum two 20A small appliance circuits required.",
+      codeReference: "CEC 26-700(9)",
+    };
+  },
+};
+
+const ELEC_GFCI_BATHROOM_RULE: Part9Rule = {
+  ruleId: "P9-ELEC-GFCI-BATHROOM",
+  description: "GFCI protection at bathroom outlets (CEC 26-700)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.hasFullBathroom) return { result: "not_applicable", plainLanguage: "No bathroom — GFCI bathroom rule not applicable.", codeReference: "CEC 26-700" };
+    if (answers.hasBathroomGFCI === undefined) return {
+      result: "conditional",
+      plainLanguage: "Confirm GFCI protection at all bathroom outlets within 1.5m of bathtub or shower (CEC 26-700(11)).",
+      codeReference: "CEC 26-700(11)",
+    };
+    if (answers.hasBathroomGFCI) return { result: "pass", plainLanguage: "Bathroom outlets have GFCI protection — compliant.", codeReference: "CEC 26-700(11)" };
+    return {
+      result: "fail",
+      plainLanguage: "Bathroom outlets must have GFCI protection within 1.5m of bathtub or shower (CEC 26-700(11)).",
+      whatToDo: "Install GFCI receptacles in all bathrooms, or a GFCI breaker on bathroom branch circuits.",
+      codeReference: "CEC 26-700(11)",
+    };
+  },
+};
+
+const ELEC_AFCI_BEDROOM_RULE: Part9Rule = {
+  ruleId: "P9-ELEC-AFCI-BEDROOM",
+  description: "AFCI protection for bedroom branch circuits (CEC 26-656)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.bedroomCount || answers.bedroomCount === 0) return { result: "not_applicable", plainLanguage: "No bedrooms — AFCI rule not applicable.", codeReference: "CEC 26-656" };
+    if (answers.hasBedroomAFCI === undefined) return {
+      result: "conditional",
+      plainLanguage: `${answers.bedroomCount} bedroom(s) require AFCI breakers on all bedroom branch circuits (CEC 26-656). Confirm with your electrician.`,
+      codeReference: "CEC 26-656",
+    };
+    if (answers.hasBedroomAFCI) return { result: "pass", plainLanguage: "Bedroom branch circuits have AFCI protection — compliant with CEC 26-656.", codeReference: "CEC 26-656" };
+    return {
+      result: "fail",
+      plainLanguage: `All ${answers.bedroomCount} bedroom branch circuit(s) must have AFCI breaker protection (CEC 26-656).`,
+      whatToDo: "Replace standard breakers on bedroom circuits with combination AFCI breakers. Required for all new wiring and additions to existing bedroom circuits.",
+      codeReference: "CEC 26-656",
+    };
+  },
+};
+
+const ELEC_SMOKE_HARDWIRED_RULE: Part9Rule = {
+  ruleId: "P9-ELEC-SMOKE-HARDWIRED",
+  description: "Hardwired smoke alarms required for new suites (NBC 9.10.19.3)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.hasSmokeAlarms) return { result: "not_applicable", plainLanguage: "No smoke alarms reported — see P9-SMOKE-NATIONAL.", codeReference: "NBC 9.10.19.3" };
+    if (answers.smokeAlarmType === "hardwired") return { result: "pass", plainLanguage: "Hardwired, interconnected smoke alarms meet NBC 9.10.19.3.", codeReference: "NBC 9.10.19.3" };
+    if (answers.smokeAlarmType === "battery") return {
+      result: "conditional",
+      plainLanguage: "Battery-only smoke alarms are permitted in existing construction only. New suites and additions require hardwired, interconnected units.",
+      whatToDo: "Install hardwired interconnected smoke alarms. Battery-only units are not permitted for new secondary suites or basement developments under NBC 9.10.19.3(1).",
+      codeReference: "NBC 9.10.19.3",
+    };
+    return {
+      result: "conditional",
+      plainLanguage: "Confirm smoke alarm type: new suites require hardwired, interconnected units (NBC 9.10.19.3(1)).",
+      codeReference: "NBC 9.10.19.3",
+    };
+  },
+};
+
+const ELEC_SUBPANEL_RULE: Part9Rule = {
+  ruleId: "P9-ELEC-SUBPANEL",
+  description: "Suite sub-panel amperage adequacy (CEC 6-112)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if (!answers.hasSubPanel) return {
+      result: "conditional",
+      plainLanguage: "A dedicated sub-panel for the suite is strongly recommended for metering, circuit isolation, and service disconnection (CEC 6-112).",
+      codeReference: "CEC 6-112",
+    };
+    if (answers.serviceAmps === undefined) return {
+      result: "conditional",
+      plainLanguage: "Sub-panel present. Confirm amperage: minimum 60A for a suite without electric heat; 100A+ recommended for a full kitchen suite.",
+      codeReference: "CEC 6-112",
+    };
+    const minAmps = answers.hasKitchen ? 100 : 60;
+    if (answers.serviceAmps >= minAmps) return {
+      result: "pass",
+      plainLanguage: `Suite sub-panel at ${answers.serviceAmps}A meets the ${minAmps}A minimum for this suite type.`,
+      codeReference: "CEC 6-112",
+    };
+    return {
+      result: "fail",
+      plainLanguage: `Suite sub-panel (${answers.serviceAmps}A) is undersized. Minimum ${minAmps}A required for ${answers.hasKitchen ? "a suite with kitchen" : "this suite type"}.`,
+      whatToDo: `Upgrade sub-panel to at least ${minAmps}A. A kitchen suite requires: 2× 20A small appliance circuits, dedicated fridge/dishwasher circuits, bathroom, and AFCI bedroom circuits.`,
+      codeReference: "CEC 6-112",
+    };
+  },
+};
+
+// ─── NBC Plumbing Rules ──────────────────────────────────────────────────────
+
+const PLUMB_BACKWATER_RULE: Part9Rule = {
+  ruleId: "P9-PLUMB-BACKWATER",
+  description: "Backwater valve for below-grade plumbing (NBC 7.4.4)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    const isBelowGrade = answers.suiteLocation === "basement" || answers.isBelowGradeBedroom;
+    const hasFixtures = answers.hasFullBathroom || answers.hasKitchen
+      || (answers.suiteToilets ?? 0) > 0 || (answers.suiteSinks ?? 0) > 0;
+    if (!isBelowGrade || !hasFixtures) return {
+      result: "not_applicable",
+      plainLanguage: "Backwater valve check not applicable — no below-grade plumbing fixtures.",
+      codeReference: "NBC 7.4.4",
+    };
+    if (answers.hasBackwaterValve === undefined) return {
+      result: "conditional",
+      plainLanguage: "Below-grade plumbing detected. Confirm a backwater valve is installed on the building drain at the foundation wall (NBC 7.4.4.7).",
+      whatToDo: "Install a mainline backwater valve where the building drain exits the foundation. Required for all fixtures below the upstream manhole elevation.",
+      codeReference: "NBC 7.4.4.7",
+    };
+    if (answers.hasBackwaterValve) return { result: "pass", plainLanguage: "Backwater valve installed — protects below-grade fixtures from sewer backup.", codeReference: "NBC 7.4.4.7" };
+    return {
+      result: "fail",
+      plainLanguage: "Backwater valve required for below-grade plumbing fixtures (NBC 7.4.4.7).",
+      whatToDo: "Install a flap-type mainline backwater valve on the building drain (gate valve not acceptable). Many municipalities require permit inspection.",
+      codeReference: "NBC 7.4.4.7",
+    };
+  },
+};
+
+const PLUMB_DRAIN_SIZE_RULE: Part9Rule = {
+  ruleId: "P9-PLUMB-DRAIN-SIZE",
+  description: "Fixture unit count and drain sizing (NBC Table 7.4.2.2)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    const toilets  = answers.suiteToilets  ?? 0;
+    const sinks    = answers.suiteSinks    ?? 0;
+    const showers  = answers.suiteShowers  ?? 0;
+    const tubs     = answers.suiteBathtubs ?? 0;
+    const washers  = answers.suiteWashers  ?? 0;
+    if (toilets + sinks + showers + tubs + washers === 0) return {
+      result: "not_applicable",
+      plainLanguage: "No fixture counts provided — drain sizing check skipped.",
+      codeReference: "NBC Table 7.4.2.2",
+    };
+    const totalFU = toilets * 4 + sinks * 1 + showers * 2 + tubs * 3 + washers * 2;
+    let drainSize: string;
+    if      (totalFU <= 3)  drainSize = "50mm (2″)";
+    else if (totalFU <= 6)  drainSize = "65mm (2½″)";
+    else if (totalFU <= 20) drainSize = "75mm (3″)";
+    else if (totalFU <= 90) drainSize = "100mm (4″)";
+    else                    drainSize = "150mm (6″) or larger";
+    return {
+      result: "pass",
+      plainLanguage:
+        `${totalFU} total fixture units (${toilets} toilet, ${sinks} sink, ${showers} shower, ${tubs} tub, ${washers} washer). ` +
+        `Minimum building drain: ${drainSize} per NBC Table 7.4.2.2.`,
+      codeReference: "NBC Table 7.4.2.2",
+    };
+  },
+};
+
+const PLUMB_FLOOR_DRAIN_RULE: Part9Rule = {
+  ruleId: "P9-PLUMB-FLOOR-DRAIN",
+  description: "Floor drain in laundry / mechanical room (NBC 7.4.5.3)",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    if ((answers.suiteWashers ?? 0) === 0) return {
+      result: "not_applicable",
+      plainLanguage: "No laundry — floor drain check not applicable.",
+      codeReference: "NBC 7.4.5.3",
+    };
+    if (answers.hasSuiteFloorDrain === undefined) return {
+      result: "conditional",
+      plainLanguage: "Laundry present — a floor drain is required in laundry and mechanical rooms (NBC 7.4.5.3).",
+      whatToDo: "Install a 75mm floor drain with trap primer in the laundry area to contain washer overflow or supply line failure.",
+      codeReference: "NBC 7.4.5.3",
+    };
+    if (answers.hasSuiteFloorDrain) return { result: "pass", plainLanguage: "Floor drain present in laundry area — compliant with NBC 7.4.5.3.", codeReference: "NBC 7.4.5.3" };
+    return {
+      result: "fail",
+      plainLanguage: "Floor drain required in laundry room (NBC 7.4.5.3).",
+      whatToDo: "Install a 75mm floor drain with integral trap primer in the laundry/mechanical room, connected to the building drain.",
+      codeReference: "NBC 7.4.5.3",
+    };
+  },
+};
+
 // ─── All rules ───────────────────────────────────────────────────────────────
 
 export const PART9_RULES: Part9Rule[] = [
@@ -720,6 +948,16 @@ export const PART9_RULES: Part9Rule[] = [
   DECK_GUARD_RAIL_RULE,
   DECK_FOOTING_RULE,
   CALGARY_SMOKE_ALARM_RULE,
+  // CEC electrical
+  ELEC_GFCI_KITCHEN_RULE,
+  ELEC_GFCI_BATHROOM_RULE,
+  ELEC_AFCI_BEDROOM_RULE,
+  ELEC_SMOKE_HARDWIRED_RULE,
+  ELEC_SUBPANEL_RULE,
+  // NBC plumbing
+  PLUMB_BACKWATER_RULE,
+  PLUMB_DRAIN_SIZE_RULE,
+  PLUMB_FLOOR_DRAIN_RULE,
 ];
 
 export function evaluateHomeCompliance(answers: HomeFormAnswers): EvaluatedRule[] {

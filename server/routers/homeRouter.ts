@@ -81,6 +81,21 @@ const rawFormSchema = z.object({
   totalOpeningAreaM2:    z.number().nonnegative().optional(),
   facesStreet:           z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
   fireResponseOver10Min: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  // CEC electrical
+  hasKitchenGFCI:   z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  hasBathroomGFCI:  z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  hasBedroomAFCI:   z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  smokeAlarmType:   z.enum(["hardwired", "battery", "unknown"]).optional(),
+  hasSubPanel:      z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  serviceAmps:      z.number().positive().optional(),
+  // NBC Part 7 plumbing
+  hasBackwaterValve:  z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  suiteToilets:       z.number().int().nonnegative().optional(),
+  suiteSinks:         z.number().int().nonnegative().optional(),
+  suiteShowers:       z.number().int().nonnegative().optional(),
+  suiteBathtubs:      z.number().int().nonnegative().optional(),
+  suiteWashers:       z.number().int().nonnegative().optional(),
+  hasSuiteFloorDrain: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────
