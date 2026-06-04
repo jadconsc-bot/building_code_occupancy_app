@@ -150,6 +150,33 @@ export const homeRouter = router({
 
       const reportId = result[0].insertId;
 
+      // Admin/owner bypass — no charge for admin testing
+      if (ctx.user?.role === "admin" || ctx.user?.role === "org_admin") {
+        const rawToken = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+        const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        await db.update(homeReports).set({
+          reportToken: tokenHash,
+          paymentStatus: "paid",
+          downloadExpiresAt: expiresAt,
+          reportGeneratedAt: new Date(),
+        }).where(eq(homeReports.id, reportId));
+        console.log(`[HomeRouter] Admin bypass: report ${reportId} for user ${ctx.user.id}`);
+        return {
+          clientSecret: null,
+          paymentIntentId: null,
+          reportId,
+          overallResult,
+          reportToken: rawToken,
+          foundingMemberReport: true,
+          previewItems: complianceItems.slice(0, 2).map((i) => ({
+            ruleId: i.ruleId,
+            description: i.description,
+            result: i.result,
+          })),
+        };
+      }
+
       // Founding member: bypass payment if they have reports remaining
       const userId = ctx.user?.id;
       if (userId) {
