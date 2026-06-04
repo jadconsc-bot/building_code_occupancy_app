@@ -8,6 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
 import { SaveButton } from "@/components/CalculatorWithSave";
+import {
+  getHDDZone, getMaxFDWR, NECB_OPAQUE_RSI_MIN, NECB_OPAQUE_U_MAX,
+  NECB_FENESTRATION_U_MAX, CITY_HDD, ZONE_LABELS,
+} from "@/lib/necbClimateData";
 
 // ─── Layer colour palette ──────────────────────────────────────────────────────
 function layerColor(material: string): string {
@@ -166,6 +170,10 @@ interface Layer {
   rValue: number;
 }
 
+const SORTED_CITIES = Object.entries(CITY_HDD).sort((a, b) =>
+  a[1].province.localeCompare(b[1].province) || a[0].localeCompare(b[0])
+);
+
 export function ThermalResistanceCalculator() {
   const [climateZone, setClimateZone] = useState<string>("7A");
   const [assemblyType, setAssemblyType] = useState<string>("wall");
@@ -173,6 +181,16 @@ export function ThermalResistanceCalculator() {
     { id: "1", material: "Gypsum Board (12.7mm)", thickness: 12.7, rValue: 0.08 }
   ]);
   const [results, setResults] = useState<any>(null);
+
+  // NECB 2020 mode
+  const [codeStandard, setCodeStandard] = useState<'NBC9.36' | 'NECB2020'>('NBC9.36');
+  const [city, setCity] = useState<string>('Calgary');
+  const [hdd, setHdd] = useState<number>(5012);
+  const [windowUValue, setWindowUValue] = useState<string>('');
+  const [skylightUValue, setSkylightUValue] = useState<string>('');
+  const [doorUValue, setDoorUValue] = useState<string>('');
+  const [grossWallAreaM2, setGrossWallAreaM2] = useState<string>('');
+  const [totalFenestrationM2, setTotalFenestrationM2] = useState<string>('');
 
   // Common material R-values per mm (NBC 5.3)
   const materialRValues: Record<string, number> = {
@@ -254,6 +272,27 @@ export function ThermalResistanceCalculator() {
     // Convert to R-value (imperial)
     const rValueImperial = effectiveRSIWithBridging * 5.678;
 
+    // ── NECB 2020 calculations ───────────────────────────────────────────────
+    const necbAssyKey = assemblyType === 'wall' ? 'walls' : assemblyType === 'roof' ? 'roofs' : 'floorsOverCrawl';
+    const hddZone    = getHDDZone(hdd);
+    const necbReqRSI = NECB_OPAQUE_RSI_MIN[necbAssyKey]?.[hddZone] ?? 0;
+    const necbReqU   = NECB_OPAQUE_U_MAX[necbAssyKey]?.[hddZone] ?? 0;
+    const necbMargin = +(effectiveRSIWithBridging - necbReqRSI).toFixed(2);
+
+    const winU     = parseFloat(windowUValue);
+    const maxWinU  = NECB_FENESTRATION_U_MAX.verticalFenestration[hddZone] ?? 0;
+    const skyU     = parseFloat(skylightUValue);
+    const maxSkyU  = NECB_FENESTRATION_U_MAX.skylights[hddZone] ?? 0;
+    const dU       = parseFloat(doorUValue);
+    const maxDoorU = NECB_FENESTRATION_U_MAX.doors[hddZone] ?? 0;
+
+    const grossWall = parseFloat(grossWallAreaM2);
+    const totalFen  = parseFloat(totalFenestrationM2);
+    const fdwr      = !isNaN(grossWall) && grossWall > 0 && !isNaN(totalFen)
+      ? +(totalFen / grossWall).toFixed(3) : null;
+    const maxFDWR    = getMaxFDWR(hdd);
+    const fdwrMargin = fdwr !== null ? +(maxFDWR - fdwr).toFixed(3) : null;
+
     setResults({
       // Fields used by permit package PDF (getCalc parses resultData)
       totalRSI:      parseFloat(effectiveRSIWithBridging.toFixed(2)),
@@ -277,6 +316,32 @@ export function ThermalResistanceCalculator() {
       minRequired:             parseFloat(minRequired.toFixed(2)),
       compliant,
       thermalBridgingFactor:   parseFloat((thermalBridgingFactor * 100).toFixed(0)),
+      // NECB 2020 fields (always computed, used when codeStandard === 'NECB2020')
+      codeStandard,
+      hdd,
+      hddZone,
+      city,
+      necbAssemblyType: necbAssyKey,
+      wallRSI:           +effectiveRSIWithBridging.toFixed(2),
+      requiredWallRSI:   necbReqRSI,
+      necbRequiredUValue: necbReqU,
+      isNECBCompliant:   effectiveRSIWithBridging >= necbReqRSI,
+      wallMargin:        necbMargin,
+      wallStatus:        effectiveRSIWithBridging >= necbReqRSI ? 'PASS' : 'FAIL',
+      windowU:           !isNaN(winU)  ? +winU.toFixed(3)  : null,
+      requiredWindowU:   maxWinU,
+      windowMargin:      !isNaN(winU)  ? +(maxWinU  - winU).toFixed(3)  : null,
+      windowStatus:      !isNaN(winU)  ? (winU  <= maxWinU  ? 'PASS' : 'FAIL') : null,
+      skylightU:         !isNaN(skyU)  ? +skyU.toFixed(3)  : null,
+      requiredSkylightU: maxSkyU,
+      skylightStatus:    !isNaN(skyU)  ? (skyU  <= maxSkyU  ? 'PASS' : 'FAIL') : null,
+      doorU:             !isNaN(dU)    ? +dU.toFixed(3)    : null,
+      requiredDoorU:     maxDoorU,
+      doorStatus:        !isNaN(dU)    ? (dU    <= maxDoorU ? 'PASS' : 'FAIL') : null,
+      fdwr,
+      maxFDWR,
+      fdwrMargin,
+      fdwrStatus:        fdwr !== null ? (fdwr <= maxFDWR ? 'PASS' : 'FAIL') : null,
     });
   };
 
@@ -295,8 +360,8 @@ export function ThermalResistanceCalculator() {
           <div className="flex items-center gap-2">
             {results !== null && (
               <SaveButton
-                calculatorType="thermalResistance"
-                inputs={{ climateZone, assemblyType, layers }}
+                calculatorType={codeStandard === 'NECB2020' ? 'necbEnvelope' : 'thermalResistance'}
+                inputs={{ codeStandard, climateZone, city, assemblyType, layers }}
                 results={results}
               />
             )}
@@ -335,22 +400,73 @@ export function ThermalResistanceCalculator() {
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
+        {/* Code standard toggle */}
+        <div className="flex gap-2">
+          <Button
+            variant={codeStandard === 'NBC9.36' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCodeStandard('NBC9.36')}
+          >
+            NBC 9.36 (Residential)
+          </Button>
+          <Button
+            variant={codeStandard === 'NECB2020' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCodeStandard('NECB2020')}
+          >
+            NECB 2020 (Commercial)
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="climate-zone" className="text-sm font-medium">
-              Climate Zone (Alberta) <span className="text-destructive">*</span>
-            </Label>
-            <Select value={climateZone} onValueChange={setClimateZone}>
-              <SelectTrigger id="climate-zone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7A">Zone 7A (Calgary, Lethbridge)</SelectItem>
-                <SelectItem value="7B">Zone 7B (Edmonton, Red Deer)</SelectItem>
-                <SelectItem value="8">Zone 8 (Fort McMurray, Grande Prairie)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {codeStandard === 'NBC9.36' ? (
+            <div className="space-y-2">
+              <Label htmlFor="climate-zone" className="text-sm font-medium">
+                Climate Zone (Alberta) <span className="text-destructive">*</span>
+              </Label>
+              <Select value={climateZone} onValueChange={setClimateZone}>
+                <SelectTrigger id="climate-zone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7A">Zone 7A (Calgary, Lethbridge)</SelectItem>
+                  <SelectItem value="7B">Zone 7B (Edmonton, Red Deer)</SelectItem>
+                  <SelectItem value="8">Zone 8 (Fort McMurray, Grande Prairie)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="necb-city" className="text-sm font-medium">
+                City (NECB Climate Zone) <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={city}
+                onValueChange={(val) => {
+                  setCity(val);
+                  const entry = CITY_HDD[val];
+                  if (entry) setHdd(entry.hdd);
+                }}
+              >
+                <SelectTrigger id="necb-city">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORTED_CITIES.map(([cityName, data]) => {
+                    const zone = getHDDZone(data.hdd);
+                    return (
+                      <SelectItem key={cityName} value={cityName}>
+                        {cityName} ({data.province}) — HDD {data.hdd.toLocaleString()}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                HDD {hdd.toLocaleString()} → {ZONE_LABELS[getHDDZone(hdd)]}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="assembly-type" className="text-sm font-medium">
@@ -430,6 +546,57 @@ export function ThermalResistanceCalculator() {
           minimumRequirements={minimumRequirements}
         />
 
+        {/* NECB fenestration + FDWR inputs */}
+        {codeStandard === 'NECB2020' && (
+          <div className="space-y-3 border border-border rounded p-3 bg-muted/20">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Fenestration U-Values (W/m²·K) — NECB Table 3.2.2.3
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Window U-Value</Label>
+                <Input
+                  type="number" step="0.01" placeholder={`max ${NECB_FENESTRATION_U_MAX.verticalFenestration[getHDDZone(hdd)]}`}
+                  value={windowUValue} onChange={e => setWindowUValue(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Skylight U-Value</Label>
+                <Input
+                  type="number" step="0.01" placeholder={`max ${NECB_FENESTRATION_U_MAX.skylights[getHDDZone(hdd)]}`}
+                  value={skylightUValue} onChange={e => setSkylightUValue(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Door U-Value</Label>
+                <Input
+                  type="number" step="0.01" placeholder={`max ${NECB_FENESTRATION_U_MAX.doors[getHDDZone(hdd)]}`}
+                  value={doorUValue} onChange={e => setDoorUValue(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">
+              FDWR — Table A-3.2.1.4 (max {(getMaxFDWR(hdd) * 100).toFixed(0)}% at HDD {hdd.toLocaleString()})
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Gross Wall Area (m²)</Label>
+                <Input
+                  type="number" step="0.1" placeholder="e.g. 500"
+                  value={grossWallAreaM2} onChange={e => setGrossWallAreaM2(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Total Fenestration + Door Area (m²)</Label>
+                <Input
+                  type="number" step="0.1" placeholder="e.g. 150"
+                  value={totalFenestrationM2} onChange={e => setTotalFenestrationM2(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <Button
           onClick={calculateThermalResistance}
           className="w-full bg-primary hover:bg-primary/90"
@@ -492,6 +659,74 @@ export function ThermalResistanceCalculator() {
               <p><strong>Surface Resistances:</strong> Interior 0.12 RSI, Exterior 0.03 RSI</p>
               <p><strong>Note:</strong> Continuous insulation can improve effective RSI by reducing thermal bridging</p>
             </div>
+
+            {/* NECB 2020 results */}
+            {codeStandard === 'NECB2020' && (
+              <div className="space-y-3 border-t border-border pt-4 mt-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  NECB 2020 Envelope Compliance — {ZONE_LABELS[results.hddZone]}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {results.city} · HDD {results.hdd.toLocaleString()} · {ZONE_LABELS[results.hddZone]}
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`p-3 rounded border ${results.wallStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Assembly RSI — req. {results.requiredWallRSI}
+                    </p>
+                    <p className="text-xl font-bold">{results.wallRSI}</p>
+                    <Badge variant={results.wallStatus === 'PASS' ? 'default' : 'destructive'} className="text-xs mt-1">
+                      {results.wallStatus} ({results.wallMargin >= 0 ? '+' : ''}{results.wallMargin})
+                    </Badge>
+                  </div>
+                  {results.fdwr !== null && (
+                    <div className={`p-3 rounded border ${results.fdwrStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        FDWR — max {(results.maxFDWR * 100).toFixed(0)}%
+                      </p>
+                      <p className="text-xl font-bold">{(results.fdwr * 100).toFixed(1)}%</p>
+                      <Badge variant={results.fdwrStatus === 'PASS' ? 'default' : 'destructive'} className="text-xs mt-1">
+                        {results.fdwrStatus} ({results.fdwrMargin >= 0 ? '+' : ''}{(results.fdwrMargin * 100).toFixed(1)}%)
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {(results.windowU !== null || results.skylightU !== null || results.doorU !== null) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {results.windowU !== null && (
+                      <div className={`p-2 rounded border text-center ${results.windowStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                        <p className="text-xs text-muted-foreground">Window U</p>
+                        <p className="text-sm font-bold">{results.windowU}</p>
+                        <p className="text-xs text-muted-foreground">max {results.requiredWindowU}</p>
+                        <Badge variant={results.windowStatus === 'PASS' ? 'default' : 'destructive'} className="text-xs mt-1">{results.windowStatus}</Badge>
+                      </div>
+                    )}
+                    {results.skylightU !== null && (
+                      <div className={`p-2 rounded border text-center ${results.skylightStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                        <p className="text-xs text-muted-foreground">Skylight U</p>
+                        <p className="text-sm font-bold">{results.skylightU}</p>
+                        <p className="text-xs text-muted-foreground">max {results.requiredSkylightU}</p>
+                        <Badge variant={results.skylightStatus === 'PASS' ? 'default' : 'destructive'} className="text-xs mt-1">{results.skylightStatus}</Badge>
+                      </div>
+                    )}
+                    {results.doorU !== null && (
+                      <div className={`p-2 rounded border text-center ${results.doorStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                        <p className="text-xs text-muted-foreground">Door U</p>
+                        <p className="text-sm font-bold">{results.doorU}</p>
+                        <p className="text-xs text-muted-foreground">max {results.requiredDoorU}</p>
+                        <Badge variant={results.doorStatus === 'PASS' ? 'default' : 'destructive'} className="text-xs mt-1">{results.doorStatus}</Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
+                  <p><strong>NECB Refs:</strong> Table 3.2.2.2 (opaque) · Table 3.2.2.3 (fenestration) · Table A-3.2.1.4 (FDWR)</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

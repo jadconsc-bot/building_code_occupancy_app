@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Zap, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { CITY_HDD, getHDDZone, getMaxFDWR, ZONE_LABELS } from "@/lib/necbClimateData";
+
+const SORTED_CITIES = Object.entries(CITY_HDD).sort((a, b) =>
+  a[1].province.localeCompare(b[1].province) || a[0].localeCompare(b[0])
+);
 
 export function EnergyCodeCalculator() {
   const [climateZone, setClimateZone] = useState<string>("7B");
@@ -16,6 +21,10 @@ export function EnergyCodeCalculator() {
   const [roofRSI, setRoofRSI] = useState<string>("");
   const [windowArea, setWindowArea] = useState<string>("");
   const [results, setResults] = useState<any>(null);
+  const [necbCity, setNecbCity] = useState<string>('Calgary');
+  const [necbHdd, setNecbHdd] = useState<number>(5012);
+  const [grossWallM2, setGrossWallM2] = useState<string>('');
+  const [totalFenM2, setTotalFenM2] = useState<string>('');
 
   const calculateEnergyCompliance = () => {
     const area = parseFloat(floorArea);
@@ -71,6 +80,14 @@ export function EnergyCodeCalculator() {
 
     const overallCompliant = wallCompliant && roofCompliant && windowCompliant;
 
+    // NECB FDWR
+    const grossWall = parseFloat(grossWallM2);
+    const totalFen  = parseFloat(totalFenM2);
+    const fdwr      = !isNaN(grossWall) && grossWall > 0 && !isNaN(totalFen)
+      ? +(totalFen / grossWall).toFixed(3) : null;
+    const maxFdwr    = getMaxFDWR(necbHdd);
+    const necbZone   = getHDDZone(necbHdd);
+
     setResults({
       wallCompliant,
       roofCompliant,
@@ -86,7 +103,11 @@ export function EnergyCodeCalculator() {
       maxAirLeakage,
       minVentilation,
       totalHeatLoss: totalLoss.toFixed(1),
-      annualEnergy: annualEnergy.toFixed(1)
+      annualEnergy: annualEnergy.toFixed(1),
+      necbCity, necbHdd, necbZone,
+      fdwr, maxFdwr,
+      fdwrStatus: fdwr !== null ? (fdwr <= maxFdwr ? 'PASS' : 'FAIL') : null,
+      fdwrMargin: fdwr !== null ? +(maxFdwr - fdwr).toFixed(3) : null,
     });
   };
 
@@ -251,6 +272,54 @@ export function EnergyCodeCalculator() {
           </div>
         </div>
 
+        {/* NECB FDWR optional check */}
+        <div className="space-y-2 border border-border rounded p-3 bg-muted/20">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            NECB 2020 FDWR Check (optional) — Table A-3.2.1.4
+          </p>
+          <div className="space-y-1">
+            <Label className="text-xs">City for HDD / Climate Zone</Label>
+            <Select
+              value={necbCity}
+              onValueChange={(val) => {
+                setNecbCity(val);
+                const entry = CITY_HDD[val];
+                if (entry) setNecbHdd(entry.hdd);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORTED_CITIES.map(([cityName, data]) => (
+                  <SelectItem key={cityName} value={cityName}>
+                    {cityName} ({data.province}) — HDD {data.hdd.toLocaleString()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {ZONE_LABELS[getHDDZone(necbHdd)]} · max FDWR {(getMaxFDWR(necbHdd) * 100).toFixed(0)}%
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Gross Wall Area (m²)</Label>
+              <Input
+                type="number" step="0.1" placeholder="e.g. 500"
+                value={grossWallM2} onChange={e => setGrossWallM2(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Fenestration + Door Area (m²)</Label>
+              <Input
+                type="number" step="0.1" placeholder="e.g. 150"
+                value={totalFenM2} onChange={e => setTotalFenM2(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
         <Button onClick={calculateEnergyCompliance} className="w-full" size="lg">
           Check Energy Compliance
         </Button>
@@ -364,9 +433,30 @@ export function EnergyCodeCalculator() {
               </ul>
             </div>
 
+            {results.fdwr !== null && (
+              <div className="pt-4 border-t">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  NECB 2020 FDWR — {ZONE_LABELS[results.necbZone]} ({results.necbCity}, HDD {results.necbHdd.toLocaleString()})
+                </p>
+                <div className={`p-3 rounded border ${results.fdwrStatus === 'PASS' ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-red-50 dark:bg-red-950/30 border-red-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Fenestration+Door / Gross Wall</p>
+                      <p className="text-xl font-bold">{(results.fdwr * 100).toFixed(1)}%</p>
+                      <p className="text-xs text-muted-foreground">max {(results.maxFdwr * 100).toFixed(0)}%</p>
+                    </div>
+                    <Badge variant={results.fdwrStatus === 'PASS' ? 'default' : 'destructive'}>
+                      {results.fdwrStatus} ({results.fdwrMargin >= 0 ? '+' : ''}{(results.fdwrMargin * 100).toFixed(1)}%)
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Ref: NECB 2020 Table A-3.2.1.4</p>
+              </div>
+            )}
+
             <div className="pt-4 border-t">
               <p className="text-xs text-muted-foreground">
-                <strong>NBC Reference:</strong> 9.36.2.4 (Thermal Resistance), 9.36.2.6 (Fenestration), 
+                <strong>NBC Reference:</strong> 9.36.2.4 (Thermal Resistance), 9.36.2.6 (Fenestration),
                 9.36.3 (Ventilation), 9.36.5 (Air Leakage)
               </p>
             </div>

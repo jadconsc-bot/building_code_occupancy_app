@@ -283,6 +283,7 @@ export const permitPackageRouter = router({
       const calcSnowLoad      = getCalc("snowLoad");
       const calcBeamSpan      = getCalc("beamSpan");
       const calcThermal       = getCalc("thermalResistance");
+      const calcNECB          = getCalc("necbEnvelope");
       const calcSpatial       = getCalc("spatialSeparation");
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
@@ -1212,6 +1213,85 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
+      // ── NECB 2020 Building Envelope ──────────────────────────────────────────
+      y = addSectionHeader(doc, "NECB 2020 Building Envelope", y, W, M);
+      if (calcNECB) {
+        const zone    = String(calcNECB.hddZone ?? "");
+        const city    = String(calcNECB.city ?? "");
+        const hddVal  = Number(calcNECB.hdd ?? 0);
+
+        doc.setFontSize(9); doc.setTextColor(75, 85, 99);
+        doc.text(
+          `City: ${city}  ·  HDD: ${hddVal.toLocaleString()}  ·  Zone: ${zone.toUpperCase()}`,
+          M, y
+        );
+        y += 6;
+
+        const necbRows: any[][] = [];
+
+        const wallRSI   = Number(calcNECB.wallRSI    ?? 0);
+        const reqWall   = Number(calcNECB.requiredWallRSI ?? 0);
+        if (wallRSI > 0) {
+          const pass = calcNECB.wallStatus === 'PASS';
+          necbRows.push(["Opaque Assembly RSI", `RSI ${wallRSI.toFixed(2)}`, `RSI ${reqWall.toFixed(2)}`, calcNECB.wallStatus ?? "—"]);
+        }
+        const winU  = calcNECB.windowU  != null ? Number(calcNECB.windowU)  : null;
+        const reqWin = Number(calcNECB.requiredWindowU ?? 0);
+        if (winU !== null) {
+          necbRows.push(["Window U-Value (W/m²·K)", winU.toFixed(3), `≤ ${reqWin.toFixed(2)}`, calcNECB.windowStatus ?? "—"]);
+        }
+        const skyU  = calcNECB.skylightU != null ? Number(calcNECB.skylightU) : null;
+        const reqSky = Number(calcNECB.requiredSkylightU ?? 0);
+        if (skyU !== null) {
+          necbRows.push(["Skylight U-Value (W/m²·K)", skyU.toFixed(3), `≤ ${reqSky.toFixed(2)}`, calcNECB.skylightStatus ?? "—"]);
+        }
+        const dU   = calcNECB.doorU != null ? Number(calcNECB.doorU) : null;
+        const reqD = Number(calcNECB.requiredDoorU ?? 0);
+        if (dU !== null) {
+          necbRows.push(["Door U-Value (W/m²·K)", dU.toFixed(3), `≤ ${reqD.toFixed(2)}`, calcNECB.doorStatus ?? "—"]);
+        }
+        const fdwr    = calcNECB.fdwr    != null ? Number(calcNECB.fdwr)    : null;
+        const maxFdwr = calcNECB.maxFDWR != null ? Number(calcNECB.maxFDWR) : null;
+        if (fdwr !== null && maxFdwr !== null) {
+          necbRows.push(["FDWR (Fenestration+Door/Wall)", `${(fdwr * 100).toFixed(1)}%`, `≤ ${(maxFdwr * 100).toFixed(0)}%`, calcNECB.fdwrStatus ?? "—"]);
+        }
+
+        if (necbRows.length > 0) {
+          (doc as any).autoTable({
+            startY: y,
+            margin: { left: M, right: M },
+            head: [["Check", "Provided", "Required", "Status"]],
+            body: necbRows,
+            headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+            styles: { fontSize: 8, cellPadding: 2 },
+            columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 30 }, 2: { cellWidth: 30 }, 3: { cellWidth: 20 } },
+            didDrawCell: (data: any) => {
+              if (data.section === 'body' && data.column.index === 3) {
+                const val = String(data.cell.raw ?? "");
+                const color: [number,number,number] = val === 'PASS' ? [22,163,74] : val === 'FAIL' ? [220,38,38] : [107,114,128];
+                doc.setTextColor(...color);
+                doc.setFont("helvetica", "bold");
+                doc.text(val, data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.height / 2 + 1, { baseline: 'middle' });
+                doc.setTextColor(0, 0, 0);
+                doc.setFont("helvetica", "normal");
+              }
+            },
+            willDrawCell: (data: any) => {
+              if (data.section === 'body' && data.column.index === 3) data.cell.text = [];
+            },
+          });
+          y = (doc as any).lastAutoTable.finalY + 6;
+        }
+
+        doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
+        doc.text("Ref: NECB 2020 Tables 3.2.2.2, 3.2.2.3, A-3.2.1.4", M, y);
+        doc.setTextColor(0, 0, 0); y += 7;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No NECB 2020 envelope calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
       // ── Page 10 — Compliance Excellence Summary ──────────────────────────────
       doc.addPage();
       doc.setFillColor(15, 23, 42);
@@ -1318,6 +1398,38 @@ export const permitPackageRouter = router({
             margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)} m²`,
             status,
             nbcRef: "NBC 9.10.14",
+          });
+        }
+      }
+
+      if (calcNECB) {
+        const wallRSI = Number(calcNECB.wallRSI ?? 0);
+        const reqWall = Number(calcNECB.requiredWallRSI ?? 0);
+        if (wallRSI > 0 && reqWall > 0) {
+          const { m, status } = pdfMargin(wallRSI, reqWall);
+          const aLabel = String(calcNECB.necbAssemblyType ?? "walls");
+          compRows.push({
+            category: "Energy",
+            label: `${aLabel.charAt(0).toUpperCase() + aLabel.slice(1)} Assembly RSI (NECB 2020)`,
+            provided: `RSI ${wallRSI.toFixed(2)}`,
+            required: `RSI ${reqWall.toFixed(2)}`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}`,
+            status,
+            nbcRef: "NECB 2020 Table 3.2.2.2",
+          });
+        }
+        const fdwr    = calcNECB.fdwr    != null ? Number(calcNECB.fdwr)    : null;
+        const maxFdwr = calcNECB.maxFDWR != null ? Number(calcNECB.maxFDWR) : null;
+        if (fdwr !== null && maxFdwr !== null && maxFdwr > 0) {
+          const { m, status } = pdfMargin(fdwr, maxFdwr, true);
+          compRows.push({
+            category: "Energy",
+            label: "FDWR (Fenestration+Door/Wall Ratio)",
+            provided: `${(fdwr * 100).toFixed(1)}%`,
+            required: `≤ ${(maxFdwr * 100).toFixed(0)}%`,
+            margin: `${m >= 0 ? "+" : ""}${(m * 100).toFixed(1)}%`,
+            status,
+            nbcRef: "NECB 2020 Table A-3.2.1.4",
           });
         }
       }
@@ -1635,6 +1747,7 @@ export const permitPackageRouter = router({
           snowLoad:          hasCalc('snowLoad'),
           beamSpan:          hasCalc('beamSpan'),
           thermalResistance: hasCalc('thermalResistance'),
+          necbEnvelope:      hasCalc('necbEnvelope'),
           spatialSeparation: hasCalc('spatialSeparation'),
         },
         fireAssemblies: {

@@ -49,6 +49,7 @@ export function PermitCompletenessPanel({ projectId, onGenerate, isGenerating }:
     { label: 'Plumbing fixtures',         done: completeness.calculators.plumbingFixture },
     { label: 'Snow load',                 done: completeness.calculators.snowLoad },
     { label: 'Thermal resistance (RSI)', done: completeness.calculators.thermalResistance },
+    { label: 'NECB 2020 envelope compliance', done: completeness.calculators.necbEnvelope },
     { label: 'Spatial separation',       done: completeness.calculators.spatialSeparation },
     { label: 'Fire assembly drawings',    done: completeness.fireAssemblies.exists,
       note: completeness.fireAssemblies.exists ? '(from drawing analyzer)' : undefined },
