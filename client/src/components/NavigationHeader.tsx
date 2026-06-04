@@ -23,6 +23,7 @@ import {
 import {
   Building2,
   FileText,
+  Home,
   Settings,
   LogOut,
   Menu,
@@ -148,6 +149,14 @@ const NAV_FEATURES: NavFeature[] = [
     description: 'Manage subscription and invoices',
     requiredRole: 'basic',
     upgradeMessage: 'Upgrade to access billing',
+    primaryNav: false,
+  },
+  {
+    label: 'Home Report',
+    icon: Home,
+    href: '/home',
+    description: 'Get a $29 permit compliance report',
+    requiredRole: 'free',
     primaryNav: false,
   },
   {

@@ -37,6 +37,12 @@ export default function HomeProcessing() {
     return <div className="flex items-center justify-center min-h-[40vh]"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
   }
 
+  // Dev mode: rawToken returned directly — skip email step and go straight to the report
+  if (data.rawToken) {
+    setLocation(`/home/report/${data.rawToken}`);
+    return null;
+  }
+
   if (data.pdfReady) {
     return (
       <div className="max-w-lg mx-auto px-4 pt-20 text-center">

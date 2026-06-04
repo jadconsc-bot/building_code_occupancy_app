@@ -207,9 +207,14 @@ export const homeRouter = router({
       } catch (err: any) {
         // If Stripe is not configured, return a dev-mode response
         console.warn("[HomeRouter] Stripe not configured — returning mock PI for dev:", err.message);
+        const devPiId = `dev_pi_${reportId}`;
+        // Store the dev PI id so getReport / getPreview can find the row
+        await db.update(homeReports)
+          .set({ stripePaymentIntentId: devPiId })
+          .where(eq(homeReports.id, reportId));
         return {
           clientSecret: "dev_mock_client_secret",
-          paymentIntentId: `dev_pi_${reportId}`,
+          paymentIntentId: devPiId,
           reportId,
           overallResult,
           reportToken: null,
@@ -298,11 +303,37 @@ export const homeRouter = router({
 
       if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found" });
 
+      // Dev mode: auto-approve dev_pi_ reports so the flow completes without a webhook
+      if (
+        process.env.NODE_ENV !== "production" &&
+        report.stripePaymentIntentId?.startsWith("dev_pi_") &&
+        report.paymentStatus !== "paid"
+      ) {
+        const rawToken = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await db.update(homeReports).set({
+          paymentStatus: "paid",
+          reportToken: tokenHash,
+          downloadExpiresAt: expiresAt,
+          reportGeneratedAt: new Date(),
+        }).where(eq(homeReports.id, report.id));
+        console.log(`[HomeRouter] Dev mode: auto-approved report ${report.id}`);
+        return {
+          paymentStatus: "paid" as const,
+          overallResult: report.overallResult,
+          reportGeneratedAt: new Date(),
+          pdfReady: false,
+          rawToken,
+        };
+      }
+
       return {
         paymentStatus: report.paymentStatus,
         overallResult: report.overallResult,
         reportGeneratedAt: report.reportGeneratedAt,
         pdfReady: !!report.pdfStorageKey,
+        rawToken: undefined as string | undefined,
       };
     }),
 

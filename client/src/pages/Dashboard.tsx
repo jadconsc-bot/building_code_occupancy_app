@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { SignIn } from '@clerk/clerk-react';
 import { FeatureDiscoveryDashboard } from '@/components/FeatureDiscoveryDashboard';
@@ -120,6 +121,7 @@ function OrgTrainingStatsWidget() {
 
 export default function Dashboard() {
   const { isAuthenticated, user } = useAuth();
+  const [, navigate] = useLocation();
   const [showWizard, setShowWizard] = useState(false);
   const [showReportBuilder, setShowReportBuilder] = useState(false);
 
@@ -151,6 +153,24 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Home Report CTA — visible to free and home_user roles */}
+        {(user?.role === 'free' || user?.role === 'home_user') && (
+          <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-blue-900">New to CodeComply?</p>
+              <p className="text-sm text-blue-700">
+                Get a plain-language permit compliance check for your home project — $29, results in minutes.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate('/home')}
+              className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            >
+              Get a Report — $29
+            </Button>
+          </div>
+        )}
 
         {/* Legal Disclaimer */}
         <div className="mb-8">
