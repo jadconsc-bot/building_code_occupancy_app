@@ -96,6 +96,13 @@ const rawFormSchema = z.object({
   suiteBathtubs:      z.number().int().nonnegative().optional(),
   suiteWashers:       z.number().int().nonnegative().optional(),
   hasSuiteFloorDrain: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
+  propertyToilets:     z.number().int().nonnegative().optional(),
+  propertySinks:       z.number().int().nonnegative().optional(),
+  propertyShowers:     z.number().int().nonnegative().optional(),
+  propertyBathtubs:    z.number().int().nonnegative().optional(),
+  propertyWashers:     z.number().int().nonnegative().optional(),
+  propertyDishwashers: z.number().int().nonnegative().optional(),
+  existingDrainSizeMm: z.coerce.number().int().positive().optional(),
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────

@@ -210,7 +210,7 @@ const ELECTRICAL_FIELDS: FieldConfig[] = [
 ];
 
 const PLUMBING_FIELDS: FieldConfig[] = [
-  { key: "_s_plumbing", label: "Plumbing", type: "section" },
+  { key: "_s_suite_plumbing", label: "Suite Plumbing", type: "section" },
   {
     key: "hasBackwaterValve",
     label: "Backwater valve?",
@@ -218,17 +218,65 @@ const PLUMBING_FIELDS: FieldConfig[] = [
     col: "full",
     helpText: "Sewage check valve — required for below-grade plumbing (NBC 7.4.4)",
   },
-  { key: "suiteToilets",  label: "Toilets",           type: "number", min: 0, col: "half" },
-  { key: "suiteSinks",    label: "Sinks",              type: "number", min: 0, col: "half" },
-  { key: "suiteShowers",  label: "Showers",            type: "number", min: 0, col: "half" },
-  { key: "suiteBathtubs", label: "Bathtubs",           type: "number", min: 0, col: "half" },
-  { key: "suiteWashers",  label: "Washing machines",   type: "number", min: 0, col: "half" },
+  { key: "suiteToilets",  label: "Toilets in suite",           type: "number", min: 0, col: "half", helpText: "Fixtures in the NEW suite only" },
+  { key: "suiteSinks",    label: "Sinks in suite",             type: "number", min: 0, col: "half", helpText: "Fixtures in the NEW suite only" },
+  { key: "suiteShowers",  label: "Showers in suite",           type: "number", min: 0, col: "half" },
+  { key: "suiteBathtubs", label: "Bathtubs in suite",          type: "number", min: 0, col: "half" },
+  { key: "suiteWashers",  label: "Washing machines in suite",  type: "number", min: 0, col: "half" },
   {
     key: "hasSuiteFloorDrain",
     label: "Floor drain in laundry?",
     type: "yesno",
     col: "half",
     showIf: (a) => Number(a.suiteWashers) > 0,
+  },
+  { key: "_s_whole_property", label: "Whole Property", type: "section" },
+  {
+    key: "propertyToilets",
+    label: "Total toilets (whole property)",
+    type: "number", min: 0, col: "half",
+    helpText: "Existing + new suite combined",
+  },
+  {
+    key: "propertySinks",
+    label: "Total sinks (all floors)",
+    type: "number", min: 0, col: "half",
+  },
+  {
+    key: "propertyShowers",
+    label: "Total showers",
+    type: "number", min: 0, col: "half",
+  },
+  {
+    key: "propertyBathtubs",
+    label: "Total bathtubs",
+    type: "number", min: 0, col: "half",
+  },
+  {
+    key: "propertyWashers",
+    label: "Total washing machines",
+    type: "number", min: 0, col: "half",
+  },
+  {
+    key: "propertyDishwashers",
+    label: "Total dishwashers",
+    type: "number", min: 0, col: "half",
+  },
+  {
+    key: "existingDrainSizeMm",
+    label: "Existing main drain size",
+    type: "select",
+    col: "full",
+    options: [
+      { value: "50",  label: "50 mm (2″)" },
+      { value: "75",  label: "75 mm (3″) — common pre-1980" },
+      { value: "100", label: "100 mm (4″) — common post-1990" },
+      { value: "125", label: "125 mm (5″)" },
+      { value: "150", label: "150 mm (6″)" },
+    ],
+    helpText:
+      "Check the drain pipe where it exits the foundation — usually stamped on the pipe. " +
+      "Most pre-1980 homes have 75 mm (3 inch). Post-1990 typically 100 mm.",
   },
 ];
 

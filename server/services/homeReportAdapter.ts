@@ -93,6 +93,13 @@ export interface RawFormSubmission {
   suiteBathtubs?: number | string;
   suiteWashers?: number | string;
   hasSuiteFloorDrain?: string | boolean;
+  propertyToilets?: number | string;
+  propertySinks?: number | string;
+  propertyShowers?: number | string;
+  propertyBathtubs?: number | string;
+  propertyWashers?: number | string;
+  propertyDishwashers?: number | string;
+  existingDrainSizeMm?: number | string;
 }
 
 function toBool(value: string | boolean | undefined): boolean | undefined {
@@ -211,6 +218,13 @@ export function adaptFormAnswers(raw: RawFormSubmission): HomeFormAnswers {
     suiteBathtubs:      toNum(raw.suiteBathtubs),
     suiteWashers:       toNum(raw.suiteWashers),
     hasSuiteFloorDrain: toBool(raw.hasSuiteFloorDrain),
+    propertyToilets:    toNum(raw.propertyToilets),
+    propertySinks:      toNum(raw.propertySinks),
+    propertyShowers:    toNum(raw.propertyShowers),
+    propertyBathtubs:   toNum(raw.propertyBathtubs),
+    propertyWashers:    toNum(raw.propertyWashers),
+    propertyDishwashers: toNum(raw.propertyDishwashers),
+    existingDrainSizeMm: toNum(raw.existingDrainSizeMm),
   };
 }
 

@@ -95,6 +95,14 @@ export interface HomeFormAnswers {
   suiteBathtubs?: number;
   suiteWashers?: number;
   hasSuiteFloorDrain?: boolean;
+  // Whole property (existing + suite combined)
+  propertyToilets?: number;
+  propertySinks?: number;
+  propertyShowers?: number;
+  propertyBathtubs?: number;
+  propertyWashers?: number;
+  propertyDishwashers?: number;
+  existingDrainSizeMm?: number;
 }
 
 export interface RuleResult {
@@ -934,6 +942,115 @@ const PLUMB_FLOOR_DRAIN_RULE: Part9Rule = {
   },
 };
 
+// NBC 7.2.2.2 minimum drain diameter by total fixture units
+function getMinDrainMm(totalFU: number): number {
+  if (totalFU <= 1)   return 32;
+  if (totalFU <= 2)   return 38;
+  if (totalFU <= 5)   return 50;
+  if (totalFU <= 14)  return 75;
+  if (totalFU <= 50)  return 100;
+  if (totalFU <= 100) return 125;
+  return 150;
+}
+
+const PLUMB_PROPERTY_DRAIN_RULE: Part9Rule = {
+  ruleId: "P9-PLUMB-PROPERTY-DRAIN",
+  description: "Whole-property drain sizing — NBC 7.2.2.2",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development", "addition_renovation", "new_single_family"],
+  evaluate: (answers) => {
+    const t  = answers.propertyToilets     ?? 0;
+    const si = answers.propertySinks       ?? 0;
+    const sh = answers.propertyShowers     ?? 0;
+    const b  = answers.propertyBathtubs    ?? 0;
+    const w  = answers.propertyWashers     ?? 0;
+    const d  = answers.propertyDishwashers ?? 0;
+    const totalFU = t*4 + si*1 + sh*2 + b*2 + w*2 + d*1;
+
+    if (totalFU === 0) return {
+      result: "conditional",
+      plainLanguage:
+        "Provide total fixture counts for the whole property " +
+        "(existing + new suite combined) to verify main drain sizing. " +
+        "Adding a suite increases total fixture units — the main drain " +
+        "may need upsizing. NBC 7.2.2.2.",
+      codeReference: "NBC 7.2.2.2",
+    };
+
+    const minDrainMm = getMinDrainMm(totalFU);
+
+    const breakdown = [
+      t  > 0 ? `${t} toilet${t > 1 ? "s" : ""} (${t * 4} FU)`   : null,
+      si > 0 ? `${si} sink${si > 1 ? "s" : ""} (${si} FU)`       : null,
+      sh > 0 ? `${sh} shower${sh > 1 ? "s" : ""} (${sh * 2} FU)` : null,
+      b  > 0 ? `${b} bathtub${b > 1 ? "s" : ""} (${b * 2} FU)`   : null,
+      w  > 0 ? `${w} washer${w > 1 ? "s" : ""} (${w * 2} FU)`    : null,
+      d  > 0 ? `${d} dishwasher${d > 1 ? "s" : ""} (${d} FU)`    : null,
+    ].filter(Boolean).join(", ");
+
+    if (answers.existingDrainSizeMm && answers.existingDrainSizeMm < minDrainMm) {
+      return {
+        result: "fail",
+        plainLanguage:
+          `Existing ${answers.existingDrainSizeMm}mm drain is UNDERSIZED ` +
+          `for ${totalFU} total fixture units. ` +
+          `Minimum required: ${minDrainMm}mm. Fixtures: ${breakdown}.`,
+        whatToDo:
+          `Upsize the main building drain from ${answers.existingDrainSizeMm}mm ` +
+          `to ${minDrainMm}mm before adding the suite. This typically requires ` +
+          `opening the floor slab at the point of departure. NBC 7.2.2.2.`,
+        codeReference: "NBC 7.2.2.2",
+      };
+    }
+
+    return {
+      result: "pass",
+      plainLanguage:
+        `Total property fixture units: ${totalFU} FU (${breakdown}). ` +
+        `Minimum main drain required: ${minDrainMm}mm. ` +
+        `${answers.existingDrainSizeMm
+          ? `Existing ${answers.existingDrainSizeMm}mm drain is adequate.`
+          : "Verify existing drain meets this minimum."} ` +
+        `NBC 7.2.2.2.`,
+      codeReference: "NBC 7.2.2.2",
+    };
+  },
+};
+
+const PLUMB_VENT_STACK_RULE: Part9Rule = {
+  ruleId: "P9-PLUMB-VENT-STACK",
+  description: "Vent stack sizing — NBC 7.2.5.3",
+  province: "national",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    const t  = answers.propertyToilets     ?? 0;
+    const si = answers.propertySinks       ?? 0;
+    const sh = answers.propertyShowers     ?? 0;
+    const b  = answers.propertyBathtubs    ?? 0;
+    const w  = answers.propertyWashers     ?? 0;
+    const d  = answers.propertyDishwashers ?? 0;
+    const totalFU = t*4 + si*1 + sh*2 + b*2 + w*2 + d*1;
+
+    if (totalFU === 0) return {
+      result: "not_applicable",
+      plainLanguage: "Provide property fixture counts for vent stack check.",
+      codeReference: "NBC 7.2.5.3",
+    };
+
+    let minVentMm = 38;
+    if (totalFU > 2)  minVentMm = 50;
+    if (totalFU > 8)  minVentMm = 75;
+    if (totalFU > 24) minVentMm = 100;
+
+    return {
+      result: "pass",
+      plainLanguage:
+        `Total ${totalFU} FU — minimum vent stack: ${minVentMm}mm. NBC 7.2.5.3.`,
+      codeReference: "NBC 7.2.5.3",
+    };
+  },
+};
+
 // ─── All rules ───────────────────────────────────────────────────────────────
 
 export const PART9_RULES: Part9Rule[] = [
@@ -958,6 +1075,8 @@ export const PART9_RULES: Part9Rule[] = [
   PLUMB_BACKWATER_RULE,
   PLUMB_DRAIN_SIZE_RULE,
   PLUMB_FLOOR_DRAIN_RULE,
+  PLUMB_PROPERTY_DRAIN_RULE,
+  PLUMB_VENT_STACK_RULE,
 ];
 
 export function evaluateHomeCompliance(answers: HomeFormAnswers): EvaluatedRule[] {
