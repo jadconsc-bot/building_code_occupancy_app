@@ -20,6 +20,7 @@ interface FieldConfig {
   helpText?: string;
   showIf?: (answers: Record<string, unknown>) => boolean;
   required?: boolean;
+  sectionClassName?: string;
 }
 
 // ─── Shared field blocks ──────────────────────────────────────────────────────
@@ -230,7 +231,7 @@ const PLUMBING_FIELDS: FieldConfig[] = [
     col: "half",
     showIf: (a) => Number(a.suiteWashers) > 0,
   },
-  { key: "_s_whole_property", label: "Whole Property", type: "section" },
+  { key: "_s_whole_property", label: "Whole Property", type: "section", sectionClassName: "!mt-8 border-t-2 border-border !pt-5" },
   {
     key: "propertyToilets",
     label: "Total toilets (whole property)",
@@ -581,8 +582,8 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                 >
                   {/* Section header */}
                   {isSection && (
-                    <div className="flex items-center gap-3 pt-4 mt-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                    <div className={`flex items-center gap-3 pt-4 mt-3 ${field.sectionClassName ?? ""}`}>
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground/70 whitespace-nowrap">
                         {field.label}
                       </span>
                       <div className="flex-1 h-px bg-border" />
