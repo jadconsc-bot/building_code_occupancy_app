@@ -36,7 +36,9 @@ import { drawingSetContextRouter } from "./routers/drawingSetContextRouter";
 import { zoneLookupRouter } from "./routers/zoneLookupRouter";
 import { siteAnalysisRouter } from "./routers/siteAnalysisRouter";
 import { fireAssemblyRouter } from "./routers/fireAssemblyRouter";
+import { apsRouter } from "./routers/apsRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
+export { handleAPSWebhook } from "./routers/apsRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -73,6 +75,7 @@ export const appRouter = router({
   zoneLookup: zoneLookupRouter,
   siteAnalysis: siteAnalysisRouter,
   fireAssembly: fireAssemblyRouter,
+  aps: apsRouter,
   auth: router({
     me: protectedProcedure.query(async (opts) => {
       const db = await getDb();

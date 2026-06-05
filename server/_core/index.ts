@@ -10,7 +10,11 @@ import apiRoutes from "../routes";
 import { serveStatic, setupVite } from "./vite";
 import { logEnvStatus } from "./env";
 import { startComplianceMonitorCron } from "../cron/complianceMonitorCron";
-import { handleStripeWebhook } from "../routers";
+import { handleStripeWebhook, handleAPSWebhook } from "../routers";
+import { exchangeCode } from "../services/apsAuthService";
+import { getDb } from "../db";
+import { apsConnections } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -41,11 +45,65 @@ async function startServer() {
   // Stripe webhook needs raw body — must be registered BEFORE express.json()
   app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), handleStripeWebhook);
 
+  // APS webhook — raw body required
+  app.post("/api/webhooks/aps", express.raw({ type: "application/json" }), handleAPSWebhook);
+
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // Clerk auth session endpoint
   registerAuthRoutes(app);
+
+  // APS (Autodesk) OAuth callback — exchanges code, stores tokens, redirects to integrations page
+  app.get("/api/autodesk/callback", async (req, res) => {
+    const code  = typeof req.query.code  === "string" ? req.query.code  : null;
+    const state = typeof req.query.state === "string" ? req.query.state : null;
+
+    if (!code || !state) {
+      return res.redirect("/integrations?error=missing_params");
+    }
+
+    let userId: number | null = null;
+    try {
+      const decoded = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
+      userId = typeof decoded.userId === "number" ? decoded.userId : null;
+    } catch {
+      return res.redirect("/integrations?error=invalid_state");
+    }
+
+    if (!userId) {
+      return res.redirect("/integrations?error=invalid_state");
+    }
+
+    try {
+      const tokens   = await exchangeCode(code);
+      const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+      const db       = await getDb();
+
+      if (db) {
+        await db
+          .insert(apsConnections)
+          .values({
+            userId,
+            accessToken:    tokens.access_token,
+            refreshToken:   tokens.refresh_token,
+            tokenExpiresAt: expiresAt,
+          })
+          .onDuplicateKeyUpdate({
+            set: {
+              accessToken:    tokens.access_token,
+              refreshToken:   tokens.refresh_token,
+              tokenExpiresAt: expiresAt,
+            },
+          });
+      }
+
+      return res.redirect("/integrations?connected=true");
+    } catch (err) {
+      console.error("[APS Callback] token exchange failed:", err);
+      return res.redirect("/integrations?error=token_exchange_failed");
+    }
+  });
   // REST API routes
   app.use(apiRoutes);
   // tRPC API

@@ -40,6 +40,7 @@ import {
   CreditCard,
   CheckCircle,
   Hammer,
+  Plug,
 } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
@@ -158,6 +159,15 @@ const NAV_FEATURES: NavFeature[] = [
     href: '/contractor',
     description: 'Job site calculators',
     requiredRole: 'free',
+    primaryNav: false,
+  },
+  {
+    label: 'Integrations',
+    icon: Plug,
+    href: '/integrations',
+    description: 'Connect external platforms',
+    requiredRole: 'professional',
+    upgradeMessage: 'Upgrade to Professional to access Integrations',
     primaryNav: false,
   },
   {

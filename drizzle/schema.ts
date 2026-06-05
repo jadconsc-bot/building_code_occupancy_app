@@ -1693,3 +1693,33 @@ export const fireAssemblies = mysqlTable("fireAssemblies", {
 
 export type FireAssembly = typeof fireAssemblies.$inferSelect;
 export type InsertFireAssembly = typeof fireAssemblies.$inferInsert;
+
+// ── APS / BuildingConnected ──────────────────────────────────────────────────
+
+export const apsConnections = mysqlTable("apsConnections", {
+  id:             int("id").autoincrement().primaryKey(),
+  userId:         int("userId").notNull(),
+  accessToken:    text("accessToken"),
+  refreshToken:   text("refreshToken"),
+  tokenExpiresAt: timestamp("tokenExpiresAt"),
+  apsAccountId:   varchar("apsAccountId", { length: 100 }),
+  companyName:    varchar("companyName",  { length: 200 }),
+  createdAt:      timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:      timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const bcProjectLinks = mysqlTable("bcProjectLinks", {
+  id:                  int("id").autoincrement().primaryKey(),
+  userId:              int("userId").notNull(),
+  bcProjectId:         varchar("bcProjectId",   { length: 100 }).notNull(),
+  bcProjectName:       varchar("bcProjectName", { length: 200 }),
+  apsProjectId:        varchar("apsProjectId",  { length: 100 }),
+  codeComplyProjectId: int("codeComplyProjectId"),
+  autoCheckEnabled:    tinyint("autoCheckEnabled").notNull().default(1),
+  lastCheckedAt:       timestamp("lastCheckedAt"),
+  lastReportId:        varchar("lastReportId",  { length: 200 }),
+  issueCount:          int("issueCount").default(0),
+  createdAt:           timestamp("createdAt").defaultNow().notNull(),
+  updatedAt:           timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+

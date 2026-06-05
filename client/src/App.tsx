@@ -37,6 +37,7 @@ import HomeProcessing from "./pages/HomeProcessing";
 import HomeReport from "./pages/HomeReport";
 import ContractorHub from "./pages/ContractorHub";
 import ContractorTool from "./pages/ContractorTool";
+import Integrations from "./pages/Integrations";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { RequireRole } from "./components/RequireRole";
@@ -129,6 +130,11 @@ function Router() {
         <Route path={"/home/:projectType"} component={HomeForm} />
         <Route path={"/contractor/:tool"} component={ContractorTool} />
         <Route path={"/contractor"} component={ContractorHub} />
+        <Route path={"/integrations"}>
+          <RequireRole minRole="professional" featureName="Integrations">
+            <Integrations />
+          </RequireRole>
+        </Route>
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />
