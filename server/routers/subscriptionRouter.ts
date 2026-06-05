@@ -18,6 +18,8 @@ import {
   STRIPE_PRO_ANNUAL_PRICE_ID,
   STRIPE_TEAM_PRICE_ID,
   STRIPE_FOUNDING_PRICE_ID,
+  STRIPE_CONTRACTOR_SUB_PRICE_ID,
+  STRIPE_CONTRACTOR_PACK_PRICE_ID,
 } from '../_core/stripeEnv';
 
 export const subscriptionRouter = router({
@@ -252,5 +254,33 @@ export const subscriptionRouter = router({
       });
 
       return { url: portalSession.url };
+    }),
+
+  createContractorSession: publicProcedure
+    .input(z.object({
+      type:  z.enum(['subscription', 'pack']),
+      email: z.string().email().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const stripe = createStripeClient();
+      const priceId = input.type === 'subscription'
+        ? STRIPE_CONTRACTOR_SUB_PRICE_ID
+        : STRIPE_CONTRACTOR_PACK_PRICE_ID;
+
+      if (!priceId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Contractor pricing not configured' });
+      }
+
+      const appRoot = 'https://buildingcodeoccupancyapp-production-4adf.up.railway.app';
+      const session = await stripe.checkout.sessions.create({
+        mode: input.type === 'subscription' ? 'subscription' : 'payment',
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${appRoot}/contractor?activated=true`,
+        cancel_url:  `${appRoot}/contractor`,
+        customer_email: input.email,
+        metadata: { product: 'contractor' },
+      });
+
+      return { checkoutUrl: session.url! };
     }),
 });

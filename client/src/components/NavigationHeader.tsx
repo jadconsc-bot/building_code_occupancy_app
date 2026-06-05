@@ -39,6 +39,7 @@ import {
   GitBranch,
   CreditCard,
   CheckCircle,
+  Hammer,
 } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
@@ -149,6 +150,14 @@ const NAV_FEATURES: NavFeature[] = [
     description: 'Manage subscription and invoices',
     requiredRole: 'basic',
     upgradeMessage: 'Upgrade to access billing',
+    primaryNav: false,
+  },
+  {
+    label: 'Contractor Tools',
+    icon: Hammer,
+    href: '/contractor',
+    description: 'Job site calculators',
+    requiredRole: 'free',
     primaryNav: false,
   },
   {
