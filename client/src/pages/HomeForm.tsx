@@ -50,6 +50,8 @@ const EGRESS_DETAIL_FIELDS: FieldConfig[] = [
     type: "number",
     unit: "mm",
     col: "half",
+    min: 50,
+    max: 3000,
     helpText: "Min 380 mm clear",
     showIf: (a) => a.egressWindows === "yes",
   },
@@ -59,6 +61,8 @@ const EGRESS_DETAIL_FIELDS: FieldConfig[] = [
     type: "number",
     unit: "mm",
     col: "half",
+    min: 50,
+    max: 3000,
     helpText: "Min 380 mm clear",
     showIf: (a) => a.egressWindows === "yes",
   },
@@ -695,28 +699,42 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                       )}
 
                       {(field.type === "text" || field.type === "number") && (
-                        <div className="relative mt-1">
-                          <Input
-                            id={field.key}
-                            type={field.type}
-                            min={field.min}
-                            max={field.max}
-                            step={field.type === "number" ? "any" : undefined}
-                            value={(answers[field.key] as string) ?? ""}
-                            onChange={(e) =>
-                              setValue(
-                                field.key,
-                                field.type === "number" ? (parseFloat(e.target.value) || "") : e.target.value,
-                              )
+                        <>
+                          <div className="relative mt-1">
+                            <Input
+                              id={field.key}
+                              type={field.type}
+                              min={field.min}
+                              max={field.max}
+                              step={field.type === "number" ? "any" : undefined}
+                              value={(answers[field.key] as string) ?? ""}
+                              onChange={(e) =>
+                                setValue(
+                                  field.key,
+                                  field.type === "number" ? (parseFloat(e.target.value) || "") : e.target.value,
+                                )
+                              }
+                              className={field.unit ? "pr-14" : ""}
+                            />
+                            {field.unit && (
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+                                {field.unit}
+                              </span>
+                            )}
+                          </div>
+                          {field.unit === "mm" && (() => {
+                            const raw = answers[field.key];
+                            const val = typeof raw === "number" ? raw : parseFloat(raw as string);
+                            if (!isNaN(val) && val > 0 && val < 100) {
+                              return (
+                                <p className="mt-1 text-xs text-amber-600">
+                                  Did you mean {val * 1000} mm? Dimensions should be in millimetres.
+                                </p>
+                              );
                             }
-                            className={field.unit ? "pr-14" : ""}
-                          />
-                          {field.unit && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
-                              {field.unit}
-                            </span>
-                          )}
-                        </div>
+                            return null;
+                          })()}
+                        </>
                       )}
                     </>
                   )}

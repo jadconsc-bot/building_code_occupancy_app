@@ -3,6 +3,7 @@
  * Rev 2: rawToken from URL is hashed SHA-256 server-side to look up the report.
  * No authentication required — 30-day expiry enforced by server.
  */
+import { useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,11 @@ export default function HomeReport() {
   const params = useParams<{ rawToken: string }>();
   const rawToken = params.rawToken ?? "";
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    document.title = "CodeComply Home Report";
+    return () => { document.title = "CodeComply"; };
+  }, []);
 
   const { data, isLoading, error } = trpc.home.downloadReport.useQuery(
     { rawToken },
