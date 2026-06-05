@@ -12,7 +12,7 @@
 
 import Stripe from "stripe";
 
-const STRIPE_API_VERSION = "2026-05-27.dahlia" as const;
+const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 const REPORT_PRICE_CAD = 2900; // $29.00 CAD in cents
 
 function getStripe(): Stripe {
