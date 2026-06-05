@@ -15,10 +15,20 @@ export class CalculationEngine {
   private publicKey: string;
 
   constructor() {
-    // In production, these should be loaded from secure storage
-    // For now, using demo keys
-    this.privateKey = process.env.PRIVATE_KEY || 'demo-private-key';
-    this.publicKey = process.env.PUBLIC_KEY || 'demo-public-key';
+    if (!process.env.PRIVATE_KEY || !process.env.PUBLIC_KEY) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          '[CalculationEngine] PRIVATE_KEY and PUBLIC_KEY must be set in production. ' +
+          'Refusing to start with demo keys.'
+        );
+      }
+      console.warn(
+        '[CalculationEngine] WARNING: Using dev-only signing keys. ' +
+        'Set PRIVATE_KEY and PUBLIC_KEY environment variables before deploying.'
+      );
+    }
+    this.privateKey = process.env.PRIVATE_KEY ?? 'dev-only-private-key';
+    this.publicKey  = process.env.PUBLIC_KEY  ?? 'dev-only-public-key';
   }
 
   /**

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerAuthRoutes } from "./authRoutes";
 import { appRouter } from "../routers";
@@ -51,6 +52,29 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // General API rate limit — 200 req / 15 min per IP
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." },
+    skip: (req) => req.path.startsWith("/api/webhooks"),
+  });
+
+  // Strict limit for unauthenticated payment / report creation endpoints
+  const paymentLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many payment requests. Please try again later." },
+  });
+
+  app.use("/api", generalLimiter);
+  app.use("/api/trpc/home.createReport", paymentLimiter);
+  app.use("/api/trpc/subscriptions.createContractorSession", paymentLimiter);
   // Clerk auth session endpoint
   registerAuthRoutes(app);
 

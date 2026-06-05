@@ -260,7 +260,11 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     },
   });
 
-  const bulkSaveChecklist = trpc.projectsLegacy.checklistItems.bulkSave.useMutation();
+  const bulkSaveChecklist = trpc.projectsLegacy.checklistItems.bulkSave.useMutation({
+    onError: (err) => {
+      toast.error(`Checklist could not be saved. ${err.message ?? 'Please try again.'}`);
+    },
+  });
 
   const createMutation = trpc.projects.create.useMutation({
     onSuccess: (data) => {

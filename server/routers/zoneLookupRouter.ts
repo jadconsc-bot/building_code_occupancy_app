@@ -25,19 +25,33 @@ export const zoneLookupRouter = router({
   saveToProject: protectedProcedure
     .input(z.object({
       projectId:     z.number().int().positive(),
-      address:       z.string(),
-      municipality:  z.string(),
-      province:      z.string(),
-      zoneCode:      z.string(),
-      zoneName:      z.string(),
-      communityName: z.string().nullable(),
+      address:       z.string().max(200).trim(),
+      municipality:  z.string().max(100).trim(),
+      province:      z.string().max(5).trim(),
+      zoneCode:      z.string().max(50).trim(),
+      zoneName:      z.string().max(200).trim(),
+      communityName: z.string().max(200).trim().nullable(),
       lat:           z.number(),
       lng:           z.number(),
-      source:        z.string(),
+      source:        z.string().max(50).trim(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+
+      const [project] = await db
+        .select({ userId: projects.userId })
+        .from(projects)
+        .where(eq(projects.id, input.projectId))
+        .limit(1);
+
+      if (!project) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' });
+      }
+      if (project.userId !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+      }
+
       await db.update(projects)
         .set({
           address:          input.address,

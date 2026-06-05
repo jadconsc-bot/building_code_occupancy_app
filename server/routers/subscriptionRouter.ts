@@ -22,6 +22,19 @@ import {
   STRIPE_CONTRACTOR_PACK_PRICE_ID,
 } from '../_core/stripeEnv';
 
+const contractorSessionBucket = new Map<string, number[]>();
+
+function contractorRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const window = 60_000;
+  const max = 5;
+  const hits = (contractorSessionBucket.get(ip) ?? []).filter(t => now - t < window);
+  if (hits.length >= max) return true;
+  hits.push(now);
+  contractorSessionBucket.set(ip, hits);
+  return false;
+}
+
 export const subscriptionRouter = router({
   /**
    * Get current subscription info
@@ -261,7 +274,11 @@ export const subscriptionRouter = router({
       type:  z.enum(['subscription', 'pack']),
       email: z.string().email().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const ip = (ctx as any).req?.ip ?? 'unknown';
+      if (contractorRateLimited(ip)) {
+        throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please try again later.' });
+      }
       const stripe = createStripeClient();
       const priceId = input.type === 'subscription'
         ? STRIPE_CONTRACTOR_SUB_PRICE_ID

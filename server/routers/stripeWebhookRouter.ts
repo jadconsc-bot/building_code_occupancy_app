@@ -96,8 +96,10 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
     }
     res.json({ received: true });
   } catch (err) {
+    // Intentionally return 200 to Stripe regardless of application errors.
+    // Helpers throw raw Error (not TRPCError) — this top-level catch handles all of them.
+    // Never return a non-200 here or Stripe will retry the event indefinitely.
     console.error(`[StripeWebhook] Processing error for ${event.type}:`, err);
-    // Return 200 — do not let Stripe retry for application errors
     res.json({ received: true, warning: "Processing error logged" });
   }
 }
@@ -147,7 +149,8 @@ async function findUserByStripeCustomer(
       .limit(1);
 
     if (!user) {
-      console.log(`[StripeWebhook] Email fallback: no user found for email ${customer.email}`);
+      const redacted = customer.email.replace(/(?<=.{2}).+(?=@)/, '***');
+      console.log(`[StripeWebhook] Email fallback: no user found for email ${redacted}`);
       return null;
     }
 

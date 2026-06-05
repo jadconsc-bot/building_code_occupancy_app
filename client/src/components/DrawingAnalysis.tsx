@@ -618,7 +618,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
+
+  // Remove any active drag listeners if the component unmounts mid-drag
+  useEffect(() => {
+    return () => { resizeCleanupRef.current?.(); };
+  }, []);
+
   // State for unit of measurement
   const [measurementUnit, setMeasurementUnit] = useState<"mm" | "inches" | "feet">("feet");
   
@@ -656,6 +661,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const isMultiPageAnalysisRef = useRef(false); // Prevent premature setIsAnalyzing(false) during multi-page analysis
   const canvasResizeStartRef = useRef<{ y: number; h: number } | null>(null);
   const wwrPanelResizeRef = useRef<{ y: number; h: number } | null>(null);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
   const imageJustLoadedRef = useRef<boolean>(false);
   const rafRef = useRef<number | null>(null);
   
@@ -4002,9 +4008,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       canvasResizeStartRef.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      resizeCleanupRef.current = null;
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    resizeCleanupRef.current = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
   };
 
   // WWR panel vertical resize drag
@@ -4020,9 +4031,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       wwrPanelResizeRef.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      resizeCleanupRef.current = null;
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    resizeCleanupRef.current = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
   };
 
   // Handle mouse wheel for zoom (centered on cursor)

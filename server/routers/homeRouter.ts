@@ -28,6 +28,21 @@ import {
   aggregateOverallResult,
 } from "../engine/home/part9Rules.js";
 
+// ─── Rate limiter for public report creation ─────────────────────────────────
+
+const homeReportBucket = new Map<string, number[]>();
+
+function homeReportRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const window = 60_000;
+  const max = 3;
+  const hits = (homeReportBucket.get(ip) ?? []).filter(t => now - t < window);
+  if (hits.length >= max) return true;
+  hits.push(now);
+  homeReportBucket.set(ip, hits);
+  return false;
+}
+
 // ─── Input schemas ────────────────────────────────────────────────────────────
 
 const rawFormSchema = z.object({
@@ -122,6 +137,11 @@ export const homeRouter = router({
       formAnswers: rawFormSchema,
     }))
     .mutation(async ({ input, ctx }) => {
+      const ip = (ctx as any).req?.ip ?? 'unknown';
+      if (homeReportRateLimited(ip)) {
+        throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Too many report requests. Please wait a minute.' });
+      }
+
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
