@@ -36,10 +36,10 @@ export function frrLabel(frr: number): string {
 }
 
 export const ULC_DESIGNS: Record<string, { design: string; desc: string }> = {
-  "0.5": { design: "ULC W411", desc: "½\" gypsum board, one face" },
-  "1.0": { design: "ULC W301", desc: "⅝\" Type X both faces" },
-  "1.5": { design: "ULC W302", desc: "⅝\" Type X ×2, staggered" },
-  "2.0": { design: "ULC W402", desc: "2-hour assembly per design" },
+  "0.5": { design: "ULC W301",   desc: "½hr — Single layer ⅝\" Type X GWB on 2×4 studs" },
+  "1.0": { design: "ULC W301",   desc: "1hr — ⅝\" Type X GWB both sides 2×4 studs 16\" O/C" },
+  "1.5": { design: "ULC W415",   desc: "1½hr — Double layer GWB one side, single other side" },
+  "2.0": { design: "ULC WP3820", desc: "2hr — ⅝\" Type X GWB base+face both sides, double 2×4 stud on sep plates, R14 batt, STC 55-59" },
 };
 
 interface LinePoint { x: number; y: number }

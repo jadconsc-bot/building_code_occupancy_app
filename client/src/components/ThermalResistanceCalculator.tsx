@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { Thermometer, AlertCircle, CheckCircle2, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
 import { SaveButton } from "@/components/CalculatorWithSave";
 import {
   getHDDZone, getMaxFDWR, NECB_OPAQUE_RSI_MIN, NECB_OPAQUE_U_MAX,
   NECB_FENESTRATION_U_MAX, CITY_HDD, ZONE_LABELS,
 } from "@/lib/necbClimateData";
+import { WALL_ASSEMBLY_PRESETS, getPresetsByType, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
+import { getAssemblyNotes } from "@/lib/assemblyDetailData";
 
 // ─── Layer colour palette ──────────────────────────────────────────────────────
 function layerColor(material: string): string {
@@ -34,11 +36,13 @@ function WallAssemblyDiagram({
   climateZone,
   assemblyType,
   minimumRequirements,
+  selectedPreset,
 }: {
   layers: Layer[];
   climateZone: string;
   assemblyType: string;
   minimumRequirements: Record<string, Record<string, number>>;
+  selectedPreset?: WallAssemblyPreset | null;
 }) {
   if (layers.length === 0) return null;
 
@@ -79,6 +83,26 @@ function WallAssemblyDiagram({
   }
 
   return (
+    <div className="space-y-1.5">
+      {selectedPreset && (
+        <div className="flex flex-wrap items-center gap-1.5 px-1">
+          <span className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600">
+            {selectedPreset.code}
+          </span>
+          <span className="text-xs text-muted-foreground truncate max-w-[200px]">{selectedPreset.name}</span>
+          {selectedPreset.ulcRef && (
+            <Badge variant="outline" className="text-xs font-mono">{selectedPreset.ulcRef}</Badge>
+          )}
+          {selectedPreset.fireFRR && (
+            <Badge className="text-xs bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-100">
+              {selectedPreset.fireFRR.toUpperCase()} FRR
+            </Badge>
+          )}
+          {selectedPreset.stcRating && (
+            <Badge variant="secondary" className="text-xs">STC {selectedPreset.stcRating}</Badge>
+          )}
+        </div>
+      )}
     <svg viewBox="0 0 600 205" className="w-full rounded border bg-white" style={{ maxHeight: 230 }}>
       {/* Code reference bar */}
       <text x="300" y="11" textAnchor="middle" fontSize="8" fill="#6b7280" fontFamily="sans-serif">
@@ -160,6 +184,7 @@ function WallAssemblyDiagram({
         {`Effective R-${(effectiveRSI * 5.678).toFixed(1)} (imperial) · nominal RSI ${nominalRSI.toFixed(2)} · 80% bridging factor applied`}
       </text>
     </svg>
+    </div>
   );
 }
 
@@ -181,6 +206,8 @@ export function ThermalResistanceCalculator() {
     { id: "1", material: "Gypsum Board (12.7mm)", thickness: 12.7, rValue: 0.08 }
   ]);
   const [results, setResults] = useState<any>(null);
+  const [selectedPreset, setSelectedPreset] = useState<WallAssemblyPreset | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // NECB 2020 mode
   const [codeStandard, setCodeStandard] = useState<'NBC9.36' | 'NECB2020'>('NBC9.36');
@@ -485,12 +512,71 @@ export function ThermalResistanceCalculator() {
           </div>
         </div>
 
+        {/* Preset selector */}
+        {(() => {
+          const presets = getPresetsByType(assemblyType);
+          if (presets.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Load Standard Assembly
+              </Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {presets.map(preset => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      const converted: Layer[] = preset.layers.map((pl, idx) => ({
+                        id: String(idx + 1),
+                        material: pl.name,
+                        thickness: pl.thicknessMm,
+                        rValue: pl.rsi,
+                      }));
+                      setLayers(converted);
+                      setSelectedPreset(preset);
+                      setNotesOpen(false);
+                    }}
+                    className={`text-left p-2.5 rounded border text-xs transition-colors ${
+                      selectedPreset?.id === preset.id
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                        : 'border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 mb-1 flex-wrap">
+                      <span className="font-mono font-bold text-xs">{preset.code}</span>
+                      {preset.fireFRR && (
+                        <span className="text-[10px] bg-orange-100 text-orange-700 rounded px-1">{preset.fireFRR.toUpperCase()}</span>
+                      )}
+                      {preset.stcRating && (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 rounded px-1">STC {preset.stcRating}</span>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground leading-tight">{preset.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">Assembly Layers (Inside to Outside)</Label>
-            <Button onClick={addLayer} size="sm" variant="outline" className="h-8">
-              <Plus className="w-3 h-3 mr-1" /> Add Layer
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {selectedPreset && (
+                <Button
+                  size="sm" variant="ghost"
+                  className="h-8 text-xs text-muted-foreground"
+                  onClick={() => { setSelectedPreset(null); setNotesOpen(false); }}
+                >
+                  Clear preset
+                </Button>
+              )}
+              <Button onClick={addLayer} size="sm" variant="outline" className="h-8">
+                <Plus className="w-3 h-3 mr-1" /> Add Layer
+              </Button>
+            </div>
           </div>
 
           {layers.map((layer, index) => (
@@ -544,7 +630,43 @@ export function ThermalResistanceCalculator() {
           climateZone={climateZone}
           assemblyType={assemblyType}
           minimumRequirements={minimumRequirements}
+          selectedPreset={selectedPreset}
         />
+
+        {/* Construction Notes panel (Step 7) */}
+        {selectedPreset && (() => {
+          const notes = getAssemblyNotes(selectedPreset.id);
+          if (!notes) return null;
+          return (
+            <div className="border border-border rounded text-xs">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors"
+                onClick={() => setNotesOpen(o => !o)}
+              >
+                <span className="font-semibold text-sm">Construction Notes — {selectedPreset.code}</span>
+                {notesOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              {notesOpen && (
+                <div className="p-3 space-y-3">
+                  {notes.map(section => (
+                    <div key={section.category}>
+                      <p className="font-semibold text-muted-foreground uppercase tracking-wider text-[10px] mb-1">{section.category}</p>
+                      <ul className="space-y-1">
+                        {section.notes.map((note, i) => (
+                          <li key={i} className="flex gap-2 text-xs leading-snug">
+                            <span className="text-muted-foreground mt-0.5 shrink-0">·</span>
+                            <span>{note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* NECB fenestration + FDWR inputs */}
         {codeStandard === 'NECB2020' && (

@@ -113,6 +113,7 @@ import {
 } from "@/lib/fireAssemblyStyles";
 import { pxToMetres } from "@/lib/scaleUtils";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
+import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 
 // Worker must be assigned after all imports (ES module parse order requirement)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -758,6 +759,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const renameWallMutation = trpc.fireAssembly.renameWall.useMutation();
   const [firePopoverEditName, setFirePopoverEditName] = useState("");
   const [firePopoverIsEditingName, setFirePopoverIsEditingName] = useState(false);
+  const [firePopoverPresetId, setFirePopoverPresetId] = useState<string>("");
   const [pendingPair, setPendingPair] = useState<{ groupA: string; groupB: string; label: string } | null>(null);
 
   // tRPC mutations for persistence
@@ -6564,7 +6566,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <Flame className="w-4 h-4 text-orange-500" />
                             Fire Assembly
                           </span>
-                          <button className="text-muted-foreground hover:text-foreground" onClick={() => { setFireAssemblyPopover(null); setFirePopoverIsEditingName(false); }}>✕</button>
+                          <button className="text-muted-foreground hover:text-foreground" onClick={() => { setFireAssemblyPopover(null); setFirePopoverIsEditingName(false); setFirePopoverPresetId(""); }}>✕</button>
                         </div>
 
                         {/* Wall name + rename */}
@@ -6611,6 +6613,47 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-xs">{stroke.wallCode}</span>
                           {stroke.isStacked && <Badge variant="outline" className="text-xs py-0">Stacked assembly</Badge>}
                         </div>
+
+                        {/* Assembly preset selector */}
+                        {(() => {
+                          const firePresets = getFireRatedPresets();
+                          const selectedFP = firePresets.find(p => p.id === firePopoverPresetId);
+                          return (
+                            <div className="mb-3 space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Select Assembly</p>
+                              <select
+                                className="w-full border border-border rounded px-2 py-1 text-xs bg-background"
+                                value={firePopoverPresetId}
+                                onChange={e => {
+                                  const pid = e.target.value;
+                                  setFirePopoverPresetId(pid);
+                                  if (pid) {
+                                    const preset = firePresets.find(p => p.id === pid);
+                                    if (preset) {
+                                      setFireAssemblyStrokes(prev => prev.map(s =>
+                                        s.id === stroke.id ? { ...s, assemblyLabel: preset.code } : s
+                                      ));
+                                    }
+                                  }
+                                }}
+                              >
+                                <option value="">— choose ULC assembly —</option>
+                                {firePresets.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.code} · {p.fireFRR?.toUpperCase()} · {p.ulcRef ?? ''}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedFP?.ulcRef && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  <span className="font-mono">{selectedFP.ulcRef}</span>
+                                  {selectedFP.stcRating ? ` · STC ${selectedFP.stcRating}` : ""}
+                                  {" — "}{selectedFP.description}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="space-y-1.5 text-xs">
                           <div className="flex justify-between">
