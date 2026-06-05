@@ -11,7 +11,7 @@ import { ArrowLeft, ArrowRight, Loader2, Info } from "lucide-react";
 interface FieldConfig {
   key: string;
   label: string;
-  type: "text" | "number" | "select" | "yesno" | "section";
+  type: "text" | "number" | "select" | "yesno" | "section" | "separator" | "infobox";
   col?: "full" | "half";
   options?: { value: string; label: string }[];
   unit?: string;
@@ -211,7 +211,12 @@ const ELECTRICAL_FIELDS: FieldConfig[] = [
 ];
 
 const PLUMBING_FIELDS: FieldConfig[] = [
-  { key: "_s_suite_plumbing", label: "Suite Plumbing", type: "section" },
+  {
+    key: "_s_suite_plumbing",
+    label: "Suite Fixtures Only",
+    type: "separator",
+    helpText: "Count only fixtures in the new suite",
+  },
   {
     key: "hasBackwaterValve",
     label: "Backwater valve?",
@@ -219,11 +224,11 @@ const PLUMBING_FIELDS: FieldConfig[] = [
     col: "full",
     helpText: "Sewage check valve — required for below-grade plumbing (NBC 7.4.4)",
   },
-  { key: "suiteToilets",  label: "Toilets in suite",           type: "number", min: 0, col: "half", helpText: "Fixtures in the NEW suite only" },
-  { key: "suiteSinks",    label: "Sinks in suite",             type: "number", min: 0, col: "half", helpText: "Fixtures in the NEW suite only" },
-  { key: "suiteShowers",  label: "Showers in suite",           type: "number", min: 0, col: "half" },
-  { key: "suiteBathtubs", label: "Bathtubs in suite",          type: "number", min: 0, col: "half" },
-  { key: "suiteWashers",  label: "Washing machines in suite",  type: "number", min: 0, col: "half" },
+  { key: "suiteToilets",  label: "Toilets in suite",          type: "number", min: 0, col: "half" },
+  { key: "suiteSinks",    label: "Sinks in suite",            type: "number", min: 0, col: "half" },
+  { key: "suiteShowers",  label: "Showers in suite",          type: "number", min: 0, col: "half" },
+  { key: "suiteBathtubs", label: "Bathtubs in suite",         type: "number", min: 0, col: "half" },
+  { key: "suiteWashers",  label: "Washing machines in suite", type: "number", min: 0, col: "half" },
   {
     key: "hasSuiteFloorDrain",
     label: "Floor drain in laundry?",
@@ -231,7 +236,24 @@ const PLUMBING_FIELDS: FieldConfig[] = [
     col: "half",
     showIf: (a) => Number(a.suiteWashers) > 0,
   },
-  { key: "_s_whole_property", label: "Whole Property", type: "section", sectionClassName: "!mt-8 border-t-2 border-border !pt-5" },
+  {
+    key: "_info_property_drain",
+    label: "",
+    type: "infobox",
+    helpText:
+      "Adding a suite increases total fixture units on the main drain. " +
+      "If your existing drain is undersized, it must be upsized before the suite is approved " +
+      "— this can cost $8,000–$15,000 after walls are framed.",
+  },
+  {
+    key: "_s_whole_property",
+    label: "⚠ Whole Property Total",
+    type: "separator",
+    sectionClassName: "amber",
+    helpText:
+      "All fixtures in the entire property — existing + new suite combined. " +
+      "Used to calculate minimum main drain size (NBC 7.2.2.2).",
+  },
   {
     key: "propertyToilets",
     label: "Total toilets (whole property)",
@@ -575,10 +597,12 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
               const isSection = field.type === "section";
               const isHalf = !isSection && field.col === "half";
 
+              const isSpecial = field.type === "separator" || field.type === "infobox";
+
               return (
                 <div
                   key={field.key}
-                  className={isSection || !isHalf ? "col-span-1 sm:col-span-2" : "col-span-1"}
+                  className={isSection || isSpecial || !isHalf ? "col-span-1 sm:col-span-2" : "col-span-1"}
                 >
                   {/* Section header */}
                   {isSection && (
@@ -590,8 +614,38 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                     </div>
                   )}
 
+                  {/* Separator — centered label with flanking lines */}
+                  {field.type === "separator" && (
+                    <div className={`space-y-2 ${field.sectionClassName === "amber" ? "mt-6" : "mt-2"}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`h-px flex-1 ${field.sectionClassName === "amber" ? "bg-amber-300" : "bg-border"}`} />
+                        <span
+                          className={
+                            field.sectionClassName === "amber"
+                              ? "text-xs font-semibold text-amber-700 uppercase tracking-wider px-2 bg-amber-50 rounded-full py-0.5"
+                              : "text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2"
+                          }
+                        >
+                          {field.label}
+                        </span>
+                        <div className={`h-px flex-1 ${field.sectionClassName === "amber" ? "bg-amber-300" : "bg-border"}`} />
+                      </div>
+                      {field.helpText && (
+                        <p className="text-xs text-muted-foreground">{field.helpText}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Infobox — amber warning banner */}
+                  {field.type === "infobox" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex gap-2 mt-4">
+                      <span className="shrink-0">⚠️</span>
+                      <span>{field.helpText}</span>
+                    </div>
+                  )}
+
                   {/* Regular field */}
-                  {!isSection && (
+                  {!isSection && !isSpecial && (
                     <>
                       <Label htmlFor={field.key} className="flex items-center gap-1">
                         {field.label}
