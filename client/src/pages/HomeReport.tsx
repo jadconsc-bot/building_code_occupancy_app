@@ -8,6 +8,7 @@ import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle, XCircle, FileText, Calendar } from "lucide-react";
+import { checkSuitePermission } from "@/lib/secondarySuiteRules";
 
 type Result = "pass" | "conditional" | "fail" | "not_applicable";
 
@@ -120,6 +121,35 @@ export default function HomeReport() {
           </div>
         </div>
       )}
+
+      {data.projectType === 'secondary_suite' && data.municipality && (() => {
+        const perm = checkSuitePermission(data.municipality, (data as any).zoneCode ?? undefined);
+        const colors: Record<typeof perm.allowed, string> = {
+          yes:         'bg-green-50 border-green-200 text-green-800',
+          conditional: 'bg-amber-50 border-amber-200 text-amber-800',
+          no:          'bg-red-50 border-red-200 text-red-800',
+          unknown:     'bg-gray-50 border-gray-200 text-gray-700',
+        };
+        const icons: Record<typeof perm.allowed, string> = { yes: '✅', conditional: '⚠️', no: '🚫', unknown: 'ℹ️' };
+        const labels: Record<typeof perm.allowed, string> = { yes: 'Suite permitted', conditional: 'Conditional approval', no: 'Suite not permitted', unknown: 'Zone eligibility unknown' };
+        return (
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3">Zoning Eligibility</h2>
+            <div className={`rounded-xl border p-4 text-sm ${colors[perm.allowed]}`}>
+              <p className="font-semibold mb-1">{icons[perm.allowed]} {labels[perm.allowed]}</p>
+              <p>{perm.reason}</p>
+              <p className="text-xs mt-1.5 opacity-75">{perm.bylaw}</p>
+              {(data as any).zoneCode && <p className="text-xs mt-1 opacity-75">Zone code entered: {(data as any).zoneCode}</p>}
+              {perm.notes && <p className="text-xs mt-0.5 italic opacity-75">{perm.notes}</p>}
+              {perm.allowed === 'unknown' && (
+                <p className="text-xs mt-2">
+                  Find your zone code on your <strong>property tax assessment notice</strong> or through your municipality's online mapping portal.
+                </p>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {items.length > 0 && (
         <section className="mb-10">

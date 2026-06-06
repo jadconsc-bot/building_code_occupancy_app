@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import { checkSuitePermission, type SuitePermissionResult } from '@/lib/secondarySuiteRules';
+
+const MUNICIPALITY_OPTIONS = [
+  { value: 'calgary',   label: 'Calgary'   },
+  { value: 'edmonton',  label: 'Edmonton'  },
+  { value: 'airdrie',   label: 'Airdrie'   },
+  { value: 'red deer',  label: 'Red Deer'  },
+  { value: 'other',     label: 'Other'     },
+];
 
 const CEILING_OPTIONS = [
   { label: "6'5\" (1956mm)", ft: 6.42, mm: 1956 },
@@ -17,7 +26,26 @@ interface CheckResult {
   note: string;
 }
 
+function PermBadge({ r }: { r: SuitePermissionResult }) {
+  const base = r.allowed === 'yes' ? 'bg-green-50 border-green-200 text-green-800'
+    : r.allowed === 'conditional' ? 'bg-amber-50 border-amber-200 text-amber-800'
+    : r.allowed === 'no' ? 'bg-red-50 border-red-200 text-red-800'
+    : 'bg-gray-50 border-gray-200 text-gray-700';
+  const icon = r.allowed === 'yes' ? '✅' : r.allowed === 'conditional' ? '⚠️' : r.allowed === 'no' ? '🚫' : 'ℹ️';
+  const label = r.allowed === 'yes' ? 'Suite permitted' : r.allowed === 'conditional' ? 'Conditional approval' : r.allowed === 'no' ? 'Suite not permitted' : 'Zone unknown';
+  return (
+    <div className={`rounded-xl border px-4 py-3 text-sm ${base}`}>
+      <p className="font-semibold">{icon} {label}</p>
+      <p className="mt-0.5">{r.reason}</p>
+      <p className="text-xs mt-1 opacity-70">{r.bylaw}</p>
+      {r.notes && <p className="text-xs mt-0.5 italic opacity-70">{r.notes}</p>}
+    </div>
+  );
+}
+
 export function SuiteCheckerTool() {
+  const [municipality, setMunicipality] = useState('');
+  const [zoneCode, setZoneCode] = useState('');
   const [ceilingMm, setCeilingMm] = useState(2134);
   const [hasEgress, setHasEgress] = useState<boolean | null>(null);
   const [egressAreaM2, setEgressAreaM2] = useState('');
@@ -101,8 +129,45 @@ export function SuiteCheckerTool() {
     </div>
   );
 
+  const permResult = municipality && municipality !== 'other'
+    ? checkSuitePermission(municipality, zoneCode || undefined)
+    : null;
+
   return (
     <div className="space-y-5 px-4 py-4 max-w-md mx-auto">
+      {/* Zone permission lookup */}
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-gray-700">Zone check (optional)</p>
+        <div className="grid grid-cols-2 gap-2">
+          {MUNICIPALITY_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setMunicipality(opt.value); setZoneCode(''); }}
+              className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors ${municipality === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-700'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {municipality && municipality !== 'other' && (
+          <input
+            type="text"
+            placeholder="Zone code — e.g. R-1, RF1 (optional)"
+            value={zoneCode}
+            onChange={e => setZoneCode(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm"
+          />
+        )}
+        {permResult && <PermBadge r={permResult} />}
+        {municipality === 'other' && (
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
+            Contact your local planning department to confirm secondary suite eligibility.
+          </p>
+        )}
+      </div>
+
+      <div className="h-px bg-gray-100" />
+
       {/* Ceiling height */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Ceiling height</label>

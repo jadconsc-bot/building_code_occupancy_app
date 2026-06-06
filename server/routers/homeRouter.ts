@@ -425,6 +425,7 @@ export const homeRouter = router({
       }
 
       const complianceResult = report.complianceResultJson as { items: any[] } | null;
+      const formAnswers = report.formAnswersJson as Record<string, unknown> | null;
 
       return {
         email: report.email,
@@ -436,6 +437,7 @@ export const homeRouter = router({
         pdfStorageKey: report.pdfStorageKey,
         reportGeneratedAt: report.reportGeneratedAt,
         downloadExpiresAt: report.downloadExpiresAt,
+        zoneCode: (formAnswers?.zoneCode as string | null) ?? null,
       };
     }),
 

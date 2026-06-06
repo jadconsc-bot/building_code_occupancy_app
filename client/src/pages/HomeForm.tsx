@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, Info } from "lucide-react";
+import { checkSuitePermission, type SuitePermissionResult } from "@/lib/secondarySuiteRules";
 
 interface FieldConfig {
   key: string;
@@ -40,6 +41,14 @@ const PROPERTY_FIELDS: FieldConfig[] = [
     required: true,
   },
   { key: "municipality", label: "Municipality / City", type: "text", col: "half" },
+  {
+    key: "zoneCode",
+    label: "Land use zone code (optional)",
+    type: "text",
+    col: "half",
+    helpText: "From property tax assessment or City portal (e.g. R-1, RF1, R1)",
+    showIf: (a) => !!(a.province === "AB" || a.municipality),
+  },
 ];
 
 const EGRESS_DETAIL_FIELDS: FieldConfig[] = [
@@ -484,6 +493,29 @@ const PROJECT_TYPE_LABELS: Record<string, string> = {
   basement_development: "Basement Development",
 };
 
+function SuitePermissionBadge({ result }: { result: SuitePermissionResult }) {
+  const colors: Record<SuitePermissionResult['allowed'], string> = {
+    yes:         'bg-green-50 border-green-200 text-green-800',
+    conditional: 'bg-amber-50 border-amber-200 text-amber-800',
+    no:          'bg-red-50 border-red-200 text-red-800',
+    unknown:     'bg-gray-50 border-gray-200 text-gray-700',
+  };
+  const icons: Record<SuitePermissionResult['allowed'], string> = {
+    yes: '✅', conditional: '⚠️', no: '🚫', unknown: 'ℹ️',
+  };
+  const labels: Record<SuitePermissionResult['allowed'], string> = {
+    yes: 'Suite permitted', conditional: 'Conditional approval', no: 'Suite not permitted', unknown: 'Zone unknown',
+  };
+  return (
+    <div className={`rounded-xl border p-3 mt-2 mb-4 text-sm ${colors[result.allowed]}`}>
+      <p className="font-semibold mb-0.5">{icons[result.allowed]} {labels[result.allowed]}</p>
+      <p>{result.reason}</p>
+      <p className="text-xs mt-1 opacity-75">{result.bylaw}</p>
+      {result.notes && <p className="text-xs mt-0.5 italic opacity-75">{result.notes}</p>}
+    </div>
+  );
+}
+
 export default function HomeForm({ params }: { params?: { projectType?: string } }) {
   const projectType = params?.projectType ?? "";
   const [, setLocation] = useLocation();
@@ -742,6 +774,15 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
               );
             })}
           </div>
+
+          {projectType === 'secondary_suite' && !!answers.municipality && (
+            <SuitePermissionBadge
+              result={checkSuitePermission(
+                answers.municipality as string,
+                answers.zoneCode as string | undefined,
+              )}
+            />
+          )}
 
           <Button type="submit" className="w-full mt-8" disabled={isLoading}>
             {isLoading
