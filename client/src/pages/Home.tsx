@@ -37,6 +37,7 @@ import { BarrierFreeWashroomDiagram, GrabBarDetailDiagram } from "@/components/B
 import { AllowableOpeningsDiagram, StairErgonomicsDiagram, AccessibilityDiagram } from '@/components/BuildingRequirementsDiagrams';
 import { FloorJoistSpanCalculator } from "@/components/FloorJoistSpanCalculator";
 import { BeamSpanCalculator } from "@/components/BeamSpanCalculator";
+import { WoodFrameSpanCalculator } from "@/components/WoodFrameSpanCalculator";
 import { RoofRafterSpanCalculator } from "@/components/RoofRafterSpanCalculator";
 import { ColumnSpanCalculator } from "@/components/ColumnSpanCalculator";
 import { InteractiveBeamDiagram } from "@/components/InteractiveBeamDiagram";
@@ -2190,6 +2191,11 @@ export default function Home() {
                   {/* Beam Span Calculator */}
                   <section className="mb-8">
                     <BeamSpanCalculator />
+                  </section>
+
+                  {/* NBC 9.23.4.2 Wood Frame Span Calculator */}
+                  <section className="mb-8">
+                    <WoodFrameSpanCalculator />
                   </section>
 
                   {/* Roof Rafter Span Calculator */}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 
 const CITIES = [
   { id: 'calgary',    label: 'Calgary',     portal: 'https://www.calgary.ca/pda/pd/building-permits.html',      timeline: '3–4 weeks' },
@@ -124,6 +125,7 @@ function getScopeQuestions(projectId: string): { key: string; label: string }[] 
 }
 
 export function PermitCheckerTool() {
+  const [, setLocation] = useLocation();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [cityId, setCityId] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -228,8 +230,8 @@ export function PermitCheckerTool() {
             </div>
           )}
 
-          <div className="px-4 py-3 bg-gray-50">
-            <p className="text-xs text-gray-600 mb-3">{result.note}</p>
+          <div className="px-4 py-3 bg-gray-50 space-y-2">
+            <p className="text-xs text-gray-600 mb-1">{result.note}</p>
             {city && (
               <a
                 href={city.portal}
@@ -239,6 +241,14 @@ export function PermitCheckerTool() {
               >
                 Open {city.label} Permits Portal →
               </a>
+            )}
+            {(projectId === 'deck' || projectId === 'addition') && (
+              <button
+                onClick={() => setLocation('/compliance?tab=structural')}
+                className="block w-full text-center border border-[#1B3A6B] text-[#1B3A6B] py-2.5 rounded-xl text-sm font-medium bg-white"
+              >
+                Check joist / rafter sizes (NBC 9.23.4.2) →
+              </button>
             )}
           </div>
         </div>

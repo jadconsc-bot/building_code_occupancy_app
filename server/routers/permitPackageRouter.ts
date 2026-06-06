@@ -282,6 +282,7 @@ export const permitPackageRouter = router({
       const calcPlumbing      = getCalc("plumbingFixture");
       const calcSnowLoad      = getCalc("snowLoad");
       const calcBeamSpan      = getCalc("beamSpan");
+      const calcWoodFrameSpan = getCalc("woodFrameSpan");
       const calcThermal       = getCalc("thermalResistance");
       const calcNECB          = getCalc("necbEnvelope");
       const calcSpatial       = getCalc("spatialSeparation");
@@ -1141,6 +1142,53 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
+      y = addSectionHeader(doc, "Wood Frame Span — NBC 9.23.4.2", y, W, M);
+      if (calcWoodFrameSpan) {
+        const wfs = calcWoodFrameSpan as any;
+        const memberLabel =
+          wfs.tableType === 'floorJoist'   ? 'Floor Joist' :
+          wfs.tableType === 'ceilingJoist' ? 'Ceiling Joist' :
+          wfs.tableType === 'roofRafter'   ? 'Roof Rafter' : 'Beam';
+        const body: [string, string][] = [
+          ['Member type',          memberLabel],
+          ['Size',                 wfs.size ? String(wfs.size) : '—'],
+          ['Species',              wfs.species ? String(wfs.species) : '—'],
+        ];
+        if (wfs.spacingMm && Number(wfs.spacingMm) > 0) {
+          body.push(['Spacing', `${wfs.spacingMm} mm o.c.`]);
+        }
+        if (wfs.supportedLengthM) body.push(['Supported length', `${Number(wfs.supportedLengthM).toFixed(2)} m`]);
+        if (wfs.snowLoadKPa)      body.push(['Roof snow load',   `${Number(wfs.snowLoadKPa).toFixed(2)} kPa`]);
+        body.push(
+          ['Required span',        `${Number(wfs.requiredSpanM).toFixed(2)} m`],
+          ['Max allowable (NBC)',  `${Number(wfs.maxAllowableSpanM).toFixed(2)} m`],
+          ['Margin',               `${Number(wfs.marginM) >= 0 ? '+' : ''}${Number(wfs.marginM).toFixed(2)} m`],
+          ['Status',               wfs.isCompliant ? 'PASS' : 'FAIL'],
+          ['NBC Reference',        String(wfs.nbcRef ?? 'NBC 9.23.4.2')],
+        );
+        autoTable(doc, {
+          startY: y,
+          head: [['Parameter', 'Value']],
+          body,
+          theme: 'grid',
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: 'bold' }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+          didParseCell(data: any) {
+            if (data.section === 'body' && data.row.index === body.length - 3) {
+              data.cell.styles.textColor = wfs.isCompliant ? [22, 163, 74] : [220, 38, 38];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text('No wood frame span calculation saved for this project.', M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
       y = addSectionHeader(doc, "Thermal Performance — NBC 9.36", y, W, M);
       if (calcThermal) {
         autoTable(doc, {
@@ -1356,6 +1404,27 @@ export const permitPackageRouter = router({
         if (prov > 0 && req > 0) {
           const { m, status } = pdfMargin(prov, req);
           compRows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${prov}kPa`, required: `${req}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        }
+      }
+      const wfsD = getCalc("woodFrameSpan");
+      if (wfsD) {
+        const maxAllowable = Number(wfsD.maxAllowableSpanM ?? 0);
+        const required     = Number(wfsD.requiredSpanM ?? 0);
+        if (maxAllowable > 0 && required > 0) {
+          const { m, status } = pdfMargin(maxAllowable, required);
+          const memberLabel =
+            wfsD.tableType === 'floorJoist'   ? 'Floor Joist Span' :
+            wfsD.tableType === 'ceilingJoist' ? 'Ceiling Joist Span' :
+            wfsD.tableType === 'roofRafter'   ? 'Roof Rafter Span' : 'Beam Span';
+          compRows.push({
+            category: "Structural",
+            label: memberLabel,
+            provided: `${maxAllowable.toFixed(2)}m max`,
+            required: `${required.toFixed(2)}m required`,
+            margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}m`,
+            status,
+            nbcRef: String(wfsD.nbcRef ?? "NBC 9.23.4.2"),
+          });
         }
       }
       const sdD = getCalc("stairDesign");
@@ -1746,6 +1815,7 @@ export const permitPackageRouter = router({
           plumbingFixture:   hasCalc('plumbingFixture'),
           snowLoad:          hasCalc('snowLoad'),
           beamSpan:          hasCalc('beamSpan'),
+          woodFrameSpan:     hasCalc('woodFrameSpan'),
           thermalResistance: hasCalc('thermalResistance'),
           necbEnvelope:      hasCalc('necbEnvelope'),
           spatialSeparation: hasCalc('spatialSeparation'),
