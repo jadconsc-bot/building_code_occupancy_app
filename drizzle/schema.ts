@@ -1,4 +1,4 @@
-import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint, float } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1304,7 +1304,7 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   roomLabel: varchar("roomLabel", { length: 255 }),
   boundingBoxJson: text("boundingBoxJson").notNull(),    // { x, y, width, height }
   polygonJson: json("polygonJson"),                      // Array of {x,y} vertices in full-image px
-  polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual"]),
+  polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual", "dda_ray_cast"]),
   polygonExtractedAt: timestamp("polygonExtractedAt"),
   polygonToBboxRatio: decimal("polygonToBboxRatio", { precision: 5, scale: 3 }),
   polygonLeakSuspected: tinyint("polygonLeakSuspected").default(0),
@@ -1318,6 +1318,12 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   flagsJson: text("flagsJson"),                          // JSON string[]
   flaggedForReview: tinyint("flaggedForReview").default(0).notNull(),
   manualOverride: tinyint("manualOverride").default(0).notNull(),
+
+  // Phase C — DDA ray cast
+  seedX: float("seedX"),
+  seedY: float("seedY"),
+  doorBarriersJson: json("doorBarriersJson"),            // Array<{x1,y1,x2,y2}>
+  detectionMethod: mysqlEnum("detectionMethod", ["flood_fill", "dda_ray_cast", "manual", "fallback_bbox"]).default("flood_fill").notNull(),
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

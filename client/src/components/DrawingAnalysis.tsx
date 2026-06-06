@@ -114,6 +114,7 @@ import {
 import { pxToMetres } from "@/lib/scaleUtils";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
+// ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -366,7 +367,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
   
   // State for annotation tools
-  const [activeTool, setActiveTool] = useState<"select" | "dimension" | "label" | "area" | "pan" | "fire_assembly">("select");
+  const [activeTool, setActiveTool] = useState<"select" | "dimension" | "label" | "area" | "pan" | "fire_assembly" | "door_barrier" | "select_room">("select");
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -480,6 +481,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [calibrationLine, setCalibrationLine] = useState<{ start: Point; end: Point } | null>(null);
   const [referenceValue, setReferenceValue] = useState<string>(""); // User-editable reference measurement
   const [isEditingReference, setIsEditingReference] = useState(false);
+
+  // Phase C — door barriers + DDA polygon state
+  const [doorBarriers, setDoorBarriers] = useState<Array<{ x1: number; y1: number; x2: number; y2: number }>>([]);
+  const barrierStartRef = useRef<Point | null>(null);
+  const [detectedPolygons, setDetectedPolygons] = useState<Map<string, Point[]>>(new Map());
+  const [draggingPolyVertex, setDraggingPolyVertex] = useState<{ key: string; idx: number } | null>(null);
+  const [isRayCasting, setIsRayCasting] = useState(false);
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
@@ -2148,6 +2156,84 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     // ===== END POLYGON EDIT MODE LAYER =====
 
+    // ===== PHASE C: DOOR BARRIERS =====
+    if (doorBarriers.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 3]);
+      for (const b of doorBarriers) {
+        ctx.beginPath();
+        ctx.moveTo(b.x1 * zoom + pan.x, b.y1 * zoom + pan.y);
+        ctx.lineTo(b.x2 * zoom + pan.x, b.y2 * zoom + pan.y);
+        ctx.stroke();
+        // Small arc at midpoint as door symbol
+        const mx = ((b.x1 + b.x2) / 2) * zoom + pan.x;
+        const my = ((b.y1 + b.y2) / 2) * zoom + pan.y;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(mx, my, 5, 0, Math.PI);
+        ctx.stroke();
+        ctx.setLineDash([6, 3]);
+        ctx.strokeStyle = '#1a1a1a';
+      }
+      ctx.restore();
+    }
+    // Pending barrier start indicator
+    if (activeTool === 'door_barrier' && barrierStartRef.current) {
+      const s = barrierStartRef.current;
+      ctx.save();
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(s.x * zoom + pan.x, s.y * zoom + pan.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    // ===== END PHASE C: DOOR BARRIERS =====
+
+    // ===== PHASE C: DDA DETECTED POLYGONS =====
+    if (detectedPolygons.size > 0) {
+      ctx.save();
+      for (const [key, pts] of detectedPolygons.entries()) {
+        if (pts.length < 3) continue;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(59,130,246,0.15)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(59,130,246,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Vertex handles
+        const HANDLE_RADIUS = 4;
+        for (let i = 0; i < pts.length; i++) {
+          ctx.beginPath();
+          ctx.arc(pts[i].x, pts[i].y, HANDLE_RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = draggingPolyVertex?.key === key && draggingPolyVertex?.idx === i
+            ? 'rgba(59,130,246,1)'
+            : 'rgba(255,255,255,0.9)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(59,130,246,0.9)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        // Area label at centroid
+        if (pts.length > 0) {
+          const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+          const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+          const areaPx2 = calculatePolygonArea(pts);
+          ctx.fillStyle = 'rgba(59,130,246,0.9)';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${areaPx2.toFixed(0)} px²`, cx, cy);
+        }
+      }
+      ctx.restore();
+    }
+    // ===== END PHASE C: DDA DETECTED POLYGONS =====
+
     // ===== TRAVEL DISTANCE OVERLAY LAYER =====
     if (showTravelDistanceOverlay && travelDistanceResults.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
@@ -2508,7 +2594,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3421,6 +3507,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
+    // Phase C — check for DDA polygon vertex hit (drag to refine)
+    if (detectedPolygons.size > 0) {
+      const HIT_RADIUS = 8 / zoom;
+      for (const [key, pts] of detectedPolygons.entries()) {
+        for (let i = 0; i < pts.length; i++) {
+          const dx = pts[i].x - x;
+          const dy = pts[i].y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) {
+            setDraggingPolyVertex({ key, idx: i });
+            return;
+          }
+        }
+      }
+    }
+
     // Handle drawing mode - use refs to avoid re-renders during drawing
     if (isDrawMode && drawingTool !== "eraser") {
       isDrawingRef.current = true;
@@ -3529,6 +3630,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       } else {
         setActiveFireStrokePoints(prev => [...prev, { x, y }]);
       }
+    } else if (activeTool === "door_barrier") {
+      // First click sets start; second click completes the barrier segment
+      if (!barrierStartRef.current) {
+        barrierStartRef.current = { x, y };
+      } else {
+        const start = barrierStartRef.current;
+        setDoorBarriers(prev => [...prev, { x1: start.x, y1: start.y, x2: x, y2: y }]);
+        barrierStartRef.current = null;
+      }
+    } else if (activeTool === "select_room") {
+      handleSelectRoomClick(x, y);
     }
   };
 
@@ -3539,6 +3651,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Phase C — live DDA polygon vertex drag
+    if (draggingPolyVertex) {
+      const { key, idx } = draggingPolyVertex;
+      setDetectedPolygons(prev => {
+        const next = new Map(prev);
+        const pts = next.get(key);
+        if (!pts) return prev;
+        const updated = [...pts];
+        updated[idx] = { x, y };
+        next.set(key, updated);
+        return next;
+      });
+      return;
+    }
 
     // Polygon vertex editor: live vertex drag + cursor
     if (polygonEditMode) {
@@ -3783,6 +3910,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   };
 
+  // Phase C — composite canvas + door barriers → run DDA ray cast → store polygon
+  const handleSelectRoomClick = async (canvasX: number, canvasY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imageRef.current || isRayCasting) return;
+    setIsRayCasting(true);
+    try {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d')!;
+      tempCtx.drawImage(canvas, 0, 0);
+
+      // Composite door barriers as solid black lines
+      tempCtx.strokeStyle = '#1a1a1a';
+      tempCtx.lineWidth = 3;
+      for (const b of doorBarriers) {
+        tempCtx.beginPath();
+        tempCtx.moveTo(b.x1 * zoom + pan.x, b.y1 * zoom + pan.y);
+        tempCtx.lineTo(b.x2 * zoom + pan.x, b.y2 * zoom + pan.y);
+        tempCtx.stroke();
+      }
+
+      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const seedX = Math.round(canvasX * zoom + pan.x);
+      const seedY = Math.round(canvasY * zoom + pan.y);
+      const result = ddaRayCast(imageData, seedX, seedY, 360, 25, 80);
+      const key = `${Math.round(canvasX)},${Math.round(canvasY)}`;
+      setDetectedPolygons(prev => new Map(prev).set(key, result.vertices));
+    } catch (err) {
+      console.error('[Phase C] Ray cast failed:', err);
+    } finally {
+      setIsRayCasting(false);
+    }
+  };
+
   const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -3794,6 +3956,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Polygon vertex editor: release vertex drag
     if (polygonEditMode && draggingVertexIdx !== null) {
       setDraggingVertexIdx(null);
+      return;
+    }
+
+    // Phase C — release DDA polygon vertex drag
+    if (draggingPolyVertex) {
+      setDraggingPolyVertex(null);
       return;
     }
 
@@ -4670,23 +4838,54 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   }, []); // stable: only refs + stable React state setters
 
-  // Load image when drawing changes
+  // Load image when drawing changes.
+  // https:// URLs are fetched and converted to blob URLs so getImageData()
+  // never throws a SecurityError (tainted canvas) on cross-origin images.
   useEffect(() => {
+    let blobUrl: string | null = null;
+    let cancelled = false;
+
     if (drawingImage) {
       setImageLoaded(false);
-      const img = new Image();
-      img.onload = () => {
-        imageRef.current = img;
-        imageJustLoadedRef.current = true;
-        fitCanvasToContainer();
-        // Mark image as loaded to trigger redraw
-        setImageLoaded(true);
+
+      const loadImg = (src: string) => {
+        if (cancelled) return;
+        const img = new Image();
+        img.onload = () => {
+          if (cancelled) { if (blobUrl) URL.revokeObjectURL(blobUrl); return; }
+          imageRef.current = img;
+          imageJustLoadedRef.current = true;
+          fitCanvasToContainer();
+          setImageLoaded(true);
+        };
+        img.onerror = () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+        img.src = src;
       };
-      img.src = drawingImage;
+
+      if (drawingImage.startsWith('https://') || drawingImage.startsWith('http://')) {
+        fetch(drawingImage)
+          .then(res => res.blob())
+          .then(blob => {
+            if (cancelled) return;
+            blobUrl = URL.createObjectURL(blob);
+            loadImg(blobUrl);
+          })
+          .catch(() => {
+            // Fallback: direct src (will taint canvas but avoids blank image)
+            if (!cancelled) loadImg(drawingImage);
+          });
+      } else {
+        loadImg(drawingImage);
+      }
     } else {
       setImageLoaded(false);
       imageRef.current = null;
     }
+
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [drawingImage, fitCanvasToContainer]);
 
   // Redraw canvas when image is loaded
@@ -5123,6 +5322,54 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   {activeTool === "fire_assembly" && isDrawingFireAssembly && (
                     <Button size="sm" variant="outline" className="text-xs h-8 px-2" onClick={finishFireAssemblyStroke}>
                       Finish
+                    </Button>
+                  )}
+                </div>
+
+                {/* Phase C — Door Barrier + Detect Room */}
+                <div className="flex items-center gap-1 border-r border-border pr-2">
+                  <Button
+                    variant={activeTool === "door_barrier" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => {
+                      setActiveTool(activeTool === "door_barrier" ? "select" : "door_barrier");
+                      barrierStartRef.current = null;
+                    }}
+                    title="Draw door barriers across openings before detecting rooms. Click to set start, click again to set end."
+                    className={activeTool === "door_barrier" ? "bg-[#1B3A6B] hover:bg-[#15305a] text-white" : ""}
+                  >
+                    <PenLine className="w-4 h-4" />
+                  </Button>
+                  {doorBarriers.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setDoorBarriers([]); barrierStartRef.current = null; }}
+                      title="Clear all door barriers"
+                      className="text-xs text-red-500 hover:text-red-700 px-1.5"
+                    >
+                      ×
+                    </Button>
+                  )}
+                  <Button
+                    variant={activeTool === "select_room" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setActiveTool(activeTool === "select_room" ? "select" : "select_room")}
+                    title="Click inside a room to detect its boundary using DDA ray casting."
+                    className={activeTool === "select_room" ? "bg-[#0696D7] hover:bg-[#057ab8] text-white" : ""}
+                    disabled={isRayCasting}
+                  >
+                    {isRayCasting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                  </Button>
+                  {detectedPolygons.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDetectedPolygons(new Map())}
+                      title="Clear all detected room polygons"
+                      className="text-xs text-red-500 hover:text-red-700 px-1.5"
+                    >
+                      ×
                     </Button>
                   )}
                 </div>
