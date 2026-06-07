@@ -112,6 +112,7 @@ import {
   type WallTagCompliance,
 } from "@/lib/fireAssemblyStyles";
 import { pxToMetres } from "@/lib/scaleUtils";
+import { calculateRoomCompliance, getOverlayColor, type RoomComplianceResult } from "@/lib/roomComplianceCalculator";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
@@ -488,6 +489,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [detectedPolygons, setDetectedPolygons] = useState<Map<string, Point[]>>(new Map());
   const [draggingPolyVertex, setDraggingPolyVertex] = useState<{ key: string; idx: number } | null>(null);
   const [isRayCasting, setIsRayCasting] = useState(false);
+  const [ddaRoomCompliance, setDdaRoomCompliance] = useState<Map<string, RoomComplianceResult>>(new Map());
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
@@ -908,6 +910,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const travelSprinklered = travelDistanceData?.sprinklered ?? false;
 
   const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
+  const saveRoomPolygonMutation = trpc.drawingAnalysis.saveRoomPolygon.useMutation();
+  const { data: savedDdaPolygons } = trpc.drawingAnalysis.getRoomPolygons.useQuery(
+    { drawingPageId: currentPageId ?? 0 },
+    { enabled: !!currentPageId },
+  );
   const saveCorrectionMutation = trpc.correction.saveCorrection.useMutation({
     onSuccess: () => toast.success('Correction saved and added to training pool.'),
     onError: () => toast.error('Failed to save correction.'),
@@ -951,6 +958,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       });
     }
   }, [roomComplianceResults]);
+
+  // Phase C — restore saved DDA polygons from DB when page loads
+  useEffect(() => {
+    if (!savedDdaPolygons || savedDdaPolygons.length === 0) return;
+    const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
+    setDetectedPolygons(prev => {
+      const next = new Map(prev);
+      for (const r of savedDdaPolygons) {
+        if (!r.polygon || r.polygon.length < 3) continue;
+        const key = `${r.seedX},${r.seedY}`;
+        if (!next.has(key)) next.set(key, r.polygon);
+      }
+      return next;
+    });
+    setDdaRoomCompliance(prev => {
+      const next = new Map(prev);
+      for (const r of savedDdaPolygons) {
+        if (!r.polygon || r.polygon.length < 3) continue;
+        const key = `${r.seedX},${r.seedY}`;
+        if (!next.has(key)) {
+          next.set(key, calculateRoomCompliance(key, r.roomLabel, r.polygon, pixelsPerM));
+        }
+      }
+      return next;
+    });
+  }, [savedDdaPolygons]);
 
   // Reset poll counter and clear stale overlay when a new analysis begins
   useEffect(() => {
@@ -2195,40 +2228,52 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // ===== PHASE C: DDA DETECTED POLYGONS =====
     if (detectedPolygons.size > 0) {
       ctx.save();
+      const HANDLE_RADIUS = 4;
       for (const [key, pts] of detectedPolygons.entries()) {
         if (pts.length < 3) continue;
+        // Image-coord vertices → screen coords for rendering
+        const compliance = ddaRoomCompliance.get(key);
+        const hexColor = compliance?.fillColor ?? '#3b82f6';
+
         ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.moveTo(pts[0].x * zoom + pan.x, pts[0].y * zoom + pan.y);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x * zoom + pan.x, pts[i].y * zoom + pan.y);
+        }
         ctx.closePath();
-        ctx.fillStyle = 'rgba(59,130,246,0.15)';
+        ctx.fillStyle = hexColor + '26'; // ~15% opacity
         ctx.fill();
-        ctx.strokeStyle = 'rgba(59,130,246,0.8)';
+        ctx.strokeStyle = hexColor + 'cc'; // ~80% opacity
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        // Vertex handles
-        const HANDLE_RADIUS = 4;
-        for (let i = 0; i < pts.length; i++) {
+
+        // Vertex handles (every 10th point to keep count manageable)
+        for (let i = 0; i < pts.length; i += 10) {
+          const sx = pts[i].x * zoom + pan.x;
+          const sy = pts[i].y * zoom + pan.y;
           ctx.beginPath();
-          ctx.arc(pts[i].x, pts[i].y, HANDLE_RADIUS, 0, Math.PI * 2);
+          ctx.arc(sx, sy, HANDLE_RADIUS, 0, Math.PI * 2);
           ctx.fillStyle = draggingPolyVertex?.key === key && draggingPolyVertex?.idx === i
-            ? 'rgba(59,130,246,1)'
+            ? hexColor
             : 'rgba(255,255,255,0.9)';
           ctx.fill();
-          ctx.strokeStyle = 'rgba(59,130,246,0.9)';
+          ctx.strokeStyle = hexColor + 'cc';
           ctx.lineWidth = 1.5;
           ctx.stroke();
         }
+
         // Area label at centroid
-        if (pts.length > 0) {
-          const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-          const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-          const areaPx2 = calculatePolygonArea(pts);
-          ctx.fillStyle = 'rgba(59,130,246,0.9)';
-          ctx.font = 'bold 11px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(`${areaPx2.toFixed(0)} px²`, cx, cy);
-        }
+        const imgCx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const imgCy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const cx = imgCx * zoom + pan.x;
+        const cy = imgCy * zoom + pan.y;
+        const areaLabel = compliance && compliance.areaM2 > 0
+          ? `${compliance.areaM2.toFixed(1)} m²`
+          : `${calculatePolygonArea(pts).toFixed(0)} px²`;
+        ctx.fillStyle = hexColor + 'ee';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(areaLabel, cx, cy);
       }
       ctx.restore();
     }
@@ -2594,7 +2639,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex, ddaRoomCompliance]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3910,7 +3955,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   };
 
-  // Phase C — composite canvas + door barriers → run DDA ray cast → store polygon
+  // Phase C — composite canvas + door barriers → run DDA ray cast → store polygon in image coords
   const handleSelectRoomClick = async (canvasX: number, canvasY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !imageRef.current || isRayCasting) return;
@@ -3932,12 +3977,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         tempCtx.stroke();
       }
 
+      // Capture current zoom/pan so we can reverse the transform on vertices
+      const curZoom = zoom;
+      const curPan = { x: pan.x, y: pan.y };
+
       const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-      const seedX = Math.round(canvasX * zoom + pan.x);
-      const seedY = Math.round(canvasY * zoom + pan.y);
+      const seedX = Math.round(canvasX * curZoom + curPan.x);
+      const seedY = Math.round(canvasY * curZoom + curPan.y);
       const result = ddaRayCast(imageData, seedX, seedY, 360, 25, 80);
+
+      // Convert vertices from screen coords back to image coords for storage
+      const imageVerts = result.vertices.map(v => ({
+        x: (v.x - curPan.x) / curZoom,
+        y: (v.y - curPan.y) / curZoom,
+      }));
+
       const key = `${Math.round(canvasX)},${Math.round(canvasY)}`;
-      setDetectedPolygons(prev => new Map(prev).set(key, result.vertices));
+      setDetectedPolygons(prev => new Map(prev).set(key, imageVerts));
+
+      // Phase C Step 4 — calculate per-room compliance
+      const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
+      const compliance = calculateRoomCompliance(key, 'Room', imageVerts, pixelsPerM);
+      setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
+
+      // Phase C Step 5 — persist to DB (fire-and-forget)
+      if (currentPageId) {
+        saveRoomPolygonMutation.mutate({
+          drawingPageId: currentPageId,
+          roomLabel: 'Room',
+          polygonPoints: imageVerts,
+          areaM2: compliance.areaM2 > 0 ? compliance.areaM2 : undefined,
+          seedX: canvasX,
+          seedY: canvasY,
+          doorBarriers: doorBarriers.length > 0 ? doorBarriers : undefined,
+        });
+      }
     } catch (err) {
       console.error('[Phase C] Ray cast failed:', err);
     } finally {
@@ -3959,9 +4033,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
-    // Phase C — release DDA polygon vertex drag
+    // Phase C — release DDA polygon vertex drag; recalculate compliance for refined polygon
     if (draggingPolyVertex) {
+      const { key } = draggingPolyVertex;
       setDraggingPolyVertex(null);
+      const refinedPts = detectedPolygons.get(key);
+      if (refinedPts && refinedPts.length > 2) {
+        const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
+        const compliance = calculateRoomCompliance(key, 'Room', refinedPts, pixelsPerM);
+        setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
+      }
       return;
     }
 

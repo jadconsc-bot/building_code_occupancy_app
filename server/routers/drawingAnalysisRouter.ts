@@ -1277,4 +1277,107 @@ export const drawingAnalysisRouter = router({
 
       return { region: null, inheritedFrom: null };
     }),
+
+  /**
+   * Phase C — save a DDA ray-cast polygon for a room.
+   * Ownership: drawingPageId → drawingAnalyses.userId must equal ctx.user.id
+   */
+  saveRoomPolygon: protectedProcedure
+    .input(z.object({
+      drawingPageId: z.number().int().positive(),
+      roomLabel: z.string().max(100),
+      polygonPoints: z.array(z.object({ x: z.number(), y: z.number() })).max(720),
+      areaM2: z.number().optional(),
+      seedX: z.number(),
+      seedY: z.number(),
+      doorBarriers: z.array(z.object({
+        x1: z.number(), y1: z.number(),
+        x2: z.number(), y2: z.number(),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.drawingPageId));
+      if (!page) throw new TRPCError({ code: 'NOT_FOUND', message: 'Page not found' });
+
+      const [analysisRow] = await db
+        .select({ id: drawingAnalyses.id, projectId: drawingAnalyses.projectId })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+      if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+
+      // Derive bounding box from polygon points for the notNull column
+      const xs = input.polygonPoints.map(p => p.x);
+      const ys = input.polygonPoints.map(p => p.y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const bbox = JSON.stringify({
+        x: minX,
+        y: minY,
+        width: Math.max(...xs) - minX,
+        height: Math.max(...ys) - minY,
+      });
+
+      const result = await db.insert(detectedRooms).values({
+        pageId: input.drawingPageId,
+        projectId: analysisRow.projectId ?? 0,
+        roomLabel: input.roomLabel,
+        boundingBoxJson: bbox,
+        polygonJson: input.polygonPoints,
+        polygonSource: 'dda_ray_cast',
+        polygonExtractedAt: new Date(),
+        areaSqm: input.areaM2 != null ? String(input.areaM2) : null,
+        seedX: input.seedX,
+        seedY: input.seedY,
+        doorBarriersJson: input.doorBarriers ?? null,
+        detectionMethod: 'dda_ray_cast',
+        confidence: '1.000',
+      } as any);
+
+      return { roomId: result[0].insertId };
+    }),
+
+  /**
+   * Phase C — load all DDA ray-cast polygons for a page (persisted across sessions).
+   */
+  getRoomPolygons: protectedProcedure
+    .input(z.object({ drawingPageId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.drawingPageId));
+      if (!page) throw new TRPCError({ code: 'NOT_FOUND', message: 'Page not found' });
+
+      const [analysisRow] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+      if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+
+      const rooms = await db
+        .select()
+        .from(detectedRooms)
+        .where(and(
+          eq(detectedRooms.pageId, input.drawingPageId),
+          eq(detectedRooms.detectionMethod, 'dda_ray_cast'),
+        ));
+
+      return rooms.map(r => ({
+        id: r.id,
+        roomLabel: r.roomLabel ?? 'Room',
+        polygon: (safeJsonParse(r.polygonJson) as Array<{ x: number; y: number }> | null) ?? [],
+        seedX: r.seedX ?? 0,
+        seedY: r.seedY ?? 0,
+        areaM2: r.areaSqm ? parseFloat(r.areaSqm as unknown as string) : null,
+      }));
+    }),
 });
