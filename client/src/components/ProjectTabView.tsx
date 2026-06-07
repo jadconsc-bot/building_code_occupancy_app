@@ -63,7 +63,19 @@ function computeCompliance(ct: string, sprinklered: boolean, heightM: number | n
 
 const OCCUPANCY_GROUPS = ["A-1", "A-2", "A-3", "A-4", "B-1", "B-2", "B-3", "C", "D", "E", "F-1", "F-2", "F-3"];
 const CONSTRUCTION_TYPES = ["IA", "IB", "IIA", "IIB", "IIIA", "IIIB", "IVA", "VA", "VB"];
-const CODE_EDITIONS = ["NBC 2020", "NBC 2015", "ABC 2019", "BCBC 2024", "OBC 2012"];
+
+type EditionStatus = 'supported' | 'partial' | 'coming_soon';
+const CODE_EDITIONS: { value: string; label: string; status: EditionStatus }[] = [
+  { value: 'NBC 2020',        label: 'NBC 2020',                             status: 'supported'    },
+  { value: 'NBC(AE) 2023-12', label: 'NBC(AE) 2023-12 — Alberta (Partial)', status: 'partial'      },
+  { value: 'BCBC 2024',       label: 'BCBC 2024 — BC (Partial)',             status: 'partial'      },
+  { value: 'NBC 2025',        label: 'NBC 2025 — Coming Soon',               status: 'coming_soon'  },
+];
+
+const PARTIAL_BANNER: Record<string, string> = {
+  'NBC(AE) 2023-12': 'NBC(AE) 2023-12 analysis uses NBC 2020 as the base. Alberta-specific overrides are partially implemented. Verify results against the Alberta Building Code.',
+  'BCBC 2024':       'BCBC 2024 analysis uses NBC 2020 as the base. BC-specific overrides are partially implemented. Verify results against the BC Building Code.',
+};
 
 function ResultPill({ result }: { result: "pass" | "fail" | "unknown" }) {
   if (result === "pass") return <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700"><CheckCircle className="w-3 h-3" />PASS</span>;
@@ -189,9 +201,24 @@ function CodeStrategyTab({ projectId, userId, userRole }: { projectId: number; u
           <Select value={codeEdition} onValueChange={setCodeEdition}>
             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {CODE_EDITIONS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+              {CODE_EDITIONS.map((e) => (
+                <SelectItem
+                  key={e.value}
+                  value={e.value}
+                  disabled={e.status === 'coming_soon'}
+                  title={e.status === 'partial' ? 'Rules partially implemented. Results reflect NBC 2020 base with limited provincial overrides.' : undefined}
+                  className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50' : ''}
+                >
+                  {e.status === 'partial' ? `⚠ ${e.label}` : e.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          {PARTIAL_BANNER[codeEdition] && (
+            <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              ⚠ {PARTIAL_BANNER[codeEdition]}
+            </p>
+          )}
         </div>
 
         <div>
@@ -364,7 +391,6 @@ function CodeStrategyTab({ projectId, userId, userRole }: { projectId: number; u
 
 // ── Calculations Tab ──────────────────────────────────────────────────────────
 const PROVINCES = ["AB", "BC", "ON", "QC", "MB", "SK", "NS", "NB", "NL", "PE", "NT", "NU", "YT"];
-const CALC_CODE_EDITIONS = ["NBC 2020", "NBC 2015", "ABC 2019", "BCBC 2024", "OBC 2012"];
 
 const OCCUPANT_LOAD_FACTORS: Record<string, number> = {
   "A-1": 0.67, "A-2": 1.0, "A-3": 0.5, "A-4": 0.67,
@@ -450,8 +476,25 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
             <Label className="text-xs">Code Edition</Label>
             <Select value={codeEdition} onValueChange={setCodeEdition}>
               <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>{CALC_CODE_EDITIONS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {CODE_EDITIONS.map((e) => (
+                  <SelectItem
+                    key={e.value}
+                    value={e.value}
+                    disabled={e.status === 'coming_soon'}
+                    title={e.status === 'partial' ? 'Rules partially implemented. Results reflect NBC 2020 base with limited provincial overrides.' : undefined}
+                    className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50' : ''}
+                  >
+                    {e.status === 'partial' ? `⚠ ${e.label}` : e.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
+            {PARTIAL_BANNER[codeEdition] && (
+              <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                ⚠ {PARTIAL_BANNER[codeEdition]}
+              </p>
+            )}
           </div>
           <div className="flex items-end gap-2">
             <label className="flex items-center gap-2 cursor-pointer">
