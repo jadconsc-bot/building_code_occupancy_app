@@ -90,6 +90,20 @@ const ZONE_RULES: Record<MunicipalityKey, Record<string, SuitePermissionResult>>
   'red-deer': RED_DEER_ZONES,
 };
 
+// ─── Province-aware ceiling thresholds (NBC(AE) 2023 s.9.5.3.1) ─────────────
+
+export type SuiteProvince = 'AB' | 'BC' | 'ON' | string;
+
+// NBC(AE) 2023 s.9.5.3.1(2): AB secondary suite min ceiling = 1.95m; all others = 2.10m
+export function getMinSuiteCeilingHeight(province: SuiteProvince): number {
+  return province === 'AB' ? 1.95 : 2.10;
+}
+
+// NBC(AE) 2023 s.9.5.3.1(3): AB secondary suite beam/duct clearance = 1.85m; all others = 2.00m
+export function getMinSuiteBeamClearance(province: SuiteProvince): number {
+  return province === 'AB' ? 1.85 : 2.00;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function checkSuitePermission(municipality: string, zoneCode?: string): SuitePermissionResult {

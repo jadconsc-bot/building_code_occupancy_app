@@ -5,7 +5,7 @@
  * Plain-language output: PASS / CONDITIONAL / FAIL with "What to do" guidance.
  *
  * Provincial codes applied:
- *   AB → Alberta Building Code 2019 (ABC 2019)
+ *   AB → National Building Code – 2023 Alberta Edition (NBC(AE) 2023)
  *   BC → BC Building Code 2024 (BCBC 2024)
  *   ON → Ontario Building Code 2012 (OBC 2012)
  *
@@ -36,7 +36,11 @@ export interface ComplianceReport {
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function codeEditionLabel(province: Province): string {
-  return { AB: "Alberta Building Code 2019", BC: "BC Building Code 2024", ON: "Ontario Building Code 2012" }[province];
+  return {
+    AB: "National Building Code – 2023 Alberta Edition (NBC(AE) 2023)",
+    BC: "BC Building Code 2024",
+    ON: "Ontario Building Code 2012",
+  }[province];
 }
 
 function ftToM(ft: number): number {
@@ -117,7 +121,7 @@ function checkSecondarySuite(a: SecondarySuiteAnswers): ComplianceReport {
       "ceiling_height",
       "Ceiling Height",
       `Your ${a.ceilingHeightFt}ft ceiling (${ceilingM.toFixed(2)}m) meets the minimum ${minCeilingLabel(province)} requirement.`,
-      province === "BC" ? "BCBC 2024 9.7.2.1" : "NBC 9.7.2.1",
+      province === "BC" ? "BCBC 2024 9.7.2.1" : province === "AB" ? "NBC(AE) 2023 s.9.5.3.1(2)" : "NBC 9.7.2.1",
     ));
   } else {
     items.push(fail(
@@ -125,7 +129,7 @@ function checkSecondarySuite(a: SecondarySuiteAnswers): ComplianceReport {
       "Ceiling Height",
       `Your ${a.ceilingHeightFt}ft ceiling (${ceilingM.toFixed(2)}m) is below the minimum ${minCeilingLabel(province)} required in ${province}.`,
       `Raise the ceiling to at least ${minCeilingLabel(province)}. This may require lowering the floor slab or underpinning — consult a structural engineer.`,
-      province === "BC" ? "BCBC 2024 9.7.2.1" : "NBC 9.7.2.1",
+      province === "BC" ? "BCBC 2024 9.7.2.1" : province === "AB" ? "NBC(AE) 2023 s.9.5.3.1(2)" : "NBC 9.7.2.1",
     ));
   }
 
@@ -386,7 +390,7 @@ function checkBasementDevelopment(a: BasementDevelopmentAnswers): ComplianceRepo
       "Ceiling Height",
       `Your ${a.ceilingHeightFt}ft ceiling (${ceilingM.toFixed(2)}m) is below the minimum ${minCeilingLabel(province)}.`,
       "The floor/ceiling assembly will need to be modified. Options include: lowering the basement floor slab (expensive), or removing the existing ceiling finish if height is borderline.",
-      province === "BC" ? "BCBC 2024 9.7.2.1" : "NBC 9.7.2.1",
+      province === "BC" ? "BCBC 2024 9.7.2.1" : province === "AB" ? "NBC(AE) 2023 s.9.5.3.1(2)" : "NBC 9.7.2.1",
     ));
   }
 

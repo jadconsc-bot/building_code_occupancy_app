@@ -150,7 +150,7 @@ export class ComplianceEvaluator {
         jurisdiction: {
           province: inputs.province ?? 'AB',
           municipality: inputs.municipality ?? undefined,
-          codeEdition: 'NBC 2020',
+          codeEdition: inputs.province === 'AB' ? 'NBC(AE) 2023' : inputs.province === 'BC' ? 'BCBC 2024' : 'NBC 2020',
         },
         mode: this.mode,
       },

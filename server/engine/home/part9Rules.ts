@@ -6,7 +6,7 @@
  * No compliance engine mutation, no drawing analysis dependency.
  *
  * Provincial codes:
- *   AB → Alberta Building Code 2019 (ABC 2019)
+ *   AB → National Building Code – 2023 Alberta Edition (NBC(AE) 2023)
  *   BC → BC Building Code 2024 (BCBC 2024)   ceiling: 2.0m
  *   ON → Ontario Building Code 2012 (OBC 2012) ceiling: 1.95m
  *
@@ -140,13 +140,13 @@ const CEILING_HEIGHT_RULES: Part9Rule[] = [
       if (heightM >= MIN) return {
         result: "pass",
         plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) meets the minimum 6ft 5in (1.95m) requirement.`,
-        codeReference: "ABC 2019 Section 9.7.2",
+        codeReference: "NBC(AE) 2023 s.9.5.3.1(2)",
       };
       return {
         result: "fail",
         plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) is below the minimum 6ft 5in (1.95m).`,
         whatToDo: "Increase ceiling height to at least 1.95m (6ft 5in). Options: lower the floor slab or remove the existing ceiling finish if borderline.",
-        codeReference: "ABC 2019 Section 9.7.2",
+        codeReference: "NBC(AE) 2023 s.9.5.3.1(2)",
       };
     },
   },

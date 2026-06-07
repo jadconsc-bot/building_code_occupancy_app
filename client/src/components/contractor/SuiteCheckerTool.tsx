@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { checkSuitePermission, type SuitePermissionResult } from '@/lib/secondarySuiteRules';
+import { checkSuitePermission, getMinSuiteCeilingHeight, type SuitePermissionResult, type SuiteProvince } from '@/lib/secondarySuiteRules';
 
 const MUNICIPALITY_OPTIONS = [
   { value: 'calgary',   label: 'Calgary'   },
@@ -17,8 +17,13 @@ const CEILING_OPTIONS = [
   { label: "Higher",         ft: 9,    mm: 2743 },
 ];
 
-const MIN_CEILING_MM = 1950; // NBC 9.8.4 — 1950mm secondary suite
 const MIN_EGRESS_M2  = 0.35; // NBC 9.10.7
+
+const PROVINCE_OPTIONS: { value: SuiteProvince; label: string }[] = [
+  { value: 'AB', label: 'AB' },
+  { value: 'BC', label: 'BC' },
+  { value: 'ON', label: 'ON' },
+];
 
 interface CheckResult {
   label: string;
@@ -44,6 +49,7 @@ function PermBadge({ r }: { r: SuitePermissionResult }) {
 }
 
 export function SuiteCheckerTool() {
+  const [province, setProvince] = useState<SuiteProvince>('AB');
   const [municipality, setMunicipality] = useState('');
   const [zoneCode, setZoneCode] = useState('');
   const [ceilingMm, setCeilingMm] = useState(2134);
@@ -54,14 +60,16 @@ export function SuiteCheckerTool() {
   const [fireSep, setFireSep] = useState<boolean | null>(null);
 
   const egressArea = parseFloat(egressAreaM2) || 0;
+  const minCeilingMm = Math.round(getMinSuiteCeilingHeight(province) * 1000);
+  const ceilingRef = province === 'AB' ? 'NBC(AE) 2023 s.9.5.3.1(2)' : province === 'BC' ? 'BCBC 2024 9.7.2.1' : 'NBC 9.7.2.1';
 
   const checks: CheckResult[] = [
     {
       label: 'Ceiling height',
-      pass: ceilingMm >= MIN_CEILING_MM,
-      note: ceilingMm >= MIN_CEILING_MM
-        ? `${ceilingMm} mm ✓ (min 1950 mm — NBC 9.8.4)`
-        : `${ceilingMm} mm ✗ Below 1950 mm minimum — must raise ceiling`,
+      pass: ceilingMm >= minCeilingMm,
+      note: ceilingMm >= minCeilingMm
+        ? `${ceilingMm} mm ✓ (min ${minCeilingMm} mm — ${ceilingRef})`
+        : `${ceilingMm} mm ✗ Below ${minCeilingMm} mm minimum — must raise ceiling`,
     },
     {
       label: 'Egress window',
@@ -135,6 +143,22 @@ export function SuiteCheckerTool() {
 
   return (
     <div className="space-y-5 px-4 py-4 max-w-md mx-auto">
+      {/* Province selector */}
+      <div className="space-y-1.5">
+        <p className="text-sm font-semibold text-gray-700">Province</p>
+        <div className="flex gap-2">
+          {PROVINCE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setProvince(opt.value)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${province === opt.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-700'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Zone permission lookup */}
       <div className="space-y-2">
         <p className="text-sm font-semibold text-gray-700">Zone check (optional)</p>
@@ -244,7 +268,9 @@ export function SuiteCheckerTool() {
         ))}
       </div>
 
-      <p className="text-xs text-center text-gray-400">NBC 9.8.4 · 9.10.7 · 9.10.9 · 9.10.19</p>
+      <p className="text-xs text-center text-gray-400">
+        {province === 'AB' ? 'NBC(AE) 2023' : province === 'BC' ? 'BCBC 2024' : 'OBC 2012'} · s.9.5.3.1 · 9.10.7 · 9.10.9 · 9.10.19
+      </p>
     </div>
   );
 }
