@@ -475,7 +475,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                     <option value="BCBC 2024">BCBC 2024 — British Columbia</option>
                     <option value="OBC 2024">OBC 2024 — Ontario</option>
                     <option value="NBC 2020">NBC 2020 — Other</option>
-                    <option value="NBC 2025">NBC 2025 — National (latest)</option>
+                    <option value="NBC 2025" disabled>NBC 2025 — Coming Soon</option>
                   </select>
                 ) : (
                   <div className="flex items-center gap-2">

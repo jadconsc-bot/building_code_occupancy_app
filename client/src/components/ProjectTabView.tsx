@@ -65,17 +65,12 @@ const OCCUPANCY_GROUPS = ["A-1", "A-2", "A-3", "A-4", "B-1", "B-2", "B-3", "C", 
 const CONSTRUCTION_TYPES = ["IA", "IB", "IIA", "IIB", "IIIA", "IIIB", "IVA", "VA", "VB"];
 
 type EditionStatus = 'supported' | 'partial' | 'coming_soon';
-const CODE_EDITIONS: { value: string; label: string; status: EditionStatus }[] = [
-  { value: 'NBC 2020',        label: 'NBC 2020',                             status: 'supported'    },
-  { value: 'NBC(AE) 2023-12', label: 'NBC(AE) 2023-12 — Alberta (Partial)', status: 'partial'      },
-  { value: 'BCBC 2024',       label: 'BCBC 2024 — BC (Partial)',             status: 'partial'      },
-  { value: 'NBC 2025',        label: 'NBC 2025 — Coming Soon',               status: 'coming_soon'  },
-];
-
-const PARTIAL_BANNER: Record<string, string> = {
-  'NBC(AE) 2023-12': 'NBC(AE) 2023-12 analysis uses NBC 2020 as the base. Alberta-specific overrides are partially implemented. Verify results against the Alberta Building Code.',
-  'BCBC 2024':       'BCBC 2024 analysis uses NBC 2020 as the base. BC-specific overrides are partially implemented. Verify results against the BC Building Code.',
-};
+const CODE_EDITIONS = [
+  { value: 'NBC 2020',        label: 'NBC 2020',                                  status: 'supported'   },
+  { value: 'NBC(AE) 2023-12', label: '⚠ NBC(AE) 2023-12 — Alberta (Partial)',    status: 'partial'     },
+  { value: 'BCBC 2024',       label: '⚠ BCBC 2024 — BC (Partial)',               status: 'partial'     },
+  { value: 'NBC 2025',        label: 'NBC 2025 — Coming Soon',                    status: 'coming_soon' },
+] as const;
 
 function ResultPill({ result }: { result: "pass" | "fail" | "unknown" }) {
   if (result === "pass") return <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700"><CheckCircle className="w-3 h-3" />PASS</span>;
@@ -207,17 +202,22 @@ function CodeStrategyTab({ projectId, userId, userRole }: { projectId: number; u
                   value={e.value}
                   disabled={e.status === 'coming_soon'}
                   title={e.status === 'partial' ? 'Rules partially implemented. Results reflect NBC 2020 base with limited provincial overrides.' : undefined}
-                  className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50' : ''}
+                  className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50 cursor-not-allowed' : ''}
                 >
-                  {e.status === 'partial' ? `⚠ ${e.label}` : e.label}
+                  {e.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {PARTIAL_BANNER[codeEdition] && (
-            <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-              ⚠ {PARTIAL_BANNER[codeEdition]}
-            </p>
+          {codeEdition !== 'NBC 2020' && codeEdition !== 'NBC 2025' && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 mt-2">
+              <span>⚠</span>
+              <span>
+                {codeEdition === 'NBC(AE) 2023-12'
+                  ? 'NBC(AE) 2023-12 analysis uses NBC 2020 as the base. Alberta-specific overrides are partially implemented. Verify results against the Alberta Building Code.'
+                  : 'BCBC 2024 analysis uses NBC 2020 as the base. BC-specific energy and spatial separation overrides are partially implemented. Verify results against the BC Building Code.'}
+              </span>
+            </div>
           )}
         </div>
 
@@ -483,17 +483,22 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
                     value={e.value}
                     disabled={e.status === 'coming_soon'}
                     title={e.status === 'partial' ? 'Rules partially implemented. Results reflect NBC 2020 base with limited provincial overrides.' : undefined}
-                    className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50' : ''}
+                    className={e.status === 'coming_soon' ? 'text-muted-foreground opacity-50 cursor-not-allowed' : ''}
                   >
-                    {e.status === 'partial' ? `⚠ ${e.label}` : e.label}
+                    {e.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {PARTIAL_BANNER[codeEdition] && (
-              <p className="mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                ⚠ {PARTIAL_BANNER[codeEdition]}
-              </p>
+            {codeEdition !== 'NBC 2020' && codeEdition !== 'NBC 2025' && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 mt-2">
+                <span>⚠</span>
+                <span>
+                  {codeEdition === 'NBC(AE) 2023-12'
+                    ? 'NBC(AE) 2023-12 analysis uses NBC 2020 as the base. Alberta-specific overrides are partially implemented. Verify results against the Alberta Building Code.'
+                    : 'BCBC 2024 analysis uses NBC 2020 as the base. BC-specific energy and spatial separation overrides are partially implemented. Verify results against the BC Building Code.'}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex items-end gap-2">
