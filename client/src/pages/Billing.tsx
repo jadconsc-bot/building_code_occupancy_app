@@ -210,7 +210,7 @@ export default function Billing() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mb-5">or $69/mo billed annually</p>
+              <p className="text-xs text-gray-400 mb-5">or $39/mo billed annually — $468/year</p>
               <ul className="space-y-2.5 flex-1 mb-6">
                 {[
                   "Unlimited projects",
@@ -248,7 +248,7 @@ export default function Billing() {
                   >
                     {checkingOut === "pro_annual"
                       ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
-                      : "Annual — $69/mo, save 13%"}
+                      : "Annual — $39/mo, save 20% ($468/yr)"}
                   </Button>
                 </div>
               ) : (
