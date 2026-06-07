@@ -3122,7 +3122,7 @@ export default function Home() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="drawing-analysis" className="animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-[calc(100vh-16rem)] overflow-y-auto">
+              <TabsContent value="drawing-analysis" className="animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-y-auto">
                 <div className="space-y-6">
                   <section>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-6 flex items-center gap-2">

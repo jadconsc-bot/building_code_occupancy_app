@@ -40,6 +40,8 @@ export interface RawFormSubmission {
   smokeAlarms?: string | boolean;
   coDetectors?: string | boolean;
   fireSeparation?: string | boolean;
+  smokeBarrierWalls?: string | boolean;
+  smokeBarrierUnderside?: string | boolean;
   sprinklerSystem?: string | boolean;
   bedroomCount?: number | string;
   fullBathroom?: string | boolean;
@@ -158,6 +160,8 @@ export function adaptFormAnswers(raw: RawFormSubmission): HomeFormAnswers {
     hasSmokeAlarms: toBool(raw.smokeAlarms),
     hasCODetectors: toBool(raw.coDetectors),
     hasFireSeparation: toBool(raw.fireSeparation),
+    hasContinuousSmokeBarrier: toBool(raw.smokeBarrierWalls) && toBool(raw.smokeBarrierUnderside),
+    gypsumThicknessMm: (toBool(raw.smokeBarrierWalls) && toBool(raw.smokeBarrierUnderside)) ? 12.7 : 0,
     sprinklered: toBool(raw.sprinklerSystem),
     bedroomCount: toNum(raw.bedroomCount),
     hasFullBathroom: toBool(raw.fullBathroom),

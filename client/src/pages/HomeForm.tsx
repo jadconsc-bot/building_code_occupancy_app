@@ -377,6 +377,20 @@ const QUESTIONS: Record<string, FieldConfig[]> = {
     },
     { key: "coDetectors",    label: "CO detectors?",                       type: "yesno", col: "half", required: true },
     { key: "fireSeparation", label: "Fire separation from main dwelling?",  type: "yesno", col: "half", required: true },
+    {
+      key: "smokeBarrierWalls",
+      label: "Continuous 12.7mm gypsum board on both sides of all walls between suite and main dwelling?",
+      type: "yesno",
+      col: "full",
+      helpText: "NBC(AE) 2023 s.9.10.9.16(4) smoke-tight barrier alternative to 45 min FRR",
+    },
+    {
+      key: "smokeBarrierUnderside",
+      label: "Gypsum board also on underside of all floor-ceiling framing separating the suite?",
+      type: "yesno",
+      col: "full",
+      showIf: (a) => a.smokeBarrierWalls === "yes",
+    },
     { key: "sprinklerSystem",label: "Sprinkler system?",                   type: "yesno", col: "half", required: true },
 
     // Spatial separation

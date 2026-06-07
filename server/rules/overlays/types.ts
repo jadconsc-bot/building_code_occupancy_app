@@ -19,4 +19,6 @@ export interface ProvincialOverride {
   overrideValue: number | string;  // Provincial override value
   unit: string;
   codeRef: string;        // Citation, e.g. "NBC(AE) 2023 s.9.5.3.1(2)"
+  condition?: string;     // Optional condition string for documentation purposes
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW';
 }

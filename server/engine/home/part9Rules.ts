@@ -42,6 +42,8 @@ export interface HomeFormAnswers {
   hasSmokeAlarms?: boolean;
   hasCODetectors?: boolean;
   hasFireSeparation?: boolean;
+  hasContinuousSmokeBarrier?: boolean;
+  gypsumThicknessMm?: number;
   sprinklered?: boolean;
   bedroomCount?: number;
   hasFullBathroom?: boolean;
@@ -324,24 +326,78 @@ const CO_DETECTOR_RULE: Part9Rule = {
 
 // ─── Fire Separation ─────────────────────────────────────────────────────────
 
+/**
+ * Evaluates fire separation compliance for secondary suites.
+ * For AB: checks the smoke-tight barrier alternative per NBC(AE) 2023 s.9.10.9.16(4).
+ * For all: falls back to the generic hasFireSeparation question.
+ */
+export function evaluateFireSeparation(inputs: {
+  province: string;
+  hasContinuousSmokeBarrier?: boolean;
+  gypsumThicknessMm?: number;
+  buildingType: 'house_with_secondary_suite' | 'other';
+  hasFireSeparation?: boolean;
+}): RuleResult {
+  const isAB = inputs.province === 'AB';
+  const citation = isAB
+    ? 'NBC(AE) 2023 s.9.10.9.16(1) and s.9.10.9.16(4)'
+    : 'NBC 9.10.9.7';
+
+  // AB secondary suite smoke barrier alternative (9.10.9.16.(4)):
+  // 12.7mm gypsum on both sides of walls + underside of floor-ceiling framing
+  // = smoke-tight barrier = waives the 45 min FRR requirement
+  if (
+    isAB &&
+    inputs.buildingType === 'house_with_secondary_suite' &&
+    inputs.hasContinuousSmokeBarrier &&
+    (inputs.gypsumThicknessMm ?? 0) >= 12.7
+  ) {
+    return {
+      result: 'pass',
+      plainLanguage: `Fire separation — smoke-tight barrier alternative confirmed: ${inputs.gypsumThicknessMm}mm gypsum board installed continuously on both sides of all walls and underside of floor-ceiling framing separating the suite from the main dwelling.`,
+      codeReference: citation,
+    };
+  }
+
+  // Standard path — existing fire separation confirmed
+  if (inputs.hasFireSeparation) {
+    return {
+      result: 'pass',
+      plainLanguage: 'Fire separation between the suite and main dwelling is present.',
+      codeReference: citation,
+    };
+  }
+
+  // AB — neither path confirmed → conditional (can meet via either method)
+  if (isAB && inputs.buildingType === 'house_with_secondary_suite') {
+    return {
+      result: 'conditional',
+      plainLanguage: 'Fire separation between the secondary suite and remainder of the house not confirmed.',
+      whatToDo: 'Option A: Install a 45 min fire-rated assembly. Option B (NBC(AE) 2023 s.9.10.9.16(4)): Install 12.7mm gypsum board continuously on both sides of all walls between the suite and main dwelling AND on the underside of all floor-ceiling framing separating them. Verify method with your contractor.',
+      codeReference: citation,
+    };
+  }
+
+  return {
+    result: 'fail',
+    plainLanguage: 'A minimum 30-minute fire separation is required between the secondary suite and the remainder of the building.',
+    whatToDo: `Install Type X drywall (⅝") on the ceiling and walls between the suite and main dwelling. Seal all penetrations (pipes, wiring) with fire-stop caulk.`,
+    codeReference: citation,
+  };
+}
+
 const FIRE_SEPARATION_RULE: Part9Rule = {
   ruleId: "P9-FIRESEP-NATIONAL",
   description: "Fire separation between suite and main dwelling",
   province: "national",
   projectTypes: ["secondary_suite"],
-  evaluate: (answers) => {
-    if (answers.hasFireSeparation) return {
-      result: "pass",
-      plainLanguage: "Fire separation between the suite and main dwelling is present.",
-      codeReference: "NBC 9.10.9.7",
-    };
-    return {
-      result: "fail",
-      plainLanguage: "A minimum 30-minute fire separation is required between the secondary suite and the remainder of the building.",
-      whatToDo: `Install Type X drywall (⅝") on the ceiling and walls between the suite and main dwelling. Seal all penetrations (pipes, wiring) with fire-stop caulk.`,
-      codeReference: "NBC 9.10.9.7",
-    };
-  },
+  evaluate: (answers) => evaluateFireSeparation({
+    province: answers.province,
+    hasContinuousSmokeBarrier: answers.hasContinuousSmokeBarrier,
+    gypsumThicknessMm: answers.gypsumThicknessMm,
+    buildingType: answers.projectType === 'secondary_suite' ? 'house_with_secondary_suite' : 'other',
+    hasFireSeparation: answers.hasFireSeparation,
+  }),
 };
 
 // ─── Deck guard rail ─────────────────────────────────────────────────────────

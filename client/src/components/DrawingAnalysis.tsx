@@ -6605,80 +6605,79 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 </div>
               )}
 
-              {/* PDF page thumbnail selector */}
-              {pdfPages.length > 0 && (
-                <div className="mt-2 p-3 border border-border rounded-lg bg-muted/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      Pages ({pdfPages.length}{totalPages > 20 ? ` of ${totalPages} — first 20 shown` : ''})
-                    </span>
-                    <div className="flex gap-2">
+              {/* Canvas, thumbnails, and side panel */}
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Left column — page thumbnails (PDF multi-page only) */}
+                {pdfPages.length > 1 && (
+                  <div className="flex flex-col gap-1 w-20 flex-shrink-0">
+                    <div className="flex justify-between px-0.5">
                       <button
                         onClick={() => setSelectedPages(pdfPages.map((_, i) => i + 1))}
-                        className="text-xs text-primary underline"
+                        className="text-[10px] text-primary underline"
                       >
-                        Select all
+                        All
                       </button>
                       <button
                         onClick={() => setSelectedPages([])}
-                        className="text-xs text-muted-foreground underline"
+                        className="text-[10px] text-muted-foreground underline"
                       >
-                        Clear
+                        None
                       </button>
                     </div>
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {pdfPages.map((pageImg, idx) => {
-                      const pageNum = idx + 1;
-                      const isSelected = selectedPages.includes(pageNum);
-                      const isCurrent = currentPreviewPage === pageNum;
-                      return (
-                        <div
-                          key={idx}
-                          className={`relative flex-shrink-0 cursor-pointer border-2 rounded ${isCurrent ? 'border-primary' : 'border-transparent'}`}
-                          style={{ width: 80 }}
-                          onClick={() => {
-                            setDrawingImage(pageImg);
-                            setDetectedRoomsData([]);
-                            setRoomComplianceData([]);
-                            setAnalysisId(null);
-                            setShowRoomOverlay(true);
-                            setShowComplianceHeatmap(false);
-                            setShowTravelDistanceOverlay(false);
-                            setAnalyzedPageDims(null);
-                            setCurrentPreviewPage(pageNum);
-                          }}
-                        >
-                          <img src={pageImg} className="w-full rounded" alt={`Page ${pageNum}`} />
-                          <div className="absolute top-1 left-1">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                setSelectedPages(prev =>
-                                  isSelected
-                                    ? prev.filter(p => p !== pageNum)
-                                    : [...prev, pageNum].sort((a, b) => a - b)
-                                );
-                              }}
-                            />
+                    <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[600px]">
+                      {pdfPages.map((pageImg, idx) => {
+                        const pageNum = idx + 1;
+                        const isSelected = selectedPages.includes(pageNum);
+                        const isCurrent = currentPreviewPage === pageNum;
+                        return (
+                          <div
+                            key={idx}
+                            className={`relative flex-shrink-0 cursor-pointer rounded border-2 transition-all ${
+                              isCurrent ? 'border-primary shadow-md' : 'border-border hover:border-primary/50'
+                            }`}
+                            onClick={() => {
+                              setDrawingImage(pageImg);
+                              setDetectedRoomsData([]);
+                              setRoomComplianceData([]);
+                              setAnalysisId(null);
+                              setShowRoomOverlay(true);
+                              setShowComplianceHeatmap(false);
+                              setShowTravelDistanceOverlay(false);
+                              setAnalyzedPageDims(null);
+                              setCurrentPreviewPage(pageNum);
+                            }}
+                          >
+                            <img src={pageImg} className="w-full rounded" alt={`Page ${pageNum}`} />
+                            <div className="absolute top-0.5 left-0.5">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                className="w-3 h-3"
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPages(prev =>
+                                    isSelected
+                                      ? prev.filter(p => p !== pageNum)
+                                      : [...prev, pageNum].sort((a, b) => a - b)
+                                  );
+                                }}
+                              />
+                            </div>
+                            <span className="absolute bottom-0 right-0 text-[10px] bg-black/60 text-white px-0.5 rounded-tl">
+                              {pageNum}
+                            </span>
                           </div>
-                          <div className="text-center text-xs mt-1 text-muted-foreground">p.{pageNum}</div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    {totalPages > 20 && (
+                      <p className="text-[10px] text-muted-foreground text-center px-0.5">
+                        First 20 of {totalPages}
+                      </p>
+                    )}
                   </div>
-                  {selectedPages.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {selectedPages.length} page{selectedPages.length > 1 ? 's' : ''} selected for analysis: {selectedPages.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
 
-              {/* Canvas and side panel */}
-              <div className="flex flex-col lg:flex-row gap-4">
                 {/* Canvas column — user-resizable */}
                 <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
