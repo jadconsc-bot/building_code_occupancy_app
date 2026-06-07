@@ -1,226 +1,258 @@
 /**
- * Feature Discovery Dashboard
- * 
- * Displays all available features and tools in an organized, discoverable way
- * Shows feature cards with descriptions, icons, and quick access buttons
- * Helps users understand what capabilities are available
+ * FeatureDiscoveryDashboard — semicircular arc carousel
+ * Cards travel left → right along a curved arc.
+ * Apex (largest card) is at horizontal center.
+ * Hover pauses scroll and lifts hovered card.
  */
 
 import { useLocation } from 'wouter';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import {
-  Building2,
-  Calculator,
-  FileText,
-  Shield,
-  History,
-  BookOpen,
-  FolderOpen,
-  Zap,
-  Lock,
-  CheckCircle2,
-  ArrowRight,
-  FileImage,
+  Building2, FolderOpen, Calculator, Shield,
+  History, ScanLine, CheckSquare, BarChart2, BookOpen,
 } from 'lucide-react';
 
-interface Feature {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  href: string;
-  category: 'core' | 'professional' | 'tools';
-  badge?: string;
-  isNew?: boolean;
-}
-
-const features: Feature[] = [
+const FEATURES = [
   {
     id: 'occupancy',
-    title: 'Occupancy Classification',
-    description: 'Classify building occupancy types according to NBC 2025 standards. Search and filter through all occupancy groups.',
-    icon: <Building2 className="w-6 h-6" />,
+    title: 'Occupancy Classifier',
+    description: 'Classify building occupancy per NBC 2020, NBC(AE) 2023, BCBC 2024.',
     href: '/occupancy-classifier',
-    category: 'core',
-  },
-  {
-    id: 'projects',
-    title: 'Project Management',
-    description: 'Create and manage building projects. Track compliance requirements and project checklists.',
-    icon: <FolderOpen className="w-6 h-6" />,
-    href: '/project-checklists',
-    category: 'core',
-    isNew: true,
-  },
-  {
-    id: 'calculators',
-    title: 'Professional Calculators',
-    description: 'Access 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.',
-    icon: <Calculator className="w-6 h-6" />,
-    href: '/occupancy-classifier',
-    category: 'tools',
-    badge: '34+ Tools',
-  },
-  {
-    id: 'rules',
-    title: 'Rule Management',
-    description: 'Professional rule editor with digital signatures, audit trails, and admin authorization. For authorized users only.',
-    icon: <Shield className="w-6 h-6" />,
-    href: '/rule-management',
-    category: 'professional',
-    badge: 'Admin Only',
-  },
-  {
-    id: 'history',
-    title: 'Calculation History',
-    description: 'View all your past calculations with cryptographic signatures, verification status, and export options.',
-    icon: <History className="w-6 h-6" />,
-    href: '/calculation-history',
-    category: 'tools',
-    isNew: true,
+    icon: Building2,
+    badge: null,
   },
   {
     id: 'drawing-analyzer',
     title: 'Drawing Analyzer',
-    description: 'AI-assisted review of architectural drawings. Extracts dimensions and measurements; deterministic engine checks compliance against NBC 2023 Alberta Edition.',
-    icon: <FileImage className="w-6 h-6" />,
+    description: 'AI room detection, travel distance overlays, compliance heatmaps.',
     href: '/drawing-analyzer',
-    category: 'tools',
-    badge: 'AI + PD2.0',
-    isNew: true,
+    icon: ScanLine,
+    badge: 'AI',
   },
   {
     id: 'compliance',
-    title: 'Compliance Checker',
-    description: 'Verify building plans against NBC 2025 requirements. Identify code infractions and get recommendations.',
-    icon: <CheckCircle2 className="w-6 h-6" />,
+    title: 'Compliance Engine',
+    description: 'Deterministic pass/fail analysis with full rule traceability.',
     href: '/compliance',
-    category: 'tools',
+    icon: CheckSquare,
+    badge: null,
+  },
+  {
+    id: 'projects',
+    title: 'Project Management',
+    description: 'Organize analyses by project with checklists and permit export.',
+    href: '/project-checklists',
+    icon: FolderOpen,
+    badge: 'New',
+  },
+  {
+    id: 'calculators',
+    title: 'Professional Calculators',
+    description: '34+ tools: span tables, drain sizing, egress windows, energy.',
+    href: '/calculators',
+    icon: Calculator,
+    badge: '34+',
   },
   {
     id: 'analytics',
     title: 'Space Analyzer',
-    description: 'AI-powered architectural space analysis. Upload drawings for LEED gap analysis, occupancy classification, and NBC compliance review.',
-    icon: <Building2 className="w-6 h-6" />,
-    href: '/occupancy-classifier',
-    category: 'professional',
+    description: 'LEED gap analysis, occupant load, spatial separation calculations.',
+    href: '/space-analyzer',
+    icon: BarChart2,
+    badge: null,
+  },
+  {
+    id: 'rules',
+    title: 'Rule Management',
+    description: 'Edit, version, and audit compliance rules across jurisdictions.',
+    href: '/rule-management',
+    icon: Shield,
+    badge: 'Admin',
+  },
+  {
+    id: 'history',
+    title: 'Calculation History',
+    description: 'Full audit trail of every compliance evaluation with snapshots.',
+    href: '/calculation-history',
+    icon: History,
+    badge: 'New',
   },
   {
     id: 'docs',
     title: 'Documentation',
-    description: 'User guide, tutorials, and help articles. Learn how to use all features effectively.',
-    icon: <BookOpen className="w-6 h-6" />,
+    description: 'NBC clauses, code references, and implementation guides.',
     href: '/documentation',
-    category: 'core',
+    icon: BookOpen,
+    badge: null,
   },
-];
+] as const;
+
+type FeatureId = (typeof FEATURES)[number]['id'];
+type Badge = (typeof FEATURES)[number]['badge'];
+
+const CARD_W = 200;
+const CARD_H = 126;
+const SPEED = 0.006;
+const ARC_HALF = Math.PI * 0.38;
+
+function badgeClass(badge: NonNullable<Badge>): string {
+  if (badge === 'AI')    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
+  if (badge === 'New')   return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+  if (badge === 'Admin') return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+  return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
+}
+
+interface CardPos {
+  x: number;
+  y: number;
+  scale: number;
+  z: number;
+  opacity: number;
+}
 
 export function FeatureDiscoveryDashboard() {
   const [, navigate] = useLocation();
-  const coreFeatures = features.filter((f) => f.category === 'core');
-  const toolFeatures = features.filter((f) => f.category === 'tools');
-  const professionalFeatures = features.filter((f) => f.category === 'professional');
+  const stageRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+  const pausedRef = useRef(false);
+  const rafRef = useRef<number | undefined>(undefined);
+  const [, forceUpdate] = useState(0);
+  const cardPositions = useRef<CardPos[]>([]);
+  const [hoveredId, setHoveredId] = useState<FeatureId | null>(null);
 
-  const FeatureCard = ({ feature }: { feature: Feature }) => (
-    <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg text-primary">{feature.icon}</div>
-            <div>
-              <CardTitle className="text-base">{feature.title}</CardTitle>
-              {feature.isNew && (
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded mt-1 inline-block">
-                  New
-                </span>
-              )}
-            </div>
-          </div>
-          {feature.badge && (
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded whitespace-nowrap">
-              {feature.badge}
-            </span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col">
-        <CardDescription className="text-sm mb-4 flex-1">{feature.description}</CardDescription>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={() => navigate(feature.href)}
-        >
-          Access <ArrowRight className="w-4 h-4 ml-2" />
-        </Button>
-      </CardContent>
-    </Card>
+  const compute = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const W = stage.offsetWidth;
+    const H = 420;
+    const CX = W / 2;
+    const CY = H + 60;
+    const R = H + 20;
+    const N = FEATURES.length;
+
+    cardPositions.current = FEATURES.map((_, i) => {
+      const t = (i + offsetRef.current) / N;
+      const wrapped = ((t % 1) + 1.5) % 1 - 0.5;
+      const angle = wrapped * 2 * ARC_HALF * 1.6;
+      const x = CX + R * Math.sin(angle) - CARD_W / 2;
+      const y = CY - R * Math.cos(angle) - CARD_H / 2;
+      const scale = 0.55 + 0.55 * Math.cos(angle * 0.9);
+      const z = Math.round(scale * 100);
+      const opacity = Math.max(0, Math.min(1, 1 - Math.abs(angle) / (ARC_HALF * 1.3)));
+      return { x, y, scale, z, opacity };
+    });
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      if (!pausedRef.current) {
+        offsetRef.current = (offsetRef.current + SPEED) % FEATURES.length;
+      }
+      compute();
+      frame++;
+      if (frame % 2 === 0) forceUpdate(f => f + 1);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current);
+    };
+  }, [compute]);
+
+  const sortedIndices = FEATURES.map((_, i) => i).sort(
+    (a, b) => (cardPositions.current[a]?.z ?? 0) - (cardPositions.current[b]?.z ?? 0),
   );
 
   return (
-    <div className="space-y-8">
-      {/* Core Features */}
-      <section>
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold">Essential Features</h2>
-          <p className="text-muted-foreground">Core tools for building code compliance</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {coreFeatures.map((feature) => (
-            <FeatureCard key={feature.id} feature={feature} />
-          ))}
-        </div>
-      </section>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Tools &amp; Features</h2>
+        <span className="text-xs text-muted-foreground">{FEATURES.length} tools available</span>
+      </div>
 
-      {/* Professional Tools */}
-      <section>
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold">Professional Tools</h2>
-          <p className="text-muted-foreground">Advanced features for consultants and administrators</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {professionalFeatures.map((feature) => (
-            <FeatureCard key={feature.id} feature={feature} />
-          ))}
-        </div>
-      </section>
+      {/* Arc stage */}
+      <div
+        ref={stageRef}
+        className="relative overflow-hidden"
+        style={{ height: 420 }}
+        onMouseEnter={() => { pausedRef.current = true; }}
+        onMouseLeave={() => { pausedRef.current = false; setHoveredId(null); }}
+      >
+        {sortedIndices.map(i => {
+          const feature = FEATURES[i];
+          const pos = cardPositions.current[i];
+          if (!pos) return null;
+          const isHovered = hoveredId === feature.id;
+          const Icon = feature.icon;
+          const liftY = isHovered ? -14 : 0;
 
-      {/* Calculation Tools */}
-      <section>
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold">Calculation Tools</h2>
-          <p className="text-muted-foreground">Specialized calculators for design and compliance</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {toolFeatures.map((feature) => (
-            <FeatureCard key={feature.id} feature={feature} />
-          ))}
-        </div>
-      </section>
+          return (
+            <div
+              key={feature.id}
+              onClick={() => pos.opacity > 0.3 && navigate(feature.href)}
+              onMouseEnter={() => setHoveredId(feature.id as FeatureId)}
+              onMouseLeave={() => setHoveredId(null)}
+              style={{
+                position: 'absolute',
+                width: CARD_W,
+                height: CARD_H,
+                transform: `translate(${pos.x}px, ${pos.y + liftY}px) scale(${pos.scale.toFixed(3)})`,
+                zIndex: pos.z,
+                opacity: pos.opacity.toFixed(3) as unknown as number,
+                pointerEvents: pos.opacity > 0.3 ? 'auto' : 'none',
+                transformOrigin: 'center center',
+                transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+                willChange: 'transform',
+              }}
+              className={[
+                'bg-card border rounded-xl p-4',
+                'flex flex-col justify-between cursor-pointer',
+                isHovered
+                  ? 'border-primary/40 shadow-lg shadow-black/10'
+                  : 'border-border',
+              ].join(' ')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Icon className="w-4 h-4 text-primary" />
+                </div>
+                {feature.badge && (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeClass(feature.badge)}`}>
+                    {feature.badge}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground leading-tight mb-1">
+                  {feature.title}
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                  {feature.description}
+                </p>
+              </div>
+              <p className="text-[11px] font-medium text-primary">Open →</p>
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Quick Stats */}
-      <section className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-6 border border-primary/20">
-        <h3 className="text-lg font-semibold mb-4">Platform Overview</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <div className="text-3xl font-bold text-primary">42</div>
-            <div className="text-sm text-muted-foreground">Occupancy Types</div>
+      {/* Quick stats */}
+      <div className="grid grid-cols-4 gap-4 pt-2 border-t border-border">
+        {[
+          { value: '42',     label: 'Occupancy types' },
+          { value: '34+',    label: 'Calculators' },
+          { value: 'AB + BC', label: 'Provinces covered' },
+          { value: '100%',   label: 'Deterministic rules' },
+        ].map(stat => (
+          <div key={stat.label} className="text-center">
+            <div className="text-xl font-semibold text-foreground">{stat.value}</div>
+            <div className="text-xs text-muted-foreground">{stat.label}</div>
           </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">34+</div>
-            <div className="text-sm text-muted-foreground">Calculators</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">100%</div>
-            <div className="text-sm text-muted-foreground">NBC 2025</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">∞</div>
-            <div className="text-sm text-muted-foreground">Projects</div>
-          </div>
-        </div>
-      </section>
+        ))}
+      </div>
     </div>
   );
 }
+
+export default FeatureDiscoveryDashboard;

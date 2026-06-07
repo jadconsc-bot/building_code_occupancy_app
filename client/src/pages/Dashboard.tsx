@@ -5,7 +5,7 @@
  * Provides a comprehensive overview of the platform capabilities
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { SignIn } from '@clerk/clerk-react';
@@ -124,6 +124,17 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [showWizard, setShowWizard] = useState(false);
   const [showReportBuilder, setShowReportBuilder] = useState(false);
+
+  // Redirect free users to billing on first visit (once per browser)
+  useEffect(() => {
+    if (user?.role === 'free') {
+      const seen = localStorage.getItem('cc_billing_seen');
+      if (!seen) {
+        localStorage.setItem('cc_billing_seen', '1');
+        navigate('/billing');
+      }
+    }
+  }, [user?.role]);
 
   if (!isAuthenticated) {
     return (

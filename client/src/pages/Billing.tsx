@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckCircle, Loader2, Zap, Building2, CreditCard, Shield, FileText } from "lucide-react";
+import { CheckCircle, Loader2, Zap, Building2, CreditCard, Shield, FileText, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { FoundingMemberBanner } from "@/components/FoundingMemberBanner";
@@ -54,12 +54,31 @@ export default function Billing() {
   const isPro = currentRole === "professional" || currentRole === "org_admin" || currentRole === "admin";
   const isFoundingMember = (me as any)?.isFoundingMember;
   const pct = counter ? Math.min((counter.claimed / counter.cap) * 100, 100) : 24.7;
+  // Show founding bar while counter is loading (null) OR while spots remain
+  const showFoundingBar = !counter || (counter.remaining ?? 753) > 0;
+
+  const contractorMutation = trpc.subscriptions.createContractorSession.useMutation({
+    onSuccess: (data) => { window.location.href = data.checkoutUrl; },
+    onError: (err) => {
+      toast.error(err.message ?? "Failed to start checkout");
+      setCheckingOut(null);
+    },
+  });
 
   async function handleUpgrade(planType: "pro_monthly" | "pro_annual") {
     setCheckingOut(planType);
     try {
       const result = await checkoutMutation.mutateAsync({ planType });
       if (result.checkoutUrl) window.location.href = result.checkoutUrl;
+    } catch {
+      // handled by onError
+    }
+  }
+
+  async function handleContractorPack() {
+    setCheckingOut("contractor_pack");
+    try {
+      await contractorMutation.mutateAsync({ type: "pack" });
     } catch {
       // handled by onError
     }
@@ -97,7 +116,7 @@ export default function Billing() {
           </div>
 
           {/* Founding member urgency bar */}
-          {!isPro && (
+          {!isPro && showFoundingBar && (
             <div className="mt-6 bg-white/10 border border-white/20 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-amber-300 font-semibold text-sm">
@@ -123,7 +142,7 @@ export default function Billing() {
 
       {/* ── SECTION 2: Pricing cards ───────────────────────────────────────── */}
       <div className="bg-gray-50 px-6 py-10">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
           {/* Home Report card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
@@ -245,6 +264,46 @@ export default function Billing() {
                 </Button>
               )}
             </div>
+          </div>
+
+          {/* Contractor Pack */}
+          <div className="rounded-xl border border-border bg-card p-6 space-y-4 flex flex-col">
+            <div className="flex items-center gap-2">
+              <HardHat className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Contractor Pack</h3>
+            </div>
+            <div>
+              <span className="text-3xl font-bold text-foreground">$9.99</span>
+              <span className="text-sm text-muted-foreground ml-1">one-time</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Mobile-first toolbox for contractors on site.
+            </p>
+            <ul className="space-y-2 text-sm flex-1">
+              {[
+                'Deck builder (NBC 9.8.8)',
+                'Suite checker',
+                'Window sizer',
+                'Drain calculator',
+                'Snow load calculator',
+                'Setback checker',
+                'Permit wizard',
+              ].map(f => (
+                <li key={f} className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full"
+              onClick={handleContractorPack}
+              disabled={!!checkingOut}
+            >
+              {checkingOut === "contractor_pack"
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                : "Get Contractor Pack →"}
+            </Button>
           </div>
 
           {/* Team card — coming soon */}
