@@ -325,7 +325,7 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
     const complianceResult: ComplianceReport = {
       projectType: report.projectType,
       province: report.province,
-      codeEdition: { AB: "Alberta Building Code 2019", BC: "BC Building Code 2024", ON: "Ontario Building Code 2012" }[report.province] ?? "",
+      codeEdition: { AB: "National Building Code – 2023 Alberta Edition (NBC(AE) 2023)", BC: "BC Building Code 2024", ON: "Ontario Building Code 2012" }[report.province] ?? "",
       overallResult: report.overallResult as "pass" | "conditional" | "fail" ?? "conditional",
       items: complianceItems.map((i) => ({
         ruleId: i.ruleId,

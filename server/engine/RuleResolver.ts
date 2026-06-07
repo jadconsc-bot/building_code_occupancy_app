@@ -2,12 +2,13 @@ import { getDb } from '../db';
 import { jurisdictionProfiles } from '../../drizzle/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { EvaluationContext } from './types/context';
+import { getStaticOverride, editionForProvince } from '../rules/overlays/index';
 
 export interface ResolvedRule {
   value: number | string | boolean;
   unit: string;
   ref: string;
-  source: string;         // "NBC 2020 Federal" | "ABC 2023 Provincial" | etc.
+  source: string;         // e.g. "NBC 2020 Federal" | "NBC(AE) 2023 Provincial"
   layer: 'federal' | 'provincial' | 'municipal' | 'project';
   overrideChain: {
     layer: 'federal' | 'provincial' | 'municipal' | 'project';
@@ -43,120 +44,125 @@ export class RuleResolver {
     context: EvaluationContext,
   ): Promise<ResolvedRule> {
 
+    const province = context.jurisdiction.province;
+    const edition  = context.jurisdiction.codeEdition || editionForProvince(province);
+
     // Build override chain starting with federal baseline
     const chain: ResolvedRule['overrideChain'] = [
       {
         layer: 'federal',
         source: 'NBC 2020',
         value: federalValue,
-        applied: true,  // assume federal applies unless overridden
+        applied: true,
       },
-      { layer: 'provincial', source: null, value: null, applied: false },
+      { layer: 'provincial', source: edition || null, value: null, applied: false },
       { layer: 'municipal',  source: null, value: null, applied: false },
       { layer: 'project',    source: null, value: null, applied: false },
     ];
 
-    let resolvedValue = federalValue;
-    let resolvedUnit  = federalUnit;
-    let resolvedSource: string = 'NBC 2020 Federal';
+    let resolvedValue  = federalValue;
+    let resolvedUnit   = federalUnit;
+    let resolvedSource = 'NBC 2020 Federal';
     let resolvedLayer: ResolvedRule['layer'] = 'federal';
 
-    // Layer 2 — Provincial / Municipal override
-    if (context.jurisdiction.province) {
-      const db = await getDb();
-      if (!db) return { value: resolvedValue, unit: resolvedUnit, ref: federalRef, source: resolvedSource, layer: resolvedLayer, overrideChain: chain };
+    if (!province) {
+      return { value: resolvedValue, unit: resolvedUnit, ref: federalRef, source: resolvedSource, layer: resolvedLayer, overrideChain: chain };
+    }
 
-      // Try municipality-specific profile first
-      let jurisdiction = context.jurisdiction.municipality
-        ? await db
-            .select()
-            .from(jurisdictionProfiles)
-            .where(
-              and(
-                eq(jurisdictionProfiles.province, context.jurisdiction.province as any),
-                eq(jurisdictionProfiles.municipality, context.jurisdiction.municipality),
-              ),
-            )
-            .limit(1)
-        : [];
+    // ── Layer 1.5: Static overlay (file-based, no DB) ────────────────────────
+    // Checked before DB so the static overlay is always authoritative for known
+    // provincial divergences. DB amendments (Layer 2) cover municipal/project.
+    const staticOverride = getStaticOverride(province, nbcSection);
+    if (staticOverride) {
+      chain[0].applied = false;
+      chain[1] = {
+        layer: 'provincial',
+        source: staticOverride.codeRef,
+        value: staticOverride.overrideValue,
+        applied: true,
+      };
+      resolvedValue  = staticOverride.overrideValue;
+      resolvedUnit   = staticOverride.unit;
+      resolvedSource = `${staticOverride.codeRef} Provincial`;
+      resolvedLayer  = 'provincial';
+      return { value: resolvedValue, unit: resolvedUnit, ref: federalRef, source: resolvedSource, layer: resolvedLayer, overrideChain: chain };
+    }
 
-      // Fall back to province-level profile
-      if (jurisdiction.length === 0) {
-        jurisdiction = await db
+    // ── Layer 2: DB-stored jurisdiction profile (provincial / municipal) ─────
+    const db = await getDb();
+    if (!db) {
+      return { value: resolvedValue, unit: resolvedUnit, ref: federalRef, source: resolvedSource, layer: resolvedLayer, overrideChain: chain };
+    }
+
+    // Try municipality-specific profile first, fall back to province-level
+    let jurisdiction = context.jurisdiction.municipality
+      ? await db
           .select()
           .from(jurisdictionProfiles)
           .where(
             and(
-              eq(jurisdictionProfiles.province, context.jurisdiction.province as any),
-              isNull(jurisdictionProfiles.municipality),
+              eq(jurisdictionProfiles.province, province as any),
+              eq(jurisdictionProfiles.municipality, context.jurisdiction.municipality),
             ),
           )
-          .limit(1);
-      }
+          .limit(1)
+      : [];
 
-      // Log which profile was used
-      if (jurisdiction[0]) {
-        console.log(
-          `[RuleResolver] Using ${jurisdiction[0].municipality ?? 'provincial'} ` +
-          `profile for ${jurisdiction[0].province}`,
-        );
-      }
-
-      if (jurisdiction[0]?.localAmendments) {
-        try {
-          const amendments: AmendmentData = JSON.parse(
-            jurisdiction[0].localAmendments as string,
-          );
-
-          const override = amendments.overrides?.find(
-            (o: AmendmentOverride) => o.nbcSection === nbcSection,
-          );
-
-          if (override && override.overrideType !== 'add') {
-            if (override.overrideType === 'remove') {
-              chain[0].applied = false;
-              chain[1] = {
-                layer: 'provincial',
-                source: context.jurisdiction.codeEdition,
-                value: 'removed',
-                applied: true,
-              };
-              resolvedValue  = 'not_applicable';
-              resolvedSource = `${context.jurisdiction.codeEdition} Provincial`;
-              resolvedLayer  = 'provincial';
-            } else if (override.amendedValue !== undefined) {
-              chain[0].applied = false;
-              chain[1] = {
-                layer: 'provincial',
-                source: context.jurisdiction.codeEdition,
-                value: override.amendedValue,
-                applied: true,
-              };
-              resolvedValue  = override.amendedValue;
-              resolvedUnit   = override.amendedUnit ?? federalUnit;
-              resolvedSource = `${context.jurisdiction.codeEdition} Provincial`;
-              resolvedLayer  = 'provincial';
-            }
-          } else {
-            // No provincial override — federal applies
-            chain[1] = {
-              layer: 'provincial',
-              source: context.jurisdiction.codeEdition,
-              value: null,
-              applied: false,
-            };
-          }
-        } catch (_e) {
-          // Invalid JSON in amendments — fall through to federal
-        }
-      }
+    if (jurisdiction.length === 0) {
+      jurisdiction = await db
+        .select()
+        .from(jurisdictionProfiles)
+        .where(
+          and(
+            eq(jurisdictionProfiles.province, province as any),
+            isNull(jurisdictionProfiles.municipality),
+          ),
+        )
+        .limit(1);
     }
 
-    // Layer 3 — Municipal override (handled in Layer 2 via municipality-first lookup above)
-    // chain[2] remains { layer: 'municipal', source: null, value: null, applied: false }
+    if (jurisdiction[0]) {
+      console.log(
+        `[RuleResolver] ${jurisdiction[0].municipality ?? 'provincial'} profile → ${jurisdiction[0].province}`,
+      );
+    }
 
-    // Layer 4 — Project override (Phase 3 — for alternative solutions)
-    // chain[3] remains { layer: 'project', source: null, value: null, applied: false }
+    if (jurisdiction[0]?.localAmendments) {
+      try {
+        const amendments: AmendmentData = JSON.parse(
+          jurisdiction[0].localAmendments as string,
+        );
+        const override = amendments.overrides?.find(
+          (o: AmendmentOverride) => o.nbcSection === nbcSection,
+        );
+
+        if (override && override.overrideType !== 'add') {
+          if (override.overrideType === 'remove') {
+            chain[0].applied = false;
+            chain[1] = { layer: 'provincial', source: edition, value: 'removed', applied: true };
+            resolvedValue  = 'not_applicable';
+            resolvedSource = `${edition} Provincial`;
+            resolvedLayer  = 'provincial';
+          } else if (override.amendedValue !== undefined) {
+            chain[0].applied = false;
+            chain[1] = { layer: 'provincial', source: edition, value: override.amendedValue, applied: true };
+            resolvedValue  = override.amendedValue;
+            resolvedUnit   = override.amendedUnit ?? federalUnit;
+            resolvedSource = `${edition} Provincial`;
+            resolvedLayer  = 'provincial';
+          }
+        } else {
+          // No numeric override, but stamp the correct edition on the chain
+          chain[1] = { layer: 'provincial', source: edition, value: null, applied: false };
+        }
+      } catch (_e) {
+        // Invalid JSON — fall through to federal, but still stamp edition
+        chain[1] = { layer: 'provincial', source: edition, value: null, applied: false };
+      }
+    } else {
+      // No DB profile — stamp edition label so chain is readable even without an override
+      chain[1] = { layer: 'provincial', source: edition, value: null, applied: false };
+    }
 
     return {
       value: resolvedValue,

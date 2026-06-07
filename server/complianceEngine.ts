@@ -13,6 +13,7 @@ import { evaluateTravelDistance, evaluateExitCount, evaluateExitWidth } from './
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from './engine/rules/fire';
 import { evaluateOccupantLoad } from './engine/rules/occupancy';
 import { ruleResolver } from './engine/RuleResolver';
+import { editionForProvince } from './rules/overlays/index';
 import {
   EvaluationResult,
   calculateComplianceScore,
@@ -134,6 +135,8 @@ export class ComplianceEvaluator {
 
     // ── Rule evaluations ─────────────────────────────────────────────────────
 
+    const edition = inputs.codeEdition ?? editionForProvince(inputs.province ?? '');
+
     const travelDistanceRule = await ruleResolver.resolveConstraint(
       inputs.sprinklers
         ? Constraints.egress.travel_distance.sprinklered.ref
@@ -148,9 +151,9 @@ export class ComplianceEvaluator {
       {
         inputs,
         jurisdiction: {
-          province: inputs.province ?? 'AB',
+          province: inputs.province ?? '',
           municipality: inputs.municipality ?? undefined,
-          codeEdition: inputs.province === 'AB' ? 'NBC(AE) 2023' : inputs.province === 'BC' ? 'BCBC 2024' : 'NBC 2020',
+          codeEdition: edition,
         },
         mode: this.mode,
       },
@@ -221,6 +224,7 @@ export class ComplianceEvaluator {
       evaluatedAt: new Date().toISOString(),
       engineVersion: '1.0',
       jurisdictionApplied: travelDistanceRule.source,
+      codeEdition: edition,
     };
   }
 

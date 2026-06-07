@@ -28,6 +28,7 @@ export interface CompliancePathway {
     storeys: number;
     constructionType: string;
     sprinklers: boolean;
+    codeEdition: string;
   };
   applicableClauses: ComplianceClause[];
   alternativeSolutions: AlternativeSolution[];
@@ -55,6 +56,9 @@ export class CompliancePathwayGenerator {
     const storeys = inputs.storeys || 1;
     const constructionType = inputs.construction_type || 'Non-Combustible';
     const sprinklers = inputs.sprinklers || false;
+    const province = (inputs.province as string) || '';
+    const codeEdition = (inputs.codeEdition as string) ||
+      ({ AB: 'NBC(AE) 2023', BC: 'BCBC 2024' }[province] ?? 'NBC 2020');
 
     // Extract applicable clauses
     const applicableClauses = this.extractApplicableClauses(
@@ -109,6 +113,7 @@ export class CompliancePathwayGenerator {
         storeys,
         constructionType,
         sprinklers,
+        codeEdition,
       },
       applicableClauses,
       alternativeSolutions,

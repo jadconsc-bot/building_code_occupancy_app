@@ -11,6 +11,7 @@ export interface ComplianceInput {
   fire_alarm?: boolean;
   province?: string;
   municipality?: string;
+  codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default
   projectId?: number;
   [key: string]: any;
 }

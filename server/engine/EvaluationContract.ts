@@ -21,7 +21,8 @@ export interface EvaluationResult {
   };
   evaluatedAt: string;         // ISO 8601
   engineVersion: string;       // '1.0'
-  jurisdictionApplied: string; // 'NBC 2020 Federal' | 'ABC 2023 Provincial' etc.
+  jurisdictionApplied: string; // 'NBC 2020 Federal' | 'NBC(AE) 2023 Provincial' etc.
+  codeEdition: string;         // governing edition: 'NBC 2020' | 'NBC(AE) 2023' | 'BCBC 2024' | 'NBC 2025'
 }
 
 export interface EngineContract {
