@@ -200,12 +200,12 @@ export default function Billing() {
                 {isFoundingMember ? (
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-extrabold text-gray-900">$29</span>
-                    <span className="text-gray-400 line-through text-lg">$79</span>
+                    <span className="text-gray-400 line-through text-lg">$49</span>
                     <span className="text-gray-500 text-sm">/mo</span>
                   </div>
                 ) : (
                   <div>
-                    <span className="text-4xl font-extrabold text-gray-900">$79</span>
+                    <span className="text-4xl font-extrabold text-gray-900">$49</span>
                     <span className="text-gray-500 text-sm ml-2">/month</span>
                   </div>
                 )}
