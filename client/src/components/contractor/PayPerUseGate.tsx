@@ -27,13 +27,19 @@ export function PayPerUseGate({ toolName, children }: PayPerUseGateProps) {
   );
   const [locked, setLocked] = useState(false);
 
+  // Server-side check: contractor pack purchased grants unlimited access
+  const { data: contractorStatus } = trpc.subscriptions.getContractorStatus.useQuery(undefined, {
+    retry: false,
+  });
+  const packPurchased = contractorStatus?.packPurchased ?? false;
+
   const checkoutMutation = trpc.subscriptions.createContractorSession.useMutation({
     onSuccess: (data: { checkoutUrl: string }) => { window.location.href = data.checkoutUrl; },
   });
 
   useEffect(() => {
-    // Consume a credit when the tool mounts (only if not subscribed and credits > 0)
-    if (subscribed) return;
+    // Consume a credit when the tool mounts (only if not subscribed, no pack, and credits > 0)
+    if (subscribed || packPurchased) return;
     const current = readCredits();
     if (current <= 0) {
       setLocked(true);
@@ -46,7 +52,7 @@ export function PayPerUseGate({ toolName, children }: PayPerUseGateProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toolName]);
 
-  if (locked || (!subscribed && credits < 0)) {
+  if (!packPurchased && (locked || (!subscribed && credits < 0))) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center space-y-4">
         <div className="text-4xl">🔒</div>

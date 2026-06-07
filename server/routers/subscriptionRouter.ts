@@ -269,6 +269,25 @@ export const subscriptionRouter = router({
       return { url: portalSession.url };
     }),
 
+  getContractorStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { packPurchased: false };
+
+    const [sub] = await db
+      .select({
+        contractorPackPurchased: userSubscriptions.contractorPackPurchased,
+        contractorPackPurchasedAt: userSubscriptions.contractorPackPurchasedAt,
+      })
+      .from(userSubscriptions)
+      .where(eq(userSubscriptions.userId, ctx.user.id))
+      .limit(1);
+
+    return {
+      packPurchased: sub?.contractorPackPurchased ?? false,
+      purchasedAt: sub?.contractorPackPurchasedAt ?? null,
+    };
+  }),
+
   createContractorSession: publicProcedure
     .input(z.object({
       type:  z.enum(['subscription', 'pack']),

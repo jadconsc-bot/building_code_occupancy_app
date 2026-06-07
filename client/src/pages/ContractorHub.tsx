@@ -1,4 +1,5 @@
-import { useLocation } from 'wouter';
+import { useEffect } from 'react';
+import { useLocation, useSearch } from 'wouter';
 import { trpc } from '@/lib/trpc';
 
 const TOOLS = [
@@ -71,12 +72,23 @@ function hasSub(): boolean {
 
 export default function ContractorHub() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const credits = getCredits();
   const subscribed = hasSub();
 
   const checkoutMutation = trpc.subscriptions.createContractorSession.useMutation({
     onSuccess: (data: { checkoutUrl: string }) => { window.location.href = data.checkoutUrl; },
   });
+
+  // Handle return from successful Stripe checkout
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get('activated') === 'true') {
+      localStorage.setItem('cc_contractor_credits', '10');
+      // Clean the URL
+      setLocation('/contractor', { replace: true } as any);
+    }
+  }, [search]);
 
   return (
     <div className="min-h-screen bg-gray-50">

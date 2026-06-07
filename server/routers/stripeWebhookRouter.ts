@@ -75,9 +75,58 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
         break;
       }
       case "checkout.session.completed": {
-        const session = event.data.object as { customer: string; subscription: string };
-        console.log(`[StripeWebhook] Checkout completed — customer ${session.customer}, subscription ${session.subscription}`);
-        // subscription.created fires separately and handles role upgrade
+        const session = event.data.object as {
+          id: string;
+          mode: string;
+          customer: string;
+          subscription: string | null;
+        };
+
+        // Subscription mode — customer.subscription.created fires next and handles role upgrade
+        if (session.mode === 'subscription') {
+          console.log(`[StripeWebhook] Checkout completed (subscription) — customer ${session.customer}`);
+          break;
+        }
+
+        // One-time payment mode — fulfill immediately
+        if (session.mode === 'payment') {
+          const db = await getDb();
+          if (!db) {
+            console.error('[StripeWebhook] DB unavailable for one-time payment fulfillment');
+            break;
+          }
+          const stripe = createStripeClient();
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 });
+
+          for (const item of lineItems.data) {
+            const priceId = item.price?.id;
+
+            if (priceId && priceId === process.env.STRIPE_CONTRACTOR_PACK_PRICE_ID) {
+              const sub = await findUserByStripeCustomer(db, session.customer);
+              if (!sub) {
+                console.error(`[StripeWebhook] Contractor Pack: no user found for customer ${session.customer}`);
+                continue;
+              }
+
+              const [user] = await db
+                .select({ id: users.id, role: users.role })
+                .from(users)
+                .where(eq(users.id, sub.userId))
+                .limit(1);
+
+              if (user?.role === 'free') {
+                await db.update(users).set({ role: 'basic' }).where(eq(users.id, user.id));
+              }
+
+              await db
+                .update(userSubscriptions)
+                .set({ contractorPackPurchased: true, contractorPackPurchasedAt: new Date() })
+                .where(eq(userSubscriptions.userId, sub.userId));
+
+              console.log(`[StripeWebhook] Contractor Pack fulfilled for user ${sub.userId}`);
+            }
+          }
+        }
         break;
       }
       case "customer.subscription.created":

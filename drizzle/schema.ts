@@ -591,6 +591,8 @@ export const userSubscriptions = mysqlTable("userSubscriptions", {
   stripeCustomerId: varchar("stripeCustomerId", { length: 255 }), // Stripe customer ID
   isFoundingMember: tinyint("isFoundingMember").notNull().default(0),
   homeReportsRemaining: int("homeReportsRemaining").notNull().default(0),
+  contractorPackPurchased: boolean("contractorPackPurchased").notNull().default(false),
+  contractorPackPurchasedAt: timestamp("contractorPackPurchasedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
