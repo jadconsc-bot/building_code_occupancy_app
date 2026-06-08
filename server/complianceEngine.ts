@@ -225,6 +225,11 @@ export class ComplianceEvaluator {
       engineVersion: '1.0',
       jurisdictionApplied: travelDistanceRule.source,
       codeEdition: edition,
+      // Passes through the caller-supplied jurisdiction source.
+      // Do NOT default to 'manual' here — undefined is intentional.
+      // It makes callers that haven't passed jurisdictionSource yet
+      // visible in the audit trail output rather than silently masking them.
+      jurisdictionSource: inputs.jurisdictionSource,
     };
   }
 

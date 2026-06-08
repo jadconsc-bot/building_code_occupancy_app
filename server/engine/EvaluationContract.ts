@@ -23,6 +23,13 @@ export interface EvaluationResult {
   engineVersion: string;       // '1.0'
   jurisdictionApplied: string; // 'NBC 2020 Federal' | 'NBC(AE) 2023 Provincial' etc.
   codeEdition: string;         // governing edition: 'NBC 2020' | 'NBC(AE) 2023' | 'BCBC 2024' | 'NBC 2025'
+  /**
+   * How jurisdiction was determined for this evaluation.
+   * Recorded for legal defensibility and audit trail completeness.
+   * Matches the jurisdictionSource field on the project record.
+   * Optional — defaults to undefined if not supplied by caller.
+   */
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
 export interface EngineContract {
