@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { IsometricStackView, type OccupancyZone, type FireSeparation, type HallwayConfig, type WingSeparation } from "./IsometricStackView";
+import { IsometricStackView, type OccupancyZone, type FireSeparation, type HallwayConfig, type WingSeparation, type WingData } from "./IsometricStackView";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -66,6 +66,12 @@ interface StackZone {
 interface FloorLevel {
   id: string;
   zones: StackZone[];
+}
+
+interface Wing {
+  id: string;
+  label: string;
+  floors: FloorLevel[];
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -392,10 +398,10 @@ export function OccupancyAdvisor({
   const [selectedCode, setSelectedCode] = useState("");
 
   // Screen 2.5 stack planner
-  const [floors, setFloors] = useState<FloorLevel[]>([]);
+  const [wings, setWings] = useState<Wing[]>([{ id: 'wing-0', label: 'Wing A', floors: [] }]);
+  const [activeWingId, setActiveWingId] = useState<string>('wing-0');
   const [stackOrientation, setStackOrientation] = useState<'vertical' | 'horizontal'>('vertical');
   const [stackView, setStackView] = useState<'flat' | 'isometric'>('flat');
-  const [isoWingCount, setIsoWingCount] = useState(1);  // 1 = main only
   const [hallways, setHallways] = useState<HallwayConfig[]>([]);
   const [hallwayToolActive, setHallwayToolActive] = useState(false);
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
@@ -449,6 +455,33 @@ export function OccupancyAdvisor({
     },
   });
 
+  // ── Wing helpers ─────────────────────────────────────────────────────────────
+
+  const activeWing = wings.find(w => w.id === activeWingId) ?? wings[0];
+  const floors = activeWing?.floors ?? [];
+
+  function updateActiveWingFloors(updater: (prev: FloorLevel[]) => FloorLevel[]) {
+    setWings(prev => prev.map(w =>
+      w.id === activeWingId ? { ...w, floors: updater(w.floors) } : w
+    ));
+  }
+
+  function addWing() {
+    const WING_LABELS = ['Wing A', 'Wing B', 'Wing C', 'Wing D'];
+    const newId = `wing-${Date.now()}`;
+    const label = WING_LABELS[wings.length] ?? `Wing ${wings.length + 1}`;
+    setWings(prev => [...prev, { id: newId, label, floors: [] }]);
+    setActiveWingId(newId);
+  }
+
+  function removeActiveWing() {
+    if (wings.length <= 1) return;
+    const idx = wings.findIndex(w => w.id === activeWingId);
+    const newWings = wings.filter(w => w.id !== activeWingId);
+    setWings(newWings);
+    setActiveWingId(newWings[Math.max(0, idx - 1)].id);
+  }
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function toggleActivity(a: string) {
@@ -467,26 +500,26 @@ export function OccupancyAdvisor({
     setMixedUseZones(prev => prev.map((z, idx) => idx === i ? { ...z, [field]: value } : z));
   }
 
-  // Add a new floor (storey) containing one zone
+  // Add a new floor (storey) containing one zone — targets active wing
   function addFloorFromCode(code: string) {
     const zone = makeStackZone(code);
     if (!zone) return;
-    setFloors(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, zones: [zone] }]);
+    updateActiveWingFloors(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, zones: [zone] }]);
   }
 
-  // Add a zone alongside existing zones on a given floor (split floor)
+  // Add a zone alongside existing zones on a given floor — targets active wing
   function addZoneToFloor(floorIdx: number, code: string) {
     const zone = makeStackZone(code);
     if (!zone) return;
-    setFloors(prev => prev.map((f, i) =>
+    updateActiveWingFloors(prev => prev.map((f, i) =>
       i === floorIdx ? { ...f, zones: [...f.zones, zone] } : f
     ));
     setSplitFloorIndex(null);
   }
 
-  // Remove a single zone from a floor; removes the whole floor if it was the last zone
+  // Remove a zone; removes the whole floor if it was the last zone — targets active wing
   function removeZoneFromFloor(floorIdx: number, zoneIdx: number) {
-    setFloors(prev => {
+    updateActiveWingFloors(prev => {
       const floor = prev[floorIdx];
       if (floor.zones.length <= 1) return prev.filter((_, i) => i !== floorIdx);
       return prev.map((f, i) =>
@@ -496,7 +529,7 @@ export function OccupancyAdvisor({
   }
 
   function updateZoneArea(floorIdx: number, zoneIdx: number, area: number) {
-    setFloors(prev => prev.map((f, fi) =>
+    updateActiveWingFloors(prev => prev.map((f, fi) =>
       fi === floorIdx
         ? { ...f, zones: f.zones.map((z, zi) => zi === zoneIdx ? { ...z, area_m2: Math.max(10, area) } : z) }
         : f
@@ -519,7 +552,7 @@ export function OccupancyAdvisor({
       const c1 = candidatesWithScores[1];
       const v0 = OCCUPANCY_VISUAL_DATA[c0.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
       const v1 = OCCUPANCY_VISUAL_DATA[c1.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
-      setFloors([
+      updateActiveWingFloors(() => [
         { id: '1', zones: [{ code: c0.code, name: c0.name, ...v0, area_m2: 100 }] },
         { id: '2', zones: [{ code: c1.code, name: c1.name, ...v1, area_m2: 100 }] },
       ]);
@@ -549,15 +582,14 @@ export function OccupancyAdvisor({
     if (projectId) {
       updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
     }
-    if (floors.length > 0) {
-      const allZones = floors.flatMap(f => f.zones);
-      const totalArea = allZones.reduce((sum, z) => sum + z.area_m2, 0);
+    if (allStackZones.length > 0) {
+      const totalArea = allStackZones.reduce((sum, z) => sum + z.area_m2, 0);
       const floorSeparations = floors.slice(0, -1).map((floor, i) => ({
         from: floor.zones.map(z => z.code).join('/'),
         to: floors[i + 1].zones.map(z => z.code).join('/'),
         ...getMaxFloorSeparation(floor.zones, floors[i + 1].zones),
       }));
-      console.log('Mixed occupancy stack confirmed', { floors, stackOrientation, totalArea, floorSeparations });
+      console.log('Mixed occupancy stack confirmed', { wings, stackOrientation, totalArea, floorSeparations });
     }
     onConfirm?.(selectedCode);
     handleClose();
@@ -577,7 +609,8 @@ export function OccupancyAdvisor({
     setSelectedProvince(province);
     setClassifyError("");
     setClassifyResult(null); setRuleScores({}); setScoreCount(0); setSelectedCode("");
-    setFloors([]); setStackOrientation('vertical'); setDraggingCode(null); setSplitFloorIndex(null);
+    setWings([{ id: 'wing-0', label: 'Wing A', floors: [] }]); setActiveWingId('wing-0');
+    setStackOrientation('vertical'); setDraggingCode(null); setSplitFloorIndex(null);
     setChecked1(false); setChecked2(false); setChecked3(false);
   }
 
@@ -600,7 +633,7 @@ export function OccupancyAdvisor({
 
   const confirmEnabled = checked1 && checked2 && checked3 && !!selectedCode;
 
-  const allStackZones = floors.flatMap(f => f.zones);
+  const allStackZones = wings.flatMap(w => w.floors.flatMap(f => f.zones));
   const governingStackCode = allStackZones.length > 0
     ? allStackZones.reduce((max, z) =>
         (RESTRICTIVENESS[z.code] ?? 0) > (RESTRICTIVENESS[max.code] ?? 0) ? z : max
@@ -1030,10 +1063,10 @@ export function OccupancyAdvisor({
 
         {/* ── Screen 2.5: Mixed Use Stack Planner ── */}
         {screen === 'stackPlanner' && (() => {
-          const allZones = floors.flatMap(f => f.zones);
+          const allZones = wings.flatMap(w => w.floors.flatMap(f => f.zones));
           const totalArea = allZones.reduce((sum, z) => sum + z.area_m2, 0) || 1;
 
-          // Floor-to-floor separation schedule (vertical mode)
+          // Floor-to-floor separation schedule for the active wing
           const floorSepSchedule = floors.slice(0, -1).map((floor, i) => ({
             interfaceLabel: `Floor ${i + 1} → Floor ${i + 2}`,
             zonesA: floor.zones,
@@ -1118,24 +1151,38 @@ export function OccupancyAdvisor({
                   </button>
                 </div>
                 {stackView === 'isometric' && stackOrientation === 'vertical' && (
-                  <Button
-                    variant="outline" size="sm"
-                    className="text-xs h-7"
-                    onClick={() => setIsoWingCount(n => Math.min(n + 1, 4))}
-                    disabled={isoWingCount >= 4}
-                    title="Add a second tower offset to the right with wall fire separation"
-                  >
-                    + Add Wing
-                  </Button>
-                )}
-                {stackView === 'isometric' && isoWingCount > 1 && (
-                  <Button
-                    variant="ghost" size="sm"
-                    className="text-xs h-7 text-muted-foreground"
-                    onClick={() => setIsoWingCount(n => Math.max(n - 1, 1))}
-                  >
-                    − Wing
-                  </Button>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {wings.map(w => (
+                      <button
+                        key={w.id}
+                        onClick={() => setActiveWingId(w.id)}
+                        className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                          w.id === activeWingId
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        {w.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={addWing}
+                      disabled={wings.length >= 4}
+                      className="px-2 py-1 rounded text-xs border border-dashed border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+                      title="Add wing (max 4)"
+                    >
+                      + Wing
+                    </button>
+                    {wings.length > 1 && (
+                      <button
+                        onClick={removeActiveWing}
+                        className="px-2 py-1 rounded text-xs border border-red-200 text-red-500 hover:bg-red-50"
+                        title={`Remove ${activeWing?.label}`}
+                      >
+                        − Remove
+                      </button>
+                    )}
+                  </div>
                 )}
                 {stackView === 'isometric' && (
                   <Button
@@ -1277,62 +1324,55 @@ export function OccupancyAdvisor({
                   setDraggingCode(null);
                 }}
               >
-                {floors.length === 0 ? (
+                {floors.length === 0 && allZones.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-28 text-muted-foreground">
                     <Layers className="w-8 h-8 mb-2 opacity-30" />
                     <p className="text-xs">Drag occupancy chips here, or click them above</p>
+                    {wings.length > 1 && (
+                      <p className="text-[10px] mt-1 opacity-60">Adding to {activeWing?.label}</p>
+                    )}
+                  </div>
+                ) : floors.length === 0 && allZones.length > 0 ? (
+                  <div className="flex flex-col items-center justify-center h-28 text-muted-foreground">
+                    <Layers className="w-8 h-8 mb-2 opacity-30" />
+                    <p className="text-xs">{activeWing?.label} is empty — drag chips above to add floors</p>
                   </div>
                 ) : stackView === 'isometric' ? (
                   /* ── Isometric 3D view ── */
                   (() => {
-                    const isoZones: OccupancyZone[] = [];
-
-                    function buildWingZones(floorArr: FloorLevel[], wingIdx: number) {
+                    function buildWingZones(floorArr: FloorLevel[]): OccupancyZone[] {
+                      const zones: OccupancyZone[] = [];
                       for (let fi = 0; fi < floorArr.length; fi++) {
                         const fl = floorArr[fi];
                         const total = fl.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
                         let xOff = 0;
                         for (const zone of fl.zones) {
                           const w = (zone.area_m2 / total) * 4;
-                          isoZones.push({
-                            floor: fi,
-                            wing: wingIdx,
-                            label: `${zone.code} — ${zone.name}`,
-                            occupancyGroup: zone.code,
-                            color: zone.color,
-                            widthUnits: w,
-                            xOffset: xOff,
-                          });
+                          zones.push({ floor: fi, label: `${zone.code} — ${zone.name}`, occupancyGroup: zone.code, color: zone.color, widthUnits: w, xOffset: xOff });
                           xOff += w;
                         }
                       }
+                      return zones;
                     }
 
+                    let wingDataArr: WingData[];
+
                     if (stackOrientation === 'horizontal') {
-                      // Horizontal: each floor becomes a side-by-side section in X
-                      for (let fi = 0; fi < floors.length; fi++) {
-                        const fl = floors[fi];
-                        const total = fl.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
-                        let xOff = 0;
-                        for (const zone of fl.zones) {
-                          const w = (zone.area_m2 / total) * 4;
-                          isoZones.push({
-                            floor: fi,   // used as section index in horizontal mode
-                            wing: 0,
-                            label: `${zone.code} — ${zone.name}`,
-                            occupancyGroup: zone.code,
-                            color: zone.color,
-                            widthUnits: w,
-                            xOffset: xOff,
-                          });
-                          xOff += w;
-                        }
-                      }
+                      // Horizontal: flatten wings[0] floors into sections
+                      wingDataArr = [{
+                        id: 'h-main',
+                        label: wings[0]?.label ?? 'Main',
+                        zones: buildWingZones(wings[0]?.floors ?? []),
+                        floorCount: 1,
+                      }];
                     } else {
-                      // Vertical: main tower + additional wings (clones of main floors)
-                      for (let wi = 0; wi < isoWingCount; wi++) {
-                        buildWingZones(floors, wi);
-                      }
+                      // Vertical: each wing is an independent tower
+                      wingDataArr = wings.map(wing => ({
+                        id: wing.id,
+                        label: wing.label,
+                        zones: buildWingZones(wing.floors),
+                        floorCount: wing.floors.length,
+                      }));
                     }
 
                     const isoSeps: FireSeparation[] = floorSepSchedule.map((s, i) => ({
@@ -1341,31 +1381,28 @@ export function OccupancyAdvisor({
                       result: (s.frr === '0 min' || s.frr === 'None' ? 'pass' : 'advisory') as 'pass' | 'fail' | 'advisory',
                     }));
 
-                    // Wing separation walls between adjacent towers
+                    // Wing separation walls between adjacent towers (correct FRR per pair)
                     const isoWingSeps: WingSeparation[] = [];
-                    if (stackOrientation === 'vertical' && isoWingCount > 1) {
-                      const govSep = allZones.length > 0
-                        ? getMaxFloorSeparation(allZones, allZones)
-                        : { frr: '45 min', hours: 0.75 };
-                      const frr = parseInt(govSep.frr) || 45;
-                      const totalH = Math.max(floors.length, 1) * 3;
-                      for (let wi = 0; wi < isoWingCount - 1; wi++) {
-                        isoWingSeps.push({
-                          atX: (wi + 1) * 4.8 - 0.4,
-                          fromZ: 0,
-                          toZ: totalH,
-                          requiredFRR: frr,
-                          result: 'advisory',
-                        });
+                    if (stackOrientation === 'vertical' && wings.length > 1) {
+                      for (let wi = 0; wi < wings.length - 1; wi++) {
+                        const zonesA = wings[wi].floors.flatMap(f => f.zones);
+                        const zonesB = wings[wi + 1].floors.flatMap(f => f.zones);
+                        const govSep = (zonesA.length > 0 && zonesB.length > 0)
+                          ? getMaxFloorSeparation(zonesA, zonesB)
+                          : { frr: '45 min', hours: 0.75 };
+                        const frr = parseInt(govSep.frr) || 45;
+                        isoWingSeps.push({ wingAIdx: wi, wingBIdx: wi + 1, requiredFRR: frr, result: 'advisory' });
                       }
                     }
+
+                    const maxFloors = Math.max(...wingDataArr.map(w => w.floorCount), 1);
 
                     return (
                       <div className="overflow-hidden rounded">
                         <IsometricStackView
-                          zones={isoZones}
+                          wings={wingDataArr}
                           separations={isoSeps}
-                          totalFloors={floors.length}
+                          totalFloors={maxFloors}
                           orientation={stackOrientation}
                           hallways={hallways}
                           wingSeparations={isoWingSeps}
@@ -1568,13 +1605,17 @@ export function OccupancyAdvisor({
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground shrink-0">Total building area:</span>
                     <span className="font-semibold">{(totalArea === 1 ? 0 : totalArea).toLocaleString()} m²</span>
-                    <span className="text-muted-foreground">across {floors.length} floor{floors.length !== 1 ? 's' : ''}, {allZones.length} zone{allZones.length !== 1 ? 's' : ''}</span>
+                    <span className="text-muted-foreground">
+                      {wings.length > 1 ? `${wings.length} wings, ` : ''}{allZones.length} zone{allZones.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
 
-                  {/* Floor breakdown (vertical mode) */}
+                  {/* Floor breakdown (vertical mode) — active wing */}
                   {stackOrientation === 'vertical' && floors.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Floor Breakdown</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                        Floor Breakdown{wings.length > 1 ? ` — ${activeWing?.label}` : ''}
+                      </p>
                       <div className="space-y-0.5">
                         {floors.map((floor, i) => {
                           const floorArea = floor.zones.reduce((s, z) => s + z.area_m2, 0);
@@ -1608,7 +1649,9 @@ export function OccupancyAdvisor({
                     const hallwaySeps = calculateHallwaySeparations(hallways, floors);
                     return (
                       <div>
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Separation Schedule</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                          Separation Schedule{wings.length > 1 ? ` — ${activeWing?.label}` : ''}
+                        </p>
                         <div className="rounded overflow-hidden border border-border text-xs">
                           <div className="grid grid-cols-4 bg-muted/40 font-semibold text-[10px]">
                             <div className="px-2 py-1.5">Interface</div>
@@ -1635,6 +1678,44 @@ export function OccupancyAdvisor({
                               </div>
                             </div>
                           ))}
+                          {/* Wing-to-wing separations (vertical multi-wing) */}
+                          {stackOrientation === 'vertical' && wings.length > 1 && (() => {
+                            const wingWallRows = wings.slice(0, -1).map((wA, wi) => {
+                              const wB = wings[wi + 1];
+                              const zonesA = wA.floors.flatMap(f => f.zones);
+                              const zonesB = wB.floors.flatMap(f => f.zones);
+                              const sep = (zonesA.length > 0 && zonesB.length > 0)
+                                ? getMaxFloorSeparation(zonesA, zonesB)
+                                : { frr: '45 min', hours: 0.75, color: '#BA7517', bgColor: '#FAEEDA', nbcRef: 'NBC 3.1.3.4' };
+                              return { wA, wB, sep };
+                            });
+                            return (
+                              <>
+                                <div className="col-span-4 px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/20 border-t grid grid-cols-4">
+                                  <div className="col-span-4">Wing-to-Wing Wall Separations (NBC 3.1.3.4)</div>
+                                </div>
+                                {wingWallRows.map(({ wA, wB, sep }, idx) => (
+                                  <div key={idx} className="grid grid-cols-4 border-t border-border text-[10px]" style={{ backgroundColor: `${sep.bgColor}60` }}>
+                                    <div className="px-2 py-1.5 text-muted-foreground">{wA.label} / {wB.label}</div>
+                                    <div className="px-2 py-1.5">
+                                      {wA.floors.flatMap(f => f.zones).map(z => z.code).filter((v, i, a) => a.indexOf(v) === i).map(c => (
+                                        <span key={c} className="font-mono font-bold mr-1" style={{ color: OCCUPANCY_VISUAL_DATA[c]?.color }}>{c}</span>
+                                      ))}
+                                    </div>
+                                    <div className="px-2 py-1.5">
+                                      {wB.floors.flatMap(f => f.zones).map(z => z.code).filter((v, i, a) => a.indexOf(v) === i).map(c => (
+                                        <span key={c} className="font-mono font-bold mr-1" style={{ color: OCCUPANCY_VISUAL_DATA[c]?.color }}>{c}</span>
+                                      ))}
+                                    </div>
+                                    <div className="px-2 py-1.5 font-bold" style={{ color: sep.color }}>
+                                      {sep.frr}
+                                      <span className="ml-1 font-normal text-[9px] text-muted-foreground">{sep.nbcRef}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            );
+                          })()}
                           {/* Corridor separations */}
                           {hallwaySeps.length > 0 && (
                             <>
@@ -1714,7 +1795,7 @@ export function OccupancyAdvisor({
                     if (governingStackCode) setSelectedCode(governingStackCode);
                     setScreen(3);
                   }}
-                  disabled={floors.length === 0}
+                  disabled={allZones.length === 0}
                 >
                   Confirm Arrangement →
                 </Button>
@@ -1737,7 +1818,7 @@ export function OccupancyAdvisor({
               </p>
               {isMixedUse && allStackZones.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Governing occupancy from {floors.length}-floor, {allStackZones.length}-zone mixed use stack
+                  Governing occupancy from {wings.length > 1 ? `${wings.length}-wing` : `${floors.length}-floor`}, {allStackZones.length}-zone mixed use stack
                 </p>
               )}
             </div>

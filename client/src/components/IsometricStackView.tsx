@@ -1,8 +1,8 @@
 /**
- * IsometricStackView v2
- * Renders occupancy zones as isometric 3D boxes.
- * Supports vertical (tower) and horizontal (floor-plan) orientations,
- * multi-wing towers, fire separation planes/walls, and hallway cuts.
+ * IsometricStackView v3
+ * Wings-based data model. Each wing is an independent tower with its own floor stack.
+ * Supports vertical (multi-tower) and horizontal (floor-plan) orientations,
+ * fire separation planes/walls, and hallway cuts.
  * Pure SVG — no Three.js.
  */
 
@@ -19,30 +19,36 @@ export interface HallwayConfig {
 
 export interface OccupancyZone {
   floor: number;           // floor index (vertical) or section index (horizontal)
-  wing?: number;           // 0 = main tower (default), 1+ = additional wings
+  wing?: number;           // kept for backwards compat; not used in v3 render loop
   label: string;
   occupancyGroup: string;
   color: string;
   widthUnits: number;
-  xOffset: number;         // within-section x offset (0..4)
+  xOffset: number;         // within-floor x offset (0..4)
 }
 
 export interface FireSeparation {
-  betweenFloors: [number, number];   // floor indices (vertical)
+  betweenFloors: [number, number];
   requiredFRR: number;
   result: 'pass' | 'fail' | 'advisory';
 }
 
+export interface WingData {
+  id: string;
+  label: string;
+  zones: OccupancyZone[];
+  floorCount: number;
+}
+
 export interface WingSeparation {
-  atX: number;             // x position (building units) of the wall
-  fromZ: number;           // z start
-  toZ: number;             // z end
+  wingAIdx: number;
+  wingBIdx: number;
   requiredFRR: number;
   result: 'pass' | 'fail' | 'advisory';
 }
 
 interface IsometricStackViewProps {
-  zones: OccupancyZone[];
+  wings: WingData[];
   separations: FireSeparation[];
   totalFloors: number;
   orientation?: 'vertical' | 'horizontal';
@@ -52,13 +58,13 @@ interface IsometricStackViewProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TILE_W  = 55;    // isometric tile width (px)
-const TILE_H  = 36;    // height per Z unit (px)
-const FLOOR_H = 3;     // Z units per floor
-const BOX_W   = 4;     // building width in units
-const BOX_D   = 2;     // building depth in units
-const WING_STEP = 4.8; // x offset per wing
-const H_STEP  = 4.8;   // x offset per horizontal section
+const TILE_W  = 55;
+const TILE_H  = 36;
+const FLOOR_H = 3;
+const BOX_W   = 4;
+const BOX_D   = 2;
+const WING_STEP = 4.8;
+const H_STEP  = 4.8;
 const ORIGIN_X = 300;
 const ORIGIN_Y = 360;
 const SVG_W   = 680;
@@ -116,12 +122,12 @@ function renderBlock(
   rotRad: number,
   label?: string,
 ): React.ReactNode {
-  const topFace  = [isoProject(x0,y0,z1,rotRad), isoProject(x1,y0,z1,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x0,y1,z1,rotRad)] as [number,number][];
+  const topFace   = [isoProject(x0,y0,z1,rotRad), isoProject(x1,y0,z1,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x0,y1,z1,rotRad)] as [number,number][];
   const frontFace = [isoProject(x0,y1,z0,rotRad), isoProject(x1,y1,z0,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x0,y1,z1,rotRad)] as [number,number][];
   const sideFace  = [isoProject(x1,y0,z0,rotRad), isoProject(x1,y1,z0,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x1,y0,z1,rotRad)] as [number,number][];
 
-  const cx = topFace.reduce((s,p)=>s+p[0],0)/4;
-  const cy = topFace.reduce((s,p)=>s+p[1],0)/4;
+  const cx = topFace.reduce((s,p) => s+p[0], 0) / 4;
+  const cy = topFace.reduce((s,p) => s+p[1], 0) / 4;
 
   return (
     <g key={key}>
@@ -140,7 +146,7 @@ function renderBlock(
   );
 }
 
-// ─── Horizontal separation wall renderer ─────────────────────────────────────
+// ─── Vertical wall renderer ────────────────────────────────────────────────────
 
 function renderWall(
   key: string,
@@ -148,7 +154,7 @@ function renderWall(
   y0: number, y1: number,
   z0: number, z1: number,
   frr: number,
-  result: FireSeparation['result'],
+  result: WingSeparation['result'],
   rotRad: number,
 ): React.ReactNode {
   const { fill, stroke } = sepColors(result);
@@ -186,8 +192,8 @@ function renderHorizSep(
   const { fill, stroke } = sepColors(result);
   const margin = 0.15;
   const face = [
-    isoProject(xBase - margin,         0 - margin, z, rotRad),
-    isoProject(xBase + BOX_W + margin, 0 - margin, z, rotRad),
+    isoProject(xBase - margin,         0 - margin,  z, rotRad),
+    isoProject(xBase + BOX_W + margin, 0 - margin,  z, rotRad),
     isoProject(xBase + BOX_W + margin, BOX_D + margin, z, rotRad),
     isoProject(xBase - margin,         BOX_D + margin, z, rotRad),
   ] as [number,number][];
@@ -218,23 +224,18 @@ function renderHallway(
   z1: number,
   rotRad: number,
 ): React.ReactNode {
-  // Top stripe (grey, overlaid on block top face at z1)
   const topStripe = [
-    isoProject(xBase + posU,         0,     z1, rotRad),
-    isoProject(xBase + posU + widthU, 0,    z1, rotRad),
+    isoProject(xBase + posU,          0,     z1, rotRad),
+    isoProject(xBase + posU + widthU, 0,     z1, rotRad),
     isoProject(xBase + posU + widthU, BOX_D, z1, rotRad),
-    isoProject(xBase + posU,         BOX_D, z1, rotRad),
+    isoProject(xBase + posU,          BOX_D, z1, rotRad),
   ] as [number,number][];
-
-  // Front face strip (at y=BOX_D, showing hallway depth)
   const frontStripe = [
     isoProject(xBase + posU,          BOX_D, z0, rotRad),
     isoProject(xBase + posU + widthU, BOX_D, z0, rotRad),
     isoProject(xBase + posU + widthU, BOX_D, z1, rotRad),
     isoProject(xBase + posU,          BOX_D, z1, rotRad),
   ] as [number,number][];
-
-  // Right wall strip (x = posU+widthU face)
   const rightStripe = [
     isoProject(xBase + posU + widthU, 0,     z0, rotRad),
     isoProject(xBase + posU + widthU, BOX_D, z0, rotRad),
@@ -242,9 +243,8 @@ function renderHallway(
     isoProject(xBase + posU + widthU, 0,     z1, rotRad),
   ] as [number,number][];
 
-  // Walking figure at center of top stripe
-  const figX = (topStripe[0][0] + topStripe[1][0] + topStripe[2][0] + topStripe[3][0]) / 4;
-  const figY = (topStripe[0][1] + topStripe[1][1] + topStripe[2][1] + topStripe[3][1]) / 4;
+  const figX = (topStripe[0][0]+topStripe[1][0]+topStripe[2][0]+topStripe[3][0]) / 4;
+  const figY = (topStripe[0][1]+topStripe[1][1]+topStripe[2][1]+topStripe[3][1]) / 4;
 
   return (
     <g key={key}>
@@ -263,7 +263,7 @@ function renderHallway(
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function IsometricStackView({
-  zones,
+  wings,
   separations,
   totalFloors,
   orientation = 'vertical',
@@ -297,55 +297,59 @@ export function IsometricStackView({
   const elements: React.ReactNode[] = [];
   const labels: React.ReactNode[] = [];
 
-  // ── Vertical mode ─────────────────────────────────────────────────────────
+  // ── Vertical mode: each wing is an independent tower ──────────────────────
   if (orientation === 'vertical') {
-    const floorCount = Math.max(totalFloors, 1);
-    const wings = [...new Set(zones.map(z => z.wing ?? 0))].sort();
-
-    // Render each wing as a separate tower
-    for (const wingIdx of wings) {
+    wings.forEach((wing, wingIdx) => {
       const xBase = wingIdx * WING_STEP;
-      const wingZones = zones.filter(z => (z.wing ?? 0) === wingIdx);
+      const floorCount = Math.max(wing.floorCount, 1);
 
-      // Floor 0 = bottom (Z=0), floor N = top — iterate 0..N-1 (ground up)
       for (let floorIdx = 0; floorIdx < floorCount; floorIdx++) {
         const z0 = floorIdx * FLOOR_H;
         const z1 = z0 + FLOOR_H;
-        const floorZones = wingZones.filter(z => z.floor === floorIdx);
+        const floorZones = wing.zones.filter(z => z.floor === floorIdx);
 
         if (floorZones.length === 0) {
-          // Empty placeholder
-          elements.push(renderBlock(`empty-w${wingIdx}-f${floorIdx}`, xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad));
+          elements.push(renderBlock(
+            `empty-w${wingIdx}-f${floorIdx}`,
+            xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad
+          ));
         } else {
           for (let zi = 0; zi < floorZones.length; zi++) {
             const zone = floorZones[zi];
             const x0 = xBase + zone.xOffset;
             const x1 = x0 + zone.widthUnits;
-            elements.push(renderBlock(`zone-w${wingIdx}-f${floorIdx}-z${zi}`, x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, zone.occupancyGroup));
+            elements.push(renderBlock(
+              `zone-w${wingIdx}-f${floorIdx}-z${zi}`,
+              x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, zone.occupancyGroup
+            ));
           }
         }
 
-        // Hallways on this floor for this wing
+        // Hallways on this floor
         for (let hi = 0; hi < hallways.length; hi++) {
           const hw = hallways[hi];
-          const applies = hw.floorIndex === 'all' || hw.floorIndex === floorIdx;
-          if (!applies) continue;
+          if (hw.floorIndex !== 'all' && hw.floorIndex !== floorIdx) continue;
           const posU = (hw.positionPct / 100) * BOX_W;
           const widthU = Math.max(hw.widthMm / 5000, 0.12);
-          elements.push(renderHallway(`hw-w${wingIdx}-f${floorIdx}-h${hi}`, xBase, posU, widthU, z0, z1, rotRad));
+          elements.push(renderHallway(
+            `hw-w${wingIdx}-f${floorIdx}-h${hi}`,
+            xBase, posU, widthU, z0, z1, rotRad
+          ));
         }
 
-        // Floor separation plane (above this floor = between floorIdx and floorIdx+1)
+        // Floor separation plane above this floor
         const sep = separations.find(s =>
           (s.betweenFloors[0] === floorIdx && s.betweenFloors[1] === floorIdx + 1) ||
           (s.betweenFloors[1] === floorIdx && s.betweenFloors[0] === floorIdx + 1)
         );
         if (sep) {
-          elements.push(renderHorizSep(`flsep-w${wingIdx}-f${floorIdx}`, xBase, z1, sep.requiredFRR, sep.result, rotRad));
+          elements.push(renderHorizSep(
+            `flsep-w${wingIdx}-f${floorIdx}`, xBase, z1, sep.requiredFRR, sep.result, rotRad
+          ));
         }
       }
 
-      // Floor labels on left of this wing
+      // Floor labels on left of tower
       for (let fl = 0; fl < floorCount; fl++) {
         const zMid = fl * FLOOR_H + FLOOR_H / 2;
         const [lx, ly] = isoProject(xBase - 0.4, BOX_D / 2, zMid, rotRad);
@@ -357,25 +361,48 @@ export function IsometricStackView({
           </text>
         );
       }
-    }
 
-    // Wing separation walls between adjacent wings
+      // Wing name label above tower (only when multiple wings)
+      if (wings.length > 1) {
+        const topZ = wing.floorCount * FLOOR_H;
+        const [wx, wy] = isoProject(xBase + BOX_W / 2, BOX_D / 2, topZ, rotRad);
+        labels.push(
+          <text key={`wing-lbl-${wingIdx}`} x={wx} y={wy - 8} textAnchor="middle"
+            fontSize="9" fill="#374151" fontWeight="700" style={{ userSelect:'none' }}
+          >
+            {wing.label}
+          </text>
+        );
+      }
+    });
+
+    // Wing separation walls — only at overlapping floor heights
     for (const ws of wingSeparations) {
-      elements.push(renderWall(`wsep-${ws.atX}`, ws.atX, 0, BOX_D, ws.fromZ, ws.toZ, ws.requiredFRR, ws.result, rotRad));
+      const wingA = wings[ws.wingAIdx];
+      const wingB = wings[ws.wingBIdx];
+      const atX = ws.wingAIdx * WING_STEP + BOX_W + (WING_STEP - BOX_W) / 2;
+      const fromZ = 0;
+      const toZ = Math.min(
+        (wingA?.floorCount ?? 0) * FLOOR_H,
+        (wingB?.floorCount ?? 0) * FLOOR_H
+      );
+      if (toZ > fromZ) {
+        elements.push(renderWall(
+          `wsep-${ws.wingAIdx}-${ws.wingBIdx}`,
+          atX, 0, BOX_D, fromZ, toZ, ws.requiredFRR, ws.result, rotRad
+        ));
+      }
     }
-
-    // Between-wing plain wall (no FRR data) — for gaps with no wingSeparation
-    // (already handled above; just ensure wall renders between every wing pair)
   }
 
-  // ── Horizontal mode ────────────────────────────────────────────────────────
+  // ── Horizontal mode: sections laid out along X ─────────────────────────────
   if (orientation === 'horizontal') {
-    // Each "floor" is a section laid out along X at ground level (z=0..FLOOR_H)
-    const sections = [...new Set(zones.map(z => z.floor))].sort((a, b) => a - b);
+    const flatZones = wings[0]?.zones ?? [];
+    const sections = [...new Set(flatZones.map(z => z.floor))].sort((a, b) => a - b);
 
     for (const sectionIdx of sections) {
       const xBase = sectionIdx * H_STEP;
-      const sectionZones = zones.filter(z => z.floor === sectionIdx);
+      const sectionZones = flatZones.filter(z => z.floor === sectionIdx);
       const z0 = 0, z1 = FLOOR_H;
 
       if (sectionZones.length === 0) {
@@ -392,14 +419,13 @@ export function IsometricStackView({
       // Hallways on this section
       for (let hi = 0; hi < hallways.length; hi++) {
         const hw = hallways[hi];
-        const applies = hw.floorIndex === 'all' || hw.floorIndex === sectionIdx;
-        if (!applies) continue;
+        if (hw.floorIndex !== 'all' && hw.floorIndex !== sectionIdx) continue;
         const posU = (hw.positionPct / 100) * BOX_W;
         const widthU = Math.max(hw.widthMm / 5000, 0.12);
         elements.push(renderHallway(`hw-s${sectionIdx}-h${hi}`, xBase, posU, widthU, z0, z1, rotRad));
       }
 
-      // Vertical fire separation wall on the right edge of each section (between sections)
+      // Vertical fire separation wall on the right edge of each section
       const rightSep = separations.find(s =>
         (s.betweenFloors[0] === sectionIdx && s.betweenFloors[1] === sectionIdx + 1) ||
         (s.betweenFloors[1] === sectionIdx && s.betweenFloors[0] === sectionIdx + 1)
@@ -420,9 +446,10 @@ export function IsometricStackView({
       );
     }
 
-    // Wing separations (passed from parent for horizontal mode too, if any)
+    // Wing separations in horizontal mode (if any)
     for (const ws of wingSeparations) {
-      elements.push(renderWall(`wsep-h-${ws.atX}`, ws.atX, 0, BOX_D, ws.fromZ, ws.toZ, ws.requiredFRR, ws.result, rotRad));
+      const atX = ws.wingAIdx * WING_STEP + BOX_W + (WING_STEP - BOX_W) / 2;
+      elements.push(renderWall(`wsep-h-${ws.wingAIdx}`, atX, 0, BOX_D, 0, FLOOR_H, ws.requiredFRR, ws.result, rotRad));
     }
   }
 
