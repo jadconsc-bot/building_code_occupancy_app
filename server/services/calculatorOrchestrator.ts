@@ -9,6 +9,10 @@ import {
   calculateWashroomRequirements,
   WashroomResult,
 } from './washroomCalculator';
+import {
+  determineConstructionType,
+  ConstructionTypeResult,
+} from './constructionTypeEngine';
 
 // NBC 2023 Table 4.1.5.3 occupant load factors (persons/m²)
 const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; nbcRef: string }> = {
@@ -135,6 +139,12 @@ export interface OrchestratorResult {
    * Jurisdiction source threaded through from input for audit trail.
    */
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  /**
+   * Construction type determination per NBC Table 3.2.2.20.
+   * One entry per unique occupancy group — mixed-use buildings get separate evaluations.
+   * Empty array if no rooms with recognized occupancy groups found.
+   */
+  constructionType: ConstructionTypeResult[];
 }
 
 export function runCalculatorOrchestrator(
@@ -217,6 +227,34 @@ export function runCalculatorOrchestrator(
     );
   }
   // ── End washroom counts ───────────────────────────────────────────────────
+
+  // ── Construction Type (NBC Table 3.2.2.20) ────────────────────────────────
+  // One evaluation per unique occupancy group, using the group-total area.
+  // Reuses groupsSeen deduplication already populated by the washroom loop.
+  const constructionType: ConstructionTypeResult[] = [];
+  const ctGroupsSeen = new Set<string>();
+
+  for (const ol of occupantLoad) {
+    const normalizedGroup = ol.occupancyGroup.replace('-', '');
+    if (ctGroupsSeen.has(normalizedGroup)) continue;
+    ctGroupsSeen.add(normalizedGroup);
+
+    const groupTotalAreaM2 = occupantLoad
+      .filter(r => r.occupancyGroup === ol.occupancyGroup)
+      .reduce((sum, r) => sum + r.areaM2, 0);
+
+    constructionType.push(
+      determineConstructionType({
+        occupancyGroup: normalizedGroup,
+        storeys: input.storeys,
+        sprinklered: input.sprinklered,
+        totalAreaM2: groupTotalAreaM2,
+        province: input.province ?? 'CA',
+        jurisdictionSource: input.jurisdictionSource,
+      })
+    );
+  }
+  // ── End construction type ─────────────────────────────────────────────────
 
   // ── Egress Windows ─────────────────────────────────────────────────────────
   const egressWindows: OrchestratorResult['egressWindows'] = [];
@@ -368,6 +406,7 @@ export function runCalculatorOrchestrator(
     },
     findings,
     washroomCounts,
+    constructionType,
     jurisdictionSource: input.jurisdictionSource,
   };
 }
