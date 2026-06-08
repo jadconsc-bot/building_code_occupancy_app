@@ -115,6 +115,7 @@ import {
 import { pxToMetres } from "@/lib/scaleUtils";
 import { calculateRoomCompliance, getOverlayColor, type RoomComplianceResult } from "@/lib/roomComplianceCalculator";
 import { extractDrawingData, type OrchestratorResult } from "@/lib/drawingDataExtractor";
+import { useProjectContext } from "@/_core/hooks/useProjectContext";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
@@ -349,6 +350,8 @@ function getHandlePositions(screenX: number, screenY: number, screenW: number, s
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
+  const { complianceInputSlice } = useProjectContext(projectId);
+
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -1892,6 +1895,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       sprinklered: payload.sprinklered,
       province: payload.province,
       calibrationConfidence: payload.calibrationConfidence,
+      jurisdictionSource: complianceInputSlice?.jurisdictionSource ?? 'manual',
     });
   };
 

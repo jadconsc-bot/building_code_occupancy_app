@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useJurisdiction } from "@/_core/hooks/useJurisdiction";
+import { useProjectContext } from "@/_core/hooks/useProjectContext";
 import { MapPin } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
@@ -58,7 +59,8 @@ export function ComplianceAnalyzer({
   onInputsChange?: (inputs: ComplianceInput) => void;
 }) {
   const { user } = useAuth();
-  const { jurisdiction, isGeocoded } = useJurisdiction(projectId);
+  const { jurisdiction } = useJurisdiction(projectId);
+  const { complianceInputSlice, isGeocoded } = useProjectContext(projectId);
   const [userHasManuallyOverridden, setUserHasManuallyOverridden] = useState(false);
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
@@ -120,7 +122,7 @@ export function ComplianceAnalyzer({
         projectId,
         rulesetId: selectedRulesetId,
         mode,
-        inputs,
+        inputs: { ...inputs, ...(complianceInputSlice ?? {}) },
       });
       const resultWithInputs = { ...analysisResult, inputs };
       setResult(analysisResult);
