@@ -34,6 +34,28 @@ export interface DrawingPayload {
   }>;
 }
 
+export interface WashroomFixtureRequirement {
+  waterClosetsMale: number;
+  waterClosetsFemale: number;
+  lavatories: number;
+  drinkingFountains: number;
+  accessibleStallsRequired: boolean;
+}
+
+export interface WashroomResult {
+  occupancyGroup: string;
+  occupantLoad: number;
+  required: WashroomFixtureRequirement;
+  ruleId: string;
+  nbcRef: string;
+  codeEdition: string;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  evaluationTimestamp: string;
+  confidence: 'confirmed' | 'inferred' | 'advisory';
+  assumptions: string[];
+  severity: 'pass' | 'fail' | 'info';
+}
+
 export interface OrchestratorResult {
   occupantLoad: Array<{
     roomLabel: string;
@@ -83,6 +105,8 @@ export interface OrchestratorResult {
     required: string;
     citation: string;
   }>;
+  washroomCounts: WashroomResult[];
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
 export function extractDrawingData(params: {

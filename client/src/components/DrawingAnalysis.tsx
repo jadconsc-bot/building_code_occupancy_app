@@ -118,6 +118,7 @@ import { extractDrawingData, type OrchestratorResult } from "@/lib/drawingDataEx
 import { useProjectContext } from "@/_core/hooks/useProjectContext";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
+import { WashroomCountsPanel } from '@/components/WashroomCountsPanel';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -8018,6 +8019,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             </div>
                           ))}
                         </div>
+
+                        {/* Washroom Requirements — deterministic output from washroomCalculator.ts
+                            Only renders when orchestrator has run and found occupancy groups.
+                            Props flow downward only — no state mutation in this component. */}
+                        {orchestratorResult.washroomCounts &&
+                          orchestratorResult.washroomCounts.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-border">
+                            <WashroomCountsPanel
+                              washroomCounts={orchestratorResult.washroomCounts}
+                              evaluatedAt={
+                                orchestratorResult.washroomCounts[0]?.evaluationTimestamp
+                              }
+                            />
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
