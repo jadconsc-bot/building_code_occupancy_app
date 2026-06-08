@@ -5,6 +5,11 @@
  * against extracted drawing data.
  */
 
+import {
+  calculateWashroomRequirements,
+  WashroomResult,
+} from './washroomCalculator';
+
 // NBC 2023 Table 4.1.5.3 occupant load factors (persons/m²)
 const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; nbcRef: string }> = {
   'A-1': { factor: 0.75,  nbcRef: 'NBC 2023 T.4.1.5.3' },
@@ -63,6 +68,12 @@ export interface OrchestratorInput {
   sprinklered: boolean;
   province: string;
   calibrationConfidence: 'high' | 'low' | 'none';
+  /**
+   * How jurisdiction was determined — flows through to washroom result
+   * audit trail. Optional: legacy callers that omit it get undefined,
+   * which is intentional (visible gap, not silent masking).
+   */
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
 export interface OrchestratorResult {
@@ -114,6 +125,16 @@ export interface OrchestratorResult {
     required: string;
     citation: string;
   }>;
+  /**
+   * Washroom fixture requirements per occupancy group.
+   * NBC 3.7.2.1 — one entry per unique occupancy group detected.
+   * Empty array if no rooms with recognized occupancy groups found.
+   */
+  washroomCounts: WashroomResult[];
+  /**
+   * Jurisdiction source threaded through from input for audit trail.
+   */
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
 export function runCalculatorOrchestrator(
@@ -165,6 +186,37 @@ export function runCalculatorOrchestrator(
     });
     passCount++;
   }
+
+  // ── Washroom counts (NBC 3.7.2.1) ────────────────────────────────────────
+  // One calculation per unique occupancy group found in occupant load
+  // results. Mixed-use buildings get separate counts per group.
+  // Deduplication via groupsSeen prevents double-counting when multiple
+  // rooms share the same occupancy group.
+  const washroomCounts: WashroomResult[] = [];
+  const groupsSeen = new Set<string>();
+
+  for (const ol of occupantLoad) {
+    const normalizedGroup = ol.occupancyGroup.replace('-', '');
+    if (groupsSeen.has(normalizedGroup)) continue;
+    groupsSeen.add(normalizedGroup);
+
+    // Sum all persons across rooms sharing this occupancy group —
+    // fixture count is based on total load for the group, not per-room.
+    const groupTotalPersons = occupantLoad
+      .filter(r => r.occupancyGroup === ol.occupancyGroup)
+      .reduce((sum, r) => sum + r.maxOccupants, 0);
+
+    washroomCounts.push(
+      calculateWashroomRequirements({
+        occupancyGroup: normalizedGroup,   // 'A-1' → 'A1', 'B-2' → 'B2'
+        occupantLoad: groupTotalPersons,
+        sprinklered: input.sprinklered,
+        province: input.province ?? 'CA',
+        jurisdictionSource: input.jurisdictionSource,
+      })
+    );
+  }
+  // ── End washroom counts ───────────────────────────────────────────────────
 
   // ── Egress Windows ─────────────────────────────────────────────────────────
   const egressWindows: OrchestratorResult['egressWindows'] = [];
@@ -315,5 +367,7 @@ export function runCalculatorOrchestrator(
       edition,
     },
     findings,
+    washroomCounts,
+    jurisdictionSource: input.jurisdictionSource,
   };
 }
