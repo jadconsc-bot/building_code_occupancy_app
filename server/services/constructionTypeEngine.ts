@@ -64,6 +64,9 @@ export interface ConstructionTypeResult {
   reasoning: string;
   assumptions: string[];
   recommendations: string[];
+
+  // Echoed back from input for audit trail and UI display
+  occupancyGroup: string;
 }
 
 // ─── NBC Table 3.2.2.20 limiting heights and areas ──────────────────────────
@@ -173,6 +176,7 @@ export function determineConstructionType(
       reasoning: `Part 9 building — combustible construction permitted (NBC 9.10.1)`,
       assumptions,
       recommendations,
+      occupancyGroup: input.occupancyGroup,
     };
   }
 
@@ -203,6 +207,7 @@ export function determineConstructionType(
       reasoning: `Occupancy group '${input.occupancyGroup}' not found in construction type table — Non-Combustible assumed`,
       assumptions,
       recommendations,
+      occupancyGroup: input.occupancyGroup,
     };
   }
 
@@ -229,6 +234,7 @@ export function determineConstructionType(
       reasoning: `Group ${group} occupancy always requires Non-Combustible construction (NBC Table 3.2.2.20)`,
       assumptions,
       recommendations,
+      occupancyGroup: group,
     };
   }
 
@@ -283,6 +289,7 @@ export function determineConstructionType(
     jurisdictionSource: input.jurisdictionSource,
     evaluationTimestamp: timestamp,
     confidence: input.totalAreaM2 > 0 ? 'confirmed' : 'inferred',
+    occupancyGroup: group,
     severity: nonCombustibleRequired ? 'fail' : 'pass',
     reasoning: nonCombustibleRequired
       ? `Non-Combustible required: ${storeyExceeded ? `${input.storeys} storeys exceeds ${effectiveMaxStoreys}-storey limit` : ''}${storeyExceeded && areaExceeded ? '; ' : ''}${areaExceeded ? `${Math.round(input.totalAreaM2)} m² exceeds ${Math.round(effectiveMaxAreaM2)} m² limit` : ''}`

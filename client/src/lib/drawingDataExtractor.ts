@@ -56,6 +56,29 @@ export interface WashroomResult {
   severity: 'pass' | 'fail' | 'info';
 }
 
+export interface ConstructionTypeResult {
+  constructionType: 'Non-Combustible' | 'Combustible';
+  required: boolean;
+  limitingStoreys: number;
+  limitingAreaM2: number;
+  actualStoreys: number;
+  actualAreaM2: number;
+  storeyMargin: number;
+  areaMarginM2: number;
+  areaMarginPercent: number;
+  ruleId: string;
+  nbcRef: string;
+  codeEdition: string;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  evaluationTimestamp: string;
+  confidence: 'confirmed' | 'inferred' | 'advisory';
+  severity: 'pass' | 'fail' | 'conditional' | 'info';
+  reasoning: string;
+  assumptions: string[];
+  recommendations: string[];
+  occupancyGroup: string;
+}
+
 export interface OrchestratorResult {
   occupantLoad: Array<{
     roomLabel: string;
@@ -106,6 +129,12 @@ export interface OrchestratorResult {
     citation: string;
   }>;
   washroomCounts: WashroomResult[];
+  /**
+   * Construction type determination per occupancy group.
+   * NBC Table 3.2.2.20 — one entry per unique occupancy group.
+   * Read-only — set by deterministic engine, never by user input.
+   */
+  constructionTypes: ConstructionTypeResult[];
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 

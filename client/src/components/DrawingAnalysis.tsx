@@ -119,6 +119,7 @@ import { useProjectContext } from "@/_core/hooks/useProjectContext";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 import { WashroomCountsPanel } from '@/components/WashroomCountsPanel';
+import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -8031,6 +8032,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               evaluatedAt={
                                 orchestratorResult.washroomCounts[0]?.evaluationTimestamp
                               }
+                            />
+                          </div>
+                        )}
+
+                        {/* Construction Type — NBC Table 3.2.2.20 */}
+                        {orchestratorResult.constructionTypes &&
+                          orchestratorResult.constructionTypes.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-border">
+                            <ConstructionTypePanel
+                              constructionTypes={orchestratorResult.constructionTypes}
                             />
                           </div>
                         )}

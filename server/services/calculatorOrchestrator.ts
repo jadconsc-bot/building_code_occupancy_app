@@ -144,7 +144,7 @@ export interface OrchestratorResult {
    * One entry per unique occupancy group — mixed-use buildings get separate evaluations.
    * Empty array if no rooms with recognized occupancy groups found.
    */
-  constructionType: ConstructionTypeResult[];
+  constructionTypes: ConstructionTypeResult[];
 }
 
 export function runCalculatorOrchestrator(
@@ -231,7 +231,7 @@ export function runCalculatorOrchestrator(
   // ── Construction Type (NBC Table 3.2.2.20) ────────────────────────────────
   // One evaluation per unique occupancy group, using the group-total area.
   // Reuses groupsSeen deduplication already populated by the washroom loop.
-  const constructionType: ConstructionTypeResult[] = [];
+  const constructionTypes: ConstructionTypeResult[] = [];
   const ctGroupsSeen = new Set<string>();
 
   for (const ol of occupantLoad) {
@@ -243,7 +243,7 @@ export function runCalculatorOrchestrator(
       .filter(r => r.occupancyGroup === ol.occupancyGroup)
       .reduce((sum, r) => sum + r.areaM2, 0);
 
-    constructionType.push(
+    constructionTypes.push(
       determineConstructionType({
         occupancyGroup: normalizedGroup,
         storeys: input.storeys,
@@ -406,7 +406,7 @@ export function runCalculatorOrchestrator(
     },
     findings,
     washroomCounts,
-    constructionType,
+    constructionTypes,
     jurisdictionSource: input.jurisdictionSource,
   };
 }
