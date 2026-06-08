@@ -80,7 +80,8 @@ import {
   RefreshCw,
   MapPin,
   FileCheck,
-  Flame
+  Flame,
+  Calculator
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -113,6 +114,7 @@ import {
 } from "@/lib/fireAssemblyStyles";
 import { pxToMetres } from "@/lib/scaleUtils";
 import { calculateRoomCompliance, getOverlayColor, type RoomComplianceResult } from "@/lib/roomComplianceCalculator";
+import { extractDrawingData, type OrchestratorResult } from "@/lib/drawingDataExtractor";
 import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
@@ -738,6 +740,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showAllFindings, setShowAllFindings] = useState(false);
 
+  // Phase D — calculator orchestrator
+  const [isOrchestratorRunning, setIsOrchestratorRunning] = useState(false);
+  const [orchestratorResult, setOrchestratorResult] = useState<OrchestratorResult | null>(null);
+
   const [, setLocation] = useLocation();
   const [isSendingToPermitting, setIsSendingToPermitting] = useState(false);
   const saveAnalysisMutation = trpc.siteAnalysis.save.useMutation();
@@ -911,6 +917,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
   const saveRoomPolygonMutation = trpc.drawingAnalysis.saveRoomPolygon.useMutation();
+  const runOrchestratorMutation = trpc.drawingAnalysis.runCalculatorOrchestrator.useMutation({
+    onSuccess: (result) => {
+      setOrchestratorResult(result);
+      setIsOrchestratorRunning(false);
+    },
+    onError: () => {
+      setIsOrchestratorRunning(false);
+      toast.error('Analysis failed — check room detection and calibration.');
+    },
+  });
   const { data: savedDdaPolygons } = trpc.drawingAnalysis.getRoomPolygons.useQuery(
     { drawingPageId: currentPageId ?? 0 },
     { enabled: !!currentPageId },
@@ -1845,6 +1861,39 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   };
 
   const handleAnalyzeClick = () => { runAiAnalysis(); };
+
+  const handleRunOrchestrator = () => {
+    if (!currentPageId || detectedPolygons.size === 0) return;
+    setIsOrchestratorRunning(true);
+
+    const payload = extractDrawingData({
+      detectedPolygons,
+      detectedRoomsData,
+      ddaRoomCompliance,
+      measuredWindows,
+      pixelsPerMm,
+      travelDistanceResults,
+      storeys: storeyCount ?? 1,
+      province: 'AB',
+      municipality: selectedMunicipalityId ?? '',
+      sprinklered: false,
+    });
+
+    runOrchestratorMutation.mutate({
+      drawingPageId: currentPageId,
+      rooms: payload.rooms.map(r => ({
+        label: r.label,
+        occupancyGroup: r.occupancyGroup,
+        areaM2: r.areaM2,
+      })),
+      windows: payload.windows,
+      travelDistanceResults: payload.travelDistanceResults,
+      storeys: payload.storeys,
+      sprinklered: payload.sprinklered,
+      province: payload.province,
+      calibrationConfidence: payload.calibrationConfidence,
+    });
+  };
 
   // Apply AI results to annotations
   const applyAiResults = () => {
@@ -5986,6 +6035,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     )}
                     {isAnalyzing ? (analyzeProgress || "Analyzing...") : "AI Analyze"}
                   </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleRunOrchestrator}
+                    disabled={detectedPolygons.size === 0 || isOrchestratorRunning || !currentPageId}
+                    title={detectedPolygons.size === 0 ? "Detect rooms first (DDA ray cast)" : !currentPageId ? "Upload a drawing first" : "Run all calculators on detected rooms"}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isOrchestratorRunning
+                      ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                      : <Calculator className="w-4 h-4 mr-1" />
+                    }
+                    Full Analysis
+                  </Button>
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
@@ -7888,6 +7951,72 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </Card>
                     );
                   })()}
+
+                  {/* Phase D — Orchestrator Results */}
+                  {orchestratorResult && (
+                    <Card>
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Calculator className="w-4 h-4 text-emerald-600" />
+                          Full Analysis Results
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          {orchestratorResult.summary.edition} · {orchestratorResult.summary.totalRooms} rooms · {orchestratorResult.summary.totalOccupants} occupants
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Summary strip */}
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="text-green-600 font-medium">
+                            ✓ {orchestratorResult.summary.passCount} Pass
+                          </span>
+                          <span className="text-red-600 font-medium">
+                            ✗ {orchestratorResult.summary.failCount} Fail
+                          </span>
+                          <span className="text-amber-600 font-medium">
+                            ⚠ {orchestratorResult.summary.advisoryCount} Advisory
+                          </span>
+                          {orchestratorResult.summary.calibrationConfidence !== 'high' && (
+                            <span className="text-amber-700 italic">
+                              — Scale uncalibrated, some results advisory
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Findings list */}
+                        <div className="space-y-2">
+                          {orchestratorResult.findings.map(f => (
+                            <div
+                              key={f.issueId}
+                              className={`rounded-lg border p-3 text-xs ${
+                                f.severity === 'fail'     ? 'border-red-200 bg-red-50' :
+                                f.severity === 'advisory' ? 'border-amber-200 bg-amber-50' :
+                                'border-green-200 bg-green-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-mono font-bold text-muted-foreground">{f.issueId}</span>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  f.severity === 'fail'     ? 'bg-red-100 text-red-700' :
+                                  f.severity === 'advisory' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-green-100 text-green-700'
+                                }`}>
+                                  {f.severity.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="font-medium text-foreground mb-0.5">{f.description}</p>
+                              <p className="text-muted-foreground">
+                                Actual: {f.actual} — Required: {f.required}
+                              </p>
+                              <p className="font-mono text-[10px] text-muted-foreground mt-1">
+                                {f.citation}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Drawing Analysis History Panel (Phase 2) */}
                   {projectId && drawingAnalysisHistory.length > 0 && (

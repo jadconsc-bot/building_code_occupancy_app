@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { IsometricStackView, type OccupancyZone, type FireSeparation } from "./IsometricStackView";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -319,6 +320,7 @@ export function OccupancyAdvisor({
   // Screen 2.5 stack planner
   const [floors, setFloors] = useState<FloorLevel[]>([]);
   const [stackOrientation, setStackOrientation] = useState<'vertical' | 'horizontal'>('vertical');
+  const [stackView, setStackView] = useState<'flat' | 'isometric'>('flat');
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
   const [splitFloorIndex, setSplitFloorIndex] = useState<number | null>(null);
 
@@ -995,21 +997,37 @@ export function OccupancyAdvisor({
                 </p>
               </div>
 
-              {/* Orientation toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground shrink-0">Layout:</span>
-                <div className="flex rounded border overflow-hidden text-xs">
+              {/* Orientation + view toggles */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0">Layout:</span>
+                  <div className="flex rounded border overflow-hidden text-xs">
+                    <button
+                      className={`px-3 py-1.5 transition-colors ${stackOrientation === 'vertical' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
+                      onClick={() => setStackOrientation('vertical')}
+                    >
+                      Vertical Stack
+                    </button>
+                    <button
+                      className={`px-3 py-1.5 transition-colors border-l ${stackOrientation === 'horizontal' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
+                      onClick={() => setStackOrientation('horizontal')}
+                    >
+                      Horizontal Adjacent
+                    </button>
+                  </div>
+                </div>
+                <div className="flex rounded-lg border border-border overflow-hidden text-xs">
                   <button
-                    className={`px-3 py-1.5 transition-colors ${stackOrientation === 'vertical' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
-                    onClick={() => setStackOrientation('vertical')}
+                    onClick={() => setStackView('flat')}
+                    className={`px-3 py-1.5 transition-colors ${stackView === 'flat' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent'}`}
                   >
-                    Vertical Stack
+                    Flat
                   </button>
                   <button
-                    className={`px-3 py-1.5 transition-colors border-l ${stackOrientation === 'horizontal' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'}`}
-                    onClick={() => setStackOrientation('horizontal')}
+                    onClick={() => setStackView('isometric')}
+                    className={`px-3 py-1.5 transition-colors border-l ${stackView === 'isometric' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-accent'}`}
                   >
-                    Horizontal Adjacent
+                    ⬡ Isometric
                   </button>
                 </div>
               </div>
@@ -1085,6 +1103,43 @@ export function OccupancyAdvisor({
                     <Layers className="w-8 h-8 mb-2 opacity-30" />
                     <p className="text-xs">Drag occupancy chips here, or click them above</p>
                   </div>
+                ) : stackView === 'isometric' ? (
+                  /* ── Isometric 3D view ── */
+                  (() => {
+                    const isoZones: OccupancyZone[] = [];
+                    for (let fi = 0; fi < floors.length; fi++) {
+                      const floor = floors[fi];
+                      const total = floor.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
+                      let xOff = 0;
+                      for (let zi = 0; zi < floor.zones.length; zi++) {
+                        const zone = floor.zones[zi];
+                        const w = (zone.area_m2 / total) * 4;
+                        isoZones.push({
+                          floor: fi,
+                          label: `${zone.code} — ${zone.name}`,
+                          occupancyGroup: zone.code,
+                          color: zone.color,
+                          widthUnits: w,
+                          xOffset: xOff,
+                        });
+                        xOff += w;
+                      }
+                    }
+                    const isoSeps: FireSeparation[] = floorSepSchedule.map((s, i) => ({
+                      betweenFloors: [i, i + 1] as [number, number],
+                      requiredFRR: parseInt(s.frr ?? '0') || 0,
+                      result: (s.frr === '0 min' || s.frr === 'None' ? 'pass' : 'advisory') as 'pass' | 'fail' | 'advisory',
+                    }));
+                    return (
+                      <div className="overflow-hidden rounded">
+                        <IsometricStackView
+                          zones={isoZones}
+                          separations={isoSeps}
+                          totalFloors={floors.length}
+                        />
+                      </div>
+                    );
+                  })()
                 ) : stackOrientation === 'vertical' ? (
                   /* ── Vertical: floors rendered top-to-bottom in REVERSE so Ground Floor is at bottom ── */
                   <div>

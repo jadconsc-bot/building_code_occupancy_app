@@ -45,6 +45,7 @@ import crypto from "crypto";
 import { extractIpAddress } from "../utils/extractIpAddress";
 import { runWallEngine } from "../services/wallEngineOrchestrator";
 import { wallEngineQueue } from "../services/wallEngineQueue";
+import { runCalculatorOrchestrator } from "../services/calculatorOrchestrator";
 
 /**
  * Drizzle returns MySQL JSON columns as already-parsed objects.
@@ -1379,5 +1380,55 @@ export const drawingAnalysisRouter = router({
         seedY: r.seedY ?? 0,
         areaM2: r.areaSqm ? parseFloat(r.areaSqm as unknown as string) : null,
       }));
+    }),
+
+  /**
+   * Phase D — deterministic calculator orchestration.
+   * Runs occupant load, egress window, travel distance, and FRR checks
+   * on client-supplied room/window data. No LLM calls.
+   */
+  runCalculatorOrchestrator: protectedProcedure
+    .input(z.object({
+      drawingPageId: z.number().int().positive(),
+      rooms: z.array(z.object({
+        label: z.string(),
+        occupancyGroup: z.string(),
+        areaM2: z.number().nullable(),
+      })),
+      windows: z.array(z.object({
+        widthMm: z.number(),
+        heightMm: z.number(),
+        areaM2: z.number(),
+      })),
+      travelDistanceResults: z.array(z.object({
+        roomLabel: z.string(),
+        distanceM: z.number(),
+        limit: z.number(),
+        result: z.string(),
+        nbcClause: z.string(),
+      })),
+      storeys: z.number().int().min(1).max(50),
+      sprinklered: z.boolean(),
+      province: z.string().max(2),
+      calibrationConfidence: z.enum(['high', 'low', 'none']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      // Ownership check — same pattern as saveRoomPolygon
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.drawingPageId));
+      if (!page) throw new TRPCError({ code: 'NOT_FOUND', message: 'Page not found' });
+
+      const [analysisRow] = await db
+        .select({ id: drawingAnalyses.id })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+      if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+
+      return runCalculatorOrchestrator(input, input.province);
     }),
 });
