@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { IsometricStackView, type OccupancyZone, type FireSeparation } from "./IsometricStackView";
+import { IsometricStackView, type OccupancyZone, type FireSeparation, type HallwayConfig, type WingSeparation } from "./IsometricStackView";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -184,6 +184,80 @@ function makeStackZone(code: string): StackZone | null {
   return { code, name: entry.name, ...visual, area_m2: 100 };
 }
 
+// ── Hallway / corridor helpers ─────────────────────────────────────────────────
+
+const NBC_MIN_CORRIDOR_WIDTH_MM = 1100;
+const CORRIDOR_CITATION = 'NBC 2023 s.3.3.1.7';
+
+const CORRIDOR_FRR_RULES: Record<string, number> = {
+  'A-1': 45, 'A-2': 45, 'A-3': 45, 'A-4': 45,
+  'B-1': 45, 'B-2': 45, 'B-3': 45,
+  'C': 45,
+  'D': 0,
+  'E': 45,
+  'F-1': 45, 'F-2': 45, 'F-3': 0,
+};
+
+interface HallwaySeparation {
+  hallwayIdx: number;
+  floorIndex: number | 'all';
+  side: 'left' | 'right';
+  adjacentOccupancy: string;
+  requiredFRR: number;
+  citation: string;
+  widthMm: number;
+  widthCompliant: boolean;
+  result: 'pass' | 'fail' | 'advisory';
+}
+
+function calculateHallwaySeparations(
+  hallways: HallwayConfig[],
+  floors: FloorLevel[],
+): HallwaySeparation[] {
+  const results: HallwaySeparation[] = [];
+  for (let hi = 0; hi < hallways.length; hi++) {
+    const hw = hallways[hi];
+    const floorIndices: number[] = hw.floorIndex === 'all'
+      ? floors.map((_, i) => i)
+      : [(hw.floorIndex as number)];
+
+    for (const fi of floorIndices) {
+      const floor = floors[fi];
+      if (!floor) continue;
+      const total = floor.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
+      const posU = (hw.positionPct / 100) * 4;
+      const widthU = Math.max(hw.widthMm / 5000, 0.12);
+
+      let xOff = 0;
+      for (const zone of floor.zones) {
+        const w = (zone.area_m2 / total) * 4;
+        const x0 = xOff, x1 = xOff + w;
+        xOff += w;
+
+        const isLeft  = x0 < posU;
+        const isRight = x1 > posU + widthU;
+        const side = isLeft ? 'left' : (isRight ? 'right' : null);
+        if (!side) continue;
+
+        const frr = CORRIDOR_FRR_RULES[zone.code] ?? 0;
+        const widthCompliant = hw.widthMm >= NBC_MIN_CORRIDOR_WIDTH_MM;
+        results.push({
+          hallwayIdx: hi,
+          floorIndex: hw.floorIndex,
+          side,
+          adjacentOccupancy: zone.code,
+          requiredFRR: frr,
+          citation: CORRIDOR_CITATION,
+          widthMm: hw.widthMm,
+          widthCompliant,
+          result: !widthCompliant ? 'fail' : frr === 0 ? 'pass' : 'advisory',
+        });
+      }
+    }
+  }
+  return results;
+}
+
 // ── Fire Separation Panel ─────────────────────────────────────────────────────
 
 function FireSeparationPanel({ projectId }: { projectId: number }) {
@@ -321,6 +395,9 @@ export function OccupancyAdvisor({
   const [floors, setFloors] = useState<FloorLevel[]>([]);
   const [stackOrientation, setStackOrientation] = useState<'vertical' | 'horizontal'>('vertical');
   const [stackView, setStackView] = useState<'flat' | 'isometric'>('flat');
+  const [isoWingCount, setIsoWingCount] = useState(1);  // 1 = main only
+  const [hallways, setHallways] = useState<HallwayConfig[]>([]);
+  const [hallwayToolActive, setHallwayToolActive] = useState(false);
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
   const [splitFloorIndex, setSplitFloorIndex] = useState<number | null>(null);
 
@@ -424,6 +501,16 @@ export function OccupancyAdvisor({
         ? { ...f, zones: f.zones.map((z, zi) => zi === zoneIdx ? { ...z, area_m2: Math.max(10, area) } : z) }
         : f
     ));
+  }
+
+  function addHallway() {
+    setHallways(prev => [...prev, { floorIndex: 'all', positionPct: 50, widthMm: 1200, orientation: 'horizontal' }]);
+  }
+  function updateHallway(idx: number, patch: Partial<HallwayConfig>) {
+    setHallways(prev => prev.map((h, i) => i === idx ? { ...h, ...patch } : h));
+  }
+  function removeHallway(idx: number) {
+    setHallways(prev => prev.filter((_, i) => i !== idx));
   }
 
   function handleGoToStackPlanner() {
@@ -997,7 +1084,7 @@ export function OccupancyAdvisor({
                 </p>
               </div>
 
-              {/* Orientation + view toggles */}
+              {/* Orientation + view toggles + isometric tools */}
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground shrink-0">Layout:</span>
@@ -1030,7 +1117,99 @@ export function OccupancyAdvisor({
                     ⬡ Isometric
                   </button>
                 </div>
+                {stackView === 'isometric' && stackOrientation === 'vertical' && (
+                  <Button
+                    variant="outline" size="sm"
+                    className="text-xs h-7"
+                    onClick={() => setIsoWingCount(n => Math.min(n + 1, 4))}
+                    disabled={isoWingCount >= 4}
+                    title="Add a second tower offset to the right with wall fire separation"
+                  >
+                    + Add Wing
+                  </Button>
+                )}
+                {stackView === 'isometric' && isoWingCount > 1 && (
+                  <Button
+                    variant="ghost" size="sm"
+                    className="text-xs h-7 text-muted-foreground"
+                    onClick={() => setIsoWingCount(n => Math.max(n - 1, 1))}
+                  >
+                    − Wing
+                  </Button>
+                )}
+                {stackView === 'isometric' && (
+                  <Button
+                    variant={hallwayToolActive ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => setHallwayToolActive(h => !h)}
+                  >
+                    🚶 Set Hallway
+                  </Button>
+                )}
               </div>
+
+              {/* Hallway configuration panel */}
+              {stackView === 'isometric' && hallwayToolActive && (
+                <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Hallway Configuration</span>
+                    <Button variant="ghost" size="sm" onClick={addHallway} className="text-xs h-7">+ Add Hallway</Button>
+                  </div>
+                  {hallways.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Click "+ Add Hallway" to insert a corridor cut.</p>
+                  )}
+                  {hallways.map((hw, idx) => (
+                    <div key={idx} className="space-y-2 border-t pt-2 first:border-t-0 first:pt-0">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground w-16">Floor:</span>
+                        <select
+                          value={hw.floorIndex === 'all' ? 'all' : hw.floorIndex}
+                          onChange={e => updateHallway(idx, {
+                            floorIndex: e.target.value === 'all' ? 'all' : parseInt(e.target.value),
+                          })}
+                          className="text-xs border rounded px-2 py-1 bg-background"
+                        >
+                          <option value="all">All floors</option>
+                          {floors.map((_, fi) => (
+                            <option key={fi} value={fi}>
+                              {fi === 0 ? 'Ground Floor' : `Floor ${fi + 1}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground w-16">Position:</span>
+                        <input
+                          type="range" min={5} max={95} step={1}
+                          value={hw.positionPct}
+                          onChange={e => updateHallway(idx, { positionPct: parseInt(e.target.value) })}
+                          className="flex-1"
+                        />
+                        <span className="w-8 text-right">{hw.positionPct}%</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground w-16">Width:</span>
+                        <input
+                          type="range" min={900} max={3000} step={100}
+                          value={hw.widthMm}
+                          onChange={e => updateHallway(idx, { widthMm: parseInt(e.target.value) })}
+                          className="flex-1"
+                        />
+                        <span className="w-16 text-right">{hw.widthMm}mm</span>
+                      </div>
+                      <p className={`text-[10px] ${hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM ? 'text-red-600' : 'text-green-600'}`}>
+                        {hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM
+                          ? `⚠ Below NBC 3.3.1.2 minimum (${NBC_MIN_CORRIDOR_WIDTH_MM}mm)`
+                          : `✓ Meets NBC 3.3.1.2 minimum corridor width`}
+                      </p>
+                      <Button variant="ghost" size="sm" className="text-red-500 text-xs h-6 px-2" onClick={() => removeHallway(idx)}>
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Zone palette */}
               <div className="rounded border border-dashed border-border p-3 space-y-2">
@@ -1107,35 +1286,89 @@ export function OccupancyAdvisor({
                   /* ── Isometric 3D view ── */
                   (() => {
                     const isoZones: OccupancyZone[] = [];
-                    for (let fi = 0; fi < floors.length; fi++) {
-                      const floor = floors[fi];
-                      const total = floor.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
-                      let xOff = 0;
-                      for (let zi = 0; zi < floor.zones.length; zi++) {
-                        const zone = floor.zones[zi];
-                        const w = (zone.area_m2 / total) * 4;
-                        isoZones.push({
-                          floor: fi,
-                          label: `${zone.code} — ${zone.name}`,
-                          occupancyGroup: zone.code,
-                          color: zone.color,
-                          widthUnits: w,
-                          xOffset: xOff,
-                        });
-                        xOff += w;
+
+                    function buildWingZones(floorArr: FloorLevel[], wingIdx: number) {
+                      for (let fi = 0; fi < floorArr.length; fi++) {
+                        const fl = floorArr[fi];
+                        const total = fl.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
+                        let xOff = 0;
+                        for (const zone of fl.zones) {
+                          const w = (zone.area_m2 / total) * 4;
+                          isoZones.push({
+                            floor: fi,
+                            wing: wingIdx,
+                            label: `${zone.code} — ${zone.name}`,
+                            occupancyGroup: zone.code,
+                            color: zone.color,
+                            widthUnits: w,
+                            xOffset: xOff,
+                          });
+                          xOff += w;
+                        }
                       }
                     }
+
+                    if (stackOrientation === 'horizontal') {
+                      // Horizontal: each floor becomes a side-by-side section in X
+                      for (let fi = 0; fi < floors.length; fi++) {
+                        const fl = floors[fi];
+                        const total = fl.zones.reduce((s, z) => s + z.area_m2, 0) || 1;
+                        let xOff = 0;
+                        for (const zone of fl.zones) {
+                          const w = (zone.area_m2 / total) * 4;
+                          isoZones.push({
+                            floor: fi,   // used as section index in horizontal mode
+                            wing: 0,
+                            label: `${zone.code} — ${zone.name}`,
+                            occupancyGroup: zone.code,
+                            color: zone.color,
+                            widthUnits: w,
+                            xOffset: xOff,
+                          });
+                          xOff += w;
+                        }
+                      }
+                    } else {
+                      // Vertical: main tower + additional wings (clones of main floors)
+                      for (let wi = 0; wi < isoWingCount; wi++) {
+                        buildWingZones(floors, wi);
+                      }
+                    }
+
                     const isoSeps: FireSeparation[] = floorSepSchedule.map((s, i) => ({
                       betweenFloors: [i, i + 1] as [number, number],
                       requiredFRR: parseInt(s.frr ?? '0') || 0,
                       result: (s.frr === '0 min' || s.frr === 'None' ? 'pass' : 'advisory') as 'pass' | 'fail' | 'advisory',
                     }));
+
+                    // Wing separation walls between adjacent towers
+                    const isoWingSeps: WingSeparation[] = [];
+                    if (stackOrientation === 'vertical' && isoWingCount > 1) {
+                      const govSep = allZones.length > 0
+                        ? getMaxFloorSeparation(allZones, allZones)
+                        : { frr: '45 min', hours: 0.75 };
+                      const frr = parseInt(govSep.frr) || 45;
+                      const totalH = Math.max(floors.length, 1) * 3;
+                      for (let wi = 0; wi < isoWingCount - 1; wi++) {
+                        isoWingSeps.push({
+                          atX: (wi + 1) * 4.8 - 0.4,
+                          fromZ: 0,
+                          toZ: totalH,
+                          requiredFRR: frr,
+                          result: 'advisory',
+                        });
+                      }
+                    }
+
                     return (
                       <div className="overflow-hidden rounded">
                         <IsometricStackView
                           zones={isoZones}
                           separations={isoSeps}
                           totalFloors={floors.length}
+                          orientation={stackOrientation}
+                          hallways={hallways}
+                          wingSeparations={isoWingSeps}
                         />
                       </div>
                     );
@@ -1371,36 +1604,75 @@ export function OccupancyAdvisor({
                   )}
 
                   {/* Floor separation schedule */}
-                  {floorSepSchedule.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Separation Schedule</p>
-                      <div className="rounded overflow-hidden border border-border text-xs">
-                        <div className="grid grid-cols-4 bg-muted/40 font-semibold text-[10px]">
-                          <div className="px-2 py-1.5">Interface</div>
-                          <div className="px-2 py-1.5">Floor A zones</div>
-                          <div className="px-2 py-1.5">Floor B zones</div>
-                          <div className="px-2 py-1.5">Required FRR</div>
-                        </div>
-                        {floorSepSchedule.map((row, i) => (
-                          <div key={i} className="grid grid-cols-4 border-t border-border text-[10px]" style={{ backgroundColor: `${row.bgColor}60` }}>
-                            <div className="px-2 py-1.5 text-muted-foreground">{row.interfaceLabel}</div>
-                            <div className="px-2 py-1.5">
-                              {row.zonesA.map(z => (
-                                <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
-                              ))}
-                            </div>
-                            <div className="px-2 py-1.5">
-                              {row.zonesB.map(z => (
-                                <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
-                              ))}
-                            </div>
-                            <div className="px-2 py-1.5 font-bold" style={{ color: row.color }}>
-                              {row.frr}
-                              <span className="ml-1 font-normal text-[9px] text-muted-foreground">{row.nbcRef}</span>
-                            </div>
+                  {(floorSepSchedule.length > 0 || hallways.length > 0) && (() => {
+                    const hallwaySeps = calculateHallwaySeparations(hallways, floors);
+                    return (
+                      <div>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Separation Schedule</p>
+                        <div className="rounded overflow-hidden border border-border text-xs">
+                          <div className="grid grid-cols-4 bg-muted/40 font-semibold text-[10px]">
+                            <div className="px-2 py-1.5">Interface</div>
+                            <div className="px-2 py-1.5">Zone A</div>
+                            <div className="px-2 py-1.5">Zone B</div>
+                            <div className="px-2 py-1.5">Required FRR</div>
                           </div>
-                        ))}
+                          {floorSepSchedule.map((row, i) => (
+                            <div key={i} className="grid grid-cols-4 border-t border-border text-[10px]" style={{ backgroundColor: `${row.bgColor}60` }}>
+                              <div className="px-2 py-1.5 text-muted-foreground">{row.interfaceLabel}</div>
+                              <div className="px-2 py-1.5">
+                                {row.zonesA.map(z => (
+                                  <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
+                                ))}
+                              </div>
+                              <div className="px-2 py-1.5">
+                                {row.zonesB.map(z => (
+                                  <span key={z.code} className="font-mono font-bold mr-1" style={{ color: z.color }}>{z.code} <span className="font-normal text-muted-foreground">({z.area_m2} m²)</span></span>
+                                ))}
+                              </div>
+                              <div className="px-2 py-1.5 font-bold" style={{ color: row.color }}>
+                                {row.frr}
+                                <span className="ml-1 font-normal text-[9px] text-muted-foreground">{row.nbcRef}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {/* Corridor separations */}
+                          {hallwaySeps.length > 0 && (
+                            <>
+                              <div className="col-span-4 px-2 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/20 border-t grid grid-cols-4">
+                                <div className="col-span-4">Corridor Separations (NBC 3.3.1.7)</div>
+                              </div>
+                              {hallwaySeps.map((hs, idx) => (
+                                <div key={idx} className={`grid grid-cols-4 border-t border-border text-[10px] ${hs.result === 'fail' ? 'bg-red-50' : ''}`}>
+                                  <div className="px-2 py-1.5 text-muted-foreground">
+                                    Hallway {hs.hallwayIdx + 1} — {hs.side}
+                                    <span className="block text-[9px]">{hs.floorIndex === 'all' ? 'all floors' : `Floor ${(hs.floorIndex as number) + 1}`}</span>
+                                  </div>
+                                  <div className="px-2 py-1.5">
+                                    Corridor ({hs.widthMm}mm{!hs.widthCompliant ? ' ⚠' : ''})
+                                  </div>
+                                  <div className="px-2 py-1.5 font-mono font-bold">{hs.adjacentOccupancy}</div>
+                                  <div className={`px-2 py-1.5 font-medium ${hs.requiredFRR === 0 ? 'text-green-600' : hs.result === 'fail' ? 'text-red-600' : 'text-amber-600'}`}>
+                                    {hs.requiredFRR === 0 ? 'None required' : `${hs.requiredFRR} min`}
+                                    <span className="block font-normal text-[9px] text-muted-foreground">{hs.citation}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
                       </div>
+                    );
+                  })()}
+
+                  {/* Hallway width warnings */}
+                  {hallways.some(hw => hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM) && (
+                    <div className="space-y-1">
+                      {hallways.map((hw, idx) => hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM && (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          Hallway {idx + 1}: {hw.widthMm}mm width is below NBC 3.3.1.2 minimum ({NBC_MIN_CORRIDOR_WIDTH_MM}mm)
+                        </div>
+                      ))}
                     </div>
                   )}
 
