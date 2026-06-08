@@ -1043,18 +1043,25 @@ export function OccupancyAdvisor({
                   </div>
                 )}
 
-                <div className="flex justify-between gap-2 pt-2 border-t">
-                  <Button variant="ghost" onClick={() => setScreen(1)}>← Back</Button>
-                  <Button
-                    onClick={() => isMixedUse ? handleGoToStackPlanner() : setScreen(3)}
-                    disabled={!selectedCode}
-                  >
-                    {isMixedUse ? (
-                      <><Layers className="w-4 h-4 mr-2" />Plan Mixed Use Stack →</>
-                    ) : (
-                      <>Confirm Selection → {selectedCode}</>
-                    )}
-                  </Button>
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between gap-2 pt-2 border-t">
+                    <Button variant="ghost" onClick={() => setScreen(1)}>← Back</Button>
+                    <Button
+                      onClick={() => (isMixedUse || candidatesWithScores.length > 1) ? handleGoToStackPlanner() : setScreen(3)}
+                      disabled={!selectedCode}
+                    >
+                      {(isMixedUse || candidatesWithScores.length > 1) ? (
+                        <><Layers className="w-4 h-4 mr-2" />Plan Mixed Use Stack →</>
+                      ) : (
+                        <>Confirm Selection → {selectedCode}</>
+                      )}
+                    </Button>
+                  </div>
+                  {!isMixedUse && candidatesWithScores.length > 1 && (
+                    <p className="text-xs text-amber-600 text-right">
+                      ⚠ Multiple occupancy types detected — stack planner recommended
+                    </p>
+                  )}
                 </div>
               </>
             )}
