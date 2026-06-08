@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, AlertTriangle, Info, Bot } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, AlertTriangle, Info, Bot, MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { occupancyData } from "@/lib/occupancyData";
 import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
@@ -57,6 +57,22 @@ const CODE_EDITIONS: Record<string, string> = {
   BC: "BCBC 2024",
   ON: "OBC 2024",
   OTHER: "NBC 2020",
+};
+
+const PROVINCE_CODE_MAP: Record<string, Province> = {
+  'Alberta': 'AB',
+  'British Columbia': 'BC',
+  'Ontario': 'ON',
+  'Quebec': 'OTHER',
+  'Manitoba': 'OTHER',
+  'Saskatchewan': 'OTHER',
+  'Nova Scotia': 'OTHER',
+  'New Brunswick': 'OTHER',
+  'Prince Edward Island': 'OTHER',
+  'Newfoundland and Labrador': 'OTHER',
+  'Northwest Territories': 'OTHER',
+  'Nunavut': 'OTHER',
+  'Yukon': 'OTHER',
 };
 
 const STEP_LABELS = ["Project Identity", "Pre-Design", "Code Strategy", "Jurisdiction", "Risk Summary", "Confirm & Create"];
@@ -185,7 +201,9 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const [name, setName] = useState("");
   const [projectCode, setProjectCode] = useState("");
   const [address, setAddress] = useState("");
+  const [addressGeocoded, setAddressGeocoded] = useState(false);
   const [notes, setNotes] = useState("");
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2
   const [province, setProvince] = useState<Province | "">("");
@@ -221,6 +239,53 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       setCodeEdition(CODE_EDITIONS[province] ?? "NBC 2020");
     }
   }, [province, codeEditionOverride]);
+
+  // Load Google Maps Places script once
+  useEffect(() => {
+    if ((window as any).google?.maps?.places) return;
+    const existing = document.querySelector('script[data-gm-places]');
+    if (existing) return;
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.setAttribute('data-gm-places', '1');
+    document.head.appendChild(script);
+  }, []);
+
+  // Attach Places Autocomplete to address input once Maps is ready
+  useEffect(() => {
+    if (!addressInputRef.current) return;
+    let attached = false;
+    function attach() {
+      if (attached || !(window as any).google?.maps?.places) return;
+      attached = true;
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(
+        addressInputRef.current!,
+        { componentRestrictions: { country: 'ca' }, fields: ['address_components', 'formatted_address', 'geometry'], types: ['address'] }
+      );
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+        const comps: any[] = place.address_components ?? [];
+        const provinceComp = comps.find((c: any) => c.types.includes('administrative_area_level_1'));
+        const cityComp = comps.find((c: any) => c.types.includes('locality') || c.types.includes('sublocality'));
+        const provinceCode = PROVINCE_CODE_MAP[provinceComp?.long_name ?? ''];
+        if (provinceCode) {
+          setProvince(provinceCode);
+          setAddressGeocoded(true);
+        }
+        // municipality is set via extractMunicipality from address in handleSubmit; store it if needed
+        setAddress(place.formatted_address ?? '');
+      });
+    }
+    // If already loaded, attach immediately; otherwise wait for script onload
+    if ((window as any).google?.maps?.places) {
+      attach();
+    } else {
+      const script = document.querySelector('script[data-gm-places]');
+      if (script) script.addEventListener('load', attach);
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-calculate Part 3/9 + sprinklers when inputs change
   useEffect(() => {
@@ -294,7 +359,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   function resetForm() {
     setStep(1);
     setCreatedProjectId(null);
-    setName(""); setProjectCode(""); setAddress(""); setNotes("");
+    setName(""); setProjectCode(""); setAddress(""); setAddressGeocoded(false); setNotes("");
     setProvince(""); setCodeEdition(""); setCodeEditionOverride(false);
     setZoningCategory(""); setSiteConstraints([]);
     setShowAdvisor(false);
@@ -414,12 +479,35 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
             </div>
             <div className="space-y-2">
               <Label htmlFor="wiz-address">Building Address *</Label>
-              <Input
-                id="wiz-address"
-                placeholder="e.g., 123 Main St, Calgary, AB"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  ref={addressInputRef}
+                  id="wiz-address"
+                  type="text"
+                  placeholder="Start typing a Canadian address..."
+                  value={address}
+                  onChange={e => { setAddress(e.target.value); setAddressGeocoded(false); }}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                {addressGeocoded && (
+                  <span className="absolute right-3 top-2.5 text-green-600 text-xs flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Jurisdiction detected
+                  </span>
+                )}
+              </div>
+              {addressGeocoded && (
+                <p className="text-xs text-muted-foreground">
+                  ✓ Province auto-set from address.{' '}
+                  <button type="button" className="underline text-primary" onClick={() => setAddressGeocoded(false)}>
+                    Edit manually
+                  </button>
+                </p>
+              )}
+              {!addressGeocoded && address.length === 0 && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> Enter address to auto-detect province, or set it manually on the next step.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="wiz-notes">Notes (optional)</Label>

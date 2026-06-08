@@ -13,6 +13,7 @@ export interface ComplianceInput {
   municipality?: string;
   codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default
   projectId?: number;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
   [key: string]: any;
 }
 

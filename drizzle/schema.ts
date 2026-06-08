@@ -1,4 +1,4 @@
-import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint, float } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -115,6 +115,8 @@ export const projects = mysqlTable("projects", {
   parcelLng:        decimal("parcelLng", { precision: 10, scale: 7 }),
   communityName:    varchar("communityName", { length: 100 }),
   zoneConfirmedAt:  timestamp("zoneConfirmedAt"),
+  jurisdictionSource: mysqlEnum("jurisdictionSource", ["geocoded", "manual", "device", "fallback"]).default("manual"),
+  geocodedAt:       datetime("geocodedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useJurisdiction } from "@/_core/hooks/useJurisdiction";
+import { MapPin } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 
@@ -56,6 +58,8 @@ export function ComplianceAnalyzer({
   onInputsChange?: (inputs: ComplianceInput) => void;
 }) {
   const { user } = useAuth();
+  const { jurisdiction, isGeocoded } = useJurisdiction(projectId);
+  const [userHasManuallyOverridden, setUserHasManuallyOverridden] = useState(false);
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
   const [inputs, setInputs] = useState<ComplianceInput>(
@@ -89,6 +93,16 @@ export function ComplianceAnalyzer({
       }));
     }
   }, [initialOccupancy, initialProvince, initialBuildingType]);
+
+  // Auto-populate province/municipality from geocoded jurisdiction
+  useEffect(() => {
+    if (!jurisdiction?.province || userHasManuallyOverridden) return;
+    setInputs(prev => ({
+      ...prev,
+      province: jurisdiction.province,
+      municipality: jurisdiction.municipality || prev.municipality,
+    }));
+  }, [jurisdiction, userHasManuallyOverridden]);
 
   const analyzeMutation = trpc.compliance.analyzeCompliance.useMutation();
   const { data: rulesets } = trpc.compliance.getRulesets.useQuery();
@@ -251,6 +265,25 @@ export function ComplianceAnalyzer({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Jurisdiction source indicator */}
+          {isGeocoded && (
+            <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2.5 py-1.5">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Jurisdiction auto-detected from project address —{' '}
+                <strong>{jurisdiction?.province}</strong>
+                {jurisdiction?.municipality ? `, ${jurisdiction.municipality}` : ''}
+                {' '}({jurisdiction?.codeEdition})
+              </span>
+              <button
+                className="ml-auto text-green-700 underline hover:no-underline"
+                onClick={() => setUserHasManuallyOverridden(true)}
+              >
+                Override
+              </button>
+            </div>
+          )}
+
           {/* Ruleset Selection */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Building Code Edition</label>

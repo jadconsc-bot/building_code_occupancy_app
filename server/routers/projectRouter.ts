@@ -7,6 +7,11 @@
 import { z } from 'zod';
 import { protectedProcedure, router } from '../_core/trpc';
 import { projectRepository } from '../repositories/ProjectRepository';
+import { geocodeAddress as geocodeAddressService } from '../services/geocodingService';
+import { getDb } from '../db';
+import { projects } from '../../drizzle/schema';
+import { eq, and } from 'drizzle-orm';
+import { editionForProvince } from '../rules/overlays/index';
 
 export const projectRouter = router({
   /**
@@ -112,5 +117,71 @@ export const projectRouter = router({
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       return projectRepository.getProjectStats(input.id, ctx.user.id);
+    }),
+
+  /**
+   * Geocode a Canadian address and optionally persist results to a project.
+   */
+  geocodeAddress: protectedProcedure
+    .input(z.object({
+      address: z.string().min(5).max(500),
+      projectId: z.number().int().positive().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await geocodeAddressService(input.address);
+
+      if (input.projectId && 'latitude' in result) {
+        const db = await getDb();
+        if (db) {
+          const [project] = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
+
+          if (project) {
+            await db.update(projects).set({
+              address: result.address,
+              parcelLat: result.latitude.toString(),
+              parcelLng: result.longitude.toString(),
+              province: result.province,
+              municipality: result.municipality,
+              jurisdictionSource: 'geocoded',
+              geocodedAt: new Date(),
+            }).where(eq(projects.id, input.projectId));
+          }
+        }
+      }
+
+      return result;
+    }),
+
+  /**
+   * Get the resolved jurisdiction for a project (geocoded or manual).
+   */
+  getProjectJurisdiction: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return null;
+
+      const [project] = await db
+        .select({
+          address: projects.address,
+          latitude: projects.parcelLat,
+          longitude: projects.parcelLng,
+          province: projects.province,
+          municipality: projects.municipality,
+          jurisdictionSource: projects.jurisdictionSource,
+          geocodedAt: projects.geocodedAt,
+        })
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
+
+      if (!project) return null;
+
+      return {
+        ...project,
+        codeEdition: editionForProvince(project.province ?? ''),
+      };
     }),
 });
