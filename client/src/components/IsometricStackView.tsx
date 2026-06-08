@@ -3,7 +3,7 @@
  * Wings-based data model. Each wing is an independent tower with its own floor stack.
  * Supports vertical (multi-tower) and horizontal (floor-plan) orientations,
  * fire separation planes/walls, and hallway cuts.
- * Pure SVG — no Three.js.
+ * Pure SVG — no Three.js. ViewBox and origin scale dynamically with wing count.
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -56,19 +56,16 @@ interface IsometricStackViewProps {
   wingSeparations?: WingSeparation[];
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Fixed constants ──────────────────────────────────────────────────────────
 
-const TILE_W  = 55;
-const TILE_H  = 36;
-const FLOOR_H = 3;
-const BOX_W   = 4;
-const BOX_D   = 2;
+const TILE_W    = 55;
+const TILE_H    = 36;
+const FLOOR_H   = 3;
+const BOX_W     = 4;
+const BOX_D     = 2;
 const WING_STEP = 4.8;
-const H_STEP  = 4.8;
-const ORIGIN_X = 300;
-const ORIGIN_Y = 360;
-const SVG_W   = 680;
-const SVG_H   = 480;
+const H_STEP    = 4.8;
+const ORIGIN_Y  = 360;   // baseline Y — kept fixed; width scaling handles horizontal fit
 
 const OCCUPANCY_COLORS: Record<string, string> = {
   'A-1': '#EF4444', 'A-2': '#F97316', 'A-3': '#F59E0B', 'A-4': '#EAB308',
@@ -81,12 +78,13 @@ const OCCUPANCY_COLORS: Record<string, string> = {
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
-function isoProject(x: number, y: number, z: number, rotRad: number): [number, number] {
+// originX is passed explicitly so the component can compute it dynamically
+function isoProject(x: number, y: number, z: number, rotRad: number, originX: number): [number, number] {
   const rx = x * Math.cos(rotRad) - y * Math.sin(rotRad);
   const ry = x * Math.sin(rotRad) + y * Math.cos(rotRad);
   const sx = (rx - ry) * Math.cos(Math.PI / 6) * TILE_W;
   const sy = (rx + ry) * Math.sin(Math.PI / 6) * TILE_W - z * TILE_H;
-  return [sx + ORIGIN_X, sy + ORIGIN_Y];
+  return [sx + originX, sy + ORIGIN_Y];
 }
 
 function pts(points: [number, number][]): string {
@@ -120,11 +118,13 @@ function renderBlock(
   z0: number, z1: number,
   color: string,
   rotRad: number,
+  originX: number,
   label?: string,
 ): React.ReactNode {
-  const topFace   = [isoProject(x0,y0,z1,rotRad), isoProject(x1,y0,z1,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x0,y1,z1,rotRad)] as [number,number][];
-  const frontFace = [isoProject(x0,y1,z0,rotRad), isoProject(x1,y1,z0,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x0,y1,z1,rotRad)] as [number,number][];
-  const sideFace  = [isoProject(x1,y0,z0,rotRad), isoProject(x1,y1,z0,rotRad), isoProject(x1,y1,z1,rotRad), isoProject(x1,y0,z1,rotRad)] as [number,number][];
+  const ip = (x: number, y: number, z: number) => isoProject(x, y, z, rotRad, originX);
+  const topFace   = [ip(x0,y0,z1), ip(x1,y0,z1), ip(x1,y1,z1), ip(x0,y1,z1)] as [number,number][];
+  const frontFace = [ip(x0,y1,z0), ip(x1,y1,z0), ip(x1,y1,z1), ip(x0,y1,z1)] as [number,number][];
+  const sideFace  = [ip(x1,y0,z0), ip(x1,y1,z0), ip(x1,y1,z1), ip(x1,y0,z1)] as [number,number][];
 
   const cx = topFace.reduce((s,p) => s+p[0], 0) / 4;
   const cy = topFace.reduce((s,p) => s+p[1], 0) / 4;
@@ -156,12 +156,14 @@ function renderWall(
   frr: number,
   result: WingSeparation['result'],
   rotRad: number,
+  originX: number,
 ): React.ReactNode {
+  const ip = (x: number, y: number, z: number) => isoProject(x, y, z, rotRad, originX);
   const { fill, stroke } = sepColors(result);
-  const p1 = isoProject(atX, y0, z0, rotRad);
-  const p2 = isoProject(atX, y1, z0, rotRad);
-  const p3 = isoProject(atX, y1, z1, rotRad);
-  const p4 = isoProject(atX, y0, z1, rotRad);
+  const p1 = ip(atX, y0, z0);
+  const p2 = ip(atX, y1, z0);
+  const p3 = ip(atX, y1, z1);
+  const p4 = ip(atX, y0, z1);
   const face = [p1,p2,p3,p4] as [number,number][];
   const cx = (p1[0]+p4[0])/2;
   const cy = (p1[1]+p4[1])/2 - 6;
@@ -188,14 +190,16 @@ function renderHorizSep(
   frr: number,
   result: FireSeparation['result'],
   rotRad: number,
+  originX: number,
 ): React.ReactNode {
+  const ip = (x: number, y: number) => isoProject(x, y, z, rotRad, originX);
   const { fill, stroke } = sepColors(result);
   const margin = 0.15;
   const face = [
-    isoProject(xBase - margin,         0 - margin,  z, rotRad),
-    isoProject(xBase + BOX_W + margin, 0 - margin,  z, rotRad),
-    isoProject(xBase + BOX_W + margin, BOX_D + margin, z, rotRad),
-    isoProject(xBase - margin,         BOX_D + margin, z, rotRad),
+    ip(xBase - margin,         0 - margin),
+    ip(xBase + BOX_W + margin, 0 - margin),
+    ip(xBase + BOX_W + margin, BOX_D + margin),
+    ip(xBase - margin,         BOX_D + margin),
   ] as [number,number][];
   const cx = (face[0][0]+face[1][0])/2;
   const cy = (face[0][1]+face[1][1])/2 - 5;
@@ -223,24 +227,26 @@ function renderHallway(
   z0: number,
   z1: number,
   rotRad: number,
+  originX: number,
 ): React.ReactNode {
+  const ip = (x: number, y: number, z: number) => isoProject(x, y, z, rotRad, originX);
   const topStripe = [
-    isoProject(xBase + posU,          0,     z1, rotRad),
-    isoProject(xBase + posU + widthU, 0,     z1, rotRad),
-    isoProject(xBase + posU + widthU, BOX_D, z1, rotRad),
-    isoProject(xBase + posU,          BOX_D, z1, rotRad),
+    ip(xBase + posU,          0,     z1),
+    ip(xBase + posU + widthU, 0,     z1),
+    ip(xBase + posU + widthU, BOX_D, z1),
+    ip(xBase + posU,          BOX_D, z1),
   ] as [number,number][];
   const frontStripe = [
-    isoProject(xBase + posU,          BOX_D, z0, rotRad),
-    isoProject(xBase + posU + widthU, BOX_D, z0, rotRad),
-    isoProject(xBase + posU + widthU, BOX_D, z1, rotRad),
-    isoProject(xBase + posU,          BOX_D, z1, rotRad),
+    ip(xBase + posU,          BOX_D, z0),
+    ip(xBase + posU + widthU, BOX_D, z0),
+    ip(xBase + posU + widthU, BOX_D, z1),
+    ip(xBase + posU,          BOX_D, z1),
   ] as [number,number][];
   const rightStripe = [
-    isoProject(xBase + posU + widthU, 0,     z0, rotRad),
-    isoProject(xBase + posU + widthU, BOX_D, z0, rotRad),
-    isoProject(xBase + posU + widthU, BOX_D, z1, rotRad),
-    isoProject(xBase + posU + widthU, 0,     z1, rotRad),
+    ip(xBase + posU + widthU, 0,     z0),
+    ip(xBase + posU + widthU, BOX_D, z0),
+    ip(xBase + posU + widthU, BOX_D, z1),
+    ip(xBase + posU + widthU, 0,     z1),
   ] as [number,number][];
 
   const figX = (topStripe[0][0]+topStripe[1][0]+topStripe[2][0]+topStripe[3][0]) / 4;
@@ -293,6 +299,12 @@ export function IsometricStackView({
     setRotation(r => Math.max(-30, Math.min(30, r + dx * 0.5)));
   }, []);
 
+  // ── Dynamic viewport — scales with wing count and floor height ────────────
+  const wingCount = Math.max(wings.length, 1);
+  const svgW   = 600 + (wingCount - 1) * 280;
+  const svgH   = 500 + totalFloors * 20;
+  const originX = 300 - (wingCount - 1) * 60;
+
   const rotRad = (rotation * Math.PI) / 180;
   const elements: React.ReactNode[] = [];
   const labels: React.ReactNode[] = [];
@@ -311,7 +323,7 @@ export function IsometricStackView({
         if (floorZones.length === 0) {
           elements.push(renderBlock(
             `empty-w${wingIdx}-f${floorIdx}`,
-            xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad
+            xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad, originX
           ));
         } else {
           for (let zi = 0; zi < floorZones.length; zi++) {
@@ -320,7 +332,7 @@ export function IsometricStackView({
             const x1 = x0 + zone.widthUnits;
             elements.push(renderBlock(
               `zone-w${wingIdx}-f${floorIdx}-z${zi}`,
-              x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, zone.occupancyGroup
+              x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, originX, zone.occupancyGroup
             ));
           }
         }
@@ -333,7 +345,7 @@ export function IsometricStackView({
           const widthU = Math.max(hw.widthMm / 5000, 0.12);
           elements.push(renderHallway(
             `hw-w${wingIdx}-f${floorIdx}-h${hi}`,
-            xBase, posU, widthU, z0, z1, rotRad
+            xBase, posU, widthU, z0, z1, rotRad, originX
           ));
         }
 
@@ -344,7 +356,7 @@ export function IsometricStackView({
         );
         if (sep) {
           elements.push(renderHorizSep(
-            `flsep-w${wingIdx}-f${floorIdx}`, xBase, z1, sep.requiredFRR, sep.result, rotRad
+            `flsep-w${wingIdx}-f${floorIdx}`, xBase, z1, sep.requiredFRR, sep.result, rotRad, originX
           ));
         }
       }
@@ -352,7 +364,7 @@ export function IsometricStackView({
       // Floor labels on left of tower
       for (let fl = 0; fl < floorCount; fl++) {
         const zMid = fl * FLOOR_H + FLOOR_H / 2;
-        const [lx, ly] = isoProject(xBase - 0.4, BOX_D / 2, zMid, rotRad);
+        const [lx, ly] = isoProject(xBase - 0.4, BOX_D / 2, zMid, rotRad, originX);
         labels.push(
           <text key={`lbl-w${wingIdx}-f${fl}`} x={lx - 4} y={ly} textAnchor="end"
             fontSize="8" fill="#6B7280" fontWeight="600" style={{ userSelect:'none' }}
@@ -365,7 +377,7 @@ export function IsometricStackView({
       // Wing name label above tower (only when multiple wings)
       if (wings.length > 1) {
         const topZ = wing.floorCount * FLOOR_H;
-        const [wx, wy] = isoProject(xBase + BOX_W / 2, BOX_D / 2, topZ, rotRad);
+        const [wx, wy] = isoProject(xBase + BOX_W / 2, BOX_D / 2, topZ, rotRad, originX);
         labels.push(
           <text key={`wing-lbl-${wingIdx}`} x={wx} y={wy - 8} textAnchor="middle"
             fontSize="9" fill="#374151" fontWeight="700" style={{ userSelect:'none' }}
@@ -389,7 +401,7 @@ export function IsometricStackView({
       if (toZ > fromZ) {
         elements.push(renderWall(
           `wsep-${ws.wingAIdx}-${ws.wingBIdx}`,
-          atX, 0, BOX_D, fromZ, toZ, ws.requiredFRR, ws.result, rotRad
+          atX, 0, BOX_D, fromZ, toZ, ws.requiredFRR, ws.result, rotRad, originX
         ));
       }
     }
@@ -406,13 +418,13 @@ export function IsometricStackView({
       const z0 = 0, z1 = FLOOR_H;
 
       if (sectionZones.length === 0) {
-        elements.push(renderBlock(`empty-s${sectionIdx}`, xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad));
+        elements.push(renderBlock(`empty-s${sectionIdx}`, xBase, xBase + BOX_W, 0, BOX_D, z0, z1, '#E5E7EB', rotRad, originX));
       } else {
         for (let zi = 0; zi < sectionZones.length; zi++) {
           const zone = sectionZones[zi];
           const x0 = xBase + zone.xOffset;
           const x1 = x0 + zone.widthUnits;
-          elements.push(renderBlock(`zone-s${sectionIdx}-z${zi}`, x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, zone.occupancyGroup));
+          elements.push(renderBlock(`zone-s${sectionIdx}-z${zi}`, x0, x1, 0, BOX_D, z0, z1, zoneColor(zone), rotRad, originX, zone.occupancyGroup));
         }
       }
 
@@ -422,7 +434,7 @@ export function IsometricStackView({
         if (hw.floorIndex !== 'all' && hw.floorIndex !== sectionIdx) continue;
         const posU = (hw.positionPct / 100) * BOX_W;
         const widthU = Math.max(hw.widthMm / 5000, 0.12);
-        elements.push(renderHallway(`hw-s${sectionIdx}-h${hi}`, xBase, posU, widthU, z0, z1, rotRad));
+        elements.push(renderHallway(`hw-s${sectionIdx}-h${hi}`, xBase, posU, widthU, z0, z1, rotRad, originX));
       }
 
       // Vertical fire separation wall on the right edge of each section
@@ -432,11 +444,11 @@ export function IsometricStackView({
       );
       if (rightSep) {
         const wallX = xBase + BOX_W + 0.2;
-        elements.push(renderWall(`hsep-s${sectionIdx}`, wallX, 0, BOX_D, z0, z1, rightSep.requiredFRR, rightSep.result, rotRad));
+        elements.push(renderWall(`hsep-s${sectionIdx}`, wallX, 0, BOX_D, z0, z1, rightSep.requiredFRR, rightSep.result, rotRad, originX));
       }
 
       // Section label below
-      const [lx, ly] = isoProject(xBase + BOX_W / 2, BOX_D, 0, rotRad);
+      const [lx, ly] = isoProject(xBase + BOX_W / 2, BOX_D, 0, rotRad, originX);
       labels.push(
         <text key={`slbl-${sectionIdx}`} x={lx} y={ly + 14} textAnchor="middle"
           fontSize="8" fill="#6B7280" fontWeight="600" style={{ userSelect:'none' }}
@@ -449,7 +461,7 @@ export function IsometricStackView({
     // Wing separations in horizontal mode (if any)
     for (const ws of wingSeparations) {
       const atX = ws.wingAIdx * WING_STEP + BOX_W + (WING_STEP - BOX_W) / 2;
-      elements.push(renderWall(`wsep-h-${ws.wingAIdx}`, atX, 0, BOX_D, 0, FLOOR_H, ws.requiredFRR, ws.result, rotRad));
+      elements.push(renderWall(`wsep-h-${ws.wingAIdx}`, atX, 0, BOX_D, 0, FLOOR_H, ws.requiredFRR, ws.result, rotRad, originX));
     }
   }
 
@@ -457,8 +469,8 @@ export function IsometricStackView({
     <div className="select-none">
       <svg
         width="100%"
-        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-        style={{ cursor: isDragging.current ? 'grabbing' : 'grab', touchAction: 'none', maxWidth: SVG_W }}
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        style={{ cursor: isDragging.current ? 'grabbing' : 'grab', touchAction: 'none', maxWidth: svgW }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -469,7 +481,7 @@ export function IsometricStackView({
       >
         {elements}
         {labels}
-        <text x={SVG_W / 2} y={SVG_H - 8} textAnchor="middle" fontSize="8" fill="#9CA3AF"
+        <text x={svgW / 2} y={svgH - 8} textAnchor="middle" fontSize="8" fill="#9CA3AF"
           style={{ userSelect: 'none' }}
         >
           Drag to rotate
