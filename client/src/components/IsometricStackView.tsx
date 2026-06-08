@@ -15,6 +15,7 @@ export interface HallwayConfig {
   positionPct: number;     // 0–100 across building width
   widthMm: number;         // default 1100 (NBC 3.3.1.2 min)
   orientation: 'horizontal' | 'vertical';
+  wingId?: string;         // if set, hallway only renders on the matching wing
 }
 
 export interface OccupancyZone {
@@ -337,9 +338,10 @@ export function IsometricStackView({
           }
         }
 
-        // Hallways on this floor
+        // Hallways on this floor — skip if scoped to a different wing
         for (let hi = 0; hi < hallways.length; hi++) {
           const hw = hallways[hi];
+          if (hw.wingId !== undefined && hw.wingId !== wing.id) continue;
           if (hw.floorIndex !== 'all' && hw.floorIndex !== floorIdx) continue;
           const posU = (hw.positionPct / 100) * BOX_W;
           const widthU = Math.max(hw.widthMm / 5000, 0.12);

@@ -537,7 +537,11 @@ export function OccupancyAdvisor({
   }
 
   function addHallway() {
-    setHallways(prev => [...prev, { floorIndex: 'all', positionPct: 50, widthMm: 1200, orientation: 'horizontal' }]);
+    const isWingScoped = stackView === 'isometric' && stackOrientation === 'vertical' && wings.length > 1;
+    setHallways(prev => [...prev, {
+      floorIndex: 'all', positionPct: 50, widthMm: 1200, orientation: 'horizontal',
+      ...(isWingScoped ? { wingId: activeWingId } : {}),
+    }]);
   }
   function updateHallway(idx: number, patch: Partial<HallwayConfig>) {
     setHallways(prev => prev.map((h, i) => i === idx ? { ...h, ...patch } : h));
@@ -1204,16 +1208,23 @@ export function OccupancyAdvisor({
               </div>
 
               {/* Hallway configuration panel */}
-              {stackView === 'isometric' && hallwayToolActive && (
+              {stackView === 'isometric' && hallwayToolActive && (() => {
+                const visibleHallways = hallways
+                  .map((hw, idx) => ({ hw, idx }))
+                  .filter(({ hw }) => !hw.wingId || hw.wingId === activeWingId);
+                const isWingScoped = stackOrientation === 'vertical' && wings.length > 1;
+                return (
                 <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Hallway Configuration</span>
+                    <span className="text-sm font-medium">
+                      Hallway Configuration{isWingScoped ? ` — ${activeWing?.label}` : ''}
+                    </span>
                     <Button variant="ghost" size="sm" onClick={addHallway} className="text-xs h-7">+ Add Hallway</Button>
                   </div>
-                  {hallways.length === 0 && (
+                  {visibleHallways.length === 0 && (
                     <p className="text-xs text-muted-foreground">Click "+ Add Hallway" to insert a corridor cut.</p>
                   )}
-                  {hallways.map((hw, idx) => (
+                  {visibleHallways.map(({ hw, idx }) => (
                     <div key={idx} className="space-y-2 border-t pt-2 first:border-t-0 first:pt-0">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-muted-foreground w-16">Floor:</span>
@@ -1263,7 +1274,8 @@ export function OccupancyAdvisor({
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
 
               {/* Zone palette */}
               <div className="rounded border border-dashed border-border p-3 space-y-2">
@@ -1653,7 +1665,8 @@ export function OccupancyAdvisor({
 
                   {/* Floor separation schedule */}
                   {(floorSepSchedule.length > 0 || hallways.length > 0) && (() => {
-                    const hallwaySeps = calculateHallwaySeparations(hallways, floors);
+                    const activeHallways = hallways.filter(hw => !hw.wingId || hw.wingId === activeWingId);
+                    const hallwaySeps = calculateHallwaySeparations(activeHallways, floors);
                     return (
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
@@ -1753,9 +1766,9 @@ export function OccupancyAdvisor({
                   })()}
 
                   {/* Hallway width warnings */}
-                  {hallways.some(hw => hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM) && (
+                  {hallways.some(hw => (!hw.wingId || hw.wingId === activeWingId) && hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM) && (
                     <div className="space-y-1">
-                      {hallways.map((hw, idx) => hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM && (
+                      {hallways.map((hw, idx) => (!hw.wingId || hw.wingId === activeWingId) && hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM && (
                         <div key={idx} className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
                           <AlertCircle className="w-4 h-4 flex-shrink-0" />
                           Hallway {idx + 1}: {hw.widthMm}mm width is below NBC 3.3.1.2 minimum ({NBC_MIN_CORRIDOR_WIDTH_MM}mm)
