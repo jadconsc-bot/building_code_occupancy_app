@@ -1002,7 +1002,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         if (!r.polygon || r.polygon.length < 3) continue;
         const key = `${r.seedX},${r.seedY}`;
         if (!next.has(key)) {
-          next.set(key, calculateRoomCompliance(key, r.roomLabel, r.polygon, pixelsPerM));
+          next.set(key, calculateRoomCompliance(
+            key,
+            r.roomLabel,
+            r.polygon,
+            pixelsPerM,
+            measuredWindows,
+            (() => {
+              const td = travelDistanceResults.find(
+                t => t.roomLabel === r.roomLabel ||
+                  t.roomLabel?.toLowerCase() === r.roomLabel?.toLowerCase()
+              );
+              if (!td || !pixelsPerMm || td.distanceM == null) return undefined;
+              return td.distanceM * (pixelsPerMm * 1000);
+            })(),
+            (() => {
+              const td = travelDistanceResults.find(
+                t => t.roomLabel === r.roomLabel ||
+                  t.roomLabel?.toLowerCase() === r.roomLabel?.toLowerCase()
+              );
+              return td?.limit;
+            })(),
+          ));
         }
       }
       return next;
@@ -4068,7 +4089,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
       // Phase C Step 4 — calculate per-room compliance
       const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
-      const compliance = calculateRoomCompliance(key, 'Room', imageVerts, pixelsPerM);
+      const compliance = calculateRoomCompliance(key, 'Room', imageVerts, pixelsPerM, measuredWindows);
       setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
 
       // Phase C Step 5 — persist to DB (fire-and-forget)
@@ -4111,7 +4132,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const refinedPts = detectedPolygons.get(key);
       if (refinedPts && refinedPts.length > 2) {
         const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
-        const compliance = calculateRoomCompliance(key, 'Room', refinedPts, pixelsPerM);
+        const compliance = calculateRoomCompliance(key, 'Room', refinedPts, pixelsPerM, measuredWindows);
         setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
       }
       return;
@@ -8144,6 +8165,74 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                 />
                               </div>
                             )}
+                            {/* Phase C — DDA polygon compliance findings */}
+                            {ddaRoomCompliance.size > 0 && (() => {
+                              const phaseFindings: Array<{
+                                issueId: string;
+                                roomLabel: string;
+                                finding: string;
+                                severity: 'fail' | 'conditional' | 'pass';
+                                nbcRef: string;
+                              }> = [];
+
+                              let idx = 1;
+                              for (const [, result] of ddaRoomCompliance.entries()) {
+                                if (result.severity === 'fail' && result.areaM2 > 0) {
+                                  const isSleepingRoom = /bed|sleep|master/i.test(result.roomLabel);
+                                  const minArea = isSleepingRoom ? 7.4 : 4.65;
+                                  if (result.areaM2 < minArea) {
+                                    phaseFindings.push({
+                                      issueId: `PC-${String(idx++).padStart(3, '0')}`,
+                                      roomLabel: result.roomLabel,
+                                      finding: `Area ${result.areaM2.toFixed(1)} m² < ${minArea} m² minimum`,
+                                      severity: 'fail',
+                                      nbcRef: 'NBC 9.5.21',
+                                    });
+                                  }
+                                }
+                                if (!result.egress.compliant && result.egress.hasEgressWindow) {
+                                  phaseFindings.push({
+                                    issueId: `PC-${String(idx++).padStart(3, '0')}`,
+                                    roomLabel: result.roomLabel,
+                                    finding: `Egress window ${result.egress.windowAreaM2.toFixed(2)} m² < 0.35 m² minimum`,
+                                    severity: 'fail',
+                                    nbcRef: 'NBC 9.10.7',
+                                  });
+                                }
+                                if (!result.travelDistance.compliant && result.travelDistance.distanceM > 0) {
+                                  phaseFindings.push({
+                                    issueId: `PC-${String(idx++).padStart(3, '0')}`,
+                                    roomLabel: result.roomLabel,
+                                    finding: `Travel distance ${result.travelDistance.distanceM.toFixed(1)} m exceeds ${result.travelDistance.maxAllowedM} m limit`,
+                                    severity: 'fail',
+                                    nbcRef: 'NBC 3.4.2.5',
+                                  });
+                                }
+                              }
+
+                              if (phaseFindings.length === 0) return null;
+
+                              return (
+                                <div className="mt-4 pt-4 border-t border-border">
+                                  <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                                    Phase C — Polygon Analysis ({phaseFindings.length} finding{phaseFindings.length !== 1 ? 's' : ''})
+                                  </p>
+                                  {phaseFindings.map(f => (
+                                    <div key={f.issueId} className="flex items-start gap-2 py-1 border-b border-border last:border-0">
+                                      <span className={`text-xs font-mono shrink-0 ${
+                                        f.severity === 'fail' ? 'text-red-600' : 'text-amber-600'
+                                      }`}>{f.issueId}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-medium">{f.roomLabel}</p>
+                                        <p className="text-xs text-muted-foreground">{f.finding}</p>
+                                        <p className="text-xs text-muted-foreground/60">{f.nbcRef}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </TabsContent>
                           <TabsContent value="carl" className="mt-0 p-3">
                             {orchestratorResult.carlReport && (
