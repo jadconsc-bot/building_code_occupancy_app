@@ -121,6 +121,7 @@ import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssembly
 import { WashroomCountsPanel } from '@/components/WashroomCountsPanel';
 import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
 import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
+import { CARLScorerPanel } from '@/components/CARLScorerPanel';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -7971,86 +7972,123 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           {orchestratorResult.summary.edition} · {orchestratorResult.summary.totalRooms} rooms · {orchestratorResult.summary.totalOccupants} occupants
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        {/* Summary strip */}
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          <span className="text-green-600 font-medium">
-                            ✓ {orchestratorResult.summary.passCount} Pass
-                          </span>
-                          <span className="text-red-600 font-medium">
-                            ✗ {orchestratorResult.summary.failCount} Fail
-                          </span>
-                          <span className="text-amber-600 font-medium">
-                            ⚠ {orchestratorResult.summary.advisoryCount} Advisory
-                          </span>
-                          {orchestratorResult.summary.calibrationConfidence !== 'high' && (
-                            <span className="text-amber-700 italic">
-                              — Scale uncalibrated, some results advisory
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Findings list */}
-                        <div className="space-y-2">
-                          {orchestratorResult.findings.map(f => (
-                            <div
-                              key={f.issueId}
-                              className={`rounded-lg border p-3 text-xs ${
-                                f.severity === 'fail'     ? 'border-red-200 bg-red-50' :
-                                f.severity === 'advisory' ? 'border-amber-200 bg-amber-50' :
-                                'border-green-200 bg-green-50'
-                              }`}
+                      <CardContent className="p-0">
+                        <Tabs defaultValue="analysis" className="w-full">
+                          <TabsList className="w-full rounded-none border-b bg-transparent h-9 p-0">
+                            <TabsTrigger
+                              value="analysis"
+                              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent text-xs h-9"
                             >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-mono font-bold text-muted-foreground">{f.issueId}</span>
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  f.severity === 'fail'     ? 'bg-red-100 text-red-700' :
-                                  f.severity === 'advisory' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-green-100 text-green-700'
-                                }`}>
-                                  {f.severity.toUpperCase()}
+                              Analysis Results
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="carl"
+                              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent text-xs h-9 flex items-center gap-1.5"
+                            >
+                              Permit Readiness
+                              {orchestratorResult.carlReport && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs px-1 py-0 ml-1 ${
+                                    orchestratorResult.carlReport.permitReadinessLabel === 'Ready'
+                                      ? 'bg-green-50 text-green-700 border-green-200'
+                                      : orchestratorResult.carlReport.permitReadinessLabel === 'Needs Work'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-red-50 text-red-700 border-red-200'
+                                  }`}
+                                >
+                                  {orchestratorResult.carlReport.permitReadinessScore}%
+                                </Badge>
+                              )}
+                            </TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="analysis" className="mt-0 p-3 space-y-3">
+                            {/* Summary strip */}
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              <span className="text-green-600 font-medium">
+                                ✓ {orchestratorResult.summary.passCount} Pass
+                              </span>
+                              <span className="text-red-600 font-medium">
+                                ✗ {orchestratorResult.summary.failCount} Fail
+                              </span>
+                              <span className="text-amber-600 font-medium">
+                                ⚠ {orchestratorResult.summary.advisoryCount} Advisory
+                              </span>
+                              {orchestratorResult.summary.calibrationConfidence !== 'high' && (
+                                <span className="text-amber-700 italic">
+                                  — Scale uncalibrated, some results advisory
                                 </span>
-                              </div>
-                              <p className="font-medium text-foreground mb-0.5">{f.description}</p>
-                              <p className="text-muted-foreground">
-                                Actual: {f.actual} — Required: {f.required}
-                              </p>
-                              <p className="font-mono text-[10px] text-muted-foreground mt-1">
-                                {f.citation}
-                              </p>
+                              )}
                             </div>
-                          ))}
-                        </div>
 
-                        {/* Washroom Requirements — deterministic output from washroomCalculator.ts
-                            Only renders when orchestrator has run and found occupancy groups.
-                            Props flow downward only — no state mutation in this component. */}
-                        {orchestratorResult.washroomCounts &&
-                          orchestratorResult.washroomCounts.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-border">
-                            <WashroomCountsPanel
-                              washroomCounts={orchestratorResult.washroomCounts}
-                              evaluatedAt={
-                                orchestratorResult.washroomCounts[0]?.evaluationTimestamp
-                              }
-                            />
-                          </div>
-                        )}
+                            {/* Findings list */}
+                            <div className="space-y-2">
+                              {orchestratorResult.findings.map(f => (
+                                <div
+                                  key={f.issueId}
+                                  className={`rounded-lg border p-3 text-xs ${
+                                    f.severity === 'fail'     ? 'border-red-200 bg-red-50' :
+                                    f.severity === 'advisory' ? 'border-amber-200 bg-amber-50' :
+                                    'border-green-200 bg-green-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-mono font-bold text-muted-foreground">{f.issueId}</span>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                      f.severity === 'fail'     ? 'bg-red-100 text-red-700' :
+                                      f.severity === 'advisory' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-green-100 text-green-700'
+                                    }`}>
+                                      {f.severity.toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <p className="font-medium text-foreground mb-0.5">{f.description}</p>
+                                  <p className="text-muted-foreground">
+                                    Actual: {f.actual} — Required: {f.required}
+                                  </p>
+                                  <p className="font-mono text-[10px] text-muted-foreground mt-1">
+                                    {f.citation}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
 
-                        {/* Construction Type — NBC Table 3.2.2.20 */}
-                        {orchestratorResult.constructionTypes &&
-                          orchestratorResult.constructionTypes.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-border">
-                            <ConstructionTypePanel
-                              constructionTypes={orchestratorResult.constructionTypes}
-                            />
-                          </div>
-                        )}
-                        {orchestratorResult.codeConflicts && orchestratorResult.codeConflicts.conflictCount > 0 && (
-                          <div className="mt-4">
-                            <CodeConflictsPanel codeConflicts={orchestratorResult.codeConflicts} />
-                          </div>
-                        )}
+                            {/* Washroom Requirements — deterministic output from washroomCalculator.ts
+                                Only renders when orchestrator has run and found occupancy groups.
+                                Props flow downward only — no state mutation in this component. */}
+                            {orchestratorResult.washroomCounts &&
+                              orchestratorResult.washroomCounts.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <WashroomCountsPanel
+                                  washroomCounts={orchestratorResult.washroomCounts}
+                                  evaluatedAt={
+                                    orchestratorResult.washroomCounts[0]?.evaluationTimestamp
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {/* Construction Type — NBC Table 3.2.2.20 */}
+                            {orchestratorResult.constructionTypes &&
+                              orchestratorResult.constructionTypes.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <ConstructionTypePanel
+                                  constructionTypes={orchestratorResult.constructionTypes}
+                                />
+                              </div>
+                            )}
+                            {orchestratorResult.codeConflicts && orchestratorResult.codeConflicts.conflictCount > 0 && (
+                              <div className="mt-4">
+                                <CodeConflictsPanel codeConflicts={orchestratorResult.codeConflicts} />
+                              </div>
+                            )}
+                          </TabsContent>
+                          <TabsContent value="carl" className="mt-0 p-3">
+                            {orchestratorResult.carlReport && (
+                              <CARLScorerPanel carlReport={orchestratorResult.carlReport} />
+                            )}
+                          </TabsContent>
+                        </Tabs>
                       </CardContent>
                     </Card>
                   )}
