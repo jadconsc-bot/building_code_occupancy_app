@@ -13,6 +13,10 @@ import {
   determineConstructionType,
   ConstructionTypeResult,
 } from './constructionTypeEngine';
+import {
+  detectCodeConflicts,
+  ConflictDetectionResult,
+} from './codeConflictDetector';
 
 // NBC 2023 Table 4.1.5.3 occupant load factors (persons/m²)
 const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; nbcRef: string }> = {
@@ -145,6 +149,13 @@ export interface OrchestratorResult {
    * Empty array if no rooms with recognized occupancy groups found.
    */
   constructionTypes: ConstructionTypeResult[];
+  /**
+   * Cross-check conflicts between all rule outputs.
+   * A conflict is two outputs that contradict each other — distinct
+   * from a single-rule failure.
+   * hasBlockingConflicts: true gates permit package generation.
+   */
+  codeConflicts: ConflictDetectionResult;
 }
 
 export function runCalculatorOrchestrator(
@@ -390,6 +401,29 @@ export function runCalculatorOrchestrator(
     advisoryCount++;
   }
 
+  // ── Code conflict detection ─────────────────────────────────────────────
+  // Runs last — all other outputs must be fully populated before this call.
+  // Cross-checks occupantLoad, travelDistance, fireSeparation,
+  // washroomCounts, and constructionTypes for internal contradictions.
+  // hasBlockingConflicts: true gates permit package generation.
+  // fireSeparation.requiredFRR is number in OrchestratorResult but string
+  // in ConflictDetectorInput — cast at call site.
+  const codeConflicts = detectCodeConflicts({
+    occupantLoad,
+    travelDistance,
+    fireSeparation: fireSeparation.map(fs => ({
+      ...fs,
+      requiredFRR: String(fs.requiredFRR),
+    })),
+    washroomCounts,
+    constructionTypes,
+    sprinklered: input.sprinklered,
+    storeys: input.storeys,
+    province: input.province ?? 'CA',
+    jurisdictionSource: input.jurisdictionSource,
+  });
+  // ── End conflict detection ──────────────────────────────────────────────
+
   return {
     occupantLoad,
     egressWindows,
@@ -407,6 +441,7 @@ export function runCalculatorOrchestrator(
     findings,
     washroomCounts,
     constructionTypes,
+    codeConflicts,
     jurisdictionSource: input.jurisdictionSource,
   };
 }
