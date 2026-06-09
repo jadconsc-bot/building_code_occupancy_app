@@ -106,6 +106,67 @@ export interface ConflictDetectionResult {
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
+// Inline mirror of server/services/carl/carlTypes.ts
+// Keep in sync manually — no server import on client.
+
+export type CARLCoverage = 'full' | 'partial' | 'manual' | 'out_of_scope';
+
+export type CARLStatus =
+  | 'pass'
+  | 'fail'
+  | 'advisory'
+  | 'not_evaluated'
+  | 'out_of_scope';
+
+export interface CARLItem {
+  carlId: string;
+  section: number;
+  sectionName: string;
+  description: string;
+  nbcRef: string;
+  jurisdiction?: string;
+  engineCoverage: CARLCoverage;
+  dataSource: string | null;
+  blockingIfFailed: boolean;
+  status: CARLStatus;
+  evidence: string | null;
+  confidence: 'high' | 'medium' | 'low' | null;
+  recommendation: string | null;
+}
+
+export interface CARLSectionScore {
+  section: number;
+  sectionName: string;
+  score: number;
+  itemCount: number;
+  passCount: number;
+  failCount: number;
+  advisoryCount: number;
+  outOfScopeCount: number;
+  hasBlockingFailure: boolean;
+}
+
+export interface CARLReport {
+  projectId: number | null;
+  evaluationTimestamp: string;
+  codeEdition: string;
+  province: string;
+  jurisdictionSource?: string;
+  items: CARLItem[];
+  totalItems: number;
+  passCount: number;
+  failCount: number;
+  advisoryCount: number;
+  manualCount: number;
+  outOfScopeCount: number;
+  notEvaluatedCount: number;
+  permitReadinessScore: number;
+  permitReadinessLabel: 'Ready' | 'Needs Work' | 'Not Ready';
+  hasBlockingFailures: boolean;
+  blockingItems: CARLItem[];
+  sectionScores: CARLSectionScore[];
+}
+
 export interface OrchestratorResult {
   occupantLoad: Array<{
     roomLabel: string;
@@ -167,6 +228,11 @@ export interface OrchestratorResult {
    * hasBlockingConflicts: true disables the permit package button.
    */
   codeConflicts: ConflictDetectionResult;
+  /**
+   * CARL permit completeness report — 78-item scored checklist.
+   * hasBlockingFailures gates permit package PDF alongside hasBlockingConflicts.
+   */
+  carlReport: CARLReport;
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 

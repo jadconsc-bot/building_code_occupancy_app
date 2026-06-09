@@ -6074,11 +6074,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </Button>
                   <Button
                     onClick={handleSendToPermitting}
-                    disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting || (orchestratorResult?.codeConflicts?.hasBlockingConflicts ?? false)}
+                    disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting || (orchestratorResult?.codeConflicts?.hasBlockingConflicts ?? false) || (orchestratorResult?.carlReport?.hasBlockingFailures ?? false)}
                     variant="outline"
                     size="sm"
                     className="border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40"
-                    title={orchestratorResult?.codeConflicts?.hasBlockingConflicts ? 'Resolve critical code conflicts before generating permit package' : 'Save site analysis and occupant load to project permit package'}
+                    title={orchestratorResult?.codeConflicts?.hasBlockingConflicts ? 'Resolve critical code conflicts before generating permit package' : orchestratorResult?.carlReport?.hasBlockingFailures ? 'Resolve blocking CARL items before generating permit package' : 'Save site analysis and occupant load to project permit package'}
                   >
                     {isSendingToPermitting
                       ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
