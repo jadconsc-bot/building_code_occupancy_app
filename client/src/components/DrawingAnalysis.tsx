@@ -122,6 +122,7 @@ import { WashroomCountsPanel } from '@/components/WashroomCountsPanel';
 import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
 import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
 import { CARLScorerPanel } from '@/components/CARLScorerPanel';
+import { BarrierFreePanel } from '@/components/BarrierFreePanel';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -8080,6 +8081,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             {orchestratorResult.codeConflicts && orchestratorResult.codeConflicts.conflictCount > 0 && (
                               <div className="mt-4">
                                 <CodeConflictsPanel codeConflicts={orchestratorResult.codeConflicts} />
+                              </div>
+                            )}
+                            {orchestratorResult.barrierFreeRequirements && (
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <BarrierFreePanel
+                                  barrierFreeRequirements={orchestratorResult.barrierFreeRequirements}
+                                />
                               </div>
                             )}
                           </TabsContent>
