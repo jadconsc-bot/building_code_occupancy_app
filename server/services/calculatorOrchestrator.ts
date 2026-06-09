@@ -17,6 +17,8 @@ import {
   detectCodeConflicts,
   ConflictDetectionResult,
 } from './codeConflictDetector';
+import { scoreCARLItems } from './carl/carlScorer';
+import type { CARLReport } from './carl/carlTypes';
 
 // NBC 2023 Table 4.1.5.3 occupant load factors (persons/m²)
 const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; nbcRef: string }> = {
@@ -156,6 +158,11 @@ export interface OrchestratorResult {
    * hasBlockingConflicts: true gates permit package generation.
    */
   codeConflicts: ConflictDetectionResult;
+  /**
+   * CARL permit completeness report — 78-item scored checklist.
+   * hasBlockingFailures gates permit package PDF alongside hasBlockingConflicts.
+   */
+  carlReport: CARLReport;
 }
 
 export function runCalculatorOrchestrator(
@@ -424,24 +431,54 @@ export function runCalculatorOrchestrator(
   });
   // ── End conflict detection ──────────────────────────────────────────────
 
+  // ── CARL permit completeness scoring ─────────────────────────────────────
+  // Runs last — requires all other outputs to be complete.
+  const summary = {
+    totalRooms: input.rooms.length,
+    totalOccupants,
+    passCount,
+    failCount,
+    advisoryCount,
+    calibrationConfidence: input.calibrationConfidence,
+    edition,
+  };
+
+  const carlReport = scoreCARLItems({
+    orchestratorResult: {
+      occupantLoad,
+      egressWindows,
+      travelDistance,
+      fireSeparation,
+      summary,
+      findings,
+      washroomCounts,
+      jurisdictionSource: input.jurisdictionSource,
+      constructionTypes,
+      codeConflicts,
+      carlReport: null as unknown as CARLReport,
+    },
+    projectId: null,
+    address: null,
+    province: input.province ?? 'CA',
+    municipality: null,
+    codeEdition: edition,
+    jurisdictionSource: input.jurisdictionSource,
+    storeys: input.storeys,
+    sprinklered: input.sprinklered,
+  });
+  // ── End CARL scoring ──────────────────────────────────────────────────────
+
   return {
     occupantLoad,
     egressWindows,
     travelDistance,
     fireSeparation,
-    summary: {
-      totalRooms: input.rooms.length,
-      totalOccupants,
-      passCount,
-      failCount,
-      advisoryCount,
-      calibrationConfidence: input.calibrationConfidence,
-      edition,
-    },
+    summary,
     findings,
     washroomCounts,
     constructionTypes,
     codeConflicts,
+    carlReport,
     jurisdictionSource: input.jurisdictionSource,
   };
 }
