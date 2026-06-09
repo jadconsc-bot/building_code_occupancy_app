@@ -345,11 +345,65 @@ export function extractDrawingData(params: {
     rooms.push({ key, label, occupancyGroup, polygon, areaM2 });
   }
 
+  // ── F1-C: Multi-page fallback ──────────────────────────────────────────
+  // Rooms from pages 2-N that have no DDA polygon yet still need to
+  // feed into the orchestrator. Use bounding box area as a proxy.
+  // Only add rooms NOT already covered by a polygon entry above.
+  //
+  // This preserves the Prime Directive: AI provides room data,
+  // deterministic engine makes all pass/fail decisions.
+  // Calibration confidence is set to 'low' for bounding-box-only rooms
+  // since area is approximate (bounding box, not traced polygon).
+
+  const polygonLabels = new Set(rooms.map(r => r.label));
+
+  for (const r of detectedRoomsData) {
+    const label = r.roomLabel ?? r.label ?? '';
+    if (!label) continue;
+
+    // Skip rooms already covered by a polygon
+    if (polygonLabels.has(label)) continue;
+
+    // Skip rooms with no usable occupancy data
+    const occupancyGroup = r.occupancyGroup
+      ?? r.occupancy_group
+      ?? r.occupancyCode
+      ?? 'D';
+
+    // Estimate area from bounding box if available
+    // boundingBox shape: { x, y, width, height } in pixels
+    // Convert to m² using pixelsPerMm if calibration is available
+    let areaM2: number | null = null;
+    if (r.boundingBox && pixelsPerMm && pixelsPerMm > 0) {
+      const widthMm = (r.boundingBox.width ?? 0) / pixelsPerMm;
+      const heightMm = (r.boundingBox.height ?? 0) / pixelsPerMm;
+      const areaMm2 = widthMm * heightMm;
+      areaM2 = areaMm2 / 1_000_000; // mm² → m²
+    }
+
+    // Only include if area is plausible (> 0.5 m² to filter noise)
+    // or if we have no calibration (include anyway with null area)
+    if (areaM2 !== null && areaM2 < 0.5) continue;
+
+    rooms.push({
+      key: `fallback-${label}`,
+      label,
+      occupancyGroup,
+      polygon: [],      // empty polygon — no DDA trace available
+      areaM2,
+    });
+  }
+  // ── End F1-C multi-page fallback ──────────────────────────────────────
+
   // Calibration confidence
+  const hasFallbackRooms = rooms.some(r => r.polygon.length === 0);
   let calibrationConfidence: 'high' | 'low' | 'none';
   if (pixelsPerMm === null || pixelsPerMm <= 0) {
     calibrationConfidence = 'none';
   } else if (pixelsPerMm < 0.01 || pixelsPerMm > 100) {
+    calibrationConfidence = 'low';
+  } else if (hasFallbackRooms) {
+    // Bounding-box rooms present — cap at low even with good calibration
     calibrationConfidence = 'low';
   } else {
     calibrationConfidence = 'high';
