@@ -17,6 +17,10 @@ import {
   detectCodeConflicts,
   ConflictDetectionResult,
 } from './codeConflictDetector';
+import {
+  calculateBarrierFreeRequirements,
+  BarrierFreeResult,
+} from './barrierFreeCalculator';
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
 
@@ -142,6 +146,11 @@ export interface OrchestratorResult {
    */
   washroomCounts: WashroomResult[];
   /**
+   * Barrier-free requirements per NBC Part 3.8.
+   * null if building is exempt (single detached ≤2 storeys).
+   */
+  barrierFreeRequirements: BarrierFreeResult | null;
+  /**
    * Jurisdiction source threaded through from input for audit trail.
    */
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
@@ -245,6 +254,19 @@ export function runCalculatorOrchestrator(
     );
   }
   // ── End washroom counts ───────────────────────────────────────────────────
+
+  // ── Barrier-free requirements (NBC Part 3.8) ─────────────────────────────
+  const barrierFreeRequirements = calculateBarrierFreeRequirements({
+    occupancyGroups: [...new Set(occupantLoad.map(ol => ol.occupancyGroup))],
+    storeys: input.storeys,
+    totalOccupants: occupantLoad.reduce((sum, ol) => sum + ol.maxOccupants, 0),
+    totalAreaM2: input.rooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0),
+    washroomCounts,
+    totalDwellingUnits: undefined,
+    province: input.province ?? 'CA',
+    jurisdictionSource: input.jurisdictionSource,
+  });
+  // ── End barrier-free ──────────────────────────────────────────────────────
 
   // ── Construction Type (NBC Table 3.2.2.20) ────────────────────────────────
   // One evaluation per unique occupancy group, using the group-total area.
@@ -452,6 +474,7 @@ export function runCalculatorOrchestrator(
       summary,
       findings,
       washroomCounts,
+      barrierFreeRequirements,
       jurisdictionSource: input.jurisdictionSource,
       constructionTypes,
       codeConflicts,
@@ -476,6 +499,7 @@ export function runCalculatorOrchestrator(
     summary,
     findings,
     washroomCounts,
+    barrierFreeRequirements,
     constructionTypes,
     codeConflicts,
     carlReport,
