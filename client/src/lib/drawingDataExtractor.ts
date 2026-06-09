@@ -79,6 +79,33 @@ export interface ConstructionTypeResult {
   occupancyGroup: string;
 }
 
+// Inline mirror of server/services/codeConflictDetector.ts
+// Keep in sync with server type manually — no server import on client.
+export interface CodeConflict {
+  conflictId: string;
+  severity: 'critical' | 'major' | 'minor';
+  conflictingRules: string[];
+  description: string;
+  valueA: string;
+  valueB: string;
+  recommendation: string;
+  nbcRef: string;
+  codeEdition: string;
+  evaluationTimestamp: string;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+}
+
+export interface ConflictDetectionResult {
+  conflicts: CodeConflict[];
+  conflictCount: number;
+  criticalCount: number;
+  majorCount: number;
+  minorCount: number;
+  hasBlockingConflicts: boolean;
+  evaluationTimestamp: string;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+}
+
 export interface OrchestratorResult {
   occupantLoad: Array<{
     roomLabel: string;
@@ -135,6 +162,11 @@ export interface OrchestratorResult {
    * Read-only — set by deterministic engine, never by user input.
    */
   constructionTypes: ConstructionTypeResult[];
+  /**
+   * Cross-check conflicts between all rule outputs.
+   * hasBlockingConflicts: true disables the permit package button.
+   */
+  codeConflicts: ConflictDetectionResult;
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
 
