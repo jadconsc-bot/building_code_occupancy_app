@@ -488,6 +488,7 @@ export function runCalculatorOrchestrator(
     jurisdictionSource: input.jurisdictionSource,
     storeys: input.storeys,
     sprinklered: input.sprinklered,
+    barrierFreeRequirements,
   });
   // ── End CARL scoring ──────────────────────────────────────────────────────
 

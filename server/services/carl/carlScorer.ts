@@ -17,6 +17,7 @@
 
 import type { OrchestratorResult } from '../calculatorOrchestrator';
 import type { CARLItem, CARLReport, CARLSectionScore, CARLStatus } from './carlTypes';
+import type { BarrierFreeResult } from '../barrierFreeCalculator';
 
 export interface CARLScorerInput {
   orchestratorResult: OrchestratorResult;
@@ -32,6 +33,7 @@ export interface CARLScorerInput {
   hasPublicTreeStatement?: boolean;
   hasAsbestosForm?: boolean;
   constructionYear?: number | null;
+  barrierFreeRequirements?: BarrierFreeResult | null;
 }
 
 const SECTION_NAMES: Record<number, string> = {
@@ -76,6 +78,8 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   const timestamp = new Date().toISOString();
   const { orchestratorResult: o, province, municipality } = input;
   const isCalgary = municipality?.toLowerCase().includes('calgary') ?? false;
+  const bf = input.barrierFreeRequirements;
+  const bfRequired = bf?.isBarrierFreeRequired ?? true;
   const items: CARLItem[] = [];
 
   // ── SECTION 1 — Project Information ────────────────────────────────────────
@@ -384,56 +388,82 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
 
   // ── SECTION 6 — Accessibility ───────────────────────────────────────────────
   const s6 = SECTION_NAMES[6];
-  const accessibleStallRequired = o.washroomCounts.some(
-    wc => wc.required.accessibleStallsRequired
-  );
-  const bfConflict = o.codeConflicts.conflicts.find(c =>
-    c.conflictId === 'CONFLICT-BF-001'
-  );
 
   items.push(makeItem('CARL-6.1', 6, s6,
-    'Barrier-free path of travel provided', 'NBC 3.8.1', 'manual', null, true,
-    'advisory', null, null,
-    'Show barrier-free path from accessible parking to all accessible spaces',
+    'Barrier-free path of travel provided', 'NBC 3.8.1', 'partial',
+    'barrierFreeRequirements.accessiblePathRequired', true,
+    !bfRequired ? 'pass'
+      : bf?.accessiblePathRequired ? 'advisory' : 'pass',
+    !bfRequired
+      ? 'Building exempt from NBC Part 3.8 (single detached ≤2 storeys)'
+      : 'Barrier-free path required — verify on floor plans',
+    !bfRequired ? 'high' : 'medium',
+    !bfRequired ? null
+      : 'Show barrier-free path from accessible parking to all accessible spaces',
   ));
 
   items.push(makeItem('CARL-6.2', 6, s6,
-    'Door clearances & hardware compliant', 'NBC 3.8.2.3', 'manual', null, true,
-    'advisory', null, null,
-    'Verify 850mm clear door width and lever hardware on accessible path',
+    'Door clearances & hardware compliant', 'NBC 3.8.2.3', 'partial',
+    'barrierFreeRequirements.requirements', true,
+    !bfRequired ? 'pass' : 'advisory',
+    !bfRequired
+      ? 'Exempt from NBC Part 3.8'
+      : 'Verify 850mm clear door width and lever hardware on accessible path',
+    !bfRequired ? 'high' : 'medium',
+    !bfRequired ? null
+      : 'Verify 850mm clear door width and lever hardware on accessible path',
   ));
 
   items.push(makeItem('CARL-6.3', 6, s6,
     'Washroom accessibility verified', 'NBC 3.8.3.8', 'partial',
-    'washroomCounts[].accessibleStallsRequired', true,
-    o.washroomCounts.length > 0
-      ? (accessibleStallRequired ? 'advisory' : 'pass')
-      : 'not_evaluated',
-    o.washroomCounts.length > 0
-      ? (accessibleStallRequired
-        ? 'Accessible stall required — verify dimensions on drawings'
-        : 'Accessible stall not required for this occupant load')
+    'barrierFreeRequirements.accessibleWashroomRequired', true,
+    !bfRequired ? 'pass'
+      : bf?.accessibleWashroomRequired ? 'advisory' : 'pass',
+    !bfRequired
+      ? 'Exempt from NBC Part 3.8'
+      : bf?.accessibleWashroomRequired
+      ? 'Accessible stall required — verify dimensions on drawings'
+      : 'Accessible stall not required for this occupant load',
+    !bfRequired ? 'high' : 'medium',
+    bf?.accessibleWashroomRequired
+      ? 'Provide accessible washroom stall: 1500mm turning circle, grab bars NBC 3.8.3.11'
       : null,
-    o.washroomCounts.length > 0 ? 'medium' : null,
-    bfConflict ? 'Complete barrier-free analysis before permit submission' : null,
   ));
 
   items.push(makeItem('CARL-6.4', 6, s6,
-    'Ramps & slopes compliant', 'NBC 3.8.3.4', 'manual', null, false,
-    'advisory', null, null,
-    'Max slope 1:12, min width 870mm, landings at top and bottom',
+    'Ramps & slopes compliant', 'NBC 3.8.3.4', 'partial',
+    'barrierFreeRequirements.requirements', false,
+    !bfRequired ? 'pass' : 'advisory',
+    !bfRequired ? 'Exempt from NBC Part 3.8' : null,
+    !bfRequired ? 'high' : null,
+    !bfRequired ? null
+      : 'Max slope 1:12, min width 870mm, landings at top and bottom',
   ));
 
   items.push(makeItem('CARL-6.5', 6, s6,
-    'Elevators / lifts required?', 'NBC 3.8.2.1', 'manual', null, true,
-    'advisory', null, null,
-    'Verify elevator requirement for multi-storey buildings with public access',
+    'Elevators / lifts required?', 'NBC 3.8.2.1', 'partial',
+    'barrierFreeRequirements.elevatorRequired', true,
+    !bfRequired ? 'pass'
+      : bf?.elevatorRequired ? 'advisory' : 'pass',
+    !bfRequired
+      ? 'Exempt from NBC Part 3.8'
+      : bf?.elevatorRequired
+      ? `Elevator required — ${input.storeys} storeys with public occupancy`
+      : 'Elevator not required for this building height and occupancy',
+    'high',
+    bf?.elevatorRequired
+      ? 'Provide elevator or lift serving all floors — min. 1100mm × 1400mm cab (NBC 3.8.3.6)'
+      : null,
   ));
 
   items.push(makeItem('CARL-6.6', 6, s6,
-    'Turning radii & maneuvering spaces shown', 'NBC 3.8.3', 'manual', null, false,
-    'advisory', null, null,
-    'Show 1500mm turning circle at all accessible route decision points',
+    'Turning radii & maneuvering spaces shown', 'NBC 3.8.3', 'partial',
+    'barrierFreeRequirements.requirements', false,
+    !bfRequired ? 'pass' : 'advisory',
+    !bfRequired ? 'Exempt from NBC Part 3.8' : null,
+    !bfRequired ? 'high' : null,
+    !bfRequired ? null
+      : 'Show 1500mm turning circle at all accessible route decision points',
   ));
 
   // ── SECTION 7 — Structural ──────────────────────────────────────────────────

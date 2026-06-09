@@ -167,6 +167,45 @@ export interface CARLReport {
   sectionScores: CARLSectionScore[];
 }
 
+// Inline mirror of server/services/barrierFreeCalculator.ts
+// Keep in sync manually — no server import on client.
+
+export interface BarrierFreeRequirement {
+  requirementId: string;
+  description: string;
+  nbcRef: string;
+  required: boolean;
+  value: string | null;
+  actual: string | null;
+  status: 'pass' | 'fail' | 'advisory' | 'not_applicable';
+  severity: 'high' | 'medium' | 'low';
+  recommendation: string | null;
+}
+
+export interface BarrierFreeResult {
+  occupancyGroups: string[];
+  storeys: number;
+  isBarrierFreeRequired: boolean;
+  requirementCount: number;
+  passCount: number;
+  failCount: number;
+  advisoryCount: number;
+  requirements: BarrierFreeRequirement[];
+  accessiblePathRequired: boolean;
+  accessibleWashroomRequired: boolean;
+  accessibleWashroomProvided: boolean;
+  elevatorRequired: boolean;
+  accessibleUnitsRequired: number | null;
+  accessibleUnitsMinPercent: number | null;
+  ruleId: string;
+  nbcRef: string;
+  codeEdition: string;
+  jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  evaluationTimestamp: string;
+  confidence: 'confirmed' | 'inferred' | 'advisory';
+  assumptions: string[];
+}
+
 export interface OrchestratorResult {
   occupantLoad: Array<{
     roomLabel: string;
@@ -217,6 +256,11 @@ export interface OrchestratorResult {
     citation: string;
   }>;
   washroomCounts: WashroomResult[];
+  /**
+   * Barrier-free requirements per NBC Part 3.8.
+   * null if building is exempt (single detached ≤2 storeys).
+   */
+  barrierFreeRequirements: BarrierFreeResult | null;
   /**
    * Construction type determination per occupancy group.
    * NBC Table 3.2.2.20 — one entry per unique occupancy group.
