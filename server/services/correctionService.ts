@@ -75,13 +75,13 @@ async function applyCorrection(payload: CorrectionPayload): Promise<void> {
         .where(eq(detectedRooms.id, payload.roomId));
       // Simpler update without the subquery count:
       await db.update(detectedRooms)
-        .set({ roomLabel: payload.correctedValue.label as string, lastCorrectedAt: new Date() })
+        .set({ roomLabel: payload.correctedValue.label as string, manualOverride: 1, lastCorrectedAt: new Date() })
         .where(eq(detectedRooms.id, payload.roomId));
       break;
 
     case "occupancy_change":
       await db.update(detectedRooms)
-        .set({ occupancyGroup: payload.correctedValue.occupancyGroup as string, lastCorrectedAt: new Date() })
+        .set({ occupancyGroup: payload.correctedValue.occupancyGroup as string, manualOverride: 1, lastCorrectedAt: new Date() })
         .where(eq(detectedRooms.id, payload.roomId));
       break;
 
@@ -94,6 +94,7 @@ async function applyCorrection(payload: CorrectionPayload): Promise<void> {
             : null,
           polygonSource: "manual",
           polygonExtractedAt: new Date(),
+          manualOverride: 1,
           lastCorrectedAt: new Date(),
         })
         .where(eq(detectedRooms.id, payload.roomId));

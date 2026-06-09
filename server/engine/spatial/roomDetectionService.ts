@@ -10,7 +10,7 @@ import { extractLegend, formatLegendForPrompt } from './legendExtractor';
 import { evaluateDetectionAccuracy } from './roomDetectionEvaluator';
 import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db';
 import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/schema';
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
@@ -481,6 +481,27 @@ async function saveRoomsToDb(
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
 
+  // ── Path C: Save confirmed rooms before clearing page ─────────────────
+  // Rooms with manualOverride = 1 have been corrected by the user.
+  // Preserved across re-runs — fixes the "correct again" problem.
+  const confirmedRooms = await db
+    .select()
+    .from(detectedRooms)
+    .where(
+      and(
+        eq(detectedRooms.pageId, pageId),
+        eq(detectedRooms.manualOverride, 1)
+      )
+    );
+  const confirmedLabels = new Set(
+    confirmedRooms
+      .map(r => r.roomLabel?.toLowerCase().trim() ?? '')
+      .filter(Boolean)
+  );
+  console.log('[RoomDetection] Preserving', confirmedRooms.length,
+    'confirmed room(s) for page', pageId);
+  // ── End Path C save ────────────────────────────────────────────────────
+
   // Delete stale results for this page before inserting fresh ones.
   // Features must go first (FK constraint), then rooms, then compliance rows.
   const existingRooms = await db
@@ -497,6 +518,32 @@ async function saveRoomsToDb(
     console.log('[RoomDetection] Cleared', existingRooms.length, 'stale room(s) for page', pageId);
   }
 
+  // ── Path C: Re-insert confirmed rooms after clearing ──────────────────
+  for (const confirmed of confirmedRooms) {
+    await db.insert(detectedRooms).values({
+      pageId:            confirmed.pageId,
+      projectId:         confirmed.projectId,
+      roomLabel:         confirmed.roomLabel,
+      boundingBoxJson:   confirmed.boundingBoxJson,
+      polygonJson:       confirmed.polygonJson,
+      polygonSource:     confirmed.polygonSource,
+      areaSqm:           confirmed.areaSqm,
+      floorLevel:        confirmed.floorLevel,
+      occupancyGroup:    confirmed.occupancyGroup,
+      occupancyDivision: confirmed.occupancyDivision,
+      confidence:        confirmed.confidence,
+      flagsJson:         confirmed.flagsJson,
+      flaggedForReview:  0,
+      manualOverride:    1,
+      correctionCount:   confirmed.correctionCount,
+      lastCorrectedAt:   confirmed.lastCorrectedAt,
+      detectionMethod:   confirmed.detectionMethod ?? 'manual',
+      seedX:             confirmed.seedX,
+      seedY:             confirmed.seedY,
+    });
+  }
+  // ── End Path C re-insert ───────────────────────────────────────────────
+
   // Backfill the page dimensions so the client can compute a scale factor
   if (imgW > 0 && imgH > 0) {
     await db.update(drawingPages)
@@ -505,6 +552,12 @@ async function saveRoomsToDb(
   }
 
   for (const room of rooms) {
+    // Path C: skip AI room if a confirmed correction exists for this label
+    if (confirmedLabels.has(room.label?.toLowerCase().trim() ?? '')) {
+      console.log('[RoomDetection] Skipping — confirmed correction exists:', room.label);
+      continue;
+    }
+
     const result = await db.insert(detectedRooms).values({
       pageId,
       projectId,

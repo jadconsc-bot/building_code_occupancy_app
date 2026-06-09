@@ -2186,6 +2186,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             ctx.textBaseline = 'alphabetic';
             ctx.fillText('✏ corrected', screenX + 2, screenY - 3);
           }
+          // Path C: green lock indicator for confirmed rooms
+          if ((room as any).manualOverride === 1) {
+            ctx.fillStyle = '#16a34a';
+            ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText('🔒', screenX + screenW - 2, screenY + 2);
+          }
           ctx.restore();
         }
       }
