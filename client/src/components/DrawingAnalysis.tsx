@@ -120,6 +120,7 @@ import { getRequiredFRR, computeRemediation } from "@/lib/fireSeparationClient";
 import { getFireRatedPresets, type WallAssemblyPreset } from "@/lib/wallAssemblyPresets";
 import { WashroomCountsPanel } from '@/components/WashroomCountsPanel';
 import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
+import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -6073,11 +6074,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </Button>
                   <Button
                     onClick={handleSendToPermitting}
-                    disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting}
+                    disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting || (orchestratorResult?.codeConflicts?.hasBlockingConflicts ?? false)}
                     variant="outline"
                     size="sm"
                     className="border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40"
-                    title="Save site analysis and occupant load to project permit package"
+                    title={orchestratorResult?.codeConflicts?.hasBlockingConflicts ? 'Resolve critical code conflicts before generating permit package' : 'Save site analysis and occupant load to project permit package'}
                   >
                     {isSendingToPermitting
                       ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -8043,6 +8044,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             <ConstructionTypePanel
                               constructionTypes={orchestratorResult.constructionTypes}
                             />
+                          </div>
+                        )}
+                        {orchestratorResult.codeConflicts && orchestratorResult.codeConflicts.conflictCount > 0 && (
+                          <div className="mt-4">
+                            <CodeConflictsPanel codeConflicts={orchestratorResult.codeConflicts} />
                           </div>
                         )}
                       </CardContent>
