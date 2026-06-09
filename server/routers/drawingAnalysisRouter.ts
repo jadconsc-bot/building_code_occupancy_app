@@ -1412,6 +1412,9 @@ export const drawingAnalysisRouter = router({
       province: z.string().max(2),
       calibrationConfidence: z.enum(['high', 'low', 'none']),
       jurisdictionSource: z.enum(['geocoded', 'manual', 'device', 'fallback']).optional(),
+      municipality: z.string().max(100).optional(),
+      address: z.string().max(500).optional(),
+      totalDwellingUnits: z.number().int().positive().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();

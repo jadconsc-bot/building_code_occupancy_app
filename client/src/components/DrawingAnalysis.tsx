@@ -355,7 +355,7 @@ function getHandlePositions(screenX: number, screenY: number, screenW: number, s
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
-  const { complianceInputSlice } = useProjectContext(projectId);
+  const { complianceInputSlice, project } = useProjectContext(projectId);
 
   // State for drawing upload
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
@@ -1882,9 +1882,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       pixelsPerMm,
       travelDistanceResults,
       storeys: storeyCount ?? 1,
-      province: 'AB',
+      province: complianceInputSlice?.province ?? project?.province ?? 'AB',
       municipality: selectedMunicipalityId ?? '',
-      sprinklered: false,
+      sprinklered: (project as any)?.sprinklered ?? false,
     });
 
     runOrchestratorMutation.mutate({
@@ -1901,6 +1901,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       province: payload.province,
       calibrationConfidence: payload.calibrationConfidence,
       jurisdictionSource: complianceInputSlice?.jurisdictionSource ?? 'manual',
+      municipality: complianceInputSlice?.municipality
+        ?? project?.municipality
+        ?? undefined,
+      address: project?.address ?? undefined,
+      totalDwellingUnits: undefined,
     });
   };
 
@@ -7960,6 +7965,47 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       </Card>
                     );
                   })()}
+
+                  {/* F1-D — Ready to Analyze banner
+                      Shows when: rooms detected + project linked + analysis not yet
+                      run + page loaded. Gives one-click access to Full Analysis
+                      without hunting for the button. */}
+                  {detectedRoomsData.length > 0 &&
+                   (activeProjectId ?? 0) > 0 &&
+                   !orchestratorResult &&
+                   currentPageId && (
+                    <div className="flex items-center justify-between p-2 rounded-md bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 mb-2">
+                      <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          <span className="font-semibold">
+                            {detectedRoomsData.length} room{detectedRoomsData.length !== 1 ? 's' : ''} detected
+                          </span>
+                          {complianceInputSlice?.province && (
+                            <span className="ml-1 text-emerald-600">
+                              · {complianceInputSlice.province}
+                              {complianceInputSlice.municipality
+                                ? ` — ${complianceInputSlice.municipality}`
+                                : ''}
+                            </span>
+                          )}
+                          {' '}— Ready for Full Analysis
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleRunOrchestrator}
+                        disabled={isOrchestratorRunning || detectedPolygons.size === 0}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3 ml-2 shrink-0"
+                      >
+                        {isOrchestratorRunning
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                          : <Calculator className="w-3.5 h-3.5 mr-1" />
+                        }
+                        Run Now
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Phase D — Orchestrator Results */}
                   {orchestratorResult && (
