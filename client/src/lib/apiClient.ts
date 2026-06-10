@@ -1,4 +1,9 @@
 import { toast } from 'sonner';
+import { isAuthReady } from '@/_core/authReadyFlag';
+
+// AUTH-LOOP-001: 4xx auth/permission/not-found errors are non-retryable by
+// definition. Throwing this subclass lets the catch block skip the retry loop.
+export class NonRetryableApiError extends Error {}
 
 export type ApiOptions = RequestInit & {
   skipErrorToast?: boolean;
@@ -53,19 +58,24 @@ export async function api<T = any>(
 
         // Handle specific status codes
         if (response.status === 401) {
-          // Unauthorized - redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+          // AUTH-LOOP-001: Hard-redirecting on 401 while the Clerk→CodeComply
+          // session exchange is still in flight caused an infinite reload loop
+          // for new users (reload killed the in-flight exchange, restarting the
+          // race). Only treat a 401 as "session expired" once auth is
+          // known-ready; even then, signal via event so navigation happens
+          // in-React — never window.location (INV-3).
+          if (isAuthReady() && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('codecomply:session-expired'));
           }
-          throw new Error('Unauthorized. Redirecting to login...');
+          throw new NonRetryableApiError('Unauthorized');
         }
 
         if (response.status === 403) {
-          throw new Error('Forbidden. You do not have permission to access this resource.');
+          throw new NonRetryableApiError('Forbidden. You do not have permission to access this resource.');
         }
 
         if (response.status === 404) {
-          throw new Error('Resource not found.');
+          throw new NonRetryableApiError('Resource not found.');
         }
 
         if (response.status >= 500) {
@@ -115,6 +125,10 @@ export async function api<T = any>(
 
         throw lastError;
       }
+
+      // AUTH-LOOP-001: never retry deterministic failures (401/403/404) —
+      // retrying them only multiplies request volume during auth races.
+      if (lastError instanceof NonRetryableApiError) throw lastError;
 
       // Wait before retrying (exponential backoff)
       const delayMs = Math.min(1000 * Math.pow(2, attempt), 10000);

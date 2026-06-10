@@ -1,7 +1,8 @@
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useUser } from "@clerk/clerk-react";
+import { useAuthExchange } from "@/contexts/AuthExchangeContext";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -14,13 +15,17 @@ export function useAuth(options?: UseAuthOptions) {
 
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const utils = trpc.useUtils();
+  const { status: exchangeStatus } = useAuthExchange();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: 5 * 60_000,
-    enabled: clerkLoaded && !!clerkUser,
+    // AUTH-LOOP-001: previously enabled the moment Clerk loaded, which fired
+    // auth.me BEFORE the session exchange set the CodeComply cookie →
+    // guaranteed 401 for every new user. Now waits for the exchange to complete.
+    enabled: clerkLoaded && !!clerkUser && exchangeStatus === 'ready',
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -50,7 +55,8 @@ export function useAuth(options?: UseAuthOptions) {
     const user = meQuery.data ?? null;
     const loading =
       !clerkLoaded ||
-      !!(clerkUser && meQuery.isLoading) ||
+      exchangeStatus === 'exchanging' ||
+      !!(clerkUser && (exchangeStatus !== 'ready' || meQuery.isLoading)) ||
       logoutMutation.isPending;
     const error = meQuery.error ?? logoutMutation.error ?? null;
     const isAuthenticated = Boolean(clerkUser && user);
@@ -58,27 +64,12 @@ export function useAuth(options?: UseAuthOptions) {
   }, [
     clerkLoaded,
     clerkUser,
+    exchangeStatus,
     meQuery.data,
     meQuery.isLoading,
     meQuery.error,
     logoutMutation.isPending,
     logoutMutation.error,
-  ]);
-
-  useEffect(() => {
-    if (!redirectOnUnauthenticated) return;
-    if (!clerkLoaded) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
-    if (state.isAuthenticated) return;
-    if (typeof window === "undefined") return;
-    if (window.location.pathname === redirectPath) return;
-  }, [
-    redirectOnUnauthenticated,
-    redirectPath,
-    clerkLoaded,
-    meQuery.isLoading,
-    logoutMutation.isPending,
-    state.isAuthenticated,
   ]);
 
   return {

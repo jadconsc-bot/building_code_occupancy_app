@@ -9,10 +9,10 @@ import { ComparisonProvider } from "./contexts/ComparisonContext";
 import { CalculationHistoryProvider } from "./contexts/CalculationHistoryContext";
 import { HelpSystemProvider } from "./contexts/HelpSystemContext";
 import { AuthHydrationProvider } from "./contexts/AuthHydrationContext";
+import { AuthExchangeProvider } from "./contexts/AuthExchangeContext";
 import { CookieConsent } from "./components/CookieConsent";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
-import { useClerkSessionExchange } from "./_core/hooks/useClerkSessionExchange";
 import Home from "./pages/Home";
 import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
@@ -149,14 +149,10 @@ function Router() {
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
-  // AUTH-MIGRATE-001 / BUG-FIX-AUTH-011: Run session exchange before AuthHydrationProvider
-  // gates the tree. This breaks the circular dependency: exchange no longer needs to wait
-  // for isHydrated=true, so auth.me can fire with a valid cookie on the first attempt.
-  useClerkSessionExchange();
-
   return (
     <ErrorBoundary>
       <CookieConsent />
+      <AuthExchangeProvider>
       <AuthHydrationProvider>
         <ThemeProvider
           defaultTheme="light"
@@ -178,6 +174,7 @@ function App() {
           </ProjectProvider>
         </ThemeProvider>
       </AuthHydrationProvider>
+      </AuthExchangeProvider>
     </ErrorBoundary>
   );
 }

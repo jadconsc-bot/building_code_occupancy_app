@@ -1,32 +1,32 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
-import { onExchangeFailed } from '@/_core/authExchangeSignal';
+import { useAuthExchange } from '@/contexts/AuthExchangeContext';
 
 /**
- * AuthHydrationProvider handles session restoration on app startup
- * Calls /api/me to check if user has an active session
- * Prevents rendering until auth state is determined
+ * AuthHydrationProvider gates the app tree until the auth exchange and
+ * auth.me query have settled. Keys off the AuthExchangeContext state machine
+ * rather than the old event-signal pattern (AUTH-LOOP-001).
  */
 export function AuthHydrationProvider({ children }: { children: ReactNode }) {
-  const { user, loading, error } = useAuth();
+  const { user, loading } = useAuth();
+  const { status, retry } = useAuthExchange();
   const [isHydrated, setIsHydrated] = useState(false);
-  const [hydrationError, setHydrationError] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
-  // Immediately show error UI if session exchange fails
-  useEffect(() => {
-    return onExchangeFailed(() => setHydrationError(true));
-  }, []);
-
-  // 10-second timeout fallback — catch hangs that never resolve
+  // 10-second watchdog — transitions to error UI state, never reloads (INV-3)
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!isHydrated) setHydrationError(true);
+      if (!isHydrated) setTimedOut(true);
     }, 10000);
     return () => clearTimeout(timer);
   }, [isHydrated]);
 
   useEffect(() => {
-    if (!loading) {
+    const isReady =
+      status === 'unauthenticated' ||
+      (status === 'ready' && !loading);
+
+    if (isReady) {
       setIsHydrated(true);
 
       if (user) {
@@ -38,32 +38,30 @@ export function AuthHydrationProvider({ children }: { children: ReactNode }) {
       } else {
         console.debug('[Auth] No active session found');
       }
-
-      if (error) {
-        console.error('[Auth] Session check failed', error);
-      }
     }
-  }, [loading, user, error]);
+  }, [status, loading, user]);
+
+  // Explicit error screen for failed exchange or watchdog timeout (INV-2).
+  // Retry re-runs the exchange in-React — no page reload (INV-3).
+  if (status === 'failed' || (timedOut && !isHydrated)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md px-4">
+          <p className="text-muted-foreground mb-4">
+            Having trouble connecting? Please check your connection and try again.
+          </p>
+          <button
+            onClick={retry}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isHydrated) {
-    if (hydrationError) {
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="text-center max-w-md px-4">
-            <p className="text-muted-foreground mb-4">
-              Having trouble connecting? Please check your connection and try again.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
