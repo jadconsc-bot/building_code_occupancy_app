@@ -144,3 +144,75 @@ export function polygonArea(points: Point[]): number {
   }
   return Math.abs(area) / 2;
 }
+
+export const WALL_PROXIMITY_PX = 8;
+
+export interface SharedWall {
+  keyA: string;
+  keyB: string;
+  labelA: string;
+  labelB: string;
+  occupancyA: string;
+  occupancyB: string;
+  sharedPoints: Point[];
+  frr: string;
+  hours: number;
+  color: string;
+}
+
+const FRR_HOURS: Record<string, Record<string, number>> = {
+  A: { A: 1, B: 2, C: 2, D: 2, E: 2 },
+  B: { A: 2, B: 1, C: 1, D: 1, E: 1 },
+  C: { A: 2, B: 1, C: 0.75, D: 0.75, E: 0.75 },
+  D: { A: 2, B: 1, C: 0.75, D: 0.75, E: 1 },
+  E: { A: 2, B: 1, C: 0.75, D: 1, E: 0.75 },
+};
+
+export function getWallFRR(occA: string, occB: string): { frr: string; hours: number; color: string } {
+  const a = occA.charAt(0).toUpperCase();
+  const b = occB.charAt(0).toUpperCase();
+  const hours = FRR_HOURS[a]?.[b] ?? FRR_HOURS[b]?.[a] ?? 0.75;
+  const frr = hours >= 2 ? '2 hr' : hours >= 1 ? '1 hr' : '45 min';
+  const color = hours >= 2 ? '#ef4444' : hours >= 1 ? '#f59e0b' : '#22c55e';
+  return { frr, hours, color };
+}
+
+export function detectSharedWalls(
+  roomMap: Map<string, { label: string; occupancy: string; polygon: Point[] }>,
+): SharedWall[] {
+  const entries = Array.from(roomMap.entries());
+  const walls: SharedWall[] = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const [keyA, roomA] = entries[i];
+      const [keyB, roomB] = entries[j];
+
+      const shared: Point[] = [];
+      for (const ptA of roomA.polygon) {
+        for (const ptB of roomB.polygon) {
+          const dist = Math.sqrt((ptA.x - ptB.x) ** 2 + (ptA.y - ptB.y) ** 2);
+          if (dist <= WALL_PROXIMITY_PX) {
+            shared.push({ x: (ptA.x + ptB.x) / 2, y: (ptA.y + ptB.y) / 2 });
+            break;
+          }
+        }
+      }
+
+      if (shared.length < 3) continue;
+
+      const { frr, hours, color } = getWallFRR(roomA.occupancy, roomB.occupancy);
+      walls.push({
+        keyA, keyB,
+        labelA: roomA.label,
+        labelB: roomB.label,
+        occupancyA: roomA.occupancy,
+        occupancyB: roomB.occupancy,
+        sharedPoints: shared,
+        frr, hours, color,
+      });
+    }
+  }
+
+  return walls;
+}

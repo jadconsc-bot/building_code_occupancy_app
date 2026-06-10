@@ -80,6 +80,20 @@ function isPointNearPolygon(
  * Egress window: NBC 9.10.7  — ≥ 0.35 m², min dimension 380 mm (sleeping rooms)
  * Travel distance: NBC 3.4.2.5 — wired from travelDistanceResults by room label
  */
+function getFireSeparationFRR(ownGroup: string, adjGroup: string): string {
+  const a = ownGroup.charAt(0).toUpperCase();
+  const b = adjGroup.charAt(0).toUpperCase();
+  if (a === b) return '45 min';
+  const key = [a, b].sort().join('-');
+  const table: Record<string, string> = {
+    'A-B': '2 hr', 'A-C': '2 hr', 'A-D': '2 hr', 'A-E': '2 hr',
+    'B-C': '1 hr', 'B-D': '1 hr', 'B-E': '1 hr',
+    'C-D': '45 min', 'C-E': '45 min',
+    'D-E': '1 hr',
+  };
+  return table[key] ?? '45 min';
+}
+
 export function calculateRoomCompliance(
   roomId: string,
   roomLabel: string,
@@ -94,6 +108,9 @@ export function calculateRoomCompliance(
   }>,
   travelDistancePx?: number,
   travelLimitM?: number,
+  occupancyGroup?: string,
+  adjacentRoomLabels?: string[],
+  adjacentRoomOccupancies?: string[],
 ): RoomComplianceResult {
   // Shoelace formula — area in px²
   let areaPx2 = 0;
@@ -178,11 +195,16 @@ export function calculateRoomCompliance(
     areaM2,
     egress: egressResult,
     travelDistance: travelResult,
-    fireSeparation: {
-      requiredFRR: '30 min',
-      adjacentRooms: [],
-      compliant: true,
-    },
+    fireSeparation: (() => {
+      if (!adjacentRoomLabels || adjacentRoomLabels.length === 0) {
+        return { requiredFRR: '30 min', adjacentRooms: [], compliant: true };
+      }
+      const ownGroup = occupancyGroup ?? 'D';
+      const frrs = (adjacentRoomOccupancies ?? []).map(adj => getFireSeparationFRR(ownGroup, adj));
+      const hourVal = (f: string) => f === '2 hr' ? 2 : f === '1 hr' ? 1 : 0.75;
+      const maxFrr = frrs.reduce((w, f) => hourVal(f) > hourVal(w) ? f : w, '45 min');
+      return { requiredFRR: maxFrr, adjacentRooms: adjacentRoomLabels, compliant: true };
+    })(),
     spatialSeparation: {
       limitingDistanceM: 0,
       maxOpeningM2: 0,

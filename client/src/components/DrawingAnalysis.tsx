@@ -123,6 +123,7 @@ import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
 import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
 import { CARLScorerPanel } from '@/components/CARLScorerPanel';
 import { BarrierFreePanel } from '@/components/BarrierFreePanel';
+import { detectSharedWalls, type SharedWall } from '@/lib/ddaRayCast';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -500,6 +501,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [draggingPolyVertex, setDraggingPolyVertex] = useState<{ key: string; idx: number } | null>(null);
   const [isRayCasting, setIsRayCasting] = useState(false);
   const [ddaRoomCompliance, setDdaRoomCompliance] = useState<Map<string, RoomComplianceResult>>(new Map());
+  const [sharedWalls, setSharedWalls] = useState<SharedWall[]>([]);
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
@@ -1029,6 +1031,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return next;
     });
   }, [savedDdaPolygons]);
+
+  // Phase C Step 6 — recompute shared walls whenever polygon or compliance maps change
+  useEffect(() => {
+    if (detectedPolygons.size === 0) { setSharedWalls([]); return; }
+    const roomMap = new Map<string, { label: string; occupancy: string; polygon: Point[] }>();
+    for (const [key, pts] of detectedPolygons.entries()) {
+      const comp = ddaRoomCompliance.get(key);
+      if (!comp || pts.length < 3) continue;
+      roomMap.set(key, {
+        label: comp.roomLabel,
+        occupancy: (comp as any).occupancyGroup ?? 'D',
+        polygon: pts,
+      });
+    }
+    setSharedWalls(detectSharedWalls(roomMap));
+  }, [detectedPolygons, ddaRoomCompliance]);
 
   // Reset poll counter and clear stale overlay when a new analysis begins
   useEffect(() => {
@@ -1927,6 +1945,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ?? undefined,
       address: project?.address ?? undefined,
       totalDwellingUnits: undefined,
+      stackSeparations:
+        Array.isArray((project as any)?.stackSeparationsJson)
+          ? (project as any).stackSeparationsJson
+          : undefined,
     });
   };
 
@@ -2371,6 +2393,36 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
     // ===== END PHASE C: DDA DETECTED POLYGONS =====
 
+    // ===== PHASE C STEP 6: SHARED WALL FRR OVERLAY =====
+    if (sharedWalls.length > 0) {
+      ctx.save();
+      for (const wall of sharedWalls) {
+        if (wall.sharedPoints.length < 2) continue;
+        ctx.strokeStyle = wall.color + 'cc';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(wall.sharedPoints[0].x * zoom + pan.x, wall.sharedPoints[0].y * zoom + pan.y);
+        for (let i = 1; i < wall.sharedPoints.length; i++) {
+          ctx.lineTo(wall.sharedPoints[i].x * zoom + pan.x, wall.sharedPoints[i].y * zoom + pan.y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const mid = wall.sharedPoints[Math.floor(wall.sharedPoints.length / 2)];
+        const bx = mid.x * zoom + pan.x;
+        const by = mid.y * zoom + pan.y;
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        const tw = ctx.measureText(wall.frr).width + 6;
+        ctx.fillStyle = wall.color + 'dd';
+        ctx.fillRect(bx - tw / 2, by - 8, tw, 14);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(wall.frr, bx, by + 3);
+      }
+      ctx.restore();
+    }
+    // ===== END PHASE C STEP 6 =====
+
     // ===== TRAVEL DISTANCE OVERLAY LAYER =====
     if (showTravelDistanceOverlay && travelDistanceResults.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
@@ -2731,7 +2783,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex, ddaRoomCompliance]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex, ddaRoomCompliance, sharedWalls]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -8176,7 +8228,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               }> = [];
 
                               let idx = 1;
-                              for (const [, result] of ddaRoomCompliance.entries()) {
+                              for (const [key, result] of ddaRoomCompliance.entries()) {
                                 if (result.severity === 'fail' && result.areaM2 > 0) {
                                   const isSleepingRoom = /bed|sleep|master/i.test(result.roomLabel);
                                   const minArea = isSleepingRoom ? 7.4 : 4.65;
@@ -8206,6 +8258,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                     finding: `Travel distance ${result.travelDistance.distanceM.toFixed(1)} m exceeds ${result.travelDistance.maxAllowedM} m limit`,
                                     severity: 'fail',
                                     nbcRef: 'NBC 3.4.2.5',
+                                  });
+                                }
+                                for (const wall of sharedWalls) {
+                                  if (wall.keyA !== key && wall.keyB !== key) continue;
+                                  const adjLabel = wall.keyA === key ? wall.labelB : wall.labelA;
+                                  phaseFindings.push({
+                                    issueId: `PC-${String(idx++).padStart(3, '0')}`,
+                                    roomLabel: result.roomLabel,
+                                    finding: `Wall shared with "${adjLabel}" requires ${wall.frr} FRR separation`,
+                                    severity: 'conditional',
+                                    nbcRef: 'NBC 3.1.3',
                                   });
                                 }
                               }
