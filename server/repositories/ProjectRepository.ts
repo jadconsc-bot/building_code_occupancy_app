@@ -59,6 +59,15 @@ export interface UpdateProjectInput {
   sprinklersRequired?: boolean;
   part3Determination?: string;
   codeEdition?: string;
+  stackSeparationsJson?: Array<{
+    from: string; to: string;
+    frr: string; hours: number; nbcRef: string;
+  }> | null;
+  stackWingsJson?: Array<{
+    id: string; label: string;
+    floors: Array<{ zones: Array<{ code: string; area_m2: number }> }>;
+  }> | null;
+  stackConfirmedAt?: Date | null;
 }
 
 export class ProjectRepository {

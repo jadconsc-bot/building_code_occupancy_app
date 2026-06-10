@@ -1415,6 +1415,13 @@ export const drawingAnalysisRouter = router({
       municipality: z.string().max(100).optional(),
       address: z.string().max(500).optional(),
       totalDwellingUnits: z.number().int().positive().optional(),
+      stackSeparations: z.array(z.object({
+        from: z.string(),
+        to: z.string(),
+        frr: z.string(),
+        hours: z.number(),
+        nbcRef: z.string(),
+      })).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();

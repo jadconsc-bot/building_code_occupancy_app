@@ -92,6 +92,24 @@ export const projectRouter = router({
         sprinklersRequired: z.boolean().optional(),
         part3Determination: z.string().max(20).optional(),
         codeEdition: z.string().max(20).optional(),
+        stackSeparationsJson: z.array(z.object({
+          from: z.string(),
+          to: z.string(),
+          frr: z.string(),
+          hours: z.number(),
+          nbcRef: z.string(),
+        })).optional(),
+        stackWingsJson: z.array(z.object({
+          id: z.string(),
+          label: z.string(),
+          floors: z.array(z.object({
+            zones: z.array(z.object({
+              code: z.string(),
+              area_m2: z.number(),
+            })),
+          })),
+        })).optional(),
+        stackConfirmedAt: z.date().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

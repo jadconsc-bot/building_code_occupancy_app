@@ -117,6 +117,10 @@ export const projects = mysqlTable("projects", {
   zoneConfirmedAt:  timestamp("zoneConfirmedAt"),
   jurisdictionSource: mysqlEnum("jurisdictionSource", ["geocoded", "manual", "device", "fallback"]).default("manual"),
   geocodedAt:       datetime("geocodedAt"),
+  // F2+F3 — Stack Planner FRR bridge
+  stackSeparationsJson: json("stackSeparationsJson"),
+  stackWingsJson:       json("stackWingsJson"),
+  stackConfirmedAt:     datetime("stackConfirmedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

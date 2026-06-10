@@ -88,6 +88,18 @@ export interface OrchestratorInput {
    * which is intentional (visible gap, not silent masking).
    */
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  /**
+   * Stack Planner FRR data — from Occupancy Advisor confirmation.
+   * When present, used as authoritative floor-to-floor separation
+   * requirements instead of single-group FRR_BY_GROUP lookup.
+   */
+  stackSeparations?: Array<{
+    from: string;
+    to: string;
+    frr: string;
+    hours: number;
+    nbcRef: string;
+  }>;
 }
 
 export interface OrchestratorResult {
@@ -429,6 +441,23 @@ export function runCalculatorOrchestrator(
     });
     advisoryCount++;
   }
+
+  // ── F3: Stack Planner FRR bridge ────────────────────────────────────────
+  // Stack separations from Occupancy Advisor are more accurate than
+  // single-group FRR_BY_GROUP — they account for actual floor interfaces.
+  // When present, append them to fireSeparation[].
+  // Deterministic only — no LLM involvement.
+  if (input.stackSeparations && input.stackSeparations.length > 0) {
+    for (const sep of input.stackSeparations) {
+      fireSeparation.push({
+        ruleId: `FS-STACK-${sep.from.replace('/', '_')}-${sep.to.replace('/', '_')}`,
+        description: `Floor separation: ${sep.from} above ${sep.to}`,
+        requiredFRR: sep.hours * 60,
+        citation: sep.nbcRef,
+      });
+    }
+  }
+  // ── End F3 bridge ────────────────────────────────────────────────────────
 
   // ── Code conflict detection ─────────────────────────────────────────────
   // Runs last — all other outputs must be fully populated before this call.
