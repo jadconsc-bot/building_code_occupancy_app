@@ -357,7 +357,19 @@ interface OccupancyAdvisorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   province?: string;
-  onConfirm?: (occupancyCode: string) => void;
+  onConfirm?: (
+    occupancyCode: string,
+    stackData?: {
+      separations: Array<{
+        from: string; to: string;
+        frr: string; hours: number; nbcRef: string;
+      }>;
+      wings: Array<{
+        id: string; label: string;
+        floors: Array<{ zones: Array<{ code: string; area_m2: number }> }>;
+      }>;
+    }
+  ) => void;
   initialArea?: number;
   initialStoreys?: number;
   projectId?: number;
@@ -453,6 +465,10 @@ export function OccupancyAdvisor({
     onError: (err) => {
       setClassifyError(err.message || "Analysis failed. Please try again.");
     },
+  });
+
+  const saveStackMutation = trpc.projects.update.useMutation({
+    onError: () => console.warn('[OccupancyAdvisor] Failed to save stack data'),
   });
 
   // ── Wing helpers ─────────────────────────────────────────────────────────────
@@ -586,16 +602,39 @@ export function OccupancyAdvisor({
     if (projectId) {
       updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
     }
+
+    let stackData: Parameters<NonNullable<typeof onConfirm>>[1] | undefined;
+
     if (allStackZones.length > 0) {
-      const totalArea = allStackZones.reduce((sum, z) => sum + z.area_m2, 0);
       const floorSeparations = floors.slice(0, -1).map((floor, i) => ({
-        from: floor.zones.map(z => z.code).join('/'),
-        to: floors[i + 1].zones.map(z => z.code).join('/'),
+        from: floor.zones.map((z: any) => z.code).join('/'),
+        to: floors[i + 1].zones.map((z: any) => z.code).join('/'),
         ...getMaxFloorSeparation(floor.zones, floors[i + 1].zones),
       }));
-      console.log('Mixed occupancy stack confirmed', { wings, stackOrientation, totalArea, floorSeparations });
+
+      stackData = {
+        separations: floorSeparations.map(s => ({
+          from: s.from, to: s.to, frr: s.frr, hours: s.hours, nbcRef: s.nbcRef,
+        })),
+        wings: wings.map((w: any) => ({
+          id: w.id, label: w.label,
+          floors: (w.floors ?? []).map((f: any) => ({
+            zones: (f.zones ?? []).map((z: any) => ({ code: z.code, area_m2: z.area_m2 ?? 0 })),
+          })),
+        })),
+      };
+
+      if (projectId) {
+        saveStackMutation.mutate({
+          id: projectId,
+          stackSeparationsJson: stackData.separations,
+          stackWingsJson: stackData.wings,
+          stackConfirmedAt: new Date(),
+        });
+      }
     }
-    onConfirm?.(selectedCode);
+
+    onConfirm?.(selectedCode, stackData);
     handleClose();
   }
 
