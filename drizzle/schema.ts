@@ -1312,7 +1312,7 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   roomLabel: varchar("roomLabel", { length: 255 }),
   boundingBoxJson: text("boundingBoxJson").notNull(),    // { x, y, width, height }
   polygonJson: json("polygonJson"),                      // Array of {x,y} vertices in full-image px
-  polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual", "dda_ray_cast"]),
+  polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual", "dda_ray_cast", "roboflow_segmentation"]),
   polygonExtractedAt: timestamp("polygonExtractedAt"),
   polygonToBboxRatio: decimal("polygonToBboxRatio", { precision: 5, scale: 3 }),
   polygonLeakSuspected: tinyint("polygonLeakSuspected").default(0),

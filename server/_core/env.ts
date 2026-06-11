@@ -19,6 +19,10 @@ const envSchema = z.object({
   AWS_S3_BUCKET: z.string().optional(),
   AZURE_DOC_INTELLIGENCE_ENDPOINT: z.string().optional(),
   AZURE_DOC_INTELLIGENCE_KEY: z.string().optional(),
+  // POLYGON-D-001: Roboflow API key for floor plan segmentation
+  // Required for automatic room polygon extraction via the trained model.
+  // Get from app.roboflow.com/settings/api (private key, not public key).
+  ROBOFLOW_API_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -69,6 +73,7 @@ export const ENV = {
   ownerOpenId: process.env.OWNER_OPEN_ID ?? '',
   azureDocIntelligenceEndpoint: validatedEnv.AZURE_DOC_INTELLIGENCE_ENDPOINT ?? '',
   azureDocIntelligenceKey: validatedEnv.AZURE_DOC_INTELLIGENCE_KEY ?? '',
+  roboflowApiKey: validatedEnv.ROBOFLOW_API_KEY,
 };
 
 /**

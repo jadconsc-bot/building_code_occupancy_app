@@ -16,6 +16,7 @@ import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
+import { getRoboflowPolygons, bboxIou } from '../../services/roboflowSegmentationService';
 import { getTrainingExamples } from '../../services/correctionService';
 import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
 
@@ -315,7 +316,7 @@ export async function detectRoomsFromPage(
 
   const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64);
+  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64, jpegBuffer);
   console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
 
   return {
@@ -477,6 +478,7 @@ async function saveRoomsToDb(
   imgH: number = 0,
   detectedScale: string | null = null,
   pageBase64: string = '',
+  jpegBuffer: Buffer = Buffer.alloc(0),
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
@@ -551,6 +553,15 @@ async function saveRoomsToDb(
       .where(eq(drawingPages.id, pageId));
   }
 
+  // POLYGON-D-001: attempt Roboflow segmentation for all rooms in batch.
+  // Single call per page (not per room). Falls through to flood fill for any unmatched room (INV-1).
+  const rfPolygons = jpegBuffer.length > 0
+    ? await getRoboflowPolygons(jpegBuffer, imgW, imgH)
+    : [];
+  if (rfPolygons.length > 0) {
+    console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId}`);
+  }
+
   for (const room of rooms) {
     // Path C: skip AI room if a confirmed correction exists for this label
     if (confirmedLabels.has(room.label?.toLowerCase().trim() ?? '')) {
@@ -579,54 +590,85 @@ async function saveRoomsToDb(
     evaluateRoomCompliance(room, roomId, projectId, province)
       .catch(err => console.error('[RoomCompliance] Evaluation failed:', err));
 
-    // Queue polygon extraction (non-blocking, lower priority)
+    // Polygon extraction: Roboflow first, flood fill fallback (POLYGON-D-001)
     if (pageBase64) {
-      const seed = {
-        x: room.boundingBox.x + Math.floor(room.boundingBox.width / 2),
-        y: room.boundingBox.y + Math.floor(room.boundingBox.height / 2),
-      };
       const capturedRoomId = roomId;
       const capturedLabel = room.label;
       const capturedBbox = room.boundingBox;
-      polygonQueue.add(async () => {
-        const pageRows = await (await getDb())
-          ?.select({ calibrationScale: drawingPages.calibrationScale })
-          .from(drawingPages)
-          .where(eq(drawingPages.id, pageId))
-          .limit(1);
-        const calibrationPxPerMm = pageRows?.[0]?.calibrationScale
-          ? Number(pageRows[0].calibrationScale)
-          : null;
 
-        const result = await extractRoomPolygon(
-          pageBase64,
-          imgW,
-          imgH,
-          seed,
-          calibrationPxPerMm,
-          capturedBbox,
-        );
+      // Try to match this room to a Roboflow polygon by bbox IoU
+      const rfBbox = { x: capturedBbox.x, y: capturedBbox.y, w: capturedBbox.width, h: capturedBbox.height };
+      const bestMatch = rfPolygons
+        .filter(p => p.class === 'room')
+        .map(p => ({
+          p,
+          iou: bboxIou(rfBbox, { x: p.bbox.x, y: p.bbox.y, w: p.bbox.width, h: p.bbox.height }),
+        }))
+        .filter(({ iou }) => iou >= 0.3)
+        .sort((a, b) => b.iou - a.iou)[0];
 
+      if (bestMatch) {
+        // Save Roboflow polygon directly — skip flood fill for this room
         const db2 = await getDb();
-        if (!db2) return;
-        await db2.update(detectedRooms)
-          .set({
-            polygonJson: JSON.stringify(result.vertices),
-            polygonSource: result.source,
-            polygonExtractedAt: new Date(),
-            polygonToBboxRatio: result.polygonToBboxRatio.toFixed(3),
-            polygonLeakSuspected: result.leakSuspected ? 1 : 0,
-            ...(result.areaSqm !== null ? { areaSqm: result.areaSqm.toFixed(2) } : {}),
-          })
-          .where(eq(detectedRooms.id, capturedRoomId));
-
+        if (db2) {
+          await db2.update(detectedRooms)
+            .set({
+              polygonJson: JSON.stringify(bestMatch.p.vertices),
+              polygonSource: 'roboflow_segmentation',
+              polygonExtractedAt: new Date(),
+            })
+            .where(eq(detectedRooms.id, capturedRoomId));
+        }
         console.log(
-          `[PolygonExtraction] Room "${capturedLabel}" — ${result.source}, ` +
-          `${result.vertices.length} vertices, ` +
-          `ratio=${result.polygonToBboxRatio.toFixed(2)}` +
-          `${result.leakSuspected ? ' ⚠️ LEAK SUSPECTED' : ''}`
+          `[PolygonExtraction] Room "${capturedLabel}" — roboflow_segmentation,` +
+          ` ${bestMatch.p.vertices.length} vertices, IoU=${bestMatch.iou.toFixed(2)}`
         );
-      }).catch(err => console.error('[PolygonExtraction] Queue error:', err));
+      } else {
+        // No Roboflow match — enqueue flood fill as before
+        const seed = {
+          x: capturedBbox.x + Math.floor(capturedBbox.width / 2),
+          y: capturedBbox.y + Math.floor(capturedBbox.height / 2),
+        };
+        polygonQueue.add(async () => {
+          const pageRows = await (await getDb())
+            ?.select({ calibrationScale: drawingPages.calibrationScale })
+            .from(drawingPages)
+            .where(eq(drawingPages.id, pageId))
+            .limit(1);
+          const calibrationPxPerMm = pageRows?.[0]?.calibrationScale
+            ? Number(pageRows[0].calibrationScale)
+            : null;
+
+          const result = await extractRoomPolygon(
+            pageBase64,
+            imgW,
+            imgH,
+            seed,
+            calibrationPxPerMm,
+            capturedBbox,
+          );
+
+          const db2 = await getDb();
+          if (!db2) return;
+          await db2.update(detectedRooms)
+            .set({
+              polygonJson: JSON.stringify(result.vertices),
+              polygonSource: result.source,
+              polygonExtractedAt: new Date(),
+              polygonToBboxRatio: result.polygonToBboxRatio.toFixed(3),
+              polygonLeakSuspected: result.leakSuspected ? 1 : 0,
+              ...(result.areaSqm !== null ? { areaSqm: result.areaSqm.toFixed(2) } : {}),
+            })
+            .where(eq(detectedRooms.id, capturedRoomId));
+
+          console.log(
+            `[PolygonExtraction] Room "${capturedLabel}" — ${result.source}, ` +
+            `${result.vertices.length} vertices, ` +
+            `ratio=${result.polygonToBboxRatio.toFixed(2)}` +
+            `${result.leakSuspected ? ' ⚠️ LEAK SUSPECTED' : ''}`
+          );
+        }).catch(err => console.error('[PolygonExtraction] Queue error:', err));
+      }
     }
 
     for (const feature of room.features) {
