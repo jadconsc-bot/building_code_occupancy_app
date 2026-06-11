@@ -209,6 +209,16 @@ export async function extractRoomPolygon(
     // ratio < 0.4: polygon much smaller than bbox → extraction may have failed
     const leakSuspected = polygonToBboxRatio < 0.4;
 
+    // OVERLAY-FIX-001: polygonToBboxRatio < 0.4 means the flood fill covered
+    // less than 40% of the expected room area — the fill escaped through a wall
+    // gap instead of filling the room. The resulting polygon is unreliable.
+    // Fall back to the bbox rectangle (same path as the > 2.5 leak guard above)
+    // rather than saving a bad polygon that renders as a blob on the canvas.
+    if (leakSuspected) {
+      console.warn('[PolygonExtraction] Leak suspected (ratio < 0.4), using bbox fallback');
+      return makeBboxResult();
+    }
+
     return { vertices, areaPx, areaSqm, source: 'flood_fill',
              bboxAreaPx, polygonToBboxRatio, leakSuspected };
 
