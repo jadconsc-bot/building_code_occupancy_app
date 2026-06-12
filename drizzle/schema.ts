@@ -1481,6 +1481,8 @@ export const trainingExamples = mysqlTable("trainingExamples", {
   ]).notNull().default("correction"),
   isActive: tinyint("isActive").notNull().default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  exportedAt: timestamp("exportedAt"),
+  roboflowImageId: varchar("roboflowImageId", { length: 255 }),
 });
 
 export type TrainingExample = typeof trainingExamples.$inferSelect;

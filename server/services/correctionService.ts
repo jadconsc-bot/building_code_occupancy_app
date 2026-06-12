@@ -9,8 +9,9 @@
  *   2. Global baseline examples (orgId IS NULL, fills remaining slots to 10)
  */
 
+import sharp from 'sharp';
 import { getDb } from "../db";
-import { roomCorrections, trainingExamples, detectedRooms } from "../../drizzle/schema";
+import { roomCorrections, trainingExamples, detectedRooms, drawingPages, drawingAnalyses } from "../../drizzle/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 
 export type CorrectionType =
@@ -151,6 +152,21 @@ async function generateTrainingExample(
   const promptContribution = buildPromptContribution(payload);
   if (!promptContribution) return;
 
+  // TRAINING-001: capture image crop for boundary_redraw corrections only —
+  // these contain the corrected polygonJson which is the segmentation label.
+  let imageCropBase64: string | null = null;
+  if (payload.correctionType === 'boundary_redraw') {
+    try {
+      imageCropBase64 = await captureRoomCrop(
+        payload.pageId,
+        payload.correctedValue.boundingBox as BoundingBox,
+      );
+    } catch (err) {
+      // INV-1: never fail a correction because of training data capture
+      console.warn('[Training] Image crop capture failed, continuing:', err);
+    }
+  }
+
   await db.insert(trainingExamples).values({
     orgId: payload.orgId ?? null,
     planType: payload.planType,
@@ -159,7 +175,66 @@ async function generateTrainingExample(
     conventionType: payload.conventionType ?? 'correction',
     isActive: 1,
     createdAt: new Date(),
+    imageCropBase64,
   });
+}
+
+interface BoundingBox { x: number; y: number; width: number; height: number; }
+
+async function captureRoomCrop(
+  pageId: number,
+  bbox: BoundingBox,
+): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const [page] = await db
+    .select({
+      preprocessedUrl: drawingPages.preprocessedUrl,
+      drawingId: drawingPages.drawingId,
+    })
+    .from(drawingPages)
+    .where(eq(drawingPages.id, pageId))
+    .limit(1);
+
+  if (!page) return null;
+
+  let imageUrl: string | null = page.preprocessedUrl ?? null;
+
+  if (!imageUrl && page.drawingId) {
+    const [analysis] = await db
+      .select({ drawingUrl: drawingAnalyses.drawingUrl })
+      .from(drawingAnalyses)
+      .where(eq(drawingAnalyses.id, page.drawingId))
+      .limit(1);
+    imageUrl = analysis?.drawingUrl ?? null;
+  }
+
+  if (!imageUrl) return null;
+
+  const resp = await fetch(imageUrl);
+  if (!resp.ok) return null;
+  const buffer = Buffer.from(await resp.arrayBuffer());
+
+  const metadata = await sharp(buffer).metadata();
+  const imgW = metadata.width ?? 0;
+  const imgH = metadata.height ?? 0;
+  if (!imgW || !imgH) return null;
+
+  const pad = 0.20;
+  const left   = Math.max(0, Math.floor(bbox.x - bbox.width * pad));
+  const top    = Math.max(0, Math.floor(bbox.y - bbox.height * pad));
+  const width  = Math.min(imgW - left, Math.ceil(bbox.width * (1 + 2 * pad)));
+  const height = Math.min(imgH - top,  Math.ceil(bbox.height * (1 + 2 * pad)));
+
+  if (width <= 0 || height <= 0) return null;
+
+  const cropBuffer = await sharp(buffer)
+    .extract({ left, top, width, height })
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  return cropBuffer.toString('base64');
 }
 
 function buildPromptContribution(payload: CorrectionPayload): string | null {
