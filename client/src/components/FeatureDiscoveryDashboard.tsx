@@ -90,10 +90,11 @@ const FEATURES = [
 type FeatureId = (typeof FEATURES)[number]['id'];
 type Badge = (typeof FEATURES)[number]['badge'];
 
-const CARD_W = 260;
-const CARD_H = 164;
-const SPEED = 0.006;
-const ARC_HALF = Math.PI * 0.38;
+const CARD_W          = 260;
+const CARD_H          = 164;
+const SPEED           = 0.006;
+const ARC_HALF        = Math.PI * 0.38;
+const ROTATION_FACTOR = 0.3;   // max tilt ≈ ±16° at opacity cutoff
 
 function badgeClass(badge: NonNullable<Badge>): string {
   if (badge === 'AI')    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
@@ -103,11 +104,12 @@ function badgeClass(badge: NonNullable<Badge>): string {
 }
 
 interface CardPos {
-  x: number;
-  y: number;
-  scale: number;
-  z: number;
-  opacity: number;
+  x:        number;
+  y:        number;
+  scale:    number;
+  z:        number;
+  opacity:  number;
+  rotation: number;
 }
 
 export function FeatureDiscoveryDashboard() {
@@ -138,8 +140,9 @@ export function FeatureDiscoveryDashboard() {
       const y = CY - R * Math.cos(angle) - CARD_H / 2;
       const scale = 0.55 + 0.55 * Math.cos(angle * 0.9);
       const z = Math.round(scale * 100);
-      const opacity = Math.max(0, Math.min(1, 1 - Math.abs(angle) / (ARC_HALF * 1.3)));
-      return { x, y, scale, z, opacity };
+      const opacity  = Math.max(0, Math.min(1, 1 - Math.abs(angle) / (ARC_HALF * 1.3)));
+      const rotation = angle * ROTATION_FACTOR * (180 / Math.PI);
+      return { x, y, scale, z, opacity, rotation };
     });
   }, []);
 
@@ -197,7 +200,7 @@ export function FeatureDiscoveryDashboard() {
                 position: 'absolute',
                 width: CARD_W,
                 height: CARD_H,
-                transform: `translate(${pos.x}px, ${pos.y + liftY}px) scale(${pos.scale.toFixed(3)})`,
+                transform: `translate(${pos.x}px, ${pos.y + liftY}px) scale(${pos.scale.toFixed(3)}) rotate(${pos.rotation.toFixed(2)}deg)`,
                 zIndex: pos.z,
                 opacity: pos.opacity.toFixed(3) as unknown as number,
                 pointerEvents: pos.opacity > 0.3 ? 'auto' : 'none',
