@@ -220,6 +220,7 @@ export default function Billing() {
                   "NBC wood frame span tables",
                   "Zone & bylaw lookup",
                   "APS / BuildingConnected integration",
+                  "◷ Project sharing (coming soon)",
                   "Priority support",
                   "All future features",
                 ].map((f) => (

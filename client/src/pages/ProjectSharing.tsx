@@ -1,9 +1,12 @@
 /**
  * Project Sharing & Share Links Page
  * Phase 2D: Reviewer access and read-only share links
+ *
+ * SHARING-001: wired to live backend — sharingRouter + projectsRouter
  */
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,92 +14,83 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Copy, Trash2, Eye, Lock } from "lucide-react";
+import { Plus, Copy, Trash2, Eye, Lock, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ProjectSharing() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [shareLinks, setShareLinks] = useState([
-    {
-      id: "link-1",
-      projectName: "Downtown Office Tower",
-      token: "abc123def456",
-      accessLevel: "view_only",
-      createdAt: "2026-03-01",
-      expiresAt: "2026-04-01",
-      accessCount: 5,
-      isActive: true,
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+  // Form state for the create dialog
+  const [formAccessLevel, setFormAccessLevel] = useState<"view_only" | "comment" | "download">("view_only");
+  const [formExpiresAt, setFormExpiresAt] = useState<string>("");
+  const [formMaxAccess, setFormMaxAccess] = useState<string>("");
+
+  const { data: projectsData = [] } = trpc.projects.list.useQuery();
+
+  const { data: shareLinksData = [], refetch: refetchLinks } =
+    trpc.sharing.listShareLinks.useQuery(
+      { projectId: selectedProjectId! },
+      { enabled: selectedProjectId !== null },
+    );
+
+  const shareLinks = shareLinksData.filter((l) => l.isActive);
+
+  const createShareLinkMutation = trpc.sharing.createShareLink.useMutation({
+    onSuccess: () => {
+      refetchLinks();
+      setIsCreateOpen(false);
+      setFormExpiresAt("");
+      setFormMaxAccess("");
+      setFormAccessLevel("view_only");
+      toast.success("Share link created");
     },
-    {
-      id: "link-2",
-      projectName: "Residential Complex",
-      token: "xyz789uvw012",
-      accessLevel: "comment",
-      createdAt: "2026-02-28",
-      expiresAt: null,
-      accessCount: 12,
-      isActive: true,
+    onError: (err) => toast.error("Failed to create link: " + err.message),
+  });
+
+  const deactivateLinkMutation = trpc.sharing.deactivateShareLink.useMutation({
+    onSuccess: () => {
+      refetchLinks();
+      toast.success("Link deactivated");
     },
-  ]);
+    onError: (err) => toast.error("Failed to deactivate: " + err.message),
+  });
+
+  const selectedProject = projectsData.find((p) => p.id === selectedProjectId);
+
+  const handleCreateShareLink = () => {
+    if (!selectedProjectId) {
+      toast.error("Please select a project");
+      return;
+    }
+    createShareLinkMutation.mutate({
+      projectId: selectedProjectId,
+      accessLevel: formAccessLevel,
+      expiresAt: formExpiresAt ? new Date(formExpiresAt) : undefined,
+      maxAccessCount: formMaxAccess ? parseInt(formMaxAccess, 10) : undefined,
+    });
+  };
 
   const copyToClipboard = (token: string, id: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/share/${token}`);
+    navigator.clipboard.writeText(`${window.location.origin}/shared/${token}`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDeleteShareLink = async (linkId: string) => {
-    setIsDeleting(linkId);
-    try {
-      // TODO: Wire to tRPC mutation for revoking share link
-      // const result = await trpc.sharing.revokeShareLink.mutate({ linkId });
-      
-      // Optimistic update
-      setShareLinks(prev => prev.filter(link => link.id !== linkId));
-      toast.success("Share link revoked successfully");
-    } catch (error) {
-      toast.error("Failed to revoke share link");
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  const handleCreateShareLink = async () => {
-    try {
-      // TODO: Wire to tRPC mutation for creating share link
-      // const result = await trpc.sharing.createShareLink.mutate({ ... });
-      
-      toast.success("Share link created successfully");
-      setIsCreateOpen(false);
-    } catch (error) {
-      toast.error("Failed to create share link");
-    }
-  };
-
-  const handleCreateVerificationLink = async () => {
-    try {
-      // TODO: Wire to tRPC mutation for creating verification link
-      // const result = await trpc.verification.createVerificationLink.mutate({ ... });
-      
-      toast.success("Verification link created successfully");
-    } catch (error) {
-      toast.error("Failed to create verification link");
-    }
-  };
-
   const getAccessLevelColor = (level: string) => {
     switch (level) {
-      case "view_only":
-        return "bg-blue-100 text-blue-800";
-      case "comment":
-        return "bg-yellow-100 text-yellow-800";
-      case "download":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case "view_only":  return "bg-blue-100 text-blue-800";
+      case "comment":    return "bg-yellow-100 text-yellow-800";
+      case "download":   return "bg-green-100 text-green-800";
+      default:           return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const formatDate = (val: Date | string | null | undefined) => {
+    if (!val) return "Never";
+    const d = typeof val === "string" ? new Date(val) : val;
+    return d.toLocaleDateString();
   };
 
   return (
@@ -122,12 +116,27 @@ export default function ProjectSharing() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="project">Select Project *</Label>
-                <Input id="project" placeholder="Choose a project" />
+                <select
+                  id="project"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                  value={selectedProjectId ?? ""}
+                  onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Select a project…</option>
+                  {projectsData.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="access-level">Access Level *</Label>
-                <select className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                <select
+                  id="access-level"
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                  value={formAccessLevel}
+                  onChange={(e) => setFormAccessLevel(e.target.value as typeof formAccessLevel)}
+                >
                   <option value="view_only">View Only (Read-Only)</option>
                   <option value="comment">Comment (View + Comments)</option>
                   <option value="download">Download (View + Download)</option>
@@ -136,35 +145,72 @@ export default function ProjectSharing() {
 
               <div className="space-y-2">
                 <Label htmlFor="expiration">Expiration (Optional)</Label>
-                <Input id="expiration" type="date" />
+                <Input
+                  id="expiration"
+                  type="date"
+                  value={formExpiresAt}
+                  onChange={(e) => setFormExpiresAt(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="max-access">Max Access Count (Optional)</Label>
-                <Input id="max-access" type="number" placeholder="Leave blank for unlimited" />
+                <Input
+                  id="max-access"
+                  type="number"
+                  min="1"
+                  placeholder="Leave blank for unlimited"
+                  value={formMaxAccess}
+                  onChange={(e) => setFormMaxAccess(e.target.value)}
+                />
               </div>
 
-              <Button className="w-full" onClick={handleCreateShareLink}>Create Share Link</Button>
+              <Button
+                className="w-full"
+                onClick={handleCreateShareLink}
+                disabled={createShareLinkMutation.isPending || !selectedProjectId}
+              >
+                {createShareLinkMutation.isPending ? "Creating…" : "Create Share Link"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Project selector */}
+      <div className="flex items-center gap-3">
+        <Label className="shrink-0 text-sm font-medium">View links for:</Label>
+        <select
+          className="px-3 py-2 border border-input rounded-md bg-background text-sm w-64"
+          value={selectedProjectId ?? ""}
+          onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">Choose a project…</option>
+          {projectsData.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Share Links Table */}
       <Card>
         <CardHeader>
           <CardTitle>Active Share Links</CardTitle>
-          <CardDescription>{shareLinks.length} share link{shareLinks.length !== 1 ? "s" : ""} created</CardDescription>
+          <CardDescription>
+            {selectedProject
+              ? `${shareLinks.length} active link${shareLinks.length !== 1 ? "s" : ""} for ${selectedProject.name}`
+              : "Select a project to view its share links"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {shareLinks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No share links yet</p>
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateOpen(true)}
-                className="gap-2"
-              >
+          {!selectedProjectId ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground">Select a project to view and manage its share links.</p>
+            </div>
+          ) : shareLinks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground mb-4">No share links yet. Create one to share with clients.</p>
+              <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="gap-2">
                 <Plus className="w-4 h-4" />
                 Create your first share link
               </Button>
@@ -174,7 +220,7 @@ export default function ProjectSharing() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Project</TableHead>
+                    <TableHead>Shareable URL</TableHead>
                     <TableHead>Access Level</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Expires</TableHead>
@@ -183,67 +229,56 @@ export default function ProjectSharing() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shareLinks.map((link) => (
-                    <TableRow key={link.id}>
-                      <TableCell className="font-medium">{link.projectName}</TableCell>
-                      <TableCell>
-                        <Badge className={getAccessLevelColor(link.accessLevel)}>
-                          {link.accessLevel === "view_only" && <Eye className="w-3 h-3 mr-1" />}
-                          {link.accessLevel === "comment" && <Lock className="w-3 h-3 mr-1" />}
-                          {link.accessLevel}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">{link.createdAt}</TableCell>
-                      <TableCell className="text-sm">
-                        {link.expiresAt ? link.expiresAt : "Never"}
-                      </TableCell>
-                      <TableCell className="text-sm">{link.accessCount}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(link.token, link.id)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          {copiedId === link.id && (
-                            <span className="text-xs text-green-600">Copied!</span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() => handleDeleteShareLink(link.id)}
-                            disabled={isDeleting === link.id}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {shareLinks.map((link) => {
+                    const shareUrl = `${window.location.origin}/shared/${link.token}`;
+                    return (
+                      <TableRow key={link.id}>
+                        <TableCell className="font-mono text-xs max-w-xs truncate" title={shareUrl}>
+                          {shareUrl}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getAccessLevelColor(link.accessLevel)}>
+                            {link.accessLevel === "view_only" && <Eye className="w-3 h-3 mr-1" />}
+                            {link.accessLevel === "comment" && <Lock className="w-3 h-3 mr-1" />}
+                            {link.accessLevel === "download" && <Download className="w-3 h-3 mr-1" />}
+                            {link.accessLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{formatDate(link.createdAt)}</TableCell>
+                        <TableCell className="text-sm">{formatDate(link.expiresAt)}</TableCell>
+                        <TableCell className="text-sm">{link.accessCount}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Copy link"
+                              onClick={() => copyToClipboard(link.token, link.id)}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            {copiedId === link.id && (
+                              <span className="text-xs text-green-600">Copied!</span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              title="Deactivate link"
+                              onClick={() => deactivateLinkMutation.mutate({ linkId: link.id })}
+                              disabled={deactivateLinkMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Verification Portal Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Public Verification Portal</CardTitle>
-          <CardDescription>Share calculation verification links with authorities</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Generate public verification links that allow authorities to verify the integrity and authenticity of your calculations without requiring login.
-          </p>
-          <Button variant="outline" className="gap-2" onClick={handleCreateVerificationLink}>
-            <Plus className="w-4 h-4" />
-            Create Verification Link
-          </Button>
         </CardContent>
       </Card>
     </div>
