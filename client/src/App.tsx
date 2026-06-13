@@ -38,6 +38,7 @@ import HomeReport from "./pages/HomeReport";
 import ContractorHub from "./pages/ContractorHub";
 import ContractorTool from "./pages/ContractorTool";
 import Integrations from "./pages/Integrations";
+import SharedProjectView from "./pages/SharedProjectView";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { RequireRole } from "./components/RequireRole";
@@ -107,6 +108,7 @@ function Router() {
         <Route path={"/versions"} component={CalculationVersioning} />
         <Route path={"/billing"} component={Billing} />
         <Route path={"/billing/success"} component={BillingSuccess} />
+        <Route path={"/shared/:token"} component={SharedProjectView} />
         <Route path={"/verify"} component={VerificationPortal} />
         <Route path={"/admin"} component={AdminDashboard} />
         <Route path={"/terms"} component={TermsOfService} />
