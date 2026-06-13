@@ -90,8 +90,8 @@ const FEATURES = [
 type FeatureId = (typeof FEATURES)[number]['id'];
 type Badge = (typeof FEATURES)[number]['badge'];
 
-const CARD_W = 200;
-const CARD_H = 126;
+const CARD_W = 260;
+const CARD_H = 164;
 const SPEED = 0.006;
 const ARC_HALF = Math.PI * 0.38;
 
@@ -175,7 +175,7 @@ export function FeatureDiscoveryDashboard() {
       <div
         ref={stageRef}
         className="relative overflow-hidden"
-        style={{ height: 420 }}
+        style={{ height: 520 }}
         onMouseEnter={() => { pausedRef.current = true; }}
         onMouseLeave={() => { pausedRef.current = false; setHoveredId(null); }}
       >

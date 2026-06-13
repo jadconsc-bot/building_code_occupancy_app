@@ -155,12 +155,6 @@ export default function Dashboard() {
             </div>
             <div className="flex gap-2">
               <NotificationCenter />
-              <Button onClick={() => setShowWizard(true)} variant="outline">
-                Start Tutorial
-              </Button>
-              <Button onClick={() => setShowReportBuilder(true)}>
-                Generate Report
-              </Button>
             </div>
           </div>
         </div>
@@ -188,12 +182,50 @@ export default function Dashboard() {
           <LegalDisclaimerCollapsible />
         </div>
 
-        {/* Feature Discovery Dashboard */}
+        {/* Feature Discovery Dashboard — arc carousel */}
         <FeatureDiscoveryDashboard />
 
-        {/* Compliance Intelligence */}
-        <div className="mt-12 border border-border rounded-lg p-6">
-          <ComplianceNotificationsPanel />
+        {/* Below-carousel card grid */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Compliance Intelligence */}
+          <div className="border border-border rounded-lg p-6">
+            <ComplianceNotificationsPanel />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="border border-border rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="outline"
+                className="justify-start gap-2 w-full"
+                onClick={() => navigate('/drawing-analyzer')}
+              >
+                Analyze a Drawing
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start gap-2 w-full"
+                onClick={() => navigate('/projects')}
+              >
+                View Projects
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start gap-2 w-full"
+                onClick={() => navigate('/home')}
+              >
+                Get a Home Report ($29)
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start gap-2 w-full"
+                onClick={() => navigate('/billing')}
+              >
+                Upgrade Plan
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Org Training Stats — admin only */}
