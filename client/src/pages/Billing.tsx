@@ -120,7 +120,7 @@ export default function Billing() {
             <div className="mt-6 bg-white/10 border border-white/20 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-amber-300 font-semibold text-sm">
-                  ⚡ Founding Member Rate — Lock in $49/mo forever
+                  ⚡ Founding Member Rate — Lock in $29/mo forever
                 </span>
                 <span className="text-white text-sm font-bold">
                   {counter?.claimed ?? 247} / {counter?.cap ?? 1000}
