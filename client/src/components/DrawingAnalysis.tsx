@@ -6876,7 +6876,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
                       onDoubleClick={() => { if (activeTool === "fire_assembly" && isDrawingFireAssembly) { finishFireAssemblyStroke(); } }}
-                      onWheel={handleCanvasWheel}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
                       onTouchEnd={handleCanvasTouchEnd}
