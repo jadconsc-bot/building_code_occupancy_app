@@ -108,10 +108,8 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    hmr: {
-      protocol: 'wss',
-      host: 'buildingcode-9f4j2cdo.manus.space',
-      port: 443,
+    proxy: {
+      '/api': 'http://localhost:3000',
     },
   }
 });
