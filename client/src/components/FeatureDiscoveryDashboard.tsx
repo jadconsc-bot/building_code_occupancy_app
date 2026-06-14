@@ -90,11 +90,12 @@ const FEATURES = [
 type FeatureId = (typeof FEATURES)[number]['id'];
 type Badge = (typeof FEATURES)[number]['badge'];
 
-const CARD_W          = 260;
-const CARD_H          = 164;
+const CARD_W          = 320;
+const CARD_H          = 200;
 const SPEED           = 0.006;
-const ARC_HALF        = Math.PI * 0.38;
+const ARC_HALF        = Math.PI * (35 / 180);  // 35° half-angle ≈ 0.611 rad
 const ROTATION_FACTOR = 0.3;   // max tilt ≈ ±16° at opacity cutoff
+const Y_OFFSET        = 150;   // shifts arc down so apex card lands within visible stage
 
 function badgeClass(badge: NonNullable<Badge>): string {
   if (badge === 'AI')    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
@@ -128,16 +129,17 @@ export function FeatureDiscoveryDashboard() {
     const W = stage.offsetWidth;
     const H = 420;
     const CX = W / 2;
-    const CY = H + 60;
-    const R = H + 20;
+    const R       = 2358;
+    const SAGITTA = R - R * Math.cos(ARC_HALF);
+    const CY      = H + (R - SAGITTA);
     const N = FEATURES.length;
 
     cardPositions.current = FEATURES.map((_, i) => {
       const t = (i + offsetRef.current) / N;
       const wrapped = ((t % 1) + 1.5) % 1 - 0.5;
-      const angle = wrapped * 2 * ARC_HALF * 1.6;
+      const angle = wrapped * 2 * ARC_HALF;
       const x = CX + R * Math.sin(angle) - CARD_W / 2;
-      const y = CY - R * Math.cos(angle) - CARD_H / 2;
+      const y = CY - R * Math.cos(angle) - CARD_H / 2 + Y_OFFSET;
       const scale = 0.55 + 0.55 * Math.cos(angle * 0.9);
       const z = Math.round(scale * 100);
       const opacity  = Math.max(0, Math.min(1, 1 - Math.abs(angle) / (ARC_HALF * 1.3)));
