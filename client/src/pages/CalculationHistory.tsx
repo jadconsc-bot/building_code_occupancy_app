@@ -321,6 +321,11 @@ export default function CalculationHistoryPage() {
     }
   );
 
+  // Fetch project list for filter dropdown
+  const { data: projectsData = [] } = trpc.projects.list.useQuery(undefined, {
+    enabled: !!user,
+  });
+
   // Fetch statistics
   const { data: stats } = trpc.calculations.getStats.useQuery(undefined, {
     enabled: !!user,
@@ -456,7 +461,7 @@ export default function CalculationHistoryPage() {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Calculator Type</label>
               <Select value={filterCalculator} onValueChange={(v) => {
@@ -471,6 +476,26 @@ export default function CalculationHistoryPage() {
                   {calculatorTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Project</label>
+              <Select value={filterProject} onValueChange={(v) => {
+                setFilterProject(v);
+                setPage(0);
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projectsData.map((project) => (
+                    <SelectItem key={project.id} value={String(project.id)}>
+                      {project.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
