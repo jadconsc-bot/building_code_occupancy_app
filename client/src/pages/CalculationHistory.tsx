@@ -278,7 +278,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
                     className="p-2 bg-muted rounded text-xs"
                   >
                     <div className="font-medium">{entry.action}</div>
-                    <div className="text-muted-foreground">{entry.actor}</div>
+                    <div className="text-muted-foreground">{entry.actorDisplay}</div>
                     <div className="text-muted-foreground">
                       {format(new Date(entry.timestamp), 'PPpp')}
                     </div>

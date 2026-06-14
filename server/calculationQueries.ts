@@ -233,7 +233,7 @@ export async function getRecentCalculations(userId: number, days: number = 30) {
 export async function addAuditLogEntry(data: {
   calculationId: string;
   action: string;
-  actor: string;
+  actor: number | null;
   details?: string;
 }) {
   const db = await getDb();
@@ -381,7 +381,7 @@ export async function updateCalculationVerificationStatus(
   await addAuditLogEntry({
     calculationId,
     action: 'VERIFICATION_UPDATE',
-    actor: 'SYSTEM',
+    actor: null,
     details: `Verification status updated to ${verified}`,
   });
 }

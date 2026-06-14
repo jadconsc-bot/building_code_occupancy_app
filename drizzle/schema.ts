@@ -413,7 +413,7 @@ export const calculationAuditLog = mysqlTable("calculationAuditLog", {
   id: varchar("id", { length: 36 }).primaryKey(),
   calculationResultId: varchar("calculationResultId", { length: 36 }).notNull(),
   action: varchar("action", { length: 50 }).notNull(),
-  actor: int("actor").notNull(),
+  actor: int("actor"),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   details: text("details"),
   ipAddress: varchar("ipAddress", { length: 45 }),

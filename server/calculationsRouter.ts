@@ -8,8 +8,8 @@
 import { z } from 'zod';
 import { protectedProcedure, publicProcedure, router } from './_core/trpc';
 import { getDb } from './db';
-import { calculationResults, calculationAuditLog } from '../drizzle/schema';
-import { eq, and, desc, like, gte, lte } from 'drizzle-orm';
+import { calculationResults, calculationAuditLog, users } from '../drizzle/schema';
+import { eq, and, desc, like, gte, lte, inArray } from 'drizzle-orm';
 import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
 import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
@@ -182,13 +182,21 @@ export const calculationsRouter = router({
           timestamp: result.createdAt,
           rulesetVersion: result.rulesetVersion,
           references: [],
-          auditLog: auditLog.map((log) => ({
-            id: log.id,
-            action: log.action,
-            actor: log.actor,
-            timestamp: log.timestamp,
-            details: log.details,
-          })),
+          auditLog: await (async () => {
+            const actorIds = [...new Set(auditLog.map(l => l.actor).filter((a): a is number => a !== null))];
+            const actorUsers = actorIds.length > 0
+              ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, actorIds))
+              : [];
+            const actorMap = new Map(actorUsers.map(u => [u.id, `${u.name ?? ''} (${u.email ?? ''})`]));
+            return auditLog.map((log) => ({
+              id: log.id,
+              action: log.action,
+              actor: log.actor,
+              actorDisplay: log.actor === null ? 'System' : (actorMap.get(log.actor) ?? `User #${log.actor}`),
+              timestamp: log.timestamp,
+              details: log.details,
+            }));
+          })(),
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
@@ -346,7 +354,7 @@ export const calculationsRouter = router({
         await db.insert(calculationAuditLog).values({
           calculationResultId: result.id,
           action: 'EXPORT',
-          actor: `${ctx.user.name} (${ctx.user.email})`,
+          actor: ctx.user.id,
           timestamp: new Date(),
           details: `Exported as ${input.format.toUpperCase()}`,
         } as any);
@@ -436,7 +444,7 @@ export const calculationsRouter = router({
         await db.insert(calculationAuditLog).values({
           calculationResultId: result.id,
           action: 'DELETE',
-          actor: `${ctx.user.name} (${ctx.user.email})`,
+          actor: ctx.user.id,
           timestamp: new Date(),
           details: 'Calculation marked as deleted',
         } as any);
@@ -498,13 +506,21 @@ export const calculationsRouter = router({
 
         return {
           calculationId: input.calculationId,
-          auditLog: auditLog.map((log) => ({
-            id: log.id,
-            action: log.action,
-            actor: log.actor,
-            timestamp: log.timestamp,
-            details: log.details,
-          })),
+          auditLog: await (async () => {
+            const actorIds = [...new Set(auditLog.map(l => l.actor).filter((a): a is number => a !== null))];
+            const actorUsers = actorIds.length > 0
+              ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, actorIds))
+              : [];
+            const actorMap = new Map(actorUsers.map(u => [u.id, `${u.name ?? ''} (${u.email ?? ''})`]));
+            return auditLog.map((log) => ({
+              id: log.id,
+              action: log.action,
+              actor: log.actor,
+              actorDisplay: log.actor === null ? 'System' : (actorMap.get(log.actor) ?? `User #${log.actor}`),
+              timestamp: log.timestamp,
+              details: log.details,
+            }));
+          })(),
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
