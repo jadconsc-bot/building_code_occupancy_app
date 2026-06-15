@@ -1350,7 +1350,7 @@ export const permitPackageRouter = router({
       doc.setTextColor(0, 0, 0);
       y = 26;
 
-      type SummaryStatus = "exceeds" | "meets" | "marginal" | "deficient";
+      type SummaryStatus = "exceeds" | "meets" | "marginal" | "deficient" | "not_calculated";
       type SummaryRow = { category: string; label: string; provided: string; required: string; margin: string; status: SummaryStatus; nbcRef: string };
       const compRows: SummaryRow[] = [];
 
@@ -1366,11 +1366,10 @@ export const permitPackageRouter = router({
 
       const olD = getCalc("occupantLoad");
       if (olD) {
-        const cap = Number(olD.exitCapacity ?? olD.capacity ?? 0);
         const occ = Number(olD.occupantLoad ?? olD.totalOccupantLoad ?? 0);
-        if (cap > 0 && occ > 0) {
-          const { m, status } = pdfMargin(cap, occ);
-          compRows.push({ category: "Life Safety", label: "Occupant Load vs Exit Capacity", provided: `${cap}`, required: `${occ}`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}`, status, nbcRef: "NBC 4.1.5.3" });
+        const numExits = Number(calcExitReqs?.numExits ?? 0);
+        if (occ > 0) {
+          compRows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.5.3" });
         }
       }
       const tdD = getCalc("travelDistance");
@@ -1504,9 +1503,10 @@ export const permitPackageRouter = router({
       }
 
       const statusColor = (s: SummaryStatus): [number, number, number] => {
-        if (s === "exceeds")   return [22, 163, 74];
-        if (s === "meets")     return [59, 130, 246];
-        if (s === "marginal")  return [234, 179, 8];
+        if (s === "exceeds")        return [22, 163, 74];
+        if (s === "meets")          return [59, 130, 246];
+        if (s === "marginal")       return [234, 179, 8];
+        if (s === "not_calculated") return [156, 163, 175];
         return [220, 38, 38];
       };
 
@@ -1889,21 +1889,23 @@ export const permitPackageRouter = router({
       // Occupant Load
       const ol = getCalc("occupantLoad");
       if (ol) {
-        const calculated = Number(ol.occupantLoad ?? ol.totalOccupantLoad ?? 0);
-        const capacity = Number(ol.exitCapacity ?? ol.capacity ?? 0);
-        if (capacity > 0) {
-          const { margin: m, status } = margin(capacity, calculated);
-          rows.push({ category: "Life Safety", label: "Occupant Load vs Exit Capacity", provided: `${capacity}`, required: `${calculated}`, margin: `${m > 0 ? "+" : ""}${m.toFixed(0)}`, status, nbcRef: "NBC 4.1.5.3" });
+        const occ = Number(ol.occupantLoad ?? ol.totalOccupantLoad ?? 0);
+        const exitReqs = getCalc("exitRequirements");
+        const numExits = Number(exitReqs?.numExits ?? 0);
+        if (occ > 0) {
+          rows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.5.3" });
         }
       }
 
       // Travel Distance
       const td = getCalc("travelDistance");
       if (td) {
-        const provided = Number(td.travelDistance ?? td.maxTravelDistance ?? 0);
+        const provided = Number(td.actual ?? 0);
         const required = Number(td.requiredMax ?? td.maxAllowed ?? 45);
-        const { margin: m, status } = margin(provided, required, true);
-        rows.push({ category: "Life Safety", label: "Travel Distance", provided: `${provided}m`, required: `${required}m`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}m`, status, nbcRef: "NBC 3.4.2.5" });
+        if (provided > 0) {
+          const { margin: m, status } = margin(provided, required, true);
+          rows.push({ category: "Life Safety", label: "Travel Distance", provided: `${provided}m`, required: `${required}m`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}m`, status, nbcRef: "NBC 3.4.2.5" });
+        }
       }
 
       // Fire Separation (from calculator)
