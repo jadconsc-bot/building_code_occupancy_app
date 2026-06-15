@@ -67,9 +67,10 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
     calculationId,
   });
 
-  const { data: verification } = trpc.calculations.verifySignature.useQuery({
-    calculationId,
-  });
+  const { data: verification } = trpc.calculations.verifySignature.useQuery(
+    { calculationId },
+    { enabled: !!calculation?.certificateChain },
+  );
 
   // TODO: Implement exportForLegal tRPC procedure
   // const exportMutation = trpc.calculations.exportForLegal.useMutation();
@@ -136,7 +137,19 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
 
         <div className="space-y-6">
           {/* Signature Verification */}
-          {verification && (
+          {!calculation.certificateChain ? (
+            // HMAC-SHA256 signed rows have no PKI certificate — show neutral state
+            <div className="flex items-start gap-4 p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <Shield className="w-5 h-5 mt-0.5 flex-shrink-0 text-blue-600" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900">HMAC Signed</h3>
+                <p className="text-sm mt-1 text-blue-700">
+                  Signed with HMAC-SHA256. No PKI certificate was issued for this record.
+                </p>
+              </div>
+            </div>
+          ) : verification ? (
+            // PKI-backed rows: show verified/expired state from certificate check
             <div
               className={`flex items-start gap-4 p-4 border rounded-lg ${
                 verification.isValid
@@ -180,7 +193,7 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Calculation Details */}
           <div className="grid grid-cols-2 gap-4">
