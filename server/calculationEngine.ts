@@ -32,37 +32,32 @@ export class CalculationEngine {
   }
 
   /**
-   * Sign a calculation result with SHA-256-RSA
+   * Sign a calculation result with SHA-256.
+   * Returns `${timestamp}:${hash}` so the timestamp travels with the
+   * signature and verifySignature can reproduce the exact payload without
+   * a separate column or schema change.
    */
   signCalculation(inputs: Record<string, any>, outputs: Record<string, any>, userId: number): string {
-    const data = JSON.stringify({
-      inputs,
-      outputs,
-      userId,
-      timestamp: Date.now(),
-    });
-
-    // Create SHA-256 hash
+    const timestamp = Date.now();
+    const data = JSON.stringify({ inputs, outputs, userId, timestamp });
     const hash = crypto.createHash('sha256').update(data).digest('hex');
-    
-    // In production, sign with RSA private key
-    // For demo, just return the hash
-    return hash;
+    return `${timestamp}:${hash}`;
   }
 
   /**
-   * Verify a calculation signature
+   * Verify a calculation signature produced by signCalculation.
+   * Parses the stored timestamp out of the signature string instead of
+   * regenerating Date.now() (which caused verification to always fail).
    */
   verifySignature(inputs: Record<string, any>, outputs: Record<string, any>, userId: number, signature: string): boolean {
-    const data = JSON.stringify({
-      inputs,
-      outputs,
-      userId,
-      timestamp: Date.now(),
-    });
-
+    const colonIdx = signature.indexOf(':');
+    if (colonIdx === -1) return false;
+    const timestamp = parseInt(signature.slice(0, colonIdx), 10);
+    const storedHash = signature.slice(colonIdx + 1);
+    if (isNaN(timestamp)) return false;
+    const data = JSON.stringify({ inputs, outputs, userId, timestamp });
     const hash = crypto.createHash('sha256').update(data).digest('hex');
-    return hash === signature;
+    return hash === storedHash;
   }
 
   /**

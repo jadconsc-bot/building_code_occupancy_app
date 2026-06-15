@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { protectedProcedure } from './_core/trpc';
 import { getDb } from './db';
 import { calculationResults, calculationAuditLog } from '../drizzle/schema';
@@ -44,9 +45,8 @@ export const saveCalculationResult = protectedProcedure
     try {
       // Create calculation signature
       const signature = engine.signCalculation(input.inputs, input.outputs, ctx.user.id);
-      
-      // Generate unique ID
-      const id = `calc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const id = randomUUID();
 
       // Save to database
       await db.insert(calculationResults).values({
@@ -59,7 +59,7 @@ export const saveCalculationResult = protectedProcedure
         resultData: JSON.stringify(input.outputs),
         calculationTrace: JSON.stringify({ inputs: input.inputs, outputs: input.outputs }),
         cryptographicSignature: signature,
-        signatureVerified: true,
+        signatureVerified: false,
         createdAt: new Date(),
         createdBy: ctx.user.id,
         ipAddress: ctx.req.ip || 'unknown',
@@ -69,7 +69,7 @@ export const saveCalculationResult = protectedProcedure
 
       // Create audit log entry
       await db.insert(calculationAuditLog).values({
-        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: randomUUID(),
         calculationResultId: id,
         action: 'CREATE',
         actor: ctx.user.id,
