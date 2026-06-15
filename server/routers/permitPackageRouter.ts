@@ -1375,7 +1375,7 @@ export const permitPackageRouter = router({
       }
       const tdD = getCalc("travelDistance");
       if (tdD) {
-        const prov = Number(tdD.travelDistance ?? tdD.maxTravelDistance ?? 0);
+        const prov = Number(tdD.actual ?? 0);
         const req = Number(tdD.requiredMax ?? tdD.maxAllowed ?? 45);
         if (prov > 0) {
           const { m, status } = pdfMargin(prov, req, true);
@@ -1429,8 +1429,8 @@ export const permitPackageRouter = router({
       }
       const sdD = getCalc("stairDesign");
       if (sdD) {
-        const riser = Number(sdD.riserHeight ?? sdD.riser ?? 0);
-        const riserMax = Number(sdD.maxRiserHeight ?? sdD.riserMax ?? 200);
+        const riser = Number(sdD.actualRiser ?? 0);
+        const riserMax = Number((sdD.requirements as any)?.maxRiser ?? 200);
         if (riser > 0) {
           const { m, status } = pdfMargin(riser, riserMax, true);
           compRows.push({ category: "Life Safety", label: "Stair Riser Height", provided: `${riser}mm`, required: `≤${riserMax}mm`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}mm`, status, nbcRef: "NBC 9.8.4" });
@@ -1928,8 +1928,8 @@ export const permitPackageRouter = router({
       // Stair Design
       const sd = getCalc("stairDesign");
       if (sd) {
-        const riser = Number(sd.riserHeight ?? sd.riser ?? 0);
-        const riserMax = Number(sd.maxRiserHeight ?? sd.riserMax ?? 200);
+        const riser = Number(sd.actualRiser ?? 0);
+        const riserMax = Number((sd.requirements as any)?.maxRiser ?? 200);
         if (riser > 0) {
           const { margin: m, status } = margin(riser, riserMax, true);
           rows.push({ category: "Life Safety", label: "Stair Riser Height", provided: `${riser}mm`, required: `≤${riserMax}mm`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(0)}mm`, status, nbcRef: "NBC 9.8.4" });
