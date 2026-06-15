@@ -6,10 +6,11 @@
  */
 
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { protectedProcedure, publicProcedure, router } from './_core/trpc';
 import { getDb } from './db';
 import { calculationResults, calculationAuditLog, users } from '../drizzle/schema';
-import { eq, and, desc, like, gte, lte, inArray } from 'drizzle-orm';
+import { eq, and, desc, like, gte, lte, inArray, isNull, isNotNull } from 'drizzle-orm';
 import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
 import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
@@ -47,6 +48,7 @@ const CalculationFilterSchema = z.object({
   endDate: z.date().optional(),
   verified: z.boolean().optional(),
   searchQuery: z.string().optional(),
+  showArchived: z.boolean().optional().default(false),
   limit: z.number().default(50),
   offset: z.number().default(0),
 });
@@ -93,6 +95,13 @@ export const calculationsRouter = router({
 
         if (input.endDate) {
           conditions.push(lte(calculationResults.createdAt, input.endDate));
+        }
+
+        // Archive filter: default view shows only active rows (archivedAt IS NULL)
+        if (!input.showArchived) {
+          conditions.push(isNull(calculationResults.archivedAt));
+        } else {
+          conditions.push(isNotNull(calculationResults.archivedAt));
         }
 
         // Execute query with pagination
@@ -413,9 +422,10 @@ export const calculationsRouter = router({
   }),
 
   /**
-   * Delete calculation (soft delete - keeps audit trail)
+   * Archive a calculation — sets archivedAt, hides from default (Active) view.
+   * Reversible: call unarchive to restore. Row is never deleted.
    */
-  delete: protectedProcedure
+  archive: protectedProcedure
     .input(z.object({ calculationId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -425,46 +435,78 @@ export const calculationsRouter = router({
         const [result] = await db
           .select()
           .from(calculationResults)
-          .where(
-            and(
-              eq(calculationResults.id, input.calculationId),
-              eq(calculationResults.userId, ctx.user.id)
-            )
-          )
+          .where(and(
+            eq(calculationResults.id, input.calculationId),
+            eq(calculationResults.userId, ctx.user.id)
+          ))
           .limit(1);
 
         if (!result) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Calculation not found',
-          });
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Calculation not found' });
         }
 
-        // Log deletion
+        await db.update(calculationResults)
+          .set({ archivedAt: new Date() })
+          .where(eq(calculationResults.id, input.calculationId));
+
         await db.insert(calculationAuditLog).values({
-          calculationResultId: result.id,
-          action: 'DELETE',
+          id: randomUUID(),
+          calculationResultId: input.calculationId,
+          action: 'ARCHIVE',
           actor: ctx.user.id,
           timestamp: new Date(),
-          details: 'Calculation marked as deleted',
-        } as any);
+          details: 'Calculation archived',
+        });
 
-        // Soft delete - mark as deleted but keep record
-        // In production, would use UPDATE statement to set deleted flag
-        // For now, just log the action
-
-        return {
-          success: true,
-          message: 'Calculation deleted successfully',
-          calculationResultId: result.id,
-        };
+        return { success: true, calculationResultId: input.calculationId };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
-        console.error('Error deleting calculation:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to delete calculation',
+        console.error('Error archiving calculation:', error);
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to archive calculation' });
+      }
+    }),
+
+  /**
+   * Unarchive a calculation — clears archivedAt, returns row to Active view.
+   */
+  unarchive: protectedProcedure
+    .input(z.object({ calculationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+
+      try {
+        const [result] = await db
+          .select()
+          .from(calculationResults)
+          .where(and(
+            eq(calculationResults.id, input.calculationId),
+            eq(calculationResults.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!result) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Calculation not found' });
+        }
+
+        await db.update(calculationResults)
+          .set({ archivedAt: null })
+          .where(eq(calculationResults.id, input.calculationId));
+
+        await db.insert(calculationAuditLog).values({
+          id: randomUUID(),
+          calculationResultId: input.calculationId,
+          action: 'UNARCHIVE',
+          actor: ctx.user.id,
+          timestamp: new Date(),
+          details: 'Calculation unarchived',
         });
+
+        return { success: true, calculationResultId: input.calculationId };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error('Error unarchiving calculation:', error);
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to unarchive calculation' });
       }
     }),
 

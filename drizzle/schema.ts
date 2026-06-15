@@ -401,6 +401,7 @@ export const calculationResults = mysqlTable("calculationResults", {
   ipAddress: varchar("ipAddress", { length: 45 }),
   userAgent: text("userAgent"),
   immutable: boolean("immutable").default(true).notNull(),
+  archivedAt: timestamp("archivedAt"),
 });
 
 export type CalculationResult = typeof calculationResults.$inferSelect;

@@ -1,12 +1,12 @@
 /**
  * Calculation History Page - Updated with tRPC Integration
- * 
+ *
  * Displays a history of all calculations performed by the user
  * Fetches real data from database via tRPC procedures
  * Allows retrieval, verification, and export of previous results
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,8 @@ import {
   Copy,
   Loader2,
   RefreshCw,
-  Trash2,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -80,28 +81,6 @@ function CalculationDetail({ calculationId, onClose }: CalculationDetailProps) {
   const handleExport = async () => {
     // TODO: Implement exportForLegal endpoint in Phase 5
     toast.info('Export feature coming soon - will be implemented in Phase 5');
-    /*
-    try {
-      const result = await exportMutation.mutateAsync({
-        calculationId,
-        format: exportFormat as 'json' | 'json-ld' | 'pdf',
-      });
-
-      // Create download link
-      const dataStr = JSON.stringify(result.data, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.filename;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      toast.success(`Export successful: Calculation exported as ${exportFormat.toUpperCase()}`);
-    } catch (error) {
-      toast.error('Failed to export calculation');
-    }
-    */
   };
 
   const handleCopyId = () => {
@@ -319,6 +298,7 @@ export default function CalculationHistoryPage() {
   const [filterCalculator, setFilterCalculator] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
   const [page, setPage] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Fetch calculation history
   const { data: historyData, isLoading, refetch } = trpc.calculations.getHistory.useQuery(
@@ -326,6 +306,7 @@ export default function CalculationHistoryPage() {
       calculatorType: filterCalculator === 'all' ? undefined : filterCalculator,
       projectId: filterProject === 'all' ? undefined : parseInt(filterProject),
       searchQuery: searchQuery || undefined,
+      showArchived,
       limit: 50,
       offset: page * 50,
     },
@@ -344,21 +325,43 @@ export default function CalculationHistoryPage() {
     enabled: !!user,
   });
 
-  // Delete mutation
-  const deleteMutation = trpc.calculations.delete.useMutation({
+  // Archive mutation
+  const archiveMutation = trpc.calculations.archive.useMutation({
     onSuccess: () => {
-      toast.success('Calculation deleted successfully');
+      toast.success('Calculation archived. Find it in the Archived tab.');
       refetch();
     },
     onError: () => {
-      toast.error('Failed to delete calculation');
+      toast.error('Failed to archive calculation');
     },
   });
 
-  const handleDelete = (calculationId: string) => {
-    if (confirm('Are you sure you want to delete this calculation?')) {
-      deleteMutation.mutate({ calculationId });
+  // Unarchive mutation
+  const unarchiveMutation = trpc.calculations.unarchive.useMutation({
+    onSuccess: () => {
+      toast.success('Calculation restored to Active.');
+      refetch();
+    },
+    onError: () => {
+      toast.error('Failed to unarchive calculation');
+    },
+  });
+
+  const handleArchive = (calculationId: string) => {
+    if (confirm('Archive this calculation? You can restore it later from the Archived tab.')) {
+      archiveMutation.mutate({ calculationId });
     }
+  };
+
+  const handleUnarchive = (calculationId: string) => {
+    if (confirm('Restore this calculation to the Active tab?')) {
+      unarchiveMutation.mutate({ calculationId });
+    }
+  };
+
+  const handleTabChange = (archived: boolean) => {
+    setShowArchived(archived);
+    setPage(0);
   };
 
   if (authLoading) {
@@ -453,6 +456,31 @@ export default function CalculationHistoryPage() {
         </div>
       )}
 
+      {/* Active / Archived tabs */}
+      <div className="flex gap-1 border-b border-border">
+        <button
+          onClick={() => handleTabChange(false)}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            !showArchived
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => handleTabChange(true)}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            showArchived
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Archive className="w-3.5 h-3.5" />
+          Archived
+        </button>
+      </div>
+
       {/* Search and Filters */}
       <Card>
         <CardHeader>
@@ -535,10 +563,12 @@ export default function CalculationHistoryPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            Calculations ({historyData?.total || 0})
+            {showArchived ? 'Archived' : 'Active'} Calculations ({historyData?.total || 0})
           </CardTitle>
           <CardDescription>
-            All calculations are cryptographically signed and immutably stored
+            {showArchived
+              ? 'Archived calculations are hidden from the default view but permanently retained'
+              : 'All calculations are cryptographically signed and immutably stored'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -548,7 +578,7 @@ export default function CalculationHistoryPage() {
             </div>
           ) : historyData?.calculations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No calculations found matching your criteria</p>
+              <p>No {showArchived ? 'archived' : 'active'} calculations found matching your criteria</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -600,15 +630,27 @@ export default function CalculationHistoryPage() {
                           <Eye className="w-4 h-4" />
                           View
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(calc.id)}
-                          disabled={deleteMutation.isPending}
-                          className="gap-2 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {showArchived ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleUnarchive(calc.id)}
+                            disabled={unarchiveMutation.isPending}
+                            className="gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <ArchiveRestore className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleArchive(calc.id)}
+                            disabled={archiveMutation.isPending}
+                            className="gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
