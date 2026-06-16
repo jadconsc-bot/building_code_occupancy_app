@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -5189,8 +5189,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   }, [canvasHeight, drawCanvas]);
 
   // Keep zoom/pan refs in sync so the native wheel handler never sees stale values.
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
-  useEffect(() => { panRef.current = pan; }, [pan]);
+  // useLayoutEffect (not useEffect) fires synchronously after DOM mutations and before
+  // the browser paints — closing the post-paint window where a wheel event could read
+  // a stale ref and cause the image to snap to the left edge.
+  useLayoutEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useLayoutEffect(() => { panRef.current = pan; }, [pan]);
 
   // Sync pan state → container scroll position so the scrollbar thumb tracks drag-to-pan.
   useEffect(() => {
