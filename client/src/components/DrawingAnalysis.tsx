@@ -362,6 +362,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [drawingImage, setDrawingImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   // Multi-page PDF state
   const [pdfPages, setPdfPages] = useState<string[]>([]);
@@ -1194,10 +1195,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const availableZones: ZoneRegulation[] = municipalityData?.zones || [];
 
   // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const processUploadedFile = async (file: File) => {
     setIsLoading(true);
     setFileName(file.name);
 
@@ -1266,6 +1264,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) processUploadedFile(file);
   };
 
   // Handle camera capture
@@ -5284,8 +5287,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <>
                       {/* Primary upload zone */}
                       <div
-                        className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary hover:bg-accent/40 transition-colors group"
+                        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors group ${isDragActive ? 'border-primary bg-accent/40' : 'border-border hover:border-primary hover:bg-accent/40'}`}
                         onClick={() => fileInputRef.current?.click()}
+                        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragActive(true); }}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragActive(false); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragActive(false);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) processUploadedFile(file);
+                        }}
                       >
                         <FileUp className="w-10 h-10 mx-auto text-muted-foreground mb-3 group-hover:text-primary transition-colors" />
                         <p className="font-medium mb-1">Upload a drawing</p>
