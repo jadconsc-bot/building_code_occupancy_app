@@ -54,7 +54,7 @@ export const projectRouter = router({
       buildingHeight: z.number().positive().optional(),
       constructionType: z.string().max(50).optional(),
       sprinklersRequired: z.boolean().optional(),
-      part3Determination: z.string().max(20).optional(),
+      part3Determination: z.string().max(100).optional(),
       codeEdition: z.string().max(20).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -90,7 +90,7 @@ export const projectRouter = router({
         buildingHeight: z.number().positive().optional(),
         constructionType: z.string().max(50).optional(),
         sprinklersRequired: z.boolean().optional(),
-        part3Determination: z.string().max(20).optional(),
+        part3Determination: z.string().max(100).optional(),
         codeEdition: z.string().max(20).optional(),
         stackSeparationsJson: z.array(z.object({
           from: z.string(),
