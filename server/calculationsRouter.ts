@@ -387,15 +387,24 @@ export const calculationsRouter = router({
   /**
    * Get calculation statistics for user
    */
-  getStats: protectedProcedure.query(async ({ ctx }) => {
+  getStats: protectedProcedure
+    .input(z.object({ showArchived: z.boolean().optional().default(false) }))
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
 
     try {
+      const conditions = [eq(calculationResults.userId, ctx.user.id)];
+      if (!input.showArchived) {
+        conditions.push(isNull(calculationResults.archivedAt));
+      } else {
+        conditions.push(isNotNull(calculationResults.archivedAt));
+      }
+
       const results = await db
         .select()
         .from(calculationResults)
-        .where(eq(calculationResults.userId, ctx.user.id));
+        .where(and(...conditions));
 
       const stats = {
         totalCalculations: results.length,

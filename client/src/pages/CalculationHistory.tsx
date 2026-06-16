@@ -49,6 +49,7 @@ import {
   ArchiveRestore,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getCalculatorLabel } from '@/lib/calculatorLabels';
 import { toast } from 'sonner';
 
 /**
@@ -321,7 +322,7 @@ export default function CalculationHistoryPage() {
   });
 
   // Fetch statistics
-  const { data: stats } = trpc.calculations.getStats.useQuery(undefined, {
+  const { data: stats } = trpc.calculations.getStats.useQuery({ showArchived }, {
     enabled: !!user,
   });
 
@@ -516,7 +517,7 @@ export default function CalculationHistoryPage() {
                   <SelectItem value="all">All Calculators</SelectItem>
                   {calculatorTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type}
+                      {getCalculatorLabel(type)}
                     </SelectItem>
                   ))}
                 </SelectContent>
