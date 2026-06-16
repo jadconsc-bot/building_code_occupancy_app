@@ -302,7 +302,7 @@ This is an automated notification from CodeComply.
                 </ul>
               </div>
 
-              <a href="https://buildingcode-9f4j2cdo.manus.space/billing" class="button">View Plans</a>
+              <a href="https://complycode.ca/billing" class="button">View Plans</a>
 
               <div class="footer">
                 <p>This is an automated notification from CodeComply.</p>
@@ -318,7 +318,7 @@ Hi ${payload.userName},
 
 We noticed you're using many of your plan's features. Consider upgrading to ${payload.planName} for unlimited access.
 
-View available plans: https://buildingcode-9f4j2cdo.manus.space/billing
+View available plans: https://complycode.ca/billing
       `;
     } else if (payload.alertType === 'renewal_reminder') {
       subject = 'Your CodeComply Subscription Renews Soon';
@@ -393,7 +393,7 @@ No action is required. Your subscription will automatically renew.
                 <p><strong>We'd love to have you back!</strong> If you change your mind, you can reactivate your subscription anytime.</p>
               </div>
 
-              <a href="https://buildingcode-9f4j2cdo.manus.space/billing" class="button">Reactivate Subscription</a>
+              <a href="https://complycode.ca/billing" class="button">Reactivate Subscription</a>
 
               <div class="footer">
                 <p>This is an automated notification from CodeComply.</p>
@@ -413,7 +413,7 @@ Your CodeComply subscription has been cancelled as requested.
 You will continue to have access to your projects and data until your current billing period ends.
 
 If you change your mind, you can reactivate your subscription anytime:
-https://buildingcode-9f4j2cdo.manus.space/billing
+https://complycode.ca/billing
       `;
     }
 
