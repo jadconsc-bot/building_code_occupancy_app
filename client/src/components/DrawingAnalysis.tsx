@@ -1195,7 +1195,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const availableZones: ZoneRegulation[] = municipalityData?.zones || [];
 
   // Handle file upload
+  const ACCEPTED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+  const ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
+
   const processUploadedFile = async (file: File) => {
+    const isAcceptedType = ACCEPTED_TYPES.includes(file.type);
+    const hasAcceptedExtension = ACCEPTED_EXTENSIONS.some(ext =>
+      file.name.toLowerCase().endsWith(ext)
+    );
+
+    if (!isAcceptedType && !hasAcceptedExtension) {
+      toast.error('Unsupported file type. Please upload a PDF, PNG, or JPG file.');
+      return;
+    }
+
     setIsLoading(true);
     setFileName(file.name);
 
