@@ -3533,6 +3533,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+    // Clamped to page bounds for draw-mode writes only; pan/zoom paths use raw x, y.
+    const drawX = analyzedPageDims ? Math.max(0, Math.min(x, analyzedPageDims.width)) : x;
+    const drawY = analyzedPageDims ? Math.max(0, Math.min(y, analyzedPageDims.height)) : y;
 
     // Boundary redraw — rect mode: start drag
     if (boundaryRedrawMode === 'rect') {
@@ -3731,13 +3734,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     if (isDrawMode && drawingTool !== "eraser") {
       isDrawingRef.current = true;
       setIsDrawingStroke(true); // Keep state for UI indicators
-      setDrawingStartPoint({ x, y });
-      lastTouchPointRef.current = { x, y };
-      
+      setDrawingStartPoint({ x: drawX, y: drawY });
+      lastTouchPointRef.current = { x: drawX, y: drawY };
+
       const newStroke: DrawingStroke = {
         id: `stroke-${Date.now()}`,
         type: drawingTool === "pen" ? "freehand" : drawingTool,
-        points: [{ x, y }],
+        points: [{ x: drawX, y: drawY }],
         color: strokeColor,
         width: strokeWidth,
       };
@@ -3749,11 +3752,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Handle eraser in drawing mode - start continuous erasing
     if (isDrawMode && drawingTool === "eraser") {
       setIsErasing(true);
-      eraseAtPoint({ x, y });
+      eraseAtPoint({ x: drawX, y: drawY });
       return;
     }
 
     if (activeTool === "pan") {
+      e.preventDefault();
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
     } else if (isCalibrating) {
@@ -3856,6 +3860,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
+    // Clamped to page bounds for draw-mode writes only; hover/pan paths use raw x, y.
+    const drawX = analyzedPageDims ? Math.max(0, Math.min(x, analyzedPageDims.width)) : x;
+    const drawY = analyzedPageDims ? Math.max(0, Math.min(y, analyzedPageDims.height)) : y;
 
     // Phase C — live DDA polygon vertex drag
     if (draggingPolyVertex) {
@@ -4029,20 +4036,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             ctx.lineJoin = "round";
             ctx.beginPath();
             ctx.moveTo(lastTouchPointRef.current.x * zoom + pan.x, lastTouchPointRef.current.y * zoom + pan.y);
-            ctx.lineTo(x * zoom + pan.x, y * zoom + pan.y);
+            ctx.lineTo(drawX * zoom + pan.x, drawY * zoom + pan.y);
             ctx.stroke();
             ctx.restore();
           }
         }
-        lastTouchPointRef.current = { x, y };
+        lastTouchPointRef.current = { x: drawX, y: drawY };
         currentStrokeRef.current = {
           ...currentStrokeRef.current,
-          points: [...currentStrokeRef.current.points, { x, y }],
+          points: [...currentStrokeRef.current.points, { x: drawX, y: drawY }],
         };
       } else if (drawingTool === "line" || drawingTool === "rectangle" || drawingTool === "circle") {
         currentStrokeRef.current = {
           ...currentStrokeRef.current,
-          points: [drawingStartPoint, { x, y }],
+          points: [drawingStartPoint, { x: drawX, y: drawY }],
         };
         drawCanvas();
         if (canvas) {
@@ -4054,9 +4061,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       } else if (drawingTool === "polygon") {
         const points = [...currentStrokeRef.current.points];
         if (points.length > 1) {
-          points[points.length - 1] = { x, y };
+          points[points.length - 1] = { x: drawX, y: drawY };
         } else {
-          points.push({ x, y });
+          points.push({ x: drawX, y: drawY });
         }
         currentStrokeRef.current = {
           ...currentStrokeRef.current,
@@ -5201,12 +5208,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Native wheel listener with { passive: false } so e.preventDefault() is honoured.
   // React 17+ attaches synthetic onWheel as passive, silently ignoring preventDefault.
+  // Attached to the container (not just the canvas) so wheel events landing on the
+  // spacer div (present when zoom > 1.05, extends beyond the canvas) are also captured
+  // and don't fall through to the page's default scroll/zoom.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      // Use canvas rect for coordinate math — canvas is sticky 0,0 inside the container
+      // so origins match, but referencing the canvas explicitly is clearer.
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -5221,8 +5234,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       });
       setZoom(newZoom);
     };
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', handleWheel);
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
   }, [disclaimerAcknowledged]);
 
   // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
@@ -6895,7 +6908,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     )}
                     <canvas
                       ref={canvasRef}
-                      className={`w-full sticky top-0 left-0 cursor-crosshair ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
+                      className={`w-full sticky top-0 left-0 ${activeTool === 'pan' ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-crosshair'} ${isCanvasLocked || isDrawMode ? 'touch-none' : 'touch-auto'}`}
                       style={{ height: canvasHeight }}
                       onMouseDown={handleCanvasMouseDown}
                       onMouseMove={handleCanvasMouseMove}
