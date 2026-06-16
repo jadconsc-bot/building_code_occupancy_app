@@ -1381,15 +1381,6 @@ export const permitPackageRouter = router({
           compRows.push({ category: "Life Safety", label: "Travel Distance", provided: `${prov}m`, required: `≤${req}m`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}m`, status, nbcRef: "NBC 3.4.2.5" });
         }
       }
-      const fsD = getCalc("fireSeparation");
-      if (fsD) {
-        const prov = Number(fsD.providedFRR ?? fsD.frrProvided ?? 0);
-        const req = Number(fsD.requiredFRR ?? fsD.frrRequired ?? 0);
-        if (req > 0) {
-          const { m, status } = pdfMargin(prov, req);
-          compRows.push({ category: "Fire Protection", label: "Fire Separation FRR (Calc)", provided: `${prov}hr`, required: `${req}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: "NBC 3.1.3.4" });
-        }
-      }
       for (const fa of allFireAssemblies) {
         const frrD = Number(fa.frrDrawn ?? 0);
         const frrR = fa.frrRequired != null ? Number(fa.frrRequired) : (fa.occupancyA && fa.occupancyB ? getRequiredFRR(fa.occupancyA, fa.occupancyB) : 0);
@@ -1398,11 +1389,10 @@ export const permitPackageRouter = router({
       }
       const slD = getCalc("snowLoad");
       if (slD) {
-        const prov = Number(slD.structuralCapacity ?? slD.roofCapacity ?? 0);
-        const req = Number(slD.snowLoad ?? slD.totalLoad ?? 0);
-        if (prov > 0 && req > 0) {
-          const { m, status } = pdfMargin(prov, req);
-          compRows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${prov}kPa`, required: `${req}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        const totalLoad = Number(slD.totalLoad ?? 0);
+        const location = String(slD.location ?? "—");
+        if (totalLoad > 0) {
+          compRows.push({ category: "Structural", label: "Design Snow Load", provided: `${totalLoad.toFixed(2)} kPa`, required: `Per NBC 4.1.6 (${location})`, margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.6" });
         }
       }
       const wfsD = getCalc("woodFrameSpan");
@@ -1908,14 +1898,6 @@ export const permitPackageRouter = router({
         }
       }
 
-      // Fire Separation (from calculator)
-      const fs = getCalc("fireSeparation");
-      if (fs) {
-        const provided = Number(fs.providedFRR ?? fs.frrProvided ?? 0);
-        const required = Number(fs.requiredFRR ?? fs.frrRequired ?? 0);
-        const { margin: m, status } = margin(provided, required);
-        rows.push({ category: "Fire Protection", label: "Fire Separation FRR (Calc)", provided: `${provided}hr`, required: `${required}hr`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(1)}hr`, status, nbcRef: "NBC 3.1.3.4" });
-      }
 
       // Fire Assemblies from drawings
       for (const fa of allAssemblies) {
@@ -1941,11 +1923,10 @@ export const permitPackageRouter = router({
       // Snow Load
       const sl = getCalc("snowLoad");
       if (sl) {
-        const provided = Number(sl.structuralCapacity ?? sl.roofCapacity ?? 0);
-        const required = Number(sl.snowLoad ?? sl.totalLoad ?? 0);
-        if (provided > 0 && required > 0) {
-          const { margin: m, status } = margin(provided, required);
-          rows.push({ category: "Structural", label: "Roof Snow Load Capacity", provided: `${provided}kPa`, required: `${required}kPa`, margin: `${m >= 0 ? "+" : ""}${m.toFixed(2)}kPa`, status, nbcRef: "NBC 4.1.6" });
+        const totalLoad = Number(sl.totalLoad ?? 0);
+        const location = String(sl.location ?? "—");
+        if (totalLoad > 0) {
+          rows.push({ category: "Structural", label: "Design Snow Load", provided: `${totalLoad.toFixed(2)} kPa`, required: `Per NBC 4.1.6 (${location})`, margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.6" });
         }
       }
 
