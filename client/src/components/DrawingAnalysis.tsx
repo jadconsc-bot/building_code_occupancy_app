@@ -4418,7 +4418,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const onMove = (ev: MouseEvent) => {
       if (!canvasResizeStartRef.current) return;
       const delta = ev.clientY - canvasResizeStartRef.current.y;
-      setCanvasHeight(h => Math.min(900, Math.max(300, canvasResizeStartRef.current!.h + delta)));
+      setCanvasHeight(Math.min(900, Math.max(300, canvasResizeStartRef.current.h + delta)));
     };
     const onUp = () => {
       canvasResizeStartRef.current = null;
