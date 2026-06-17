@@ -149,7 +149,7 @@ export const ExtractedFireSafetyDataSchema = z.object({
     openingHeight: z.string().optional(),
     closureRating: z.string().optional(),
     wallRating: z.string().optional(),
-    hasClosureDevice: z.boolean().nullable(),
+    hasClosureDevice: z.boolean().nullable().optional(),
     percentageOfWall: z.string().optional(),
   })).default([]),
 
@@ -162,8 +162,8 @@ export const ExtractedFireSafetyDataSchema = z.object({
 
   exitDoorHardware: z.array(z.object({
     location: z.string(),
-    hasPanicHardware: z.boolean().nullable(),
-    hasSelfCloser: z.boolean().nullable(),
+    hasPanicHardware: z.boolean().nullable().optional(),
+    hasSelfCloser: z.boolean().nullable().optional(),
     hasDelayedEgress: z.boolean().nullable().optional(),
     swingDirection: z.string().optional(),
   })).default([]),
@@ -182,10 +182,10 @@ export const ExtractedFireSafetyDataSchema = z.object({
   })).default([]),
 
   meanOfEgress: z.object({
-    numberOfExits: z.number().nullable(),
-    exitStairwells: z.number().nullable(),
-    rampPresent: z.boolean().nullable(),
-    exitSignsIndicated: z.boolean().nullable(),
+    numberOfExits: z.number().nullable().optional(),
+    exitStairwells: z.number().nullable().optional(),
+    rampPresent: z.boolean().nullable().optional(),
+    exitSignsIndicated: z.boolean().nullable().optional(),
   }).optional(),
 
   sprinklerSystem: z.object({
