@@ -164,7 +164,7 @@ export const ExtractedFireSafetyDataSchema = z.object({
     location: z.string(),
     hasPanicHardware: z.boolean().nullable(),
     hasSelfCloser: z.boolean().nullable(),
-    hasDelayedEgress: z.boolean().nullable(),
+    hasDelayedEgress: z.boolean().nullable().optional(),
     swingDirection: z.string().optional(),
   })).default([]),
 
