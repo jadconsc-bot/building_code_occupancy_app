@@ -21,9 +21,9 @@ import { getTrainingExamples } from '../../services/correctionService';
 import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
 
 const CONFIDENCE_THRESHOLD = 0.7;
-const CROP_LEFT_PCT = 0.20;
+const CROP_RIGHT_PCT = 0.15;  // title blocks are on the right — was erroneously CROP_LEFT_PCT=0.20
 const CROP_TOP_PCT = 0.15;
-const CLAUDE_VISION_MAX_PX = 1568;
+const CLAUDE_VISION_MAX_PX = 2048;  // was 1568; higher res reduces inverse-scale amplification of LLM error
 
 interface PageRegion {
   top: number;
@@ -138,11 +138,12 @@ export async function detectRoomsFromPage(
         .extract({ left: 0, top: region.top, width: imgW, height: region.height })
         .toBuffer();
       cropOffsetY = Math.floor(region.height * CROP_TOP_PCT);
-      cropOffsetX = Math.floor(imgW * CROP_LEFT_PCT);
+      cropOffsetX = 0;  // no left-side crop; floor plans start at x=0
+      const rightCropPx = Math.floor(imgW * CROP_RIGHT_PCT);
       croppedH = region.height - cropOffsetY;
-      croppedW = imgW - cropOffsetX;
+      croppedW = imgW - rightCropPx;  // strip title block from right
       croppedBuffer = await sharp(regionBuffer)
-        .extract({ left: cropOffsetX, top: cropOffsetY, width: croppedW, height: croppedH })
+        .extract({ left: 0, top: cropOffsetY, width: croppedW, height: croppedH })
         .toBuffer();
     }
 
@@ -159,7 +160,7 @@ export async function detectRoomsFromPage(
 
     if (targetScale < 1.0) {
       visionBuffer = await sharp(croppedBuffer)
-        .resize(targetW, targetH, { fit: 'fill' })
+        .resize(targetW, targetH, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 90 })
         .toBuffer();
       const meta = await sharp(visionBuffer).metadata();

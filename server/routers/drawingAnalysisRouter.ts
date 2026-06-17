@@ -478,7 +478,7 @@ export const drawingAnalysisRouter = router({
           .where(eq(drawingAnalyses.id, analysisId));
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Drawing extraction failed. Please try again with a clearer image.",
+          message: "Drawing extraction failed. If this page is a 3D rendering, elevation, or detail sheet, please select a floor plan page instead. Otherwise try uploading a higher-resolution scan.",
         });
       }
 
