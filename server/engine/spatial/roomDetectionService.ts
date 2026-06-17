@@ -157,6 +157,11 @@ export async function detectRoomsFromPage(
     let visionBuffer: Buffer;
     let scaleX: number;
     let scaleY: number;
+    // promptW/promptH = actual pixel dimensions of the image Claude will see.
+    // Must match the coordinate space Claude uses when reporting bboxes, so the
+    // inverse transform (bbox / scaleX) is applied exactly once, not twice.
+    let promptW = croppedW;
+    let promptH = croppedH;
 
     if (targetScale < 1.0) {
       visionBuffer = await sharp(croppedBuffer)
@@ -166,6 +171,8 @@ export async function detectRoomsFromPage(
       const meta = await sharp(visionBuffer).metadata();
       const actualVisionW = meta.width ?? targetW;
       const actualVisionH = meta.height ?? targetH;
+      promptW = actualVisionW;
+      promptH = actualVisionH;
       scaleX = actualVisionW / croppedW;
       scaleY = actualVisionH / croppedH;
       console.log(`[RoomDetection] Vision resize: { croppedW: ${croppedW}, croppedH: ${croppedH}, actualVisionW: ${actualVisionW}, actualVisionH: ${actualVisionH}, scaleX: ${scaleX.toFixed(4)}, scaleY: ${scaleY.toFixed(4)}, axisMatch: ${scaleX === scaleY} }`);
@@ -187,9 +194,13 @@ export async function detectRoomsFromPage(
       const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
       ocrLabelSet = new Set(ocrResult.allLabels.map((l: any) => l.text.trim().toLowerCase()));
       if (roomLabels.length > 0) {
+        // Scale OCR coords (in croppedW/H space) into promptW/H space so Claude's
+        // label anchor points match the vision image it actually receives.
+        const ocrScaleX = promptW / croppedW;
+        const ocrScaleY = promptH / croppedH;
         labelContext =
           `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
-          roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${l.x}, ${l.y})`).join('\n') +
+          roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${Math.round(l.x * ocrScaleX)}, ${Math.round(l.y * ocrScaleY)})`).join('\n') +
           `\n\nYou MUST return a bounding box for EVERY label listed above. Do not skip any labels.\n` +
           `For every single label provided, return a bounding box entry.\n` +
           `If the label has a leader line/arrow, follow it to the room.\n` +
@@ -202,7 +213,7 @@ export async function detectRoomsFromPage(
       console.warn(`[RoomDetection] ${region.label} Azure OCR failed, proceeding without labels:`, err);
     }
 
-    const userPrompt = buildRoomDetectionPrompt(croppedW, croppedH, labelContext, legendContext, templateContext, ocrLabelSet);
+    const userPrompt = buildRoomDetectionPrompt(promptW, promptH, labelContext, legendContext, templateContext, ocrLabelSet);
 
     const setContextPrefix = drawingSetContext
       ? buildContextBlock(drawingSetContext, pageNumber)
