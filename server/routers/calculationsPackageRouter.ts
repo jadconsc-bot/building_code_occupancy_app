@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
@@ -125,11 +125,12 @@ export const calculationsPackageRouter = router({
       let travelResults: ReturnType<typeof calculateTravelDistances> = [];
       let drawingAnalysisId: number | undefined;
 
+      let pages: (typeof drawingPages.$inferSelect)[] = [];
+
       if (latestAnalysis) {
         drawingAnalysisId = latestAnalysis.id;
 
-        // Pages for this analysis
-        const pages = await db
+        pages = await db
           .select()
           .from(drawingPages)
           .where(eq(drawingPages.drawingId, latestAnalysis.id));
@@ -186,12 +187,11 @@ export const calculationsPackageRouter = router({
       let totalArea    = 0;
       const areaByFloor: Record<string, number> = {};
 
-      // Re-fetch rooms directly for occupant calc (already have them above but re-query for clarity)
-      const allRooms = latestAnalysis
+      const allRooms = pages.length > 0
         ? await db
             .select()
             .from(detectedRooms)
-            .where(eq(detectedRooms.projectId, input.projectId))
+            .where(inArray(detectedRooms.pageId, pages.map(p => p.id)))
         : [];
 
       for (const room of allRooms) {
