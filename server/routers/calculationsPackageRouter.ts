@@ -219,7 +219,12 @@ export const calculationsPackageRouter = router({
       }));
 
       const totalOccupants     = occupantRows.reduce((s, r) => s + r.persons, 0);
-      const exitWidthRequiredMm = Math.ceil(totalOccupants * 6.1);
+      // NBC 3.4.3.2.(1): Group B (care/treatment/detention) uses 18.4 mm/person; all others
+      // use the doorway/corridor rate of 6.1 mm/person. Stair-specific rates (8 mm / 9.2 mm)
+      // require exit-facility-type data not available at this aggregation level.
+      const exitWidthRequiredMm = Math.ceil(
+        occupantRows.reduce((sum, r) => sum + r.persons * (r.group === 'B' ? 18.4 : 6.1), 0)
+      );
 
       const summary = buildSummary(
         occupantRows,
@@ -435,7 +440,7 @@ export const calculationsPackageRouter = router({
       const exitWidthMm = pkg.exitWidthRequiredMm ? Number(pkg.exitWidthRequiredMm) : 0;
       doc.text(`Total occupant load: ${pkg.totalOccupantLoad ?? 0} persons`, MARGIN, y);
       y += 5;
-      doc.text(`Required width per exit leaf: 6.1 mm/person × ${pkg.totalOccupantLoad ?? 0} = ${exitWidthMm} mm`, MARGIN, y);
+      doc.text(`Required exit width (NBC 3.4.3.2.(1)): ${exitWidthMm} mm (6.1 mm/person Groups A/C/D/E/F; 18.4 mm/person Group B)`, MARGIN, y);
       y += 5;
       doc.text(`Minimum door clear width: 850 mm (NBC 3.3.1.13.(1)(a))`, MARGIN, y);
       y += 10;
