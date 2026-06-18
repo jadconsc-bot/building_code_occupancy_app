@@ -68,7 +68,13 @@ export class FireExitCalculator extends BaseCalculator {
     // Step 3: Calculate exit width required
     const exitWidthPerPerson = this.getExitWidthFactor(occupancyCode);
     const totalExitWidth = this.round(occupantLoad * exitWidthPerPerson, 0);
-    const exitWidthPerExit = this.round(totalExitWidth / exitsRequired, 0);
+    // NBC 3.4.3.2.(7): when 2+ exits required, each exit contributes ≤50% of total required
+    // width. Minimum per exit = totalExitWidth / 2 (not ÷ numExits). When only 1 exit
+    // required (single-exit exception), that exit must carry the full required width.
+    const exitWidthPerExit = this.round(
+      exitsRequired >= 2 ? totalExitWidth / 2 : totalExitWidth,
+      0
+    );
 
     steps.push(
       this.createStep(
@@ -79,7 +85,7 @@ export class FireExitCalculator extends BaseCalculator {
           exitsRequired,
         },
         { totalExitWidth, exitWidthPerExit },
-        `Total width = ${occupantLoad} × ${exitWidthPerPerson} = ${totalExitWidth}mm. Per exit = ${totalExitWidth} ÷ ${exitsRequired} = ${exitWidthPerExit}mm`
+        `Total width = ${occupantLoad} × ${exitWidthPerPerson} mm/person = ${totalExitWidth}mm (NBC 3.4.3.2.(1)). Min per exit = ${totalExitWidth} ÷ 2 = ${exitWidthPerExit}mm (NBC 3.4.3.2.(7) half-width cap)`
       )
     );
 
@@ -167,16 +173,16 @@ export class FireExitCalculator extends BaseCalculator {
 
   /**
    * Get exit width factor based on occupancy
+   * NBC 3.4.3.2.(1): Group B (care/treatment/detention) uses 18.4 mm/person.
+   * All others default to the doorway/corridor rate of 6.1 mm/person.
+   * Stair-specific rates (8 mm standard stairs, 9.2 mm steeper) require exit-facility-type
+   * data not collected here; 6.1 mm/person is the conservative doorway/corridor default.
    */
   private getExitWidthFactor(occupancyCode: string): number {
-    // NBC 3.4.1.5 - Width per person (mm)
-    if (occupancyCode.startsWith('A')) return 7.5; // Assembly
-    if (occupancyCode === 'B') return 5.3; // Institutional
-    if (occupancyCode === 'C') return 5.3; // Residential
-    if (occupancyCode === 'D') return 5.3; // Office
-    if (occupancyCode === 'E') return 5.3; // Educational
-    if (occupancyCode.startsWith('F')) return 5.3; // Factory
-    return 5.3; // Default
+    // NBC 3.4.3.2.(1)(b): any exit serving Group B occupancy — 18.4 mm/person
+    if (occupancyCode === 'B' || occupancyCode.startsWith('B-')) return 18.4;
+    // NBC 3.4.3.2.(1)(a): doorways, corridors, passageways, ramps — 6.1 mm/person (default)
+    return 6.1;
   }
 
   /**

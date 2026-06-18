@@ -183,6 +183,37 @@ describe('FireExitCalculator', () => {
       expect(error).toBeDefined();
     }
   });
+
+  // NBC 3.4.3.2.(1)(b): Group B uses 18.4 mm/person (care/treatment/detention override)
+  it('NBC 3.4.3.2.(1)(b): Group B uses 18.4 mm/person — ~3× larger than 6.1 default', async () => {
+    const [resultB, resultD] = await Promise.all([
+      calculator.execute({ occupantLoad: 100, floorNumber: 1, buildingHeight: 8, occupancyCode: 'B' }, mockRuleset),
+      calculator.execute({ occupantLoad: 100, floorNumber: 1, buildingHeight: 8, occupancyCode: 'D' }, mockRuleset),
+    ]);
+    expect(resultB.results.totalExitWidth).toBe(1840); // 100 × 18.4
+    expect(resultD.results.totalExitWidth).toBe(610);  // 100 × 6.1
+  });
+
+  // NBC 3.4.3.2.(7): when 2+ exits required, each exit ≤50% of total (cap = total / 2)
+  it('NBC 3.4.3.2.(7): half-width cap — 2 exits: each exit = totalWidth / 2, not / 2', async () => {
+    // occupantLoad 200 → exitsRequired 2, totalWidth = 200 × 6.1 = 1220
+    const result = await calculator.execute(
+      { occupantLoad: 200, floorNumber: 1, buildingHeight: 8, occupancyCode: 'D' },
+      mockRuleset
+    );
+    expect(result.results.totalExitWidth).toBe(1220);  // 200 × 6.1
+    expect(result.results.exitWidthPerExit).toBe(610); // 1220 / 2, not 1220 / 2 = 610 ✓
+  });
+
+  it('NBC 3.4.3.2.(7): 1 exit carries full required width (no halving)', async () => {
+    // occupantLoad 30 → exitsRequired 1, totalWidth = 30 × 6.1 = 183
+    const result = await calculator.execute(
+      { occupantLoad: 30, floorNumber: 0, buildingHeight: 5, occupancyCode: 'D' },
+      mockRuleset
+    );
+    expect(result.results.totalExitWidth).toBe(183);  // 30 × 6.1
+    expect(result.results.exitWidthPerExit).toBe(183); // full width, no halving
+  });
 });
 
 describe('PlumbingFixtureUnitsCalculator', () => {
