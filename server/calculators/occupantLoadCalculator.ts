@@ -227,22 +227,18 @@ export class OccupantLoadCalculator extends BaseCalculator {
   }
 
   /**
-   * Calculate exit width required based on occupant load
-   * NBC 3.4.1.5 - 5.3 mm per person minimum
+   * Calculate total exit width required based on occupant load and occupancy.
+   * NBC 3.4.3.2.(1): Group B (care/treatment/detention) — 18.4 mm/person.
+   * All others — 6.1 mm/person (doorway/corridor default).
+   * Stair-specific rates (8 mm standard stairs, 9.2 mm steeper) require
+   * exit-facility-type data not collected here; 6.1 mm is conservative for doorways.
+   * Returns total required width; per-exit sizing depends on NBC 3.4.3.2.(7).
    */
   private calculateExitWidth(occupantLoad: number, occupancyCode: string): number {
-    // Base requirement: 5.3 mm per person
-    let widthPerPerson = 5.3;
-
-    // Adjust based on occupancy type
-    if (occupancyCode.startsWith('A')) {
-      // Assembly occupancies require more exit width
-      widthPerPerson = 7.5;
-    }
-
+    // NBC 3.4.3.2.(1)(b): Group B override — 18.4 mm/person
+    const widthPerPerson = (occupancyCode === 'B' || occupancyCode.startsWith('B-')) ? 18.4 : 6.1;
     const totalWidth = occupantLoad * widthPerPerson;
-
-    // Minimum exit width is 900 mm (3 ft)
+    // NBC 3.4.3.1: minimum exit facility width 900 mm
     return Math.max(900, Math.ceil(totalWidth));
   }
 }
