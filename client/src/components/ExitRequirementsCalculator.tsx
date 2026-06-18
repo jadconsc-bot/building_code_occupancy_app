@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DoorOpen, AlertCircle, Download } from "lucide-react";
 import { exportExitRequirementsToExcel } from "@/lib/excelExport";
-import { 
-  ComplianceBadge, 
-  CodeReference, 
-  ClarificationPanel, 
+import {
+  ComplianceBadge,
+  CodeReference,
+  ClarificationPanel,
   WhyImportant,
   RelatedRequirements,
   DidYouConsider,
@@ -20,6 +20,7 @@ import {
 
 export function ExitRequirementsCalculator() {
   const [occupantLoad, setOccupantLoad] = useState<string>("");
+  const [occupancyGroup, setOccupancyGroup] = useState<string>("D");
   const [buildingHeight, setBuildingHeight] = useState<string>("1-3");
   const [sprinklered, setSprinklered] = useState<string>("no");
 
@@ -29,56 +30,69 @@ export function ExitRequirementsCalculator() {
     totalExitWidth: number;
     widthPerPerson: number;
     reasoning: string;
+    singleExitCaveat: string;
   } => {
     const load = parseInt(occupantLoad) || 0;
-    
+
     if (load === 0) {
-      return { numExits: 0, minWidthPerExit: 0, totalExitWidth: 0, widthPerPerson: 0, reasoning: "" };
+      return { numExits: 0, minWidthPerExit: 0, totalExitWidth: 0, widthPerPerson: 0, reasoning: "", singleExitCaveat: "" };
     }
 
-    // Determine number of exits required (NBC 3.4.2.1)
-    let numExits = 1;
-    if (load > 60) numExits = 2;
-    if (load > 500) numExits = 3;
-    if (load > 1000) numExits = 4;
+    // NBC 3.4.2.1.(1): default is 2 exits for any occupied floor area.
+    // NBC 3.4.2.1.(2): single-exit exception applies only when occupant load ≤ 60 AND
+    // floor area ≤ table limit AND travel distance ≤ table limit AND storeys ≤ 2.
+    // Floor area and travel distance are not collected here — exception cannot be fully
+    // verified. Conservative default of 2 exits applied whenever OL > 60.
+    let numExits = load > 60 ? 2 : 1;
+    let singleExitCaveat = "";
+    if (load <= 60) {
+      singleExitCaveat =
+        "NBC 3.4.2.1.(2): single exit may be permitted for OL ≤ 60, but requires " +
+        "floor area and travel distance within Table 3.4.2.1-A/B limits and building " +
+        "≤ 2 storeys — verify manually before relying on 1 exit.";
+    }
 
-    // Width per person (NBC 3.4.3.2)
-    // Stairs: 6.1mm per person, Doors/Ramps: 4.8mm per person
-    // Using door width as base calculation
-    const widthPerPerson = 0.0048; // meters per person (4.8mm)
-    
-    // Calculate total required exit width
-    const totalExitWidth = load * widthPerPerson;
-    
-    // Minimum width per exit (distribute evenly, but not less than 900mm)
-    let minWidthPerExit = Math.max(0.9, totalExitWidth / numExits);
-    
+    // NBC 3.4.3.2.(1): exit width per person by occupancy.
+    // Group B (care/treatment/detention): 18.4 mm/person.
+    // All others: 6.1 mm/person (doorway/corridor default).
+    // Stair-specific rates (8/9.2 mm) require exit-facility-type input not collected here.
+    const isGroupB = occupancyGroup === "B";
+    const widthPerPersonMm = isGroupB ? 18.4 : 6.1;
+
+    // Calculate total required exit width (in metres for display consistency)
+    const totalExitWidthM = (load * widthPerPersonMm) / 1000;
+
+    // NBC 3.4.3.2.(7): when 2+ exits required, each exit contributes ≤50% of total.
+    // Minimum per exit = totalWidth / 2 (not / numExits). When only 1 exit required,
+    // that exit carries the full required width.
+    let minWidthPerExitM = numExits >= 2 ? totalExitWidthM / 2 : totalExitWidthM;
+
+    // NBC 3.4.3.1: minimum exit facility width 900mm
+    minWidthPerExitM = Math.max(0.9, minWidthPerExitM);
+
     // Round up to nearest 50mm increment for practical door sizes
-    minWidthPerExit = Math.ceil(minWidthPerExit * 20) / 20;
+    minWidthPerExitM = Math.ceil(minWidthPerExitM * 20) / 20;
 
     // Generate reasoning
     let reasoning = "";
     if (load <= 60) {
-      reasoning = "Single exit permitted for occupant load ≤ 60 persons (NBC 3.4.2.1)";
-    } else if (load <= 500) {
-      reasoning = "Two exits required for occupant load > 60 persons (NBC 3.4.2.1)";
-    } else if (load <= 1000) {
-      reasoning = "Three exits required for occupant load > 500 persons (NBC 3.4.2.1)";
+      reasoning = "One exit may be permitted for occupant load ≤ 60 persons (NBC 3.4.2.1.(2) — verify Table conditions manually)";
     } else {
-      reasoning = "Four exits required for occupant load > 1000 persons (NBC 3.4.2.1)";
+      reasoning = "Two exits required for occupant load > 60 persons (NBC 3.4.2.1.(1))";
     }
 
     return {
       numExits,
-      minWidthPerExit,
-      totalExitWidth,
-      widthPerPerson,
-      reasoning
+      minWidthPerExit: minWidthPerExitM,
+      totalExitWidth: totalExitWidthM,
+      widthPerPerson: widthPerPersonMm / 1000, // keep metres for downstream display
+      reasoning,
+      singleExitCaveat,
     };
   };
 
   const result = calculateExitRequirements();
-  const minWidthInches = result.minWidthPerExit * 39.37; // Convert meters to inches
+  const minWidthInches = result.minWidthPerExit * 39.37; // Convert metres to inches
   const totalWidthInches = result.totalExitWidth * 39.37;
 
   return (
@@ -111,6 +125,30 @@ export function ExitRequirementsCalculator() {
               <p className="text-xs text-muted-foreground mt-1.5">
                 Use the Occupant Load Calculator to determine this value
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="occupancyGroup" className="text-xs font-medium">
+                Occupancy Group
+              </Label>
+              <Select value={occupancyGroup} onValueChange={setOccupancyGroup}>
+                <SelectTrigger id="occupancyGroup" className="rounded-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A">Assembly (A)</SelectItem>
+                  <SelectItem value="B">Institutional — Care/Treatment/Detention (B)</SelectItem>
+                  <SelectItem value="C">Residential (C)</SelectItem>
+                  <SelectItem value="D">Business &amp; Personal Services (D)</SelectItem>
+                  <SelectItem value="E">Mercantile (E)</SelectItem>
+                  <SelectItem value="F">Industrial (F)</SelectItem>
+                </SelectContent>
+              </Select>
+              {occupancyGroup === "B" && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  Group B applies 18.4 mm/person (NBC 3.4.3.2.(1)(b)) — significantly larger than other groups.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -185,6 +223,9 @@ export function ExitRequirementsCalculator() {
                       Code Requirement Basis
                     </h4>
                     <p className="text-xs text-muted-foreground">{result.reasoning}</p>
+                    {result.singleExitCaveat && (
+                      <p className="text-xs text-amber-700 mt-2 italic">{result.singleExitCaveat}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -196,16 +237,20 @@ export function ExitRequirementsCalculator() {
                 </h4>
                 <div className="space-y-2 text-xs text-muted-foreground">
                   <p>
-                    <strong>Width per Person:</strong> {(result.widthPerPerson * 1000).toFixed(1)} mm/person (doors and ramps)
+                    <strong>Width per Person:</strong> {(result.widthPerPerson * 1000).toFixed(1)} mm/person (NBC 3.4.3.2.(1) doorway/corridor rate{occupancyGroup === "B" ? " — Group B override" : ""})
                   </p>
                   <p>
                     <strong>Total Width Required:</strong> {occupantLoad} persons × {(result.widthPerPerson * 1000).toFixed(1)} mm = {(result.totalExitWidth * 1000).toFixed(0)} mm
                   </p>
                   <p>
-                    <strong>Width per Exit:</strong> {(result.totalExitWidth * 1000).toFixed(0)} mm ÷ {result.numExits} exits = {(result.minWidthPerExit * 1000).toFixed(0)} mm
+                    <strong>Width per Exit:</strong> {(result.totalExitWidth * 1000).toFixed(0)} mm ÷ 2 = {(result.minWidthPerExit * 1000).toFixed(0)} mm
+                    {result.numExits >= 2 ? " (NBC 3.4.3.2.(7) half-width cap — each exit ≤ 50% of total)" : " (single exit carries full required width)"}
                   </p>
                   <p className="text-xs text-muted-foreground italic mt-2">
-                    * Minimum exit width is 900mm per NBC 3.4.3.1
+                    * Stair-specific rates (8 mm/person standard stairs, 9.2 mm/person steeper) require knowing exit facility type — not collected here. Doorway rate applied as conservative default.
+                  </p>
+                  <p className="text-xs text-muted-foreground italic">
+                    * Minimum exit facility clear width is 900 mm per NBC 3.4.3.1.
                   </p>
                 </div>
               </div>
@@ -224,11 +269,11 @@ export function ExitRequirementsCalculator() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
-                <span>Stairs require 6.1mm per person; doors and ramps require 4.8mm per person</span>
+                <span>NBC 3.4.3.2.(1) rates: 6.1 mm/person for doorways, corridors, ramps ≤1-in-8; 8 mm/person for standard stairs (rise ≤180mm, run ≥280mm); 9.2 mm/person for steeper exits; 18.4 mm/person for any exit serving Group B (care/treatment/detention). This calculator uses the doorway rate by default.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
-                <span>Minimum clear width for exits is 900mm (36 inches)</span>
+                <span>Minimum exit facility clear width is 900 mm per NBC 3.4.3.1</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
@@ -250,7 +295,7 @@ export function ExitRequirementsCalculator() {
             <div className="flex justify-end gap-2">
               <SaveButton
                 calculatorType="exitRequirements"
-                inputs={{ occupantLoad, buildingHeight, sprinklered }}
+                inputs={{ occupantLoad, occupancyGroup, buildingHeight, sprinklered }}
                 results={{ numExits: result.numExits, minWidthPerExit: result.minWidthPerExit, totalExitWidth: result.totalExitWidth, reasoning: result.reasoning }}
               />
               <Button
@@ -274,7 +319,7 @@ export function ExitRequirementsCalculator() {
           )}
 
           {/* 5 C's: COMPLIANCE - Code Reference */}
-          <CodeReference 
+          <CodeReference
             code="NBC 3.4.2, 3.4.3"
             title="Exit Requirements"
             description="Number of exits and width/capacity requirements for means of egress"
