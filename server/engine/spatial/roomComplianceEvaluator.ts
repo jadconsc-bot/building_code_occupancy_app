@@ -80,36 +80,45 @@ export async function evaluateRoomCompliance(
     recommendations: []
   }));
 
-  // 2. Exit count check
+  // 2. Exit count check — room-level heuristic only
+  // NBC 3.4.2.1 governs exit count at the floor-area level, not per individual room.
+  // This function evaluates a single room and cannot reliably determine aggregate
+  // floor area, travel distance, or project-level sprinkler status at the point it
+  // runs: sibling-room aggregation races concurrent room insertion (this function is
+  // called fire-and-forget mid-insertion — see 2026-06-18 recon). The NBC 3.4.2.1.(1)
+  // default of 2 exits is therefore applied without attempting the Sentence (2)
+  // single-exit exception, which requires floor-area-level inputs. The authoritative
+  // floor-area-level exit-count determination is computed by evaluateExitCount in
+  // egress.ts via complianceEngine.ts.
   const exitDoors = room.features.filter(
     f => f.type === 'door' || f.type === 'door_fire_rated' || f.type === 'exit_sign'
   );
   const exitCount = exitDoors.length;
-  const exitsRequired = occupantLoad > 600 ? 3
-    : occupantLoad > 60 ? 2 : 1;
+  const exitsRequired = 2;
   const exitPass = exitCount >= exitsRequired;
 
   traces.push(buildFederalTrace({
-    result: exitPass ? 'pass'
-      : exitCount === 0 ? 'warning'
-      : 'fail',
-    rule: Constraints.egress.exit_count.threshold_low.ref,
+    result: exitPass ? 'pass' : 'warning',
+    rule: 'NBC 3.4.2.1.(1)',
     reasoning: exitPass
-      ? `${exitCount} exit(s) detected meets minimum ${exitsRequired} required`
+      ? `${exitCount} exit-related feature(s) detected in this room — consistent with the NBC 3.4.2.1.(1) default of ≥2 exits per floor area. Note: the single-exit exception (NBC 3.4.2.1.(2)) is not evaluated here; it requires floor-area-level inputs unavailable at per-room granularity.`
       : exitCount === 0
-        ? `No exits detected in drawing — verify exit count manually`
-        : `${exitCount} exit(s) detected, ${exitsRequired} required for ${occupantLoad} occupants`,
+        ? `No exit-related features detected in this room — verify exit count for this floor area manually. NBC 3.4.2.1.(1) requires at least 2 exits per floor area (room-level signal only; floor-area determination requires the Calculations Package).`
+        : `${exitCount} exit-related feature(s) detected in this room; at least 2 per floor area required by NBC 3.4.2.1.(1). Room-level signal only — confirm actual floor-area exit count via the Calculations Package.`,
     evaluatedInputs: {
       actual: exitCount,
       required: exitsRequired,
       unit: 'exits',
       ...computeMargin(exitCount, exitsRequired)
     },
-    severity: exitPass ? 'info' : exitCount === 0 ? 'medium' : 'high',
+    severity: exitPass ? 'info' : 'medium',
     constraintId: 'egress.exit_count',
-    recommendations: exitPass ? [] : [
-      `Add ${exitsRequired - exitCount} exit door(s) to Room: ${room.label}`,
-      'Ensure exits discharge to exterior or exit stairwell'
+    recommendations: exitPass ? [] : exitCount === 0 ? [
+      'No exits detected — manually verify that the floor area containing this room has at least 2 exits per NBC 3.4.2.1.(1)',
+      'Review the Calculations Package for the authoritative floor-area-level exit count determination'
+    ] : [
+      `Only ${exitCount} exit-related feature(s) detected in this room — confirm the floor area has at least 2 exits total per NBC 3.4.2.1.(1)`,
+      'Review the Calculations Package for the authoritative floor-area-level exit count determination'
     ]
   }));
 
