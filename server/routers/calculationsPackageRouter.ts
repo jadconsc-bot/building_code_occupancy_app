@@ -437,7 +437,7 @@ export const calculationsPackageRouter = router({
       y += 5;
       doc.text(`Required width per exit leaf: 6.1 mm/person × ${pkg.totalOccupantLoad ?? 0} = ${exitWidthMm} mm`, MARGIN, y);
       y += 5;
-      doc.text(`Minimum door clear width: 850 mm (NBC 3.4.3.3)`, MARGIN, y);
+      doc.text(`Minimum door clear width: 850 mm (NBC 3.3.1.13.(1)(a))`, MARGIN, y);
       y += 10;
 
       // Section 3 — Travel Distance (NBC 3.4.2.5)

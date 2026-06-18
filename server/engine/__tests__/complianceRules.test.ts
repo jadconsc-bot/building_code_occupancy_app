@@ -4,10 +4,10 @@ import { evaluateOccupantLoad } from '../rules/occupancy';
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from '../rules/fire';
 import { Constraints } from '../constraints';
 
-// ── NBC 3.4.3.4 Exit door width ──────────────────────────────────────────────
-describe('NBC 3.4.3.4 — Exit door minimum clear width 860mm', () => {
-  it('PASS: door width exactly 860mm', () => {
-    const result = evaluateExitWidth({ occupancy_major: 'D', exit_width_mm: 860 });
+// ── NBC 3.3.1.13.(1)(a) Exit door width ─────────────────────────────────────
+describe('NBC 3.3.1.13.(1)(a) — Exit door minimum clear width 850mm', () => {
+  it('PASS: door width exactly 850mm', () => {
+    const result = evaluateExitWidth({ occupancy_major: 'D', exit_width_mm: 850 });
     expect(result.result).toBe('pass');
     expect(result.evaluatedInputs.margin).toBe(0);
   });
@@ -15,7 +15,7 @@ describe('NBC 3.4.3.4 — Exit door minimum clear width 860mm', () => {
   it('PASS: door width 900mm', () => {
     const result = evaluateExitWidth({ occupancy_major: 'D', exit_width_mm: 900 });
     expect(result.result).toBe('pass');
-    expect(result.evaluatedInputs.margin).toBe(40);
+    expect(result.evaluatedInputs.margin).toBe(50);
   });
 
   it('FAIL: door width 800mm', () => {

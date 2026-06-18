@@ -172,7 +172,7 @@ export async function evaluateRoomCompliance(
   }));
 
   // 5. Exit door width check
-  const doorWidthMin = Constraints.egress.exit_width.minimum.value; // 860mm
+  const doorWidthMin = Constraints.egress.exit_width.minimum.value; // 850mm
   const doorWithWidth = exitDoors.find(f => {
     const meta = f.metadata as Record<string, unknown> | undefined;
     return typeof meta?.width === 'number' && (meta.width as number) > 0;

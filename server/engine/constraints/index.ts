@@ -16,8 +16,8 @@ export const Constraints = {
     },
     exit_width: {
       minimum: {
-        value: 860, unit: 'mm',
-        ref: 'NBC 3.4.3.4.(1)',
+        value: 850, unit: 'mm',
+        ref: 'NBC 3.3.1.13.(1)(a)',
         description: 'Minimum clear width of exit door'
       }
     },
