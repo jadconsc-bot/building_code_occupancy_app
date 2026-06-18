@@ -115,15 +115,16 @@ describe('NBC 3.8.3.3 — Accessible units minimum 15%', () => {
 });
 
 // ── Exit count ────────────────────────────────────────────────────────────────
-describe('NBC 3.4.2.2 — Exit count by occupant load', () => {
-  it('PASS: 1 exit sufficient for 50 occupants', () => {
+describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exception', () => {
+  it('PASS: 1 exit — Group D, 50 occupants, no area/travel data (exception may apply; caveats added)', () => {
     const result = evaluateExitCount({ occupancy_major: 'D', exits: 1 }, 50);
     expect(result.result).toBe('pass');
   });
 
-  it('FAIL: 1 exit insufficient for 200 occupants (requires 2)', () => {
+  it('FAIL: 1 exit insufficient for 200 occupants (>60 — exception cannot apply; requires 2)', () => {
     const result = evaluateExitCount({ occupancy_major: 'D', exits: 1 }, 200);
     expect(result.result).toBe('fail');
+    expect(result.evaluatedInputs.required).toBe(2);
   });
 
   it('PASS: 2 exits sufficient for 200 occupants', () => {
@@ -131,9 +132,71 @@ describe('NBC 3.4.2.2 — Exit count by occupant load', () => {
     expect(result.result).toBe('pass');
   });
 
-  it('FAIL: 2 exits insufficient for 800 occupants (requires 3)', () => {
+  // NBC 3.4.2.1 has NO 3-exit tier — >600 persons still requires only 2 exits
+  it('PASS: 2 exits sufficient for 800 occupants (no 3-exit tier in NBC 3.4.2.1)', () => {
     const result = evaluateExitCount({ occupancy_major: 'A', exits: 2 }, 800);
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe(2);
+  });
+
+  // Spec scenario (a): former fake-3-exit trigger, Group C, 825 persons — must require 2, not 3
+  it('PASS: 2 exits for 825 occupants Group C, unsprinklered — no 3-exit tier in NBC', () => {
+    const result = evaluateExitCount({ occupancy_major: 'C', exits: 2, sprinklers: false }, 825);
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe(2);
+  });
+
+  // Spec scenario (b): Group D, OL 40, 150m², 20m travel, unsprinklered — qualifies for 1 exit (Table A: 200m²/25m)
+  it('PASS: 1 exit — Group D, 40 persons, 150m², 20m travel, unsprinklered (Table A allows 200m²/25m)', () => {
+    const result = evaluateExitCount(
+      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, sprinklers: false, exits: 1 },
+      40,
+    );
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe(1);
+  });
+
+  // Spec scenario (c): same but sprinklered — qualifies (Table B: Group D 300m², travel ≤25m)
+  it('PASS: 1 exit — Group D, 40 persons, 150m², 20m travel, sprinklered (Table B allows 300m²)', () => {
+    const result = evaluateExitCount(
+      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, sprinklers: true, exits: 1 },
+      40,
+    );
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe(1);
+  });
+
+  // Spec scenario (d): Group B, OL 50, 80m², unsprinklered — fails area gate (Table A caps Group B at 75m²)
+  it('FAIL: 1 exit — Group B, 50 persons, 80m², unsprinklered — exceeds Table A 75m² limit', () => {
+    const result = evaluateExitCount(
+      { occupancy_major: 'B', area_m2: 80, travel_distance_m: 8, sprinklers: false, exits: 1 },
+      50,
+    );
     expect(result.result).toBe('fail');
+    expect(result.evaluatedInputs.required).toBe(2);
+  });
+
+  // Spec scenario (e): >600 persons — former fake-3-exit tier, now correctly 2
+  it('PASS: 2 exits for 650 occupants — former fake-3-exit tier now correctly requires 2', () => {
+    const result = evaluateExitCount({ occupancy_major: 'D', exits: 2 }, 650);
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe(2);
+  });
+
+  // Sentence (4): >2 storeys blocks the single-exit exception
+  it('FAIL: 1 exit — Group D, 40 persons, all conditions met but 3 storeys blocks single-exit exception', () => {
+    const result = evaluateExitCount(
+      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, sprinklers: false, storeys: 3, exits: 1 },
+      40,
+    );
+    expect(result.result).toBe('fail');
+    expect(result.evaluatedInputs.required).toBe(2);
+  });
+
+  // Citation must now reference NBC 3.4.2.1, not the old wrong clause
+  it('rule citation is NBC 3.4.2.1.(1)', () => {
+    const result = evaluateExitCount({ occupancy_major: 'D', exits: 2 }, 100);
+    expect(result.rule).toBe('NBC 3.4.2.1.(1)');
   });
 });
 
