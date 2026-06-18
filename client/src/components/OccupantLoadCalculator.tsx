@@ -203,7 +203,7 @@ export function OccupantLoadCalculator() {
               )}
               <div className="flex items-center gap-2 text-sm">
                 <Info className="w-4 h-4 text-accent" />
-                <span>Required exit width: {Math.ceil(result.occupantLoad * 6.1)} mm minimum</span>
+                <span>Required exit width: {Math.ceil(result.occupantLoad * (category === "Institutional" ? 18.4 : 6.1))} mm minimum ({category === "Institutional" ? "18.4" : "6.1"} mm/person × {result.occupantLoad} persons, NBC 3.4.3.2.(1))</span>
               </div>
             </div>
           </CalculatorSection>
