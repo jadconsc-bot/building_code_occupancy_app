@@ -4457,27 +4457,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
   };
 
-  // Handle mouse wheel for zoom (centered on cursor)
-  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+  // Stable native wheel handler. All state is read through refs so the function never
+  // closes over stale values and can be memoised with empty deps. Attached to the
+  // container element via containerCallbackRef below — never via React onWheel.
+  const handleNativeWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-
-    // Calculate zoom factor
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5); // Limit between 10% and 500%
-
-    // Calculate new pan to keep mouse position fixed
-    const scale = newZoom / zoom;
-    const newPanX = mouseX - (mouseX - pan.x) * scale;
-    const newPanY = mouseY - (mouseY - pan.y) * scale;
-
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const currentZoom = zoomRef.current;
+    const currentPan  = panRef.current;
+    const newZoom = Math.max(0.1, Math.min(20, currentZoom * delta));
+    const zoomRatio = newZoom / currentZoom;
+    setPan({
+      x: mouseX - zoomRatio * (mouseX - currentPan.x),
+      y: mouseY - zoomRatio * (mouseY - currentPan.y),
+    });
     setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Touch event handlers for mobile support
   const getTouchPoint = (e: React.TouchEvent<HTMLCanvasElement>): { clientX: number; clientY: number } => {
@@ -5209,37 +5210,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     requestAnimationFrame(() => { isScrollSyncingRef.current = false; });
   }, [pan, showScrollbars]);
 
-  // Native wheel listener with { passive: false } so e.preventDefault() is honoured.
-  // React 17+ attaches synthetic onWheel as passive, silently ignoring preventDefault.
-  // Attached to the container (not just the canvas) so wheel events landing on the
-  // spacer div (present when zoom > 1.05, extends beyond the canvas) are also captured
-  // and don't fall through to the page's default scroll/zoom.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // Use canvas rect for coordinate math — canvas is sticky 0,0 inside the container
-      // so origins match, but referencing the canvas explicitly is clearer.
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const currentZoom = zoomRef.current;
-      const currentPan  = panRef.current;
-      const newZoom = Math.max(0.1, Math.min(20, currentZoom * delta));
-      const zoomRatio = newZoom / currentZoom;
-      setPan({
-        x: mouseX - zoomRatio * (mouseX - currentPan.x),
-        y: mouseY - zoomRatio * (mouseY - currentPan.y),
-      });
-      setZoom(newZoom);
-    };
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [disclaimerAcknowledged]);
+  // Ref callback for the canvas container. Attaches the native wheel listener with
+  // { passive: false } so e.preventDefault() is honoured — Chrome 73+ silently ignores
+  // preventDefault() on React synthetic onWheel events (registered passive by default).
+  // A ref callback fires on every DOM mount/unmount, unlike useEffect + dep array which
+  // misses re-attachment when the element remounts without its deps changing.
+  const containerCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    if (containerRef.current) {
+      containerRef.current.removeEventListener('wheel', handleNativeWheel);
+    }
+    containerRef.current = el;
+    if (el) {
+      el.addEventListener('wheel', handleNativeWheel, { passive: false });
+    }
+  }, [handleNativeWheel]); // handleNativeWheel is stable (empty deps), so this is also stable
 
   // PD2.0 §6.3 — Disclaimer gate: must be acknowledged before any analysis
   if (!disclaimerAcknowledged) {
@@ -6881,7 +6865,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 {/* Canvas column — user-resizable */}
                 <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
-                    ref={containerRef}
+                    ref={containerCallbackRef}
                     className={`w-full border border-border rounded-t-lg bg-gray-100 dark:bg-gray-900 relative [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground ${showScrollbars ? 'overflow-auto' : 'overflow-hidden'}`}
                     style={{ height: canvasHeight, scrollbarWidth: showScrollbars ? 'thin' : 'none', scrollbarColor: 'var(--border) transparent' } as React.CSSProperties}
                     onMouseEnter={() => setShowScrollbars(true)}
