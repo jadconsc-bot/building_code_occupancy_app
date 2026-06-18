@@ -4457,27 +4457,40 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     };
   };
 
-  // Stable native wheel handler. All state is read through refs so the function never
-  // closes over stale values and can be memoised with empty deps. Attached to the
-  // container element via containerCallbackRef below — never via React onWheel.
+  // Stable native wheel handler. Attached to containerRef via containerCallbackRef.
+  // preventDefault + stopPropagation are unconditional — the browser page must never
+  // scroll regardless of modifier key.
+  //
+  // Ctrl + wheel  → zoom, cursor-anchored (reads zoom/pan via refs to avoid stale closure)
+  // Shift + wheel → pan horizontally (deltaY used — most mice only produce deltaY)
+  // plain wheel   → pan vertically   (natural scroll: down = image moves up)
   const handleNativeWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const currentZoom = zoomRef.current;
-    const currentPan  = panRef.current;
-    const newZoom = Math.max(0.1, Math.min(20, currentZoom * delta));
-    const zoomRatio = newZoom / currentZoom;
-    setPan({
-      x: mouseX - zoomRatio * (mouseX - currentPan.x),
-      y: mouseY - zoomRatio * (mouseY - currentPan.y),
-    });
-    setZoom(newZoom);
+    if (e.ctrlKey) {
+      // ZOOM — keep cursor position fixed in canvas space
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const currentZoom = zoomRef.current;
+      const currentPan  = panRef.current;
+      const newZoom = Math.max(0.1, Math.min(20, currentZoom * delta));
+      const zoomRatio = newZoom / currentZoom;
+      setPan({
+        x: mouseX - zoomRatio * (mouseX - currentPan.x),
+        y: mouseY - zoomRatio * (mouseY - currentPan.y),
+      });
+      setZoom(newZoom);
+    } else if (e.shiftKey) {
+      // PAN HORIZONTAL — Shift+scroll convention (deltaY → horizontal movement)
+      setPan(prev => ({ x: prev.x - e.deltaY, y: prev.y }));
+    } else {
+      // PAN VERTICAL (default) — scrolling down reveals content below
+      setPan(prev => ({ x: prev.x, y: prev.y - e.deltaY }));
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Touch event handlers for mobile support
@@ -6866,11 +6879,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                 <div className="flex flex-col flex-1 min-w-0 relative">
                   <div
                     ref={containerCallbackRef}
-                    className={`w-full border border-border rounded-t-lg bg-gray-100 dark:bg-gray-900 relative [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground ${showScrollbars ? 'overflow-auto' : 'overflow-hidden'}`}
-                    style={{ height: canvasHeight, scrollbarWidth: showScrollbars ? 'thin' : 'none', scrollbarColor: 'var(--border) transparent' } as React.CSSProperties}
-                    onMouseEnter={() => setShowScrollbars(true)}
-                    onMouseLeave={() => setShowScrollbars(false)}
-                    onScroll={handleContainerScroll}
+                    className="w-full border border-border rounded-t-lg bg-gray-100 dark:bg-gray-900 relative overflow-hidden"
+                    style={{ height: canvasHeight } as React.CSSProperties}
                   >
                     {analysisProgress.stage !== 'idle' && (
                       <div className="absolute top-0 left-0 right-0 z-20 h-1 bg-gray-200">
