@@ -398,7 +398,7 @@ export const permitPackageRouter = router({
         ["Building Area — NBC 3.2.2.2",            resultLabel(compliance.areaResult)],
         ["Building Storeys — NBC 3.2.2.2",         resultLabel(compliance.storeysResult)],
         ["Occupant Load — NBC 4.1.5.3",            calcPkg ? "CALCULATED" : "—"],
-        ["Exit Width — NBC 3.3.1.9",               calcPkg ? `${Number(calcPkg.exitWidthRequiredMm ?? 0)} mm required` : "—"],
+        ["Exit Width — NBC 3.4.3.2",               calcPkg ? `${Number(calcPkg.exitWidthRequiredMm ?? 0)} mm required` : "—"],
         ["Travel Distance — NBC 3.4.2.5",
           calcSummary.travelDistanceFail !== undefined
             ? `${calcSummary.travelDistanceFail === 0 ? "PASS" : "FAIL"} (${calcSummary.travelDistanceFail ?? 0} fail)`
@@ -538,7 +538,7 @@ export const permitPackageRouter = router({
         doc.setDrawColor(147, 197, 253);
         doc.rect(M, y, W - 2 * M, 20, "FD");
         doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-        doc.text("Exit Width — NBC 3.3.1.9", M + 5, y + 7);
+        doc.text("Exit Width — NBC 3.4.3.2", M + 5, y + 7);
         doc.setFont("helvetica", "normal"); doc.setFontSize(9);
         doc.text(
           `${calcPkg.totalOccupantLoad ?? 0} persons × 6.1 mm/person = ${Number(calcPkg.exitWidthRequiredMm ?? 0)} mm required`,
@@ -621,7 +621,7 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0); y += 8;
       }
 
-      y = addSectionHeader(doc, "Exit Requirements — NBC 3.3.1.9", y, W, M);
+      y = addSectionHeader(doc, "Exit Requirements — NBC 3.4.3.2", y, W, M);
       if (calcExitReqs) {
         autoTable(doc, {
           startY: y,

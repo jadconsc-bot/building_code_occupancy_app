@@ -555,11 +555,11 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
 
           {/* Exit Width */}
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-            <h4 className="text-sm font-semibold text-blue-800 mb-1">Exit Width — NBC 3.3.1.9</h4>
+            <h4 className="text-sm font-semibold text-blue-800 mb-1">Exit Width — NBC 3.4.3.2</h4>
             <p className="text-sm text-blue-700">
               {pkg.totalOccupantLoad ?? 0} persons × 6.1 mm/person = <strong>{Number(pkg.exitWidthRequiredMm ?? 0)} mm</strong> required exit width
             </p>
-            <p className="text-xs text-blue-500 mt-1">Minimum door clear width: 850 mm (NBC 3.3.1.9(3))</p>
+            <p className="text-xs text-blue-500 mt-1">Minimum door clear width: 850 mm (NBC 3.4.3.3)</p>
           </div>
 
           {/* Travel Distance */}

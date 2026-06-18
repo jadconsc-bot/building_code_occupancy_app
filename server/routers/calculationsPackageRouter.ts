@@ -87,7 +87,7 @@ function buildSummary(
     codeStrategyStatus,
     nbcReferences: [
       "NBC 4.1.5.3 — Occupant Load",
-      "NBC 3.3.1.9 — Exit Width",
+      "NBC 3.4.3.2 — Exit Width",
       "NBC 3.4.2.5 — Travel Distance",
     ],
   };
@@ -425,10 +425,10 @@ export const calculationsPackageRouter = router({
 
       y = (doc as any).lastAutoTable.finalY + 10;
 
-      // Section 2 — Exit Width (NBC 3.3.1.9)
+      // Section 2 — Exit Width (NBC 3.4.3.2)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text("2. Required Exit Width — NBC 3.3.1.9", MARGIN, y);
+      doc.text("2. Required Exit Width — NBC 3.4.3.2", MARGIN, y);
       y += 6;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -437,7 +437,7 @@ export const calculationsPackageRouter = router({
       y += 5;
       doc.text(`Required width per exit leaf: 6.1 mm/person × ${pkg.totalOccupantLoad ?? 0} = ${exitWidthMm} mm`, MARGIN, y);
       y += 5;
-      doc.text(`Minimum door clear width: 850 mm (NBC 3.3.1.9(3))`, MARGIN, y);
+      doc.text(`Minimum door clear width: 850 mm (NBC 3.4.3.3)`, MARGIN, y);
       y += 10;
 
       // Section 3 — Travel Distance (NBC 3.4.2.5)
