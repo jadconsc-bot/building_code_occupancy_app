@@ -12,7 +12,7 @@ import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db';
-import { detectedRooms, detectedFeatures, drawingPages } from '../../../drizzle/schema';
+import { detectedRooms, detectedFeatures, drawingPages, roboflowUnmatchedDetections } from '../../../drizzle/schema';
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
@@ -574,6 +574,9 @@ async function saveRoomsToDb(
     console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId}`);
   }
 
+  // Track which Roboflow polygons are claimed by a Claude room (for post-loop unmatched insert).
+  const matchedRfPolygons = new Set<typeof rfPolygons[number]>();
+
   for (const room of rooms) {
     // Path C: skip AI room if a confirmed correction exists for this label
     if (confirmedLabels.has(room.label?.toLowerCase().trim() ?? '')) {
@@ -620,6 +623,7 @@ async function saveRoomsToDb(
         .sort((a, b) => b.iou - a.iou)[0];
 
       if (bestMatch) {
+        matchedRfPolygons.add(bestMatch.p);
         // Save Roboflow polygon directly — skip flood fill for this room
         const db2 = await getDb();
         if (db2) {
@@ -628,6 +632,8 @@ async function saveRoomsToDb(
               polygonJson: JSON.stringify(bestMatch.p.vertices),
               polygonSource: 'roboflow_segmentation',
               polygonExtractedAt: new Date(),
+              roboflowIou: bestMatch.iou.toFixed(4),
+              roboflowMatched: 1,
             })
             .where(eq(detectedRooms.id, capturedRoomId));
         }
@@ -670,6 +676,8 @@ async function saveRoomsToDb(
               polygonToBboxRatio: result.polygonToBboxRatio.toFixed(3),
               polygonLeakSuspected: result.leakSuspected ? 1 : 0,
               ...(result.areaSqm !== null ? { areaSqm: result.areaSqm.toFixed(2) } : {}),
+              // Roboflow was available but found no match for this room
+              ...(rfPolygons.length > 0 ? { roboflowMatched: 0 } : {}),
             })
             .where(eq(detectedRooms.id, capturedRoomId));
 
@@ -693,6 +701,25 @@ async function saveRoomsToDb(
           ? JSON.stringify({ count: feature.count, ...feature.metadata })
           : null,
       });
+    }
+  }
+
+  // Post-loop: persist Roboflow polygons that no Claude room claimed (missed rooms).
+  if (rfPolygons.length > 0) {
+    const unmatchedRf = rfPolygons.filter(p => p.class === 'room' && !matchedRfPolygons.has(p));
+    if (unmatchedRf.length > 0) {
+      const db2 = await getDb();
+      if (db2) {
+        await db2.insert(roboflowUnmatchedDetections).values(
+          unmatchedRf.map(p => ({
+            pageId,
+            roboflowBboxJson: JSON.stringify(p.bbox),
+            roboflowVerticesJson: JSON.stringify(p.vertices),
+            roboflowConfidence: p.confidence.toFixed(3),
+          }))
+        );
+        console.log(`[Roboflow] ${unmatchedRf.length} unmatched polygon(s) persisted for page ${pageId}`);
+      }
     }
   }
 }

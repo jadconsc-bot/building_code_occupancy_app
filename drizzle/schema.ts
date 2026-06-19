@@ -1334,11 +1334,27 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   doorBarriersJson: json("doorBarriersJson"),            // Array<{x1,y1,x2,y2}>
   detectionMethod: mysqlEnum("detectionMethod", ["flood_fill", "dda_ray_cast", "manual", "fallback_bbox"]).default("flood_fill").notNull(),
 
+  // Sprint 1 — Roboflow accuracy tracking
+  roboflowIou: decimal("roboflowIou", { precision: 5, scale: 4 }),      // IoU vs best-matching Roboflow bbox (NULL if RF unavailable)
+  roboflowMatched: tinyint("roboflowMatched"),                           // 1=matched, 0=no match, NULL=RF unavailable
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type DetectedRoom = typeof detectedRooms.$inferSelect;
 export type InsertDetectedRoom = typeof detectedRooms.$inferInsert;
+
+export const roboflowUnmatchedDetections = mysqlTable("roboflowUnmatchedDetections", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull(),
+  roboflowBboxJson: text("roboflowBboxJson").notNull(),       // JSON {x,y,width,height} in full-image px
+  roboflowVerticesJson: text("roboflowVerticesJson").notNull(), // JSON [{x,y},...] polygon vertices
+  roboflowConfidence: decimal("roboflowConfidence", { precision: 4, scale: 3 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RoboflowUnmatchedDetection = typeof roboflowUnmatchedDetections.$inferSelect;
+export type InsertRoboflowUnmatchedDetection = typeof roboflowUnmatchedDetections.$inferInsert;
 
 /**
  * Detected Features — architectural features within detected rooms
