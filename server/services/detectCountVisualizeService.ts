@@ -193,3 +193,103 @@ export async function runDetectCountVisualizeFromBuffer(
     value: jpegBuffer.toString('base64'),
   });
 }
+
+// ── Room polygon adapter (for roomDetectionService matching pipeline) ─────────
+
+interface Point { x: number; y: number; }
+
+/** RoboflowRoomPolygon shape expected by roomDetectionService IoU matching. */
+export interface DcvRoomPolygon {
+  bbox: { x: number; y: number; width: number; height: number }; // top-left origin
+  vertices: Point[];
+  confidence: number;
+  class: string;
+}
+
+/**
+ * Call detect-count-and-visualize and return results in the same
+ * RoboflowRoomPolygon shape that roomDetectionService uses for IoU matching.
+ * Points are kept here (not stripped) so polygonJson can be persisted.
+ * Returns [] on any failure (INV-1 variant).
+ */
+export async function getDcvRoomPolygons(
+  jpegBuffer: Buffer,
+): Promise<DcvRoomPolygon[]> {
+  try {
+    const b64 = jpegBuffer.toString('base64');
+    const body = JSON.stringify({
+      api_key: ENV.roboflowApiKey,
+      inputs: { image: { type: 'base64', value: b64 } },
+    });
+
+    const resp = await fetchWithTimeout(
+      WORKFLOW_URL,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      TIMEOUT_MS,
+    );
+    if (!resp.ok) throw new Error(`Roboflow HTTP ${resp.status}`);
+
+    const data = (await resp.json()) as {
+      outputs: Array<{
+        predictions?: {
+          image?: { width: number; height: number };
+          predictions?: Array<Record<string, unknown>>;
+        };
+      }>;
+    };
+
+    const rawPreds: Array<Record<string, unknown>> =
+      data?.outputs?.[0]?.predictions?.predictions ?? [];
+
+    return rawPreds
+      .filter(p => (p.confidence as number ?? 0) >= 0.35)
+      .map(p => {
+        // API returns center-format bbox; convert to top-left origin
+        const cx = Number(p.x ?? 0);
+        const cy = Number(p.y ?? 0);
+        const w  = Number(p.width ?? 0);
+        const h  = Number(p.height ?? 0);
+        const rawPoints = Array.isArray(p.points) ? p.points as Array<{x:number;y:number}> : [];
+        return {
+          bbox: { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), width: Math.round(w), height: Math.round(h) },
+          vertices: rawPoints.map(pt => ({ x: Math.round(pt.x), y: Math.round(pt.y) })),
+          confidence: Number(p.confidence ?? 0),
+          class: String(p.class ?? 'room'),
+        };
+      });
+  } catch (firstErr) {
+    console.warn('[DCV] First attempt failed, retrying in 2s:', (firstErr as Error).message);
+    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    try {
+      // Retry via public function (points stripped is fine if retry also fails)
+      const b64 = jpegBuffer.toString('base64');
+      const body = JSON.stringify({
+        api_key: ENV.roboflowApiKey,
+        inputs: { image: { type: 'base64', value: b64 } },
+      });
+      const resp = await fetchWithTimeout(
+        WORKFLOW_URL,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+        TIMEOUT_MS,
+      );
+      if (!resp.ok) throw new Error(`Roboflow HTTP ${resp.status}`);
+      const data = (await resp.json()) as { outputs: Array<{ predictions?: { predictions?: Array<Record<string,unknown>> } }> };
+      const rawPreds = data?.outputs?.[0]?.predictions?.predictions ?? [];
+      return (rawPreds as Array<Record<string,unknown>>)
+        .filter(p => (p.confidence as number ?? 0) >= 0.35)
+        .map(p => {
+          const cx = Number(p.x ?? 0), cy = Number(p.y ?? 0), w = Number(p.width ?? 0), h = Number(p.height ?? 0);
+          const rawPoints = Array.isArray(p.points) ? p.points as Array<{x:number;y:number}> : [];
+          return {
+            bbox: { x: Math.round(cx - w/2), y: Math.round(cy - h/2), width: Math.round(w), height: Math.round(h) },
+            vertices: rawPoints.map(pt => ({ x: Math.round(pt.x), y: Math.round(pt.y) })),
+            confidence: Number(p.confidence ?? 0),
+            class: String(p.class ?? 'room'),
+          };
+        });
+    } catch (finalErr) {
+      console.warn('[DCV] Both attempts failed — returning []:', (finalErr as Error).message);
+      return [];
+    }
+  }
+}

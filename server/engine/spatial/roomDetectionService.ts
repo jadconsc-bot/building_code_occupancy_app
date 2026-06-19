@@ -16,7 +16,8 @@ import { detectedRooms, detectedFeatures, drawingPages, roboflowUnmatchedDetecti
 import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
-import { getRoboflowPolygons, bboxIou } from '../../services/roboflowSegmentationService';
+import { bboxIou } from '../../services/roboflowSegmentationService';
+import { getDcvRoomPolygons } from '../../services/detectCountVisualizeService';
 import { getTrainingExamples } from '../../services/correctionService';
 import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
 
@@ -568,10 +569,10 @@ async function saveRoomsToDb(
   // POLYGON-D-001: attempt Roboflow segmentation for all rooms in batch.
   // Single call per page (not per room). Falls through to flood fill for any unmatched room (INV-1).
   const rfPolygons = jpegBuffer.length > 0
-    ? await getRoboflowPolygons(jpegBuffer, imgW, imgH)
+    ? await getDcvRoomPolygons(jpegBuffer)
     : [];
   if (rfPolygons.length > 0) {
-    console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId}`);
+    console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId} (detect-count-and-visualize / codecomply/7)`);
   }
 
   // Track which Roboflow polygons are claimed by a Claude room (for post-loop unmatched insert).
