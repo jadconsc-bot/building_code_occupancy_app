@@ -81,8 +81,34 @@ OWNER_NAME=Owner Name
 BUILT_IN_FORGE_API_URL=https://api.manus.im
 BUILT_IN_FORGE_API_KEY=your_api_key
 
+# Roboflow — floor plan room segmentation
+# Get private API key from app.roboflow.com/settings/api
+# Workspace: jose-acevedo  Model: codecomply/7
+# Workflow:  detect-count-and-visualize (instance segmentation + count + annotated image)
+ROBOFLOW_API_KEY=your_roboflow_private_api_key
+
 # Environment
 NODE_ENV=production
+```
+
+#### Roboflow integration notes
+
+The `ROBOFLOW_API_KEY` is required. The integration calls two workflows:
+
+| Workflow | Purpose | Service file |
+|---|---|---|
+| `floorplan-segmentation-1781153513487` | Legacy polygon extraction (Sprint 0) | `server/services/roboflowSegmentationService.ts` |
+| `detect-count-and-visualize` | Room detection + count + annotated image | `server/services/detectCountVisualizeService.ts` |
+
+Smoke test (requires `ROBOFLOW_API_KEY` in env):
+```bash
+DOTENV_CONFIG_PATH=.env.local npx tsx server/scripts/smokeDetectCountVisualize.ts --save
+# Writes annotated PNG to /tmp/dcv_annotated.jpg
+```
+
+Accuracy baseline (after analyses have run):
+```bash
+DOTENV_CONFIG_PATH=.env.local npx tsx server/scripts/accuracyReport.ts
 ```
 
 ### 3. Database Setup
