@@ -79,7 +79,6 @@ async function attemptCall(jpegBuffer: Buffer, imgW: number, imgH: number): Prom
   const polygons: RoboflowRoomPolygon[] = [];
 
   for (const pred of predList) {
-    if (pred.class !== 'room') continue;
     if ((pred.confidence ?? 0) < CONFIDENCE_MIN) continue;
 
     const rle = pred.rle_mask;

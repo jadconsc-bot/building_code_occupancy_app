@@ -614,7 +614,6 @@ async function saveRoomsToDb(
       // Try to match this room to a Roboflow polygon by bbox IoU
       const rfBbox = { x: capturedBbox.x, y: capturedBbox.y, w: capturedBbox.width, h: capturedBbox.height };
       const bestMatch = rfPolygons
-        .filter(p => p.class === 'room')
         .map(p => ({
           p,
           iou: bboxIou(rfBbox, { x: p.bbox.x, y: p.bbox.y, w: p.bbox.width, h: p.bbox.height }),
@@ -706,7 +705,7 @@ async function saveRoomsToDb(
 
   // Post-loop: persist Roboflow polygons that no Claude room claimed (missed rooms).
   if (rfPolygons.length > 0) {
-    const unmatchedRf = rfPolygons.filter(p => p.class === 'room' && !matchedRfPolygons.has(p));
+    const unmatchedRf = rfPolygons.filter(p => !matchedRfPolygons.has(p));
     if (unmatchedRf.length > 0) {
       const db2 = await getDb();
       if (db2) {
