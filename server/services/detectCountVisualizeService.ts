@@ -1,8 +1,8 @@
 /**
  * Roboflow "Detect, Count, and Visualize" workflow client.
  *
- * Workflow: jose-acevedo/detect-count-and-visualize
- * Model:    codecomply/7  (instance segmentation, class "room")
+ * Workflow: jose-acevedo/detect-count-and-visualize-2
+ * Model:    codecomply/8  (instance segmentation, single class "room", mAP 74.94%)
  *
  * Outputs (grounded from live API call):
  *   count_objects   — integer count of detected rooms
@@ -48,7 +48,7 @@ export interface DetectCountVisualizeResult {
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const WORKFLOW_URL =
-  'https://serverless.roboflow.com/jose-acevedo/workflows/detect-count-and-visualize';
+  'https://serverless.roboflow.com/jose-acevedo/workflows/detect-count-and-visualize-2';
 const TIMEOUT_MS = 30_000;
 const RETRY_DELAY_MS = 2_000;
 
@@ -207,7 +207,7 @@ export interface DcvRoomPolygon {
 }
 
 /**
- * Call detect-count-and-visualize and return results in the same
+ * Call detect-count-and-visualize-2 (codecomply/8) and return results in the same
  * RoboflowRoomPolygon shape that roomDetectionService uses for IoU matching.
  * Points are kept here (not stripped) so polygonJson can be persisted.
  * Returns [] on any failure (INV-1 variant).

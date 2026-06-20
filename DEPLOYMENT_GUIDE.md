@@ -83,8 +83,8 @@ BUILT_IN_FORGE_API_KEY=your_api_key
 
 # Roboflow — floor plan room segmentation
 # Get private API key from app.roboflow.com/settings/api
-# Workspace: jose-acevedo  Model: codecomply/7
-# Workflow:  detect-count-and-visualize (instance segmentation + count + annotated image)
+# Workspace: jose-acevedo  Model: codecomply/8
+# Workflow:  detect-count-and-visualize-2 (instance segmentation + count + annotated image)
 ROBOFLOW_API_KEY=your_roboflow_private_api_key
 
 # Environment
@@ -97,8 +97,8 @@ The `ROBOFLOW_API_KEY` is required. The integration calls two workflows:
 
 | Workflow | Purpose | Service file |
 |---|---|---|
-| `floorplan-segmentation-1781153513487` | Legacy polygon extraction (Sprint 0) | `server/services/roboflowSegmentationService.ts` |
-| `detect-count-and-visualize` | Room detection + count + annotated image | `server/services/detectCountVisualizeService.ts` |
+| `floorplan-segmentation-1781153513487` | Legacy polygon extraction (Sprint 0, retired) | `server/services/roboflowSegmentationService.ts` |
+| `detect-count-and-visualize-2` | Room detection + count + annotated image — **active** (codecomply/8, single class "room", mAP 74.94%) | `server/services/detectCountVisualizeService.ts` |
 
 Smoke test (requires `ROBOFLOW_API_KEY` in env):
 ```bash
