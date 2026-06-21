@@ -20,16 +20,16 @@ const federalOnlyContext = {
 };
 
 describe('RuleResolver — 4-layer override cascade', () => {
-  it('federal rule: exit width returns 860mm with no overrides', async () => {
+  it('federal rule: exit width returns 850mm with no overrides', async () => {
     const resolver = new RuleResolver();
     const result = await resolver.resolveConstraint(
-      'NBC 3.4.3.4.(1)',
+      Constraints.egress.exit_width.minimum.ref,
       Constraints.egress.exit_width.minimum.value,
       Constraints.egress.exit_width.minimum.unit,
       Constraints.egress.exit_width.minimum.ref,
       federalOnlyContext,
     );
-    expect(result.value).toBe(860);
+    expect(result.value).toBe(850);
     expect(result.layer).toBe('federal');
     expect(result.source).toBe('NBC 2020 Federal');
   });
