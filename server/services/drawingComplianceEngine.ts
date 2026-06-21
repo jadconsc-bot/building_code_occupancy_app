@@ -52,11 +52,11 @@ export interface ComplianceEngineOutput {
 // NBC Rule Definitions (deterministic thresholds)
 // ============================================================================
 
-/** NBC 3.4.3.4 — Exit door minimum width 860mm */
+/** NBC 3.3.1.13.(1)(a) — Exit door minimum clear width 850mm */
 const RULE_EXIT_WIDTH: RuleEvaluation = {
-  ruleId: "NBC-3.4.3.4",
-  clause: "3.4.3.4",
-  description: "Exit door minimum clear width 860mm",
+  ruleId: "NBC-3.3.1.13",
+  clause: "3.3.1.13.(1)(a)",
+  description: "Exit door minimum clear width 850mm",
   category: "fire-safety",
   result: "UNABLE_TO_EVALUATE",
   details: "",
@@ -74,10 +74,10 @@ const RULE_CORRIDOR_WIDTH: RuleEvaluation = {
   severity: "critical",
 };
 
-/** NBC 3.1.3.4 — Fire separation ratings */
+/** NBC 3.1.3.1 / Table 3.1.3.1 — Fire separation ratings */
 const RULE_FIRE_SEPARATION: RuleEvaluation = {
-  ruleId: "NBC-3.1.3.4",
-  clause: "3.1.3.4",
+  ruleId: "NBC-3.1.3.1",
+  clause: "3.1.3.1",
   description: "Fire separation construction and rating",
   category: "fire-safety",
   result: "UNABLE_TO_EVALUATE",
@@ -142,26 +142,26 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
     ];
   }
 
-  // NBC 3.4.3.4 — Exit door minimum 860mm clear width
+  // NBC 3.3.1.13.(1)(a) — Exit door minimum 850mm clear width
   if (fire.exitWidths.length === 0) {
     results.push({ ...RULE_EXIT_WIDTH, result: "UNABLE_TO_EVALUATE", details: "No exit widths identified in drawing." });
   } else {
     const nonCompliant = fire.exitWidths.filter((e: any) => {
       const mm = parseDimensionToMm(e.width);
-      return mm !== null && mm < 860;
+      return mm !== null && mm < 850;
     });
     if (nonCompliant.length > 0) {
       results.push({
         ...RULE_EXIT_WIDTH,
         result: "FAIL",
-        details: `Exit(s) appear narrower than minimum 860mm clear width: ${nonCompliant.map((e: any) => `${e.location} (${e.width})`).join(", ")}.`,
+        details: `Exit(s) appear narrower than minimum 850mm clear width: ${nonCompliant.map((e: any) => `${e.location} (${e.width})`).join(", ")}.`,
       });
     } else {
       const unverifiable = fire.exitWidths.filter((e: any) => parseDimensionToMm(e.width) === null);
       results.push({
         ...RULE_EXIT_WIDTH,
         result: unverifiable.length > 0 ? "CONDITIONAL" : "PASS",
-        details: `${fire.exitWidths.length} exit(s) identified. ${unverifiable.length > 0 ? "Some widths could not be parsed — professional verification required." : "All parsed widths meet 860mm minimum."}`,
+        details: `${fire.exitWidths.length} exit(s) identified. ${unverifiable.length > 0 ? "Some widths could not be parsed — professional verification required." : "All parsed widths meet 850mm minimum."}`,
       });
     }
   }
@@ -189,7 +189,7 @@ function evaluateFireSafetyRules(extraction: DrawingExtractionResult): RuleEvalu
     }
   }
 
-  // NBC 3.1.3.4 — Fire separations
+  // NBC 3.1.3.1 / Table 3.1.3.1 — Fire separations
   if (fire.fireSeparations.length === 0) {
     results.push({ ...RULE_FIRE_SEPARATION, result: "UNABLE_TO_EVALUATE", details: "No fire separations identified in drawing." });
   } else {

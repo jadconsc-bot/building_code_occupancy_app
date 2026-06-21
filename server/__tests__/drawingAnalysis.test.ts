@@ -6,7 +6,7 @@
  * 2. Compliance Engine Determinism — same input always produces same output
  * 3. Compliance Engine Rule Coverage — all NBC rules are evaluated
  * 4. UNABLE_TO_EVALUATE handling — engine handles missing data gracefully
- * 5. Exit door width rule — NBC 3.4.3.4 FAIL/PASS
+ * 5. Exit door width rule — NBC 3.3.1.13.(1)(a) FAIL/PASS
  * 6. Corridor width rule — NBC 3.4.1.9 FAIL
  * 7. Stud size rule — NBC 9.5.5.2 FAIL/CONDITIONAL
  * 8. Audit trail — router uses protectedProcedure, inserts to DB, requires disclaimer
@@ -150,10 +150,10 @@ describe("PD2.0 §4.1 — Graceful handling of missing extraction data", () => {
 });
 
 // ============================================================================
-// Test 4: Exit door width rule — NBC 3.4.3.4
+// Test 4: Exit door width rule — NBC 3.3.1.13.(1)(a)
 // ============================================================================
-describe("NBC 3.4.3.4 — Exit door minimum 860mm", () => {
-  it("FAIL when exit width is below 860mm", () => {
+describe("NBC 3.3.1.13.(1)(a) — Exit door minimum 850mm", () => {
+  it("FAIL when exit width is below 850mm", () => {
     const extraction = makeExtraction({
       fireSafety: {
         exitWidths: [{ location: "Side door", width: "800mm", doorType: "Swing" }],
@@ -167,12 +167,12 @@ describe("NBC 3.4.3.4 — Exit door minimum 860mm", () => {
     });
 
     const result = evaluateCompliance(extraction);
-    const exitRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-3.4.3.4");
+    const exitRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-3.3.1.13");
     expect(exitRule).toBeDefined();
     expect(exitRule?.result).toBe("FAIL");
   });
 
-  it("PASS when exit width is at or above 860mm", () => {
+  it("PASS when exit width is at or above 850mm", () => {
     const extraction = makeExtraction({
       fireSafety: {
         exitWidths: [{ location: "Main entry", width: "900mm", doorType: "Swing" }],
@@ -186,7 +186,7 @@ describe("NBC 3.4.3.4 — Exit door minimum 860mm", () => {
     });
 
     const result = evaluateCompliance(extraction);
-    const exitRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-3.4.3.4");
+    const exitRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-3.3.1.13");
     expect(exitRule).toBeDefined();
     expect(exitRule?.result).toBe("PASS");
   });
