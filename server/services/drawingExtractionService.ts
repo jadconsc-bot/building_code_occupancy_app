@@ -74,7 +74,7 @@ async function compressImageIfNeeded(
 }
 
 /** Current prompt version — increment when prompt logic changes (PD2.0 §3.2) */
-export const EXTRACTION_PROMPT_VERSION = "2.0.0";
+export const EXTRACTION_PROMPT_VERSION = "2.1.0";
 
 /**
  * Zod schema for LLM-extracted structural data.
@@ -268,7 +268,7 @@ const buildExtractionSystemPrompt = (
     "fire-safety": `
 FIRE SAFETY EXTRACTION TARGETS:
 1. FIRE-RATED WALL OPENINGS (NBC 3.1.8): Every door/window/duct/pipe in a rated wall. Measure width x height. Note closure rating labels (45 min, 90 min). Note wall rating labels (1 hr, 2 hr). Check for self-closer symbols. Flag if opening appears to exceed 25% of wall area.
-2. EXIT WIDTHS (NBC 3.4.3.4): Every exit door — min clear width 860mm. Corridors — min 1100mm. Stairs — min 900mm clear. Note all dimension labels.
+2. EXIT WIDTHS (NBC 3.3.1.13.(1)(a)): Every exit door — min clear width 850mm. Corridors — min 1100mm. Stairs — min 900mm clear. Note all dimension labels.
 3. TRAVEL DISTANCES (NBC 3.4.2): Trace longest path from occupied space to nearest exit. Note dimension strings along egress paths.
 4. EXIT DOOR HARDWARE: Panic hardware symbols. Self-closing devices. Door swing direction relative to egress travel. Delayed egress devices.
 5. FIRE SEPARATIONS (NBC 3.1.3): Walls with rating labels. Occupancy separation walls. Exit enclosures. Construction type (concrete, masonry, gypsum).
@@ -291,7 +291,7 @@ Extract ALL of the following:
 FIRE SAFETY: Fire-rated wall openings with dimensions and closure ratings, exit widths, corridor widths, travel distances, door hardware, fire separations, sprinkler/alarm indicators, occupancy separations, smoke compartments.
 STRUCTURAL: Member sizes, spans, foundation elements, load paths, connections, opening headers, floor/wall system types.
 CONNECTIONS: Fastener types/sizes/spacing, connector hardware, CSA standard references, weld symbols.
-ACCESSIBILITY (NBC 3.8): Barrier-free path width (min 1100mm), turning circle (min 1500mm), accessible door clear width (min 810mm), ramp slope (max 1:12), grab bar locations, counter heights.`,
+ACCESSIBILITY (NBC 3.8): Barrier-free path width (min 1500mm per NBC 3.8.3.3.(1)), turning circle (min 1500mm), accessible door clear width (min 850mm per NBC 3.8.3.8.(1)), ramp slope (max 1:12), grab bar locations, counter heights.`,
   };
 
   const guidance = typeSpecificGuidance[analysisType] || typeSpecificGuidance["comprehensive"];
