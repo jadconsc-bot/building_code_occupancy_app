@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { Constraints, getConstraint } from '../constraints/index';
 
 describe('NBC Constraints — correct values', () => {
-  it('exit door minimum width is 860mm', () => {
-    expect(Constraints.egress.exit_width.minimum.value).toBe(860);
+  it('exit door minimum width is 850mm (NBC 3.3.1.13.(1)(a))', () => {
+    expect(Constraints.egress.exit_width.minimum.value).toBe(850);
     expect(Constraints.egress.exit_width.minimum.unit).toBe('mm');
+    expect(Constraints.egress.exit_width.minimum.ref).toBe('NBC 3.3.1.13.(1)(a)');
   });
 
   it('corridor minimum width is 1100mm', () => {
@@ -111,7 +112,7 @@ describe('getConstraint — dot-notation lookup', () => {
   it('retrieves egress exit width by path', () => {
     const c = getConstraint('egress.exit_width.minimum');
     expect(c).toBeDefined();
-    expect((c as any).value).toBe(860);
+    expect((c as any).value).toBe(850);
   });
 
   it('retrieves residential bedroom area by path', () => {
