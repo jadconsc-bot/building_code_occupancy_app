@@ -152,24 +152,56 @@ function mostRestrictiveCode(candidates: Candidate[]): string {
   ).code;
 }
 
+// Values from NBC 3.1.3.1 / Table 3.1.3.1 (BCBC 2024, code page 3-55).
+// F-1 + A/B/C is PROHIBITED per NBC 3.1.3.2.(1) — not a rated separation.
 function getFireSeparation(codeA: string, codeB: string): {
-  frr: string; hours: number; color: string; bgColor: string; nbcRef: string;
+  frr: string; hours: number; color: string; bgColor: string; nbcRef: string; prohibited?: true;
 } {
-  const a = codeA.split('-')[0];
-  const b = codeB.split('-')[0];
+  const aFull = codeA.toUpperCase().trim();
+  const bFull = codeB.toUpperCase().trim();
+  const a = aFull.split('-')[0];
+  const b = bFull.split('-')[0];
+  const tableRef = 'NBC 3.1.3.1 / Table 3.1.3.1';
 
+  // Prohibited combination: F-1 with A, B, or C (NBC 3.1.3.2.(1))
+  if (aFull === 'F-1' || bFull === 'F-1') {
+    const other = aFull === 'F-1' ? b : a;
+    if (other === 'A' || other === 'B' || other === 'C')
+      return { frr: 'Prohibited', hours: -1, color: '#7B0000', bgColor: '#FDECEC', nbcRef: 'NBC 3.1.3.2.(1)', prohibited: true };
+    // F-1 ↔ D or E: 3 hr
+    if (other === 'D' || other === 'E')
+      return { frr: '3 hr', hours: 3, color: '#6B1A1A', bgColor: '#F9E0E0', nbcRef: tableRef };
+    // F-1 ↔ F-2 or F-3: 2 hr
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: tableRef };
+  }
+
+  // Group B (institutional): 2 hr with all other major occupancies
   if (a === 'B' || b === 'B')
-    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
-  if (a === 'A' || b === 'A')
-    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
-  if (codeA === 'F-1' || codeB === 'F-1')
-    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: 'NBC 3.1.3.4' };
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: tableRef };
+
+  // Group A (assembly) — values differ by paired group
+  if (a === 'A' || b === 'A') {
+    const other = a === 'A' ? b : a;
+    if (other === 'B' || other === 'E' || other === 'F-2')
+      return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: tableRef };
+    if (other === 'C' || other === 'D' || other === 'F-3')
+      return { frr: '1 hr', hours: 1, color: '#BA7517', bgColor: '#FAEEDA', nbcRef: tableRef };
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: tableRef };
+  }
 
   const pair = [a, b].sort().join('-');
-  if (pair === 'C-E' || pair === 'D-F' || pair === 'E-F')
-    return { frr: '1 hr', hours: 1, color: '#BA7517', bgColor: '#FAEEDA', nbcRef: 'NBC 3.1.3.4' };
+  // C ↔ E: 2 hr
+  if (pair === 'C-E')
+    return { frr: '2 hr', hours: 2, color: '#A32D2D', bgColor: '#FCEBEB', nbcRef: tableRef };
+  // C ↔ D: 1 hr
+  if (pair === 'C-D')
+    return { frr: '1 hr', hours: 1, color: '#BA7517', bgColor: '#FAEEDA', nbcRef: tableRef };
+  // D ↔ E: no requirement (Table 3.1.3.1 dash)
+  if (pair === 'D-E')
+    return { frr: 'None', hours: 0, color: '#639922', bgColor: '#EAF3DE', nbcRef: tableRef };
 
-  return { frr: '45 min', hours: 0.75, color: '#639922', bgColor: '#EAF3DE', nbcRef: 'NBC 3.1.3.4' };
+  // Same group or no specific requirement
+  return { frr: 'None', hours: 0, color: '#639922', bgColor: '#EAF3DE', nbcRef: tableRef };
 }
 
 function getMaxFloorSeparation(zonesA: StackZone[], zonesB: StackZone[]): ReturnType<typeof getFireSeparation> {
@@ -177,6 +209,8 @@ function getMaxFloorSeparation(zonesA: StackZone[], zonesB: StackZone[]): Return
   for (const a of zonesA) {
     for (const b of zonesB) {
       const sep = getFireSeparation(a.code, b.code);
+      // Prohibited always wins (must be surfaced regardless of other pairs)
+      if (sep.prohibited) return sep;
       if (sep.hours > best.hours) best = sep;
     }
   }

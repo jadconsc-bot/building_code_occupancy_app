@@ -1,4 +1,4 @@
-import type { ConstraintValue } from '../types/constraints';
+import type { ConstraintValue, OccupancyProhibition } from '../types/constraints';
 
 export const Constraints = {
   egress: {
@@ -55,41 +55,76 @@ export const Constraints = {
   },
   fire: {
     separation: {
+      // Residential suite separation — governed by NBC 3.3.4.2.(1) (Subsection 3.3.4,
+      // Residential Occupancy), NOT by Table 3.1.3.1 which only covers different major
+      // occupancy groups. Value and citation verified against BCBC 2024 code page 3-222.
       residential_suite: {
         value: 1.0, unit: 'hr',
         ref: 'NBC 3.3.4.2.(1)',
-        description: 'Fire separation between residential suites'
+        description: 'Fire separation between suites of residential occupancy (Group C) and the remainder of the building'
       },
-      residential_mercantile: {
-        value: 1.0, unit: 'hr',
-        ref: 'NBC 3.3.4.2.(2)',
-        description: 'Fire separation between Group C and Group E'
-      },
-      office_mercantile: {
-        value: 0.75, unit: 'hr',
-        ref: 'NBC 3.3.4.2.(3)',
-        description: 'Fire separation between Group D and Group E'
-      },
-      residential_commercial: {
-        value: 1.0, unit: 'hr',
-        ref: 'NBC 3.3.4.2',
-        description: 'Fire separation between Group C (residential) and Group D (business/personal services) occupancies'
-      },
-      assembly_any: {
+      // All entries below: NBC 3.1.3.1 / Table 3.1.3.1 (Major Occupancy Fire Separations).
+      // Values verified against BCBC 2024 Table 3.1.3.1, code page 3-55.
+      // Group A (assembly) pairs — each A sub-type has the same values vs external groups
+      assembly_institutional: {   // A ↔ B
         value: 2.0, unit: 'hr',
-        ref: 'NBC 3.3.4.2.(4)',
-        description: 'Fire separation between Group A and any other occupancy'
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group A (assembly) and Group B (institutional)'
       },
+      assembly_residential: {     // A ↔ C
+        value: 1.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group A (assembly) and Group C (residential)'
+      },
+      assembly_business: {        // A ↔ D
+        value: 1.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group A (assembly) and Group D (business/personal services)'
+      },
+      assembly_mercantile: {      // A ↔ E
+        value: 2.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group A (assembly) and Group E (mercantile)'
+      },
+      // Group B (institutional) — 2 hr vs all other major occupancies
       institutional_any: {
         value: 2.0, unit: 'hr',
-        ref: 'NBC 3.3.4.2.(5)',
-        description: 'Fire separation between Group B and any other occupancy'
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group B (institutional) and any other major occupancy'
       },
-      high_hazard_any: {
+      // Group C (residential) vs D and E
+      residential_commercial: {   // C ↔ D
+        value: 1.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group C (residential) and Group D (business/personal services)'
+      },
+      residential_mercantile: {   // C ↔ E
         value: 2.0, unit: 'hr',
-        ref: 'NBC 3.3.4.2.(6)',
-        description: 'Fire separation between Group F-1 and any other occupancy'
-      }
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group C (residential) and Group E (mercantile)'
+      },
+      // D ↔ E: Table 3.1.3.1 shows dash (no requirement) — no entry.
+      // Group F-1 (high-hazard industrial) vs D and E
+      // F-1 with A/B/C is prohibited, not rated — see fire.prohibitions below.
+      high_hazard_business: {     // F-1 ↔ D
+        value: 3.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group F-1 (high-hazard industrial) and Group D (business/personal services)'
+      },
+      high_hazard_mercantile: {   // F-1 ↔ E
+        value: 3.0, unit: 'hr',
+        ref: 'NBC 3.1.3.1 / Table 3.1.3.1',
+        description: 'Fire separation between Group F-1 (high-hazard industrial) and Group E (mercantile)'
+      },
+    },
+    // Hard prohibitions — occupancy combinations the code forbids regardless of
+    // fire separation assembly. These are not FRR thresholds; they are categorical
+    // blocks. Check these BEFORE consulting fire.separation.
+    prohibitions: {
+      f1_with_abc: {
+        ref: 'NBC 3.1.3.2.(1)',
+        description: 'Group F-1 (high-hazard industrial) may not be in a building containing Group A, B, or C — not permitted regardless of fire separation assembly'
+      } satisfies OccupancyProhibition,
     },
     resistance_rating: {
       part3_non_combustible: {

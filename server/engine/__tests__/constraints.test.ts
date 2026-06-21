@@ -37,14 +37,73 @@ describe('NBC Constraints — correct values', () => {
     expect(Constraints.egress.travel_distance.sprinklered.unit).toBe('m');
   });
 
-  it('residential fire separation is 1.0hr', () => {
+  it('residential suite fire separation is 1.0hr (NBC 3.3.4.2.(1))', () => {
     expect(Constraints.fire.separation.residential_suite.value).toBe(1.0);
     expect(Constraints.fire.separation.residential_suite.unit).toBe('hr');
+    expect(Constraints.fire.separation.residential_suite.ref).toBe('NBC 3.3.4.2.(1)');
   });
 
   it('Part 9 threshold: max 3 storeys, 600m²', () => {
     expect(Constraints.building_limits.part9_threshold.max_storeys.value).toBe(3);
     expect(Constraints.building_limits.part9_threshold.max_area.value).toBe(600);
+  });
+});
+
+// ── NBC 3.1.3.1 / Table 3.1.3.1 — Inter-occupancy fire separations ───────────
+describe('NBC 3.1.3.1 Table 3.1.3.1 — fire separation values (BCBC 2024, code page 3-55)', () => {
+  const sep = Constraints.fire.separation;
+
+  // Group A (assembly) pairs — verified from Table 3.1.3.1 rows A-1/A-2/A-3/A-4
+  it('A↔B: 2hr (assembly_institutional)', () => {
+    expect(sep.assembly_institutional.value).toBe(2.0);
+    expect(sep.assembly_institutional.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+  it('A↔C: 1hr (assembly_residential) — NOT 2hr', () => {
+    expect(sep.assembly_residential.value).toBe(1.0);
+  });
+  it('A↔D: 1hr (assembly_business) — NOT 2hr', () => {
+    expect(sep.assembly_business.value).toBe(1.0);
+  });
+  it('A↔E: 2hr (assembly_mercantile)', () => {
+    expect(sep.assembly_mercantile.value).toBe(2.0);
+  });
+
+  // Group B (institutional)
+  it('B↔any: 2hr (institutional_any)', () => {
+    expect(sep.institutional_any.value).toBe(2.0);
+    expect(sep.institutional_any.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+
+  // Group C (residential) vs D and E
+  it('C↔D: 1hr (residential_commercial)', () => {
+    expect(sep.residential_commercial.value).toBe(1.0);
+    expect(sep.residential_commercial.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+  it('C↔E: 2hr (residential_mercantile) — corrected from wrong 1hr', () => {
+    expect(sep.residential_mercantile.value).toBe(2.0);
+    expect(sep.residential_mercantile.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+
+  // D↔E: no entry (Table 3.1.3.1 shows dash — no requirement)
+  it('D↔E: no entry exists (Table 3.1.3.1 dash = no requirement)', () => {
+    expect((sep as any).office_mercantile).toBeUndefined();
+  });
+
+  // F-1 (high-hazard industrial) pairs
+  it('F-1↔D: 3hr (high_hazard_business) — corrected from wrong 2hr', () => {
+    expect(sep.high_hazard_business.value).toBe(3.0);
+    expect(sep.high_hazard_business.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+  it('F-1↔E: 3hr (high_hazard_mercantile) — corrected from wrong 2hr', () => {
+    expect(sep.high_hazard_mercantile.value).toBe(3.0);
+    expect(sep.high_hazard_mercantile.ref).toBe('NBC 3.1.3.1 / Table 3.1.3.1');
+  });
+
+  // Prohibition — F-1 with A/B/C is not a rating, it is a hard block
+  it('F-1+A/B/C prohibition is in fire.prohibitions, not fire.separation', () => {
+    expect((sep as any).high_hazard_any).toBeUndefined();
+    expect((sep as any).assembly_any).toBeUndefined();
+    expect(Constraints.fire.prohibitions.f1_with_abc.ref).toBe('NBC 3.1.3.2.(1)');
   });
 });
 
