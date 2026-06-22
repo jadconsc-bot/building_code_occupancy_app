@@ -110,8 +110,9 @@ const SPRINKLER_REQUIRED_ALWAYS = new Set(['A1', 'B1', 'B2', 'F1']);
 const SPRINKLER_REQUIRED_ABOVE_300 = new Set(['A2', 'A3']);
 
 // ─── Travel distance limits ──────────────────────────────────────────────────
-const TRAVEL_LIMIT_SPRINKLERED = 45;   // m — NBC 3.4.2.5
-const TRAVEL_LIMIT_UNSPRINKLERED = 25; // m — NBC 3.4.2.5 (general)
+const TRAVEL_LIMIT_D_UNSPRINKLERED = 40; // m — NBC 3.4.2.5: Group D (business & personal services)
+const TRAVEL_LIMIT_GENERAL_UNSPRINKLERED = 30; // m — NBC 3.4.2.5: A/B/C/E/F-2/F-3
+const TRAVEL_LIMIT_F1 = 25; // m — NBC 3.4.2.5 Clause (c): F-1 excluded from 45m sprinklered benefit
 
 // ─── Helper: normalize occupancy group ───────────────────────────────────────
 function normalize(group: string): string {
@@ -207,15 +208,24 @@ export function detectCodeConflicts(
 
   // ── CONFLICT CHECK 3 ─────────────────────────────────────────────────────
   // Travel distance limit vs sprinkler status
-  // Fires when a passing travel distance result uses the wrong limit —
-  // e.g. a room passes at 30m using the sprinklered 45m limit but the
-  // building is actually unsprinklered (25m limit applies).
+  // Fires when a passing travel distance result uses the sprinklered limit
+  // but the building is actually unsprinklered.
+  // Infer the applicable unsprinklered threshold from td.limitM:
+  //   <= 25 → F-1 or default-conservative (25m)
+  //   <= 30 → general groups A/B/C/E/F-2/F-3 (30m)
+  //   <= 40 → Group D (40m)
+  //   45    → sprinklered limit used in error → fall back to 30m general threshold
   for (const td of input.travelDistance) {
     if (td.result === 'pass' || td.result === 'PASS') {
+      const unsprinkleredThreshold =
+        td.limitM <= TRAVEL_LIMIT_F1              ? TRAVEL_LIMIT_F1 :
+        td.limitM <= TRAVEL_LIMIT_GENERAL_UNSPRINKLERED ? TRAVEL_LIMIT_GENERAL_UNSPRINKLERED :
+        td.limitM <= TRAVEL_LIMIT_D_UNSPRINKLERED ? TRAVEL_LIMIT_D_UNSPRINKLERED :
+        TRAVEL_LIMIT_GENERAL_UNSPRINKLERED;         // 45m sprinklered → fall back to 30m
       if (
         !input.sprinklered &&
-        td.limitM > TRAVEL_LIMIT_UNSPRINKLERED &&
-        td.distanceM > TRAVEL_LIMIT_UNSPRINKLERED
+        td.limitM > unsprinkleredThreshold &&
+        td.distanceM > unsprinkleredThreshold
       ) {
         conflicts.push({
           conflictId: `CONFLICT-TD-001-${td.roomLabel.replace(/\s/g, '_')}`,
@@ -223,8 +233,8 @@ export function detectCodeConflicts(
           conflictingRules: ['NBC 3.4.2.5'],
           description: `Travel distance for '${td.roomLabel}' passes using sprinklered limit but building is unsprinklered`,
           valueA: `Travel distance: ${td.distanceM}m (passes at ${td.limitM}m sprinklered limit)`,
-          valueB: `Building is unsprinklered — 25m limit applies (NBC 3.4.2.5)`,
-          recommendation: `Travel distance exceeds unsprinklered limit of 25m — add sprinklers or relocate exit`,
+          valueB: `Building is unsprinklered — ${unsprinkleredThreshold}m limit applies (NBC 3.4.2.5)`,
+          recommendation: `Travel distance exceeds unsprinklered limit of ${unsprinkleredThreshold}m — add sprinklers or relocate exit`,
           nbcRef: 'NBC 2020 Article 3.4.2.5',
           codeEdition,
           evaluationTimestamp: timestamp,

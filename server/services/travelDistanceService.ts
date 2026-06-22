@@ -50,29 +50,36 @@ export interface TravelDistanceResult {
 
 /**
  * NBC 3.4.2.5 — Maximum travel distance by occupancy group (metres).
- * Keyed by the single-letter group (first character of occupancyGroup).
- * Where a group has sub-divisions (A-1, A-2 …) the most conservative value
- * within that group is used; in practice all sub-divisions share the same limit.
+ * Full sub-group keys (e.g. 'F-1') are checked before the single-letter fallback.
+ * F-1 is excluded from the 45m sprinklered benefit by clause (c) — "other than a
+ * high-hazard industrial occupancy" — so its limit is 25m regardless of sprinklers.
  */
 const TRAVEL_DISTANCE_LIMITS: Record<string, { unsprinklered: number; sprinklered: number }> = {
-  A: { unsprinklered: 40, sprinklered: 60 },
-  B: { unsprinklered: 30, sprinklered: 45 },
-  C: { unsprinklered: 30, sprinklered: 45 },
-  D: { unsprinklered: 30, sprinklered: 45 },
-  E: { unsprinklered: 30, sprinklered: 45 },
-  F: { unsprinklered: 30, sprinklered: 45 },
+  A:   { unsprinklered: 30, sprinklered: 45 },
+  B:   { unsprinklered: 30, sprinklered: 45 },
+  C:   { unsprinklered: 30, sprinklered: 45 },
+  D:   { unsprinklered: 40, sprinklered: 45 },  // NBC 3.4.2.5: business and personal services
+  E:   { unsprinklered: 30, sprinklered: 45 },
+  'F-1': { unsprinklered: 25, sprinklered: 25 }, // high-hazard: clause (c) excludes from 45m benefit
+  'F-2': { unsprinklered: 30, sprinklered: 45 },
+  'F-3': { unsprinklered: 30, sprinklered: 45 },
+  F:   { unsprinklered: 30, sprinklered: 45 },  // fallback when F sub-division is unknown
 };
 
-/** Fallback when occupancyGroup is absent or unrecognised. */
-const DEFAULT_LIMITS = { unsprinklered: 25, sprinklered: 45 };
+/** Conservative fallback when occupancyGroup is absent or unrecognised (F-1 limit). */
+const DEFAULT_LIMITS = { unsprinklered: 25, sprinklered: 25 };
 
 function getLimits(occupancyGroup: string | null): {
   limits: { unsprinklered: number; sprinklered: number };
   source: 'occupancy_specific' | 'default_conservative';
 } {
-  const group = occupancyGroup?.charAt(0).toUpperCase() ?? '';
-  const limits = TRAVEL_DISTANCE_LIMITS[group];
-  if (limits) return { limits, source: 'occupancy_specific' };
+  if (!occupancyGroup) return { limits: DEFAULT_LIMITS, source: 'default_conservative' };
+  const upper = occupancyGroup.toUpperCase();
+  // Check full sub-group key first (e.g. 'F-1'), then single-letter fallback
+  const exact = TRAVEL_DISTANCE_LIMITS[upper];
+  if (exact) return { limits: exact, source: 'occupancy_specific' };
+  const letter = TRAVEL_DISTANCE_LIMITS[upper.charAt(0)];
+  if (letter) return { limits: letter, source: 'occupancy_specific' };
   return { limits: DEFAULT_LIMITS, source: 'default_conservative' };
 }
 
