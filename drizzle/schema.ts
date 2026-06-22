@@ -816,7 +816,7 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
   userId: int("userId").notNull(),
-  drawingUrl: text("drawingUrl"),
+  drawingUrl: varchar("drawingUrl", { length: 500 }),
   drawingHash: varchar("drawingHash", { length: 64 }), // SHA-256, computed at upload time (PD2.0 §4.2)
   drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }),
   drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }),
@@ -1325,7 +1325,7 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   floorLevel: varchar("floorLevel", { length: 100 }),
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
   occupancyDivision: int("occupancyDivision"),
-  confidence: decimal("confidence", { precision: 4, scale: 3 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
   flagsJson: json("flagsJson"),                          // JSON string[]
   flaggedForReview: tinyint("flaggedForReview").default(0).notNull(),
   manualOverride: tinyint("manualOverride").default(0).notNull(),
@@ -1368,9 +1368,9 @@ export const detectedFeatures = mysqlTable("detectedFeatures", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),        // FK → detectedRooms.id
 
-  featureType: varchar("featureType", { length: 100 }).notNull(),
+  featureType: varchar("featureType", { length: 50 }).notNull(),
   positionJson: json("positionJson").notNull(),          // { x, y }
-  confidence: decimal("confidence", { precision: 4, scale: 3 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
   metadataJson: json("metadataJson"),                    // { count, ...extra }
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
