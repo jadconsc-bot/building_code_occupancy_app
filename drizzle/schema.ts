@@ -102,7 +102,7 @@ export const projects = mysqlTable("projects", {
   projectNumber: varchar("projectNumber", { length: 20 }), // auto-generated e.g. "CC-2025-001"
   codeEdition: varchar("codeEdition", { length: 20 }), // e.g. "NBC 2020", "BCBC 2024"
   part3Determination: varchar("part3Determination", { length: 100 }), // e.g. "Part 3 — Large Building"
-  constructionType: mysqlEnum("constructionType", ["combustible", "non_combustible", "mixed"]),
+  constructionType: varchar("constructionType", { length: 50 }),
   sprinklersRequired: tinyint("sprinklersRequired"), // 1 = required, 0 = not required
   zoningCategory: varchar("zoningCategory", { length: 50 }), // e.g. "RM-4", "C-1"
   storeys: int("storeys"), // number of storeys above grade
@@ -121,6 +121,7 @@ export const projects = mysqlTable("projects", {
   stackSeparationsJson: json("stackSeparationsJson"),
   stackWingsJson:       json("stackWingsJson"),
   stackConfirmedAt:     datetime("stackConfirmedAt"),
+  siteConstraints: text("siteConstraints"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
