@@ -1178,7 +1178,7 @@ export const drawingAnalysisRouter = router({
 
       await db
         .update(drawingPages)
-        .set({ calibrationScale: input.calibrationScale.toFixed(6) })
+        .set({ calibrationScale: parseFloat(input.calibrationScale.toFixed(6)) })
         .where(eq(drawingPages.id, input.pageId));
 
       return { ok: true };

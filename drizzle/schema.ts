@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime } from "drizzle-orm/mysql-core";
 
 /**
@@ -864,12 +865,12 @@ export const drawingPages = mysqlTable("drawingPages", {
   cropRegionSetAt: timestamp("cropRegionSetAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   // LLM-judge eval results written asynchronously after detection
-  evalAccuracy: decimal("evalAccuracy", { precision: 4, scale: 3 }),
+  evalAccuracy: float("evalAccuracy"),
   evalPassingRooms: int("evalPassingRooms"),
   evalTotalRooms: int("evalTotalRooms"),
   evalMissedRoomsJson: text("evalMissedRoomsJson"),
   detectedScale: varchar("detectedScale", { length: 100 }),
-  calibrationScale: decimal("calibrationScale", { precision: 12, scale: 6 }),
+  calibrationScale: float("calibrationScale"),
   vectorExtracted: tinyint("vectorExtracted").default(0),
   vectorExtractedAt: timestamp("vectorExtractedAt"),
   wallSegmentCount: int("wallSegmentCount").default(0),
@@ -1405,10 +1406,10 @@ export const complianceMonitorSnapshots = mysqlTable("complianceMonitorSnapshots
   sourceUrl: varchar("sourceUrl", { length: 500 }).notNull(),
   contentHash: varchar("contentHash", { length: 64 }).notNull(),
   contentSample: text("contentSample"),
-  fetchedAt: timestamp("fetchedAt").notNull(),
+  fetchedAt: datetime("fetchedAt").notNull(),
   httpStatus: int("httpStatus"),
   errorMessage: text("errorMessage"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdAt: datetime("createdAt").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 export type ComplianceMonitorSnapshot = typeof complianceMonitorSnapshots.$inferSelect;
@@ -1418,7 +1419,7 @@ export const complianceNotifications = mysqlTable("complianceNotifications", {
   id: int("id").autoincrement().primaryKey(),
   sourceId: varchar("sourceId", { length: 20 }).notNull(),
   sourceUrl: varchar("sourceUrl", { length: 500 }).notNull(),
-  changeDetectedAt: timestamp("changeDetectedAt").notNull(),
+  changeDetectedAt: datetime("changeDetectedAt").notNull(),
   headline: varchar("headline", { length: 500 }).notNull(),
   summary: text("summary").notNull(),
   affectedRuleIds: json("affectedRuleIds"),
@@ -1426,9 +1427,9 @@ export const complianceNotifications = mysqlTable("complianceNotifications", {
   severity: mysqlEnum("severity", ["critical", "major", "minor", "info"]).notNull().default("info"),
   status: mysqlEnum("status", ["pending", "reviewed", "actioned", "dismissed"]).notNull().default("pending"),
   reviewedBy: int("reviewedBy"),
-  reviewedAt: timestamp("reviewedAt"),
+  reviewedAt: datetime("reviewedAt"),
   reviewNotes: text("reviewNotes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdAt: datetime("createdAt").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 export type ComplianceNotification = typeof complianceNotifications.$inferSelect;
