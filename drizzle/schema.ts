@@ -1338,6 +1338,9 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   roboflowIou: decimal("roboflowIou", { precision: 5, scale: 4 }),      // IoU vs best-matching Roboflow bbox (NULL if RF unavailable)
   roboflowMatched: tinyint("roboflowMatched"),                           // 1=matched, 0=no match, NULL=RF unavailable
 
+  // Thread A — Fire separation adjacency
+  adjacentRoomIds: json("adjacentRoomIds"),                              // number[] | null; NULL = not yet computed, [] = computed/no neighbours
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

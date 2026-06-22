@@ -20,6 +20,7 @@ import { bboxIou } from '../../services/roboflowSegmentationService';
 import { getDcvRoomPolygons } from '../../services/detectCountVisualizeService';
 import { getTrainingExamples } from '../../services/correctionService';
 import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
+import { computeRoomAdjacency } from '../../services/adjacencyService';
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const CROP_RIGHT_PCT = 0.15;  // title blocks are on the right — was erroneously CROP_LEFT_PCT=0.20
@@ -703,6 +704,10 @@ async function saveRoomsToDb(
       });
     }
   }
+
+  // Fire-and-forget adjacency computation (uses bounding boxes; polygons filled in later async)
+  computeRoomAdjacency(pageId)
+    .catch(err => console.error('[AdjacencyService] Computation failed:', err));
 
   // Post-loop: persist Roboflow polygons that no Claude room claimed (missed rooms).
   if (rfPolygons.length > 0) {
