@@ -3373,14 +3373,21 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         toast.warning('Scale not calibrated — dimensions will be 0. Use the Calibrate tool first for accurate results.');
       }
 
-      // 3. Occupant load from rooms — NBC Table 4.1.5.3
+      // 3. Occupant load from rooms — NBC 2020 Table 3.1.17.1
       const loadFactors: Record<string, number> = {
-        'A':   1.2,  'A-1': 0.65, 'A-2': 1.2, 'A-3': 4.6, 'A-4': 4.6,
+        // Group A: 0.75 = non-fixed seats (conservative default per NBC 3.1.17.1).
+        // Actual value depends on sub-use-type (stages 0.75, standing 0.40, dining 1.20, classrooms 1.85, etc.)
+        'A':   0.75, 'A-1': 0.65, 'A-2': 1.2, 'A-3': 4.6, 'A-4': 4.6,
         'B':  11.1,  'B-1': 11.1, 'B-2': 11.1, 'B-3': 11.1,
-        'C':   0,
+        // Group C: 4.60 = dormitory default (NBC 3.1.17.1). Dwelling units must use 2 persons/sleeping room
+        // per Note (2) of Table 3.1.17.1 — see hasDwellingC flag in resultData.
+        'C':   4.60,
         'D':   9.3,
-        'E':   2.8,
-        'F':  30,    'F-1': 30,   'F-2': 30,   'F-3': 30,
+        // Group E: 3.70 = basements and first storeys (NBC 3.1.17.1). Upper floors require 5.60.
+        'E':   3.70,
+        // Group F: 4.60 = manufacturing/process rooms (most conservative, NBC 3.1.17.1).
+        // Storage warehouse = 28.00; storage garages/aircraft hangars = 46.00.
+        'F':   4.60,  'F-1': 4.60, 'F-2': 4.60, 'F-3': 4.60,
       };
 
       let totalOccupantLoad = 0;
@@ -3389,12 +3396,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const group = ((room as any).occupancyGroup ?? 'D').toUpperCase();
         const areaSqm = parseFloat((room as any).areaSqm) || 0;
         const factor = loadFactors[group] ?? 9.3;
-        const load = group === 'C' ? 1 : (factor > 0 ? Math.ceil(areaSqm / factor) : 1);
+        const load = factor > 0 ? Math.ceil(areaSqm / factor) : 1;
         breakdown.push({ roomLabel: (room as any).roomLabel, occupancyGroup: group, areaSqm, occupantLoad: load });
         totalOccupantLoad += load;
       }
 
       const footprintAreaM2 = footprintWidthM * footprintDepthM;
+      // Group C dwelling units require 2 persons/sleeping room (NBC 3.1.17.1 Note (2));
+      // the 4.60 dormitory default above is conservative — flag for downstream consumers.
+      const hasDwellingC = breakdown.some(b => b.occupancyGroup === 'C');
 
       // 4. Save site analysis
       await saveAnalysisMutation.mutateAsync({
@@ -3424,6 +3434,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             ? +(footprintAreaM2 / totalOccupantLoad).toFixed(2)
             : 0,
           breakdown,
+          ...(hasDwellingC && {
+            notes: ['Group C (residential) rooms used dormitory default (4.60 m²/person per NBC 2020 Table 3.1.17.1). Dwelling units must use 2 persons per sleeping room per Note (2) — verify occupant load with architect before permit submission.'],
+          }),
         }),
       });
 
