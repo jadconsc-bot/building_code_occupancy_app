@@ -820,7 +820,7 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }),
   drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }),
   drawingSnapshotSize: int("drawingSnapshotSize"),
-  analysisType: mysqlEnum("analysisType", ["structural", "fire-safety", "connections", "comprehensive"]),
+  analysisType: varchar("analysisType", { length: 50 }),
   analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"]).notNull().default("DRAFT"),
   complianceScore: int("complianceScore"),
   complianceLevel: mysqlEnum("complianceLevel", ["approved", "conditional", "revision", "rejected"]),
