@@ -3377,7 +3377,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const loadFactors: Record<string, number> = {
         // Group A: 0.75 = non-fixed seats (conservative default per NBC 3.1.17.1).
         // Actual value depends on sub-use-type (stages 0.75, standing 0.40, dining 1.20, classrooms 1.85, etc.)
-        'A':   0.75, 'A-1': 0.65, 'A-2': 1.2, 'A-3': 4.6, 'A-4': 4.6,
+        // A-3 = 9.30 bowling alleys/pool (federal table); A-4 = 0.60 stadia/grandstands (federal table)
+        'A':   0.75, 'A-1': 0.75, 'A-2': 1.20, 'A-3': 9.30, 'A-4': 0.60,
         'B':  11.1,  'B-1': 11.1, 'B-2': 11.1, 'B-3': 11.1,
         // Group C: 4.60 = dormitory default (NBC 3.1.17.1). Dwelling units must use 2 persons/sleeping room
         // per Note (2) of Table 3.1.17.1 — see hasDwellingC flag in resultData.

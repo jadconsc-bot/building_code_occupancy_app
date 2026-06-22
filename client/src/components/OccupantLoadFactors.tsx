@@ -7,9 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Users, Calculator, Info, BookOpen, Building2 } from "lucide-react";
 
-// Import data and helpers from the pure data module
-import { occupantLoadFactors, getLoadFactorsForOccupancy, calculateOccupantLoad } from "@/lib/occupantLoadFactorsData";
-import type { OccupantLoadFactor } from "@/lib/occupantLoadFactorsData";
+import { occupantLoadFactors, getLoadFactorsForOccupancy, calculateOccupantLoad } from "@shared/occupantLoadFactors";
+import type { OccupantLoadFactor } from "@shared/occupantLoadFactors";
 
 interface OccupantLoadSectionProps {
   occupancyCode: string;

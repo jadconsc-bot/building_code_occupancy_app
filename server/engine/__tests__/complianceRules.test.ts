@@ -220,14 +220,14 @@ describe('NBC 3.4.2.5 — Maximum travel distance to exit', () => {
 
 // ── Occupant load calculation ─────────────────────────────────────────────────
 describe('Occupant load calculation by occupancy group', () => {
-  it('Group A: 100m² / 0.65 = 154 persons', () => {
+  it('Group A: 100m² / 0.40 = 250 persons (standing space conservative default, NBC 2020 Table 3.1.17.1)', () => {
     const { occupantLoad } = evaluateOccupantLoad({ occupancy_major: 'A', area_m2: 100 });
-    expect(occupantLoad).toBe(154);
+    expect(occupantLoad).toBe(250);
   });
 
-  it('Group C: 186m² / 18.6 = 10 persons', () => {
+  it('Group C: 186m² / 4.60 = 41 persons (dormitory conservative default, NBC 2020 Table 3.1.17.1)', () => {
     const { occupantLoad } = evaluateOccupantLoad({ occupancy_major: 'C', area_m2: 186 });
-    expect(occupantLoad).toBe(10);
+    expect(occupantLoad).toBe(41);
   });
 
   it('trace result is always pass (informational)', () => {

@@ -1,5 +1,6 @@
 import { Constraints } from '../constraints';
 import { buildFederalTrace, computeMargin } from '../types/trace';
+import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import type { ComplianceTrace } from '../types/trace';
 import type { DetectedRoom } from './types';
 import { getDb } from '../../db';
@@ -60,16 +61,14 @@ export async function evaluateRoomCompliance(
   const group = room.occupancyGroup;
 
   // 1. Occupant load calculation
-  const factors = Constraints.occupant_load.factors;
-  const factor = factors[group as keyof typeof factors]?.value
-    ?? factors['D'].value;
+  const spec = getDefaultLoadFactor(group);
   const occupantLoad = room.areaSqm > 0
-    ? Math.ceil(room.areaSqm / factor) : 0;
+    ? Math.ceil(room.areaSqm / spec.areaPerPerson) : 0;
 
   traces.push(buildFederalTrace({
     result: 'pass',
-    rule: Constraints.occupant_load.factors['D'].ref,
-    reasoning: `Occupant load: ${occupantLoad} persons (${room.areaSqm}m² ÷ ${factor}m²/person for Group ${group})`,
+    rule: spec.citation,
+    reasoning: `Occupant load: ${occupantLoad} persons (${room.areaSqm}m² ÷ ${spec.areaPerPerson}m²/person for Group ${group})`,
     evaluatedInputs: {
       actual: occupantLoad,
       required: 0,
@@ -387,7 +386,7 @@ export async function evaluateRoomCompliance(
 
   traces.push(buildFederalTrace({
     result: isAreaSuspicious ? 'warning' : 'pass',
-    rule: factors[group as keyof typeof factors]?.ref ?? 'NBC Table 3.1.17.1',
+    rule: spec.citation,
     reasoning: isAreaSuspicious
       ? `Room area ${room.areaSqm}m² appears too small for Group ${group} occupancy (minimum expected ~${minPlausibleArea}m²) — verify occupancy classification or drawing scale`
       : `Room area ${room.areaSqm}m² is plausible for Group ${group} occupancy`,

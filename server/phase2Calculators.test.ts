@@ -5,7 +5,6 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { OccupantLoadCalculator } from './calculators/occupantLoadCalculator';
 import { FireExitCalculator } from './calculators/fireExitCalculator';
 import { PlumbingFixtureUnitsCalculator } from './calculators/plumbingFixtureUnitsCalculator';
 import { ElectricalServiceLoadCalculator } from './calculators/electricalServiceLoadCalculator';
@@ -20,94 +19,6 @@ const mockRuleset = {
     minTreadDepth: 10,
   },
 };
-
-describe('OccupantLoadCalculator', () => {
-  const calculator = new OccupantLoadCalculator();
-
-  it('should calculate occupant load for office space', async () => {
-    const result = await calculator.execute(
-      {
-        occupancyCode: 'D',
-        floorArea: 1000,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.adjustedOccupantLoad).toBe(100); // 1000 * 0.1
-    expect(result.results.exitsRequired).toBe(2);
-    expect(result.steps.length).toBeGreaterThan(0);
-  });
-
-  it('should calculate occupant load for residential space', async () => {
-    const result = await calculator.execute(
-      {
-        occupancyCode: 'C',
-        floorArea: 500,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.adjustedOccupantLoad).toBe(100); // 500 * 0.2
-    expect(result.results.exitsRequired).toBe(2);
-  });
-
-  it('should apply adjustment factor', async () => {
-    const result = await calculator.execute(
-      {
-        occupancyCode: 'D',
-        floorArea: 1000,
-        adjustmentFactor: 0.8,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.adjustedOccupantLoad).toBe(80); // 100 * 0.8
-  });
-
-  it('should provide step-by-step trace', async () => {
-    const result = await calculator.execute(
-      {
-        occupancyCode: 'A-1',
-        floorArea: 500,
-      },
-      mockRuleset
-    );
-
-    expect(result.steps.length).toBeGreaterThanOrEqual(5);
-    expect(result.steps[0].description).toContain('Extract');
-    expect(result.steps[result.steps.length - 1].description).toContain('exit');
-  });
-
-  it('should throw error for invalid occupancy code', async () => {
-    try {
-      await calculator.execute(
-        {
-          occupancyCode: 'INVALID',
-          floorArea: 1000,
-        },
-        mockRuleset
-      );
-      expect.fail('Should have thrown an error');
-    } catch (error) {
-      expect(error).toBeDefined();
-    }
-  });
-
-  it('should validate positive floor area', async () => {
-    try {
-      await calculator.execute(
-        {
-          occupancyCode: 'D',
-          floorArea: -100,
-        },
-        mockRuleset
-      );
-      expect.fail('Should have thrown an error');
-    } catch (error) {
-      expect(error).toBeDefined();
-    }
-  });
-});
 
 describe('FireExitCalculator', () => {
   const calculator = new FireExitCalculator();
@@ -409,23 +320,6 @@ describe('ElectricalServiceLoadCalculator', () => {
 });
 
 describe('Calculator Traces', () => {
-  it('OccupantLoadCalculator should have detailed trace', async () => {
-    const calc = new OccupantLoadCalculator();
-    const result = await calc.execute(
-      {
-        occupancyCode: 'D',
-        floorArea: 1000,
-      },
-      mockRuleset
-    );
-
-    result.steps.forEach((step) => {
-      expect(step.description).toBeTruthy();
-      expect(step.inputs).toBeDefined();
-      expect(step.output).toBeDefined();
-    });
-  });
-
   it('FireExitCalculator should have detailed trace', async () => {
     const calc = new FireExitCalculator();
     const result = await calc.execute(

@@ -168,16 +168,6 @@ export const Constraints = {
       }
     }
   },
-  occupant_load: {
-    factors: {
-      'A': { value: 0.65, unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Assembly occupancies' },
-      'B': { value: 3.0,  unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Institutional occupancies' },
-      'C': { value: 18.6, unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Residential occupancies' },
-      'D': { value: 9.3,  unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Business & personal services' },
-      'E': { value: 3.7,  unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Mercantile occupancies' },
-      'F': { value: 30.0, unit: 'm2/person', ref: 'NBC Table 3.1.17.1', description: 'Industrial occupancies' }
-    }
-  },
   building_limits: {
     part9_threshold: {
       max_storeys: { value: 3, unit: 'storeys', ref: 'NBC 9.1.1.1', description: 'Maximum storeys for Part 9' },

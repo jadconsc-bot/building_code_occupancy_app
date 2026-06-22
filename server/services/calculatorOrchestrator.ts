@@ -23,24 +23,7 @@ import {
 } from './barrierFreeCalculator';
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
-
-// NBC 2023 Table 4.1.5.3 occupant load factors (persons/m²)
-const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; nbcRef: string }> = {
-  'A-1': { factor: 0.75,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'A-2': { factor: 0.5,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'A-3': { factor: 0.08,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'A-4': { factor: 0.05,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'B-1': { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'B-2': { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'B-3': { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'B':   { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'C':   { factor: 0.2,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'D':   { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'E':   { factor: 0.1,   nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'F-1': { factor: 0.05,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'F-2': { factor: 0.05,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-  'F-3': { factor: 0.05,  nbcRef: 'NBC 2023 T.4.1.5.3' },
-};
+import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 
 // FRR requirements by occupancy group for single-occupancy floors (minutes)
 const FRR_BY_GROUP: Record<string, { frr: number; citation: string }> = {
@@ -107,7 +90,7 @@ export interface OrchestratorResult {
     roomLabel: string;
     occupancyGroup: string;
     areaM2: number;
-    occupantsPerM2: number;
+    areaM2PerPerson: number;
     maxOccupants: number;
     nbcRef: string;
   }>;
@@ -211,8 +194,8 @@ export function runCalculatorOrchestrator(
 
     // Normalize group: "B-1" → "B-1", "B" → "B"
     const group = room.occupancyGroup.trim().toUpperCase();
-    const spec = OCCUPANT_LOAD_FACTORS[group] ?? OCCUPANT_LOAD_FACTORS['D'];
-    const maxOccupants = Math.ceil(room.areaM2 * spec.factor);
+    const spec = getDefaultLoadFactor(group);
+    const maxOccupants = Math.ceil(room.areaM2 / spec.areaPerPerson);
     totalOccupants += maxOccupants;
 
     const issueId = `OCC-${String(i + 1).padStart(3, '0')}`;
@@ -220,18 +203,18 @@ export function runCalculatorOrchestrator(
       roomLabel: room.label,
       occupancyGroup: group,
       areaM2: room.areaM2,
-      occupantsPerM2: spec.factor,
+      areaM2PerPerson: spec.areaPerPerson,
       maxOccupants,
-      nbcRef: spec.nbcRef,
+      nbcRef: spec.citation,
     });
 
     findings.push({
       issueId,
       severity: 'pass',
       description: `Occupant load — ${room.label}`,
-      actual: `${room.areaM2.toFixed(1)} m² × ${spec.factor}/m² = ${maxOccupants} persons`,
-      required: `Group ${group} load factor ${spec.factor} p/m²`,
-      citation: spec.nbcRef,
+      actual: `${room.areaM2.toFixed(1)} m² ÷ ${spec.areaPerPerson} m²/p = ${maxOccupants} persons`,
+      required: `Group ${group} conservative default ${spec.areaPerPerson} m²/p`,
+      citation: spec.citation,
     });
     passCount++;
   }

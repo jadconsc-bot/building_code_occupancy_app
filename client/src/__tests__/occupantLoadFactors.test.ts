@@ -3,7 +3,7 @@ import {
   occupantLoadFactors, 
   getLoadFactorsForOccupancy, 
   calculateOccupantLoad 
-} from '../lib/occupantLoadFactorsData';
+} from '@shared/occupantLoadFactors';
 
 describe('OccupantLoadFactors', () => {
   describe('occupantLoadFactors data', () => {
@@ -168,12 +168,12 @@ describe('OccupantLoadFactors', () => {
       expect(factor?.areaPerPerson).toBe(0.75);
     });
 
-    it('should have correct value for dining space (1.10 m²)', () => {
-      const factor = occupantLoadFactors.find(f => 
-        f.useType === 'Dining, alcoholic beverage and cafeteria space' && 
+    it('should have correct value for dining space (1.20 m²)', () => {
+      const factor = occupantLoadFactors.find(f =>
+        f.useType === 'Dining, beverage and cafeteria space' &&
         f.category === 'Assembly Uses'
       );
-      expect(factor?.areaPerPerson).toBe(1.10);
+      expect(factor?.areaPerPerson).toBe(1.20);
     });
 
     it('should have correct value for classrooms (1.85 m²)', () => {
@@ -202,12 +202,12 @@ describe('OccupantLoadFactors', () => {
     });
 
     it('should have correct value for B-1 detention (11.60 m²)', () => {
-      const factor = occupantLoadFactors.find(f => f.useType === 'B-1: Detention quarters');
+      const factor = occupantLoadFactors.find(f => f.useType === 'Detention quarters');
       expect(factor?.areaPerPerson).toBe(11.60);
     });
 
     it('should have correct value for B-2 treatment (10.00 m²)', () => {
-      const factor = occupantLoadFactors.find(f => f.useType === 'B-2: Treatment and sleeping room areas');
+      const factor = occupantLoadFactors.find(f => f.useType === 'Care, treatment and sleeping room areas');
       expect(factor?.areaPerPerson).toBe(10.00);
     });
   });

@@ -32,7 +32,7 @@ export interface ConflictDetectorInput {
     roomLabel: string;
     occupancyGroup: string;
     areaM2: number | null;
-    occupantsPerM2: number;
+    areaM2PerPerson: number;
     maxOccupants: number;
     nbcRef: string;
   }>;

@@ -17,31 +17,7 @@ import { calculateTravelDistances } from "../services/travelDistanceService";
 import type { DetectedRoomInput } from "../services/travelDistanceService";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-
-// ── NBC Table 4.1.5.3 — Occupant load factors (persons per m²) ───────────────
-const OCCUPANT_LOAD_FACTORS: Record<string, number> = {
-  "A-1": 0.67,
-  "A-2": 1.0,
-  "A-3": 0.5,
-  "A-4": 0.67,
-  "B-1": 0.1,
-  "B-2": 0.1,
-  "B-3": 0.1,
-  C:     0.04,
-  D:     0.107,
-  E:     0.27,
-  "F-1": 0.033,
-  "F-2": 0.033,
-  "F-3": 0.033,
-};
-
-function occupantLoadFactor(occupancyGroup: string | null): number | null {
-  if (!occupancyGroup) return null;
-  // Try exact match first, then first-letter group
-  if (OCCUPANT_LOAD_FACTORS[occupancyGroup] !== undefined) return OCCUPANT_LOAD_FACTORS[occupancyGroup];
-  const letter = occupancyGroup.charAt(0).toUpperCase();
-  return OCCUPANT_LOAD_FACTORS[letter] ?? null;
-}
+import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 
 interface OccupantGroupRow {
   group: string;
@@ -86,7 +62,7 @@ function buildSummary(
     totalAreaM2: totalArea,
     codeStrategyStatus,
     nbcReferences: [
-      "NBC 4.1.5.3 — Occupant Load",
+      "NBC 2020 Table 3.1.17.1 — Occupant Load",
       "NBC 3.4.3.2 — Exit Width",
       "NBC 3.4.2.5 — Travel Distance",
     ],
@@ -203,12 +179,10 @@ export const calculationsPackageRouter = router({
         areaByFloor[floor] = (areaByFloor[floor] ?? 0) + area;
 
         const group  = room.occupancyGroup ?? "Unknown";
-        const factor = occupantLoadFactor(room.occupancyGroup);
-        if (factor !== null) {
-          if (!occupantByGroup[group]) occupantByGroup[group] = { area: 0, persons: 0, factor };
-          occupantByGroup[group].area    += area;
-          occupantByGroup[group].persons += area * factor;
-        }
+        const spec   = getDefaultLoadFactor(group);
+        if (!occupantByGroup[group]) occupantByGroup[group] = { area: 0, persons: 0, factor: spec.areaPerPerson };
+        occupantByGroup[group].area    += area;
+        occupantByGroup[group].persons += area / spec.areaPerPerson;
       }
 
       const occupantRows: OccupantGroupRow[] = Object.entries(occupantByGroup).map(([group, v]) => ({
@@ -270,7 +244,7 @@ export const calculationsPackageRouter = router({
         travelDistanceResults:   travelResults,
         areaByFloor,
         totalAreaM2:             totalArea.toString(),
-        nbcTableRef:             "NBC 4.1.5.3",
+        nbcTableRef:             "NBC 2020 Table 3.1.17.1",
         calculationsSummaryJson: summary,
       });
 
@@ -409,10 +383,10 @@ export const calculationsPackageRouter = router({
 
       let y = 65;
 
-      // Section 1 — Occupant Load (NBC 4.1.5.3)
+      // Section 1 — Occupant Load (NBC 2020 Table 3.1.17.1)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text("1. Occupant Load — NBC Table 4.1.5.3", MARGIN, y);
+      doc.text("1. Occupant Load — NBC 2020 Table 3.1.17.1", MARGIN, y);
       y += 3;
 
       autoTable(doc, {

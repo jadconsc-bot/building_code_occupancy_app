@@ -211,7 +211,7 @@ export interface OrchestratorResult {
     roomLabel: string;
     occupancyGroup: string;
     areaM2: number;
-    occupantsPerM2: number;
+    areaM2PerPerson: number;
     maxOccupants: number;
     nbcRef: string;
   }>;
