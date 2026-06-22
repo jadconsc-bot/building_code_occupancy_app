@@ -1,4 +1,4 @@
-import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -815,15 +815,15 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
   userId: int("userId").notNull(),
-  drawingUrl: text("drawingUrl").notNull(),
-  drawingHash: varchar("drawingHash", { length: 64 }).notNull(), // SHA-256, computed at upload time (PD2.0 §4.2)
+  drawingUrl: text("drawingUrl"),
+  drawingHash: varchar("drawingHash", { length: 64 }), // SHA-256, computed at upload time (PD2.0 §4.2)
   drawingSnapshotKey: varchar("drawingSnapshotKey", { length: 500 }),
   drawingSnapshotMimeType: varchar("drawingSnapshotMimeType", { length: 50 }),
   drawingSnapshotSize: int("drawingSnapshotSize"),
   analysisType: varchar("analysisType", { length: 50 }),
   analysisStatus: mysqlEnum("analysisStatus", ["DRAFT", "UNDER_REVIEW", "VALID", "REJECTED"]).notNull().default("DRAFT"),
   complianceScore: int("complianceScore"),
-  complianceLevel: mysqlEnum("complianceLevel", ["approved", "conditional", "revision", "rejected"]),
+  complianceLevel: varchar("complianceLevel", { length: 50 }),
   structuralStatus: text("structuralStatus"), // JSON
   fireSafetyStatus: text("fireSafetyStatus"), // JSON
   connectionStatus: text("connectionStatus"), // JSON
@@ -831,7 +831,7 @@ export const drawingAnalyses = mysqlTable("drawingAnalyses", {
   recommendations: text("recommendations"), // JSON array
   disclaimerAcknowledged: boolean("disclaimerAcknowledged").notNull().default(false),
   disclaimerAcknowledgedAt: timestamp("disclaimerAcknowledgedAt"),
-  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }).notNull(),
+  disclaimerVersion: varchar("disclaimerVersion", { length: 20 }),
   llmModelVersion: varchar("llmModelVersion", { length: 50 }), // From response.model (PD2.0 §3.2)
   ruleEngineVersion: varchar("ruleEngineVersion", { length: 20 }),
   validatedAt: timestamp("validatedAt"),
@@ -944,9 +944,9 @@ export type InsertDoorOpening = typeof doorOpenings.$inferInsert;
 export const drawingDataExtractions = mysqlTable("drawingDataExtractions", {
   id: int("id").autoincrement().primaryKey(),
   analysisId: int("analysisId").notNull(),
-  extractedData: text("extractedData").notNull(), // JSON - Zod-validated DrawingData
-  extractionModel: varchar("extractionModel", { length: 50 }).notNull(), // From response.model
-  extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }).notNull(),
+  extractedData: text("extractedData"), // JSON - Zod-validated DrawingData
+  extractionModel: varchar("extractionModel", { length: 100 }), // From response.model
+  extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }),
   extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }),
   extractedAt: timestamp("extractedAt").defaultNow().notNull(),
 });
@@ -1007,7 +1007,7 @@ export const complianceAuditTrail = mysqlTable("complianceAuditTrail", {
   userId: int("userId").notNull(),
   action: varchar("action", { length: 100 }).notNull(), // PD2.0 §7.2 action codes
   details: text("details").notNull(), // JSON
-  userEmail: varchar("userEmail", { length: 255 }).notNull(),
+  userEmail: varchar("userEmail", { length: 320 }).notNull(),
   userFullName: varchar("userFullName", { length: 255 }),
   professionalLicenseNumber: varchar("professionalLicenseNumber", { length: 100 }),
   professionalAssociation: varchar("professionalAssociation", { length: 100 }),
@@ -1312,7 +1312,7 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   projectId: int("projectId").notNull(),
 
   roomLabel: varchar("roomLabel", { length: 255 }),
-  boundingBoxJson: text("boundingBoxJson").notNull(),    // { x, y, width, height }
+  boundingBoxJson: json("boundingBoxJson").notNull(),    // { x, y, width, height }
   polygonJson: json("polygonJson"),                      // Array of {x,y} vertices in full-image px
   polygonSource: mysqlEnum("polygonSource", ["flood_fill", "fallback_bbox", "manual", "dda_ray_cast", "roboflow_segmentation"]),
   polygonExtractedAt: timestamp("polygonExtractedAt"),
@@ -1324,8 +1324,8 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   floorLevel: varchar("floorLevel", { length: 100 }),
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
   occupancyDivision: int("occupancyDivision"),
-  confidence: decimal("confidence", { precision: 4, scale: 3 }).notNull(),
-  flagsJson: text("flagsJson"),                          // JSON string[]
+  confidence: decimal("confidence", { precision: 4, scale: 3 }),
+  flagsJson: json("flagsJson"),                          // JSON string[]
   flaggedForReview: tinyint("flaggedForReview").default(0).notNull(),
   manualOverride: tinyint("manualOverride").default(0).notNull(),
 
@@ -1368,9 +1368,9 @@ export const detectedFeatures = mysqlTable("detectedFeatures", {
   roomId: int("roomId").notNull(),        // FK → detectedRooms.id
 
   featureType: varchar("featureType", { length: 100 }).notNull(),
-  positionJson: text("positionJson").notNull(),          // { x, y }
-  confidence: decimal("confidence", { precision: 4, scale: 3 }).notNull(),
-  metadataJson: text("metadataJson"),                    // { count, ...extra }
+  positionJson: json("positionJson").notNull(),          // { x, y }
+  confidence: decimal("confidence", { precision: 4, scale: 3 }),
+  metadataJson: json("metadataJson"),                    // { count, ...extra }
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -1490,7 +1490,7 @@ export const trainingExamples = mysqlTable("trainingExamples", {
   orgId: int("orgId"),
   planType: varchar("planType", { length: 50 }).notNull(),
   correctionId: int("correctionId").notNull(),
-  imageCropBase64: text("imageCropBase64"),
+  imageCropBase64: mediumtext("imageCropBase64"),
   promptContribution: text("promptContribution").notNull(),
   conventionType: mysqlEnum("conventionType", [
     "label_convention",
