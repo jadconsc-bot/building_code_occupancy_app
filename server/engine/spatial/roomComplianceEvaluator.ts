@@ -50,6 +50,143 @@ export interface RoomComplianceResult {
   criticalIssues: number;
 }
 
+function pairFRR(g1: string, g2: string): { hr: number; ref: string } | null {
+  const sep = Constraints.fire.separation;
+  const b1 = g1.split('-')[0];
+  const b2 = g2.split('-')[0];
+  if ((g1 === 'F-1' || g2 === 'F-1') && ['A','B','C'].includes(g1 === 'F-1' ? b2 : b1)) return null;
+  if (b1 === 'B' || b2 === 'B')
+    return { hr: sep.institutional_any.value as number, ref: sep.institutional_any.ref };
+  if (b1 === 'A' || b2 === 'A') {
+    const nonA = b1 === 'A' ? b2 : b1;
+    if (nonA === 'B') return { hr: sep.assembly_institutional.value as number, ref: sep.assembly_institutional.ref };
+    if (nonA === 'C') return { hr: sep.assembly_residential.value as number, ref: sep.assembly_residential.ref };
+    if (nonA === 'D') return { hr: sep.assembly_business.value as number, ref: sep.assembly_business.ref };
+    if (nonA === 'E') return { hr: sep.assembly_mercantile.value as number, ref: sep.assembly_mercantile.ref };
+  }
+  if ((b1 === 'C' && b2 === 'D') || (b1 === 'D' && b2 === 'C'))
+    return { hr: sep.residential_commercial.value as number, ref: sep.residential_commercial.ref };
+  if ((b1 === 'C' && b2 === 'E') || (b1 === 'E' && b2 === 'C'))
+    return { hr: sep.residential_mercantile.value as number, ref: sep.residential_mercantile.ref };
+  if ((g1 === 'F-1' && b2 === 'D') || (g2 === 'F-1' && b1 === 'D'))
+    return { hr: sep.high_hazard_business.value as number, ref: sep.high_hazard_business.ref };
+  if ((g1 === 'F-1' && b2 === 'E') || (g2 === 'F-1' && b1 === 'E'))
+    return { hr: sep.high_hazard_mercantile.value as number, ref: sep.high_hazard_mercantile.ref };
+  return null;
+}
+
+/**
+ * Rule 7 — Fire separation (adjacency-scoped). Exported for unit testing.
+ *
+ * @param group            This room's occupancy group
+ * @param adjacentRoomIds  null = not yet computed; [] = no neighbours; [...] = has neighbours
+ * @param adjacentGroups   Occupancy groups of adjacent rooms that differ from group
+ * @param fireRatedDoorCount  Count of fire-rated door features on this room
+ */
+export function evaluateFireSeparationRule(
+  group: string,
+  adjacentRoomIds: number[] | null,
+  adjacentGroups: string[],
+  fireRatedDoorCount: number,
+): ComplianceTrace {
+  if (adjacentRoomIds === null) {
+    return buildFederalTrace({
+      result: 'warning',
+      rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
+      reasoning: `Room adjacency not yet computed — fire separation analysis is advisory only. Re-run analysis after adjacency computation completes`,
+      evaluatedInputs: { actual: group, required: 'pending adjacency', unit: 'occupancy' },
+      severity: 'medium',
+      constraintId: 'fire.separation.mixed_occupancy',
+      recommendations: [
+        'Re-run analysis to get adjacency-based fire separation assessment',
+        'Manually verify mixed occupancy groups in adjacent rooms'
+      ]
+    });
+  }
+
+  if (adjacentRoomIds.length === 0 || adjacentGroups.length === 0) {
+    const reason = adjacentRoomIds.length === 0
+      ? 'No rooms physically adjacent to this room — inter-occupancy fire separation not applicable'
+      : `Adjacent rooms are all Group ${group} — no inter-occupancy fire separation required`;
+    return buildFederalTrace({
+      result: 'not_applicable',
+      rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
+      reasoning: reason,
+      evaluatedInputs: { actual: group, required: 'N/A', unit: 'occupancy' },
+      severity: 'info',
+      constraintId: 'fire.separation.mixed_occupancy',
+      recommendations: []
+    });
+  }
+
+  // Check prohibited combinations (NBC 3.1.3.2.(1)) first
+  const prohibitedBase = ['A', 'B', 'C'];
+  const f1ProhibitedWith = (group === 'F-1')
+    ? adjacentGroups.filter(g => prohibitedBase.includes(g.split('-')[0]))
+    : adjacentGroups.includes('F-1') && prohibitedBase.includes(group.split('-')[0])
+      ? ['F-1']
+      : [];
+
+  if (f1ProhibitedWith.length > 0) {
+    const pairedWith = group === 'F-1' ? f1ProhibitedWith.join('/') : 'F-1';
+    return buildFederalTrace({
+      result: 'fail',
+      rule: Constraints.fire.prohibitions.f1_with_abc.ref,
+      reasoning: `Prohibited occupancy combination: Group F-1 (high-hazard industrial) may not be in a building containing Group ${pairedWith} — not permitted per NBC 3.1.3.2.(1) regardless of fire separation assembly`,
+      evaluatedInputs: {
+        actual: `${group} + ${pairedWith}`,
+        required: 'Groups F-1 and A/B/C must not be in same building',
+        unit: 'occupancy group'
+      },
+      severity: 'critical',
+      constraintId: 'fire.prohibition.f1_with_abc',
+      recommendations: [
+        'Remove Group F-1 occupancy from this building or relocate it to a separate building',
+        'NBC 3.1.3.2.(1) prohibits this combination — it cannot be resolved with any fire separation assembly'
+      ]
+    });
+  }
+
+  // Look up required FRR for non-prohibited pairs
+  let maxFRR: { hr: number; ref: string } | null = null;
+  for (const other of adjacentGroups) {
+    const r = pairFRR(group, other);
+    if (r && r.hr > (maxFRR?.hr ?? 0)) maxFRR = r;
+  }
+
+  if (maxFRR && maxFRR.hr > 0) {
+    const hasSeparation = fireRatedDoorCount > 0;
+    return buildFederalTrace({
+      result: hasSeparation ? 'pass' : 'warning',
+      rule: maxFRR.ref,
+      reasoning: hasSeparation
+        ? `Fire-rated door(s) detected — ${maxFRR.hr}hr separation indicated between Group ${group} and adjacent Group(s) ${adjacentGroups.join(', ')}`
+        : `Adjacent rooms: Group ${group} shares wall with Group(s) ${adjacentGroups.join(', ')} — ${maxFRR.hr}hr fire separation required`,
+      evaluatedInputs: {
+        actual: hasSeparation ? `${fireRatedDoorCount} fire-rated door(s)` : 'not confirmed',
+        required: `${maxFRR.hr}hr fire separation`,
+        unit: 'hr'
+      },
+      severity: hasSeparation ? 'info' : 'high',
+      constraintId: 'fire.separation.mixed_occupancy',
+      recommendations: hasSeparation ? [] : [
+        `Provide ${maxFRR.hr}hr fire-rated separation between Group ${group} and adjacent Group ${adjacentGroups.join('/')} occupancies`,
+        'Verify fire separation assembly in architectural details'
+      ]
+    });
+  }
+
+  return buildFederalTrace({
+    result: 'not_applicable',
+    rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
+    reasoning: `No fire separation required between adjacent Group ${group} and Group(s) ${adjacentGroups.join(', ')} per Table 3.1.3.1`,
+    evaluatedInputs: { actual: group, required: 'none required', unit: 'occupancy' },
+    severity: 'info',
+    constraintId: 'fire.separation.mixed_occupancy',
+    recommendations: []
+  });
+}
+
 export async function evaluateRoomCompliance(
   room: DetectedRoom,
   roomDbId: number,
@@ -242,11 +379,7 @@ export async function evaluateRoomCompliance(
     }));
   }
 
-  // 7. Fire separation check (adjacent rooms only) — NBC 3.1.3.2 / Table 3.1.3.1
-  // Uses adjacentRoomIds for physical proximity scoping.
-  // NULL  → adjacency not yet computed → advisory warning
-  // []    → no adjacent rooms → not_applicable
-  // [...]  → check prohibited pairs and FRR for adjacent occupancy groups only
+  // 7. Fire separation check (adjacent rooms only) — delegates to evaluateFireSeparationRule
   try {
     const db7 = await getDb();
     if (db7) {
@@ -257,156 +390,25 @@ export async function evaluateRoomCompliance(
         .limit(1);
 
       const rawAdj = thisRow[0]?.adjacentRoomIds;
-
-      if (rawAdj === null || rawAdj === undefined) {
-        traces.push(buildFederalTrace({
-          result: 'warning',
-          rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
-          reasoning: `Room adjacency not yet computed — fire separation analysis is advisory only. Re-run analysis after adjacency computation completes`,
-          evaluatedInputs: { actual: group, required: 'pending adjacency', unit: 'occupancy' },
-          severity: 'medium',
-          constraintId: 'fire.separation.mixed_occupancy',
-          recommendations: [
-            'Re-run analysis to get adjacency-based fire separation assessment',
-            'Manually verify mixed occupancy groups in adjacent rooms'
-          ]
-        }));
-      } else {
-        const adjIds: number[] = Array.isArray(rawAdj)
+      const adjIds: number[] | null = (rawAdj === null || rawAdj === undefined)
+        ? null
+        : Array.isArray(rawAdj)
           ? (rawAdj as unknown[]).map(Number)
           : (typeof rawAdj === 'string' ? (JSON.parse(rawAdj) as number[]) : []);
 
-        if (adjIds.length === 0) {
-          traces.push(buildFederalTrace({
-            result: 'not_applicable',
-            rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
-            reasoning: `No rooms physically adjacent to this room — inter-occupancy fire separation not applicable`,
-            evaluatedInputs: { actual: group, required: 'N/A — no adjacent rooms', unit: 'occupancy' },
-            severity: 'info',
-            constraintId: 'fire.separation.mixed_occupancy',
-            recommendations: []
-          }));
-        } else {
-          const adjRooms = await db7
-            .select({ id: detectedRooms.id, occupancyGroup: detectedRooms.occupancyGroup })
-            .from(detectedRooms)
-            .where(inArray(detectedRooms.id, adjIds));
-
-          const otherGroups = Array.from(new Set(
-            adjRooms
-              .map(r => r.occupancyGroup)
-              .filter((g): g is string => !!g && g !== group)
-          ));
-
-          if (otherGroups.length === 0) {
-            traces.push(buildFederalTrace({
-              result: 'not_applicable',
-              rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
-              reasoning: `Adjacent rooms are all Group ${group} — no inter-occupancy fire separation required`,
-              evaluatedInputs: { actual: group, required: 'N/A — same group', unit: 'occupancy' },
-              severity: 'info',
-              constraintId: 'fire.separation.mixed_occupancy',
-              recommendations: []
-            }));
-          } else {
-            // Step 1 — check for prohibited combinations (NBC 3.1.3.2.(1))
-            const prohibitedGroups = ['A', 'B', 'C'];
-            const f1ProhibitedWith = (group === 'F-1')
-              ? otherGroups.filter(g => prohibitedGroups.includes(g.split('-')[0]))
-              : otherGroups.includes('F-1') && prohibitedGroups.includes(group.split('-')[0])
-                ? ['F-1']
-                : [];
-
-            if (f1ProhibitedWith.length > 0) {
-              const pairedWith = group === 'F-1'
-                ? f1ProhibitedWith.join('/')
-                : 'F-1';
-              traces.push(buildFederalTrace({
-                result: 'fail',
-                rule: Constraints.fire.prohibitions.f1_with_abc.ref,
-                reasoning: `Prohibited occupancy combination: Group F-1 (high-hazard industrial) may not be in a building containing Group ${pairedWith} — not permitted per NBC 3.1.3.2.(1) regardless of fire separation assembly`,
-                evaluatedInputs: {
-                  actual: `${group} + ${pairedWith}`,
-                  required: 'Groups F-1 and A/B/C must not be in same building',
-                  unit: 'occupancy group'
-                },
-                severity: 'critical',
-                constraintId: 'fire.prohibition.f1_with_abc',
-                recommendations: [
-                  'Remove Group F-1 occupancy from this building or relocate it to a separate building',
-                  'NBC 3.1.3.2.(1) prohibits this combination — it cannot be resolved with any fire separation assembly'
-                ]
-              }));
-            }
-
-            // Step 2 — look up required FRR for non-prohibited pairs
-            const sep = Constraints.fire.separation;
-
-            function pairFRR(g1: string, g2: string): { hr: number; ref: string } | null {
-              const b1 = g1.split('-')[0];
-              const b2 = g2.split('-')[0];
-              if ((g1 === 'F-1' || g2 === 'F-1') && ['A','B','C'].includes(g1 === 'F-1' ? b2 : b1)) return null;
-              if (b1 === 'B' || b2 === 'B')
-                return { hr: sep.institutional_any.value as number, ref: sep.institutional_any.ref };
-              if (b1 === 'A' || b2 === 'A') {
-                const nonA = b1 === 'A' ? b2 : b1;
-                if (nonA === 'B') return { hr: sep.assembly_institutional.value as number, ref: sep.assembly_institutional.ref };
-                if (nonA === 'C') return { hr: sep.assembly_residential.value as number, ref: sep.assembly_residential.ref };
-                if (nonA === 'D') return { hr: sep.assembly_business.value as number, ref: sep.assembly_business.ref };
-                if (nonA === 'E') return { hr: sep.assembly_mercantile.value as number, ref: sep.assembly_mercantile.ref };
-              }
-              if ((b1 === 'C' && b2 === 'D') || (b1 === 'D' && b2 === 'C'))
-                return { hr: sep.residential_commercial.value as number, ref: sep.residential_commercial.ref };
-              if ((b1 === 'C' && b2 === 'E') || (b1 === 'E' && b2 === 'C'))
-                return { hr: sep.residential_mercantile.value as number, ref: sep.residential_mercantile.ref };
-              if ((g1 === 'F-1' && b2 === 'D') || (g2 === 'F-1' && b1 === 'D'))
-                return { hr: sep.high_hazard_business.value as number, ref: sep.high_hazard_business.ref };
-              if ((g1 === 'F-1' && b2 === 'E') || (g2 === 'F-1' && b1 === 'E'))
-                return { hr: sep.high_hazard_mercantile.value as number, ref: sep.high_hazard_mercantile.ref };
-              return null;
-            }
-
-            let maxFRR: { hr: number; ref: string } | null = null;
-            for (const other of otherGroups) {
-              const r = pairFRR(group, other);
-              if (r && r.hr > (maxFRR?.hr ?? 0)) maxFRR = r;
-            }
-
-            if (maxFRR && maxFRR.hr > 0) {
-              const fireRatedDoors = room.features.filter(f => f.type === 'door_fire_rated');
-              const hasSeparation = fireRatedDoors.length > 0;
-              traces.push(buildFederalTrace({
-                result: hasSeparation ? 'pass' : 'warning',
-                rule: maxFRR.ref,
-                reasoning: hasSeparation
-                  ? `Fire-rated door(s) detected — ${maxFRR.hr}hr separation indicated between Group ${group} and adjacent Group(s) ${otherGroups.join(', ')}`
-                  : `Adjacent rooms: Group ${group} shares wall with Group(s) ${otherGroups.join(', ')} — ${maxFRR.hr}hr fire separation required`,
-                evaluatedInputs: {
-                  actual: hasSeparation ? `${fireRatedDoors.length} fire-rated door(s)` : 'not confirmed',
-                  required: `${maxFRR.hr}hr fire separation`,
-                  unit: 'hr'
-                },
-                severity: hasSeparation ? 'info' : 'high',
-                constraintId: 'fire.separation.mixed_occupancy',
-                recommendations: hasSeparation ? [] : [
-                  `Provide ${maxFRR.hr}hr fire-rated separation between Group ${group} and adjacent Group ${otherGroups.join('/')} occupancies`,
-                  'Verify fire separation assembly in architectural details'
-                ]
-              }));
-            } else if (f1ProhibitedWith.length === 0) {
-              traces.push(buildFederalTrace({
-                result: 'not_applicable',
-                rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
-                reasoning: `No fire separation required between adjacent Group ${group} and Group(s) ${otherGroups.join(', ')} per Table 3.1.3.1`,
-                evaluatedInputs: { actual: group, required: 'none required', unit: 'occupancy' },
-                severity: 'info',
-                constraintId: 'fire.separation.mixed_occupancy',
-                recommendations: []
-              }));
-            }
-          }
-        }
+      let adjacentGroups: string[] = [];
+      if (adjIds && adjIds.length > 0) {
+        const adjRooms = await db7
+          .select({ occupancyGroup: detectedRooms.occupancyGroup })
+          .from(detectedRooms)
+          .where(inArray(detectedRooms.id, adjIds));
+        adjacentGroups = Array.from(new Set(
+          adjRooms.map(r => r.occupancyGroup).filter((g): g is string => !!g && g !== group)
+        ));
       }
+
+      const fireRatedDoorCount = room.features.filter(f => f.type === 'door_fire_rated').length;
+      traces.push(evaluateFireSeparationRule(group, adjIds, adjacentGroups, fireRatedDoorCount));
     }
   } catch (err) {
     console.error('[RoomCompliance] Rule 7 fire separation query failed:', err);
