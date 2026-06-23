@@ -9,10 +9,18 @@ import { useLocation } from 'wouter';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import {
   Building2, FolderOpen, Calculator, Shield,
-  History, ScanLine, CheckSquare, BarChart2, BookOpen,
+  History, ScanLine, CheckSquare, BarChart2, BookOpen, FileText,
 } from 'lucide-react';
 
 const FEATURES = [
+  {
+    id: 'brief',
+    title: 'Project Brief',
+    description: 'Start here — get your NBC compliance snapshot before design begins.',
+    href: '/brief',
+    icon: FileText,
+    badge: 'New',
+  },
   {
     id: 'occupancy',
     title: 'Occupancy Classifier',

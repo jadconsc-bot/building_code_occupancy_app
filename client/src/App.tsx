@@ -39,6 +39,7 @@ import ContractorHub from "./pages/ContractorHub";
 import ContractorTool from "./pages/ContractorTool";
 import Integrations from "./pages/Integrations";
 import SharedProjectView from "./pages/SharedProjectView";
+import BriefPage from "./pages/BriefPage";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { ProjectTabView } from "./components/ProjectTabView";
 import { RequireRole } from "./components/RequireRole";
@@ -83,6 +84,7 @@ function Router() {
         <Route path={"/"} component={Dashboard} />
         <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
+        <Route path={"/brief"} component={BriefPage} />
         <Route path={"/compliance/:projectId"}>
           <RequireRole minRole="professional" featureName="Compliance Engine">
             <Compliance />
