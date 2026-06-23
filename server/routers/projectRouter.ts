@@ -12,6 +12,9 @@ import { getDb } from '../db';
 import { projects } from '../../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { editionForProvince } from '../rules/overlays/index';
+import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { getLimits } from '../services/travelDistanceService';
+import { Constraints } from '../engine/constraints/index';
 
 export const projectRouter = router({
   /**
@@ -200,6 +203,234 @@ export const projectRouter = router({
       return {
         ...project,
         codeEdition: editionForProvince(project.province ?? ''),
+      };
+    }),
+
+  /**
+   * Generate a pre-design compliance snapshot (Project Brief).
+   * Chains occupant load → exit count → travel distance → exit width →
+   * sprinkler check → accessibility triggers from project inputs.
+   * Returns null sections where inputs are missing rather than erroring.
+   */
+  generateBrief: protectedProcedure
+    .input(z.object({ projectId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+
+      const [project] = await db
+        .select({
+          id: projects.id,
+          occupancyCode: projects.occupancyCode,
+          grossFloorArea: projects.grossFloorArea,
+          storeys: projects.storeys,
+          province: projects.province,
+          sprinklersRequired: projects.sprinklersRequired,
+          constructionType: projects.constructionType,
+          userId: projects.userId,
+        })
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
+
+      if (!project) throw new Error('Project not found');
+
+      const occupancyGroup = project.occupancyCode ?? null;
+      const grossFloorAreaM2 = project.grossFloorArea ? parseFloat(project.grossFloorArea) : null;
+      const storeys = project.storeys ?? null;
+      const province = project.province ?? null;
+      const sprinkleredInput = project.sprinklersRequired != null
+        ? project.sprinklersRequired === 1
+        : null;
+
+      // Completeness: count how many of the 5 key inputs are set
+      const inputsSet = [occupancyGroup, grossFloorAreaM2, storeys, province, sprinkleredInput]
+        .filter(v => v !== null && v !== undefined).length;
+      const completeness = Math.round((inputsSet / 5) * 100);
+
+      // ── Section 1: Occupant Load ────────────────────────────────────────────
+      let occupantLoadSection: {
+        value: number | null;
+        factor: number;
+        useType: string;
+        citation: string;
+        note: string;
+        isDefault: boolean;
+      } | null = null;
+
+      let occupantLoad: number | null = null;
+
+      if (occupancyGroup) {
+        const spec = getDefaultLoadFactor(occupancyGroup);
+        occupantLoad = grossFloorAreaM2 !== null
+          ? Math.ceil(grossFloorAreaM2 / spec.areaPerPerson)
+          : null;
+        occupantLoadSection = {
+          value: occupantLoad,
+          factor: spec.areaPerPerson,
+          useType: spec.useType,
+          citation: 'NBC 2020 Table 3.1.17.1',
+          note: spec.note,
+          isDefault: true,
+        };
+      }
+
+      // ── Section 2: Exit Count ───────────────────────────────────────────────
+      let exitCountSection: {
+        required: number | null;
+        singleExitException: boolean;
+        citation: string;
+      } | null = null;
+
+      if (occupantLoad !== null) {
+        const ec = Constraints.egress.exit_count;
+        let required: number;
+        let citation: string;
+        if (occupantLoad <= ec.threshold_low.value) {
+          required = ec.threshold_low.exits;
+          citation = ec.threshold_low.ref;
+        } else if (occupantLoad <= ec.threshold_mid.value) {
+          required = ec.threshold_mid.exits;
+          citation = ec.threshold_mid.ref;
+        } else {
+          required = ec.threshold_high.exits;
+          citation = ec.threshold_high.ref;
+        }
+        const singleExitException =
+          occupantLoad <= ec.threshold_low.value &&
+          grossFloorAreaM2 !== null &&
+          grossFloorAreaM2 <= 200;
+        exitCountSection = { required, singleExitException, citation };
+      }
+
+      // ── Section 3: Travel Distance ─────────────────────────────────────────
+      const { limits: tdLimits } = getLimits(occupancyGroup);
+      const sprinkleredBool = sprinkleredInput ?? false;
+      const travelDistanceSection = {
+        unsprinklered: tdLimits.unsprinklered,
+        sprinklered: tdLimits.sprinklered,
+        applicable: sprinkleredBool ? tdLimits.sprinklered : tdLimits.unsprinklered,
+        citation: 'NBC 3.4.2.5',
+      };
+
+      // ── Section 4: Exit Width ──────────────────────────────────────────────
+      let exitWidthSection: {
+        totalMm: number | null;
+        perDoorMm: number;
+        factor: number;
+        citations: string[];
+      } | null = null;
+
+      if (occupantLoad !== null) {
+        const isGroupB = (occupancyGroup ?? '').toUpperCase().startsWith('B');
+        const widthFactor = isGroupB ? 18.4 : 6.1;
+        exitWidthSection = {
+          totalMm: Math.ceil(occupantLoad * widthFactor),
+          perDoorMm: Constraints.egress.exit_width.minimum.value,
+          factor: widthFactor,
+          citations: [
+            'NBC 3.4.3.2',
+            Constraints.egress.exit_width.minimum.ref,
+          ],
+        };
+      }
+
+      // ── Section 5: Sprinkler Requirement ───────────────────────────────────
+      // Mirrors occupancyAdvisorRouter logic for consistency:
+      // - Group A or B → required
+      // - F-1 → required
+      // - Part 3 building (storeys > 3, or Group C area > 600, or others > 5000) AND
+      //   (area > 1200 OR storeys > 3) → required
+      // - storeys > 6 → required (high-rise)
+      const code = (occupancyGroup ?? '').toUpperCase();
+      const area = grossFloorAreaM2 ?? 0;
+      const storeysNum = storeys ?? 0;
+
+      const part3Required =
+        storeysNum > 3 ||
+        (code.startsWith('C') && area > 600) ||
+        (!code.startsWith('C') && area > 5000);
+
+      let codeRequiredSprinklers = false;
+      let sprinklerCitation = '';
+      if (code.startsWith('A') || code.startsWith('B')) {
+        codeRequiredSprinklers = true;
+        sprinklerCitation = 'NBC 3.2.5.2.(1)';
+      } else if (code === 'F-1') {
+        codeRequiredSprinklers = true;
+        sprinklerCitation = 'NBC 3.2.5.2.(1)';
+      } else if (part3Required && (area > 1200 || storeysNum > 3)) {
+        codeRequiredSprinklers = true;
+        sprinklerCitation = 'NBC 3.2.5.10';
+      } else if (storeysNum > 6) {
+        codeRequiredSprinklers = true;
+        sprinklerCitation = 'NBC 3.2.6';
+      }
+
+      const sprinklerSection = {
+        codeRequired: occupancyGroup !== null ? codeRequiredSprinklers : null,
+        userSelected: sprinkleredInput,
+        citation: sprinklerCitation || 'NBC 3.2.5',
+      };
+
+      // ── Section 6: Accessibility Triggers ──────────────────────────────────
+      // Elevator: grossFloorArea > 600 AND storeys > 1 (NBC 3.8.2.4)
+      // Accessible washroom: Groups A, D, E — public-facing (NBC 3.8.2.8)
+      // Barrier-free path: required when building has an accessible storey (NBC 3.8.2.3)
+      const elevatorRequired =
+        grossFloorAreaM2 !== null && storeys !== null
+          ? grossFloorAreaM2 > 600 && storeys > 1
+          : null;
+
+      const accessibleWashroomGroups = ['A', 'A-1', 'A-2', 'A-3', 'A-4', 'D', 'E'];
+      const accessibleWashroom = occupancyGroup
+        ? accessibleWashroomGroups.some(g =>
+            code === g || code.startsWith(g + '-')
+          )
+        : null;
+
+      const barrierFreePath = occupancyGroup
+        ? !['F-1', 'F-2', 'F-3'].includes(code)
+        : null;
+
+      const accessibilitySection = {
+        elevatorRequired,
+        accessibleWashroom,
+        barrierFreePath,
+        citations: [
+          'NBC 3.8.2.3',
+          'NBC 3.8.2.4',
+          'NBC 3.8.2.8',
+        ],
+      };
+
+      // ── Section 7: Construction Type ───────────────────────────────────────
+      const constructionTypeSection = {
+        permitted: project.constructionType
+          ? [project.constructionType]
+          : part3Required
+            ? ['Non-combustible (verify NBC Table 3.2.2.7)']
+            : ['Combustible may be acceptable (verify NBC Table 3.2.2.7)'],
+        citation: 'NBC Table 3.2.2.7',
+      };
+
+      return {
+        inputs: {
+          occupancyGroup,
+          grossFloorAreaM2,
+          storeys,
+          province,
+          sprinklered: sprinkleredInput,
+        },
+        sections: {
+          occupantLoad: occupantLoadSection,
+          exitCount: exitCountSection,
+          travelDistance: travelDistanceSection,
+          exitWidth: exitWidthSection,
+          sprinklers: sprinklerSection,
+          accessibility: accessibilitySection,
+          constructionType: constructionTypeSection,
+        },
+        completeness,
       };
     }),
 });

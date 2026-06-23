@@ -69,7 +69,7 @@ const TRAVEL_DISTANCE_LIMITS: Record<string, { unsprinklered: number; sprinklere
 /** Conservative fallback when occupancyGroup is absent or unrecognised (F-1 limit). */
 const DEFAULT_LIMITS = { unsprinklered: 25, sprinklered: 25 };
 
-function getLimits(occupancyGroup: string | null): {
+export function getLimits(occupancyGroup: string | null): {
   limits: { unsprinklered: number; sprinklered: number };
   source: 'occupancy_specific' | 'default_conservative';
 } {

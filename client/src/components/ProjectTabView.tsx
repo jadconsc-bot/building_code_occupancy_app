@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, AlertTriangle, Loader2, FileText } from "lucide-react";
+import { BriefTab } from "@/components/BriefTab";
 
 interface ProjectTabViewProps {
   readonly projectId: string;
@@ -18,7 +19,7 @@ interface ProjectTabViewProps {
   readonly onBack?: () => void;
 }
 
-type Tab = "overview" | "code_strategy" | "calculations" | "permit_package";
+type Tab = "brief" | "overview" | "code_strategy" | "calculations" | "permit_package";
 
 // ── NBC Table 3.2.2.2 — client-side for live compliance preview ────────────
 type HeightAreaRow = { maxStoreys: number | null; maxHeightM: number | null; maxAreaM2: number | null };
@@ -1017,6 +1018,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
   if (!project) return null;
 
   const TABS: { id: Tab; label: string }[] = [
+    { id: "brief",          label: "Project Brief" },
     { id: "overview",       label: "Overview" },
     { id: "code_strategy",  label: "Code Strategy" },
     { id: "calculations",   label: "Calculations" },
@@ -1095,6 +1097,10 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
       </div>
 
       {/* Tab content */}
+      {activeTab === "brief" && (
+        <BriefTab projectId={numericProjectId} />
+      )}
+
       {activeTab === "overview" && (
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-4">
