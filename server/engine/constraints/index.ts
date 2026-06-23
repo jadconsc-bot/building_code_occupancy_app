@@ -184,18 +184,18 @@ export const Constraints = {
   },
   accessibility: {
     path_width: {
-      minimum: { value: 1500, unit: 'mm', ref: 'NBC 3.8.3.3.(1)', description: 'Minimum accessible path width' }
+      minimum: { value: 1000, unit: 'mm', ref: 'NBC 3.8.3.2.(1)', description: 'Minimum interior accessible path of travel width' }
     },
     door_width: {
       minimum: { value: 850, unit: 'mm', ref: 'NBC 3.8.3.8.(1)', description: 'Minimum accessible door clear width' }
     },
-    units: {
-      minimum_percent: {
-        value: 0.15, unit: 'fraction',
-        ref: 'NBC 3.8.3.3',
-        description: 'Minimum fraction of residential units required to be accessible'
-      }
-    },
+    // Residential accessible unit percentage: no federal minimum
+    // percentage of dwelling units is mandated by NBC 2020 s.3.8.
+    // Accessibility application to dwelling units is governed by
+    // 3.8.5 (Adaptable Dwelling Units) and AHJ designation per
+    // 3.8.2.3.(2)(l) — not by a code-specified percentage.
+    // Provincial amendments (e.g. BC Building Code) may impose
+    // percentages; implement via provincial overlay, not here.
   },
   residential: {
     bedroom_area: {

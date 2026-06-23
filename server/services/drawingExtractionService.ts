@@ -291,7 +291,7 @@ Extract ALL of the following:
 FIRE SAFETY: Fire-rated wall openings with dimensions and closure ratings, exit widths, corridor widths, travel distances, door hardware, fire separations, sprinkler/alarm indicators, occupancy separations, smoke compartments.
 STRUCTURAL: Member sizes, spans, foundation elements, load paths, connections, opening headers, floor/wall system types.
 CONNECTIONS: Fastener types/sizes/spacing, connector hardware, CSA standard references, weld symbols.
-ACCESSIBILITY (NBC 3.8): Barrier-free path width (min 1500mm per NBC 3.8.3.3.(1)), turning circle (min 1500mm), accessible door clear width (min 850mm per NBC 3.8.3.8.(1)), ramp slope (max 1:12), grab bar locations, counter heights.`,
+ACCESSIBILITY (NBC 3.8): Barrier-free path width (min 1000mm per NBC 3.8.3.2.(1)), turning circle (min 1500mm), accessible door clear width (min 850mm per NBC 3.8.3.8.(1)), ramp slope (max 1:12), grab bar locations, counter heights.`,
   };
 
   const guidance = typeSpecificGuidance[analysisType] || typeSpecificGuidance["comprehensive"];

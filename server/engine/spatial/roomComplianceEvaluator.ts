@@ -674,30 +674,10 @@ export async function evaluateRoomCompliance(
     }
   }
 
-  // 16. Accessible unit count requirement (NBC 3.8.3.3)
-  // Fires on Group C vestibule/corridor rooms — these represent building access points
-  // where the accessibility requirement is verified.
-  const isAccessPoint = group === 'C' && /vestibule|entrance|lobby|corridor|hallway/i.test(room.label);
-  if (isAccessPoint) {
-    const accessiblePercent = Constraints.accessibility.units.minimum_percent.value;
-    traces.push(buildFederalTrace({
-      result: 'warning',
-      rule: Constraints.accessibility.units.minimum_percent.ref,
-      reasoning: `Group C residential building: minimum ${Math.round(accessiblePercent * 100)}% of dwelling units must be accessible (NBC 3.8.3.3). Verify accessible unit count and barrier-free path from building entrance`,
-      evaluatedInputs: {
-        actual: 'see architectural drawings',
-        required: `≥${Math.round(accessiblePercent * 100)}% of units or ≥1 unit`,
-        unit: 'fraction'
-      },
-      severity: 'medium',
-      constraintId: 'accessibility.units',
-      recommendations: [
-        `Ensure ≥${Math.round(accessiblePercent * 100)}% of residential units meet NBC 3.8.3.3 accessible suite requirements`,
-        'Provide unobstructed barrier-free path from building entrance to each accessible unit',
-        'Each accessible unit requires: accessible washroom, 850mm door widths, 1500mm turning radius clearances'
-      ]
-    }));
-  }
+  // 16. Accessible unit count: no federal minimum percentage of dwelling units
+  // is mandated by NBC 2020 s.3.8. Accessibility for Group C is governed by
+  // 3.8.5 (Adaptable Dwelling Units) and AHJ designation per 3.8.2.3.(2)(l).
+  // Provincial percentages (if any) belong in a provincial overlay, not here.
 
   // 17. Storage room occupancy group check — accessory residential storage should be Group C
   const isStorageGroupF = /storage|stor\b|locker|utility room/i.test(room.label) && group === 'F';
