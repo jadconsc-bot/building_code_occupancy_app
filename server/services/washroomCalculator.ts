@@ -1,21 +1,22 @@
 /**
  * Washroom Count Calculator
- * NBC 3.7.2.1 — Minimum Plumbing Fixture Requirements
+ * NBC 3.7.2.2 — Minimum Plumbing Fixture Requirements
  *
- * Determines minimum water closets, lavatories, and drinking fountains
- * required based on occupancy group and occupant load.
+ * Determines minimum water closets and lavatories required based on
+ * occupancy group and occupant load.
  *
  * DETERMINISTIC ONLY — no LLM calls, no external dependencies.
- * All pass/fail decisions made by this engine, not by AI classification.
  *
- * Source: NBC 2020 Table 3.7.2.1 (confirmed identical in NBC(AE) 2023
- * and BCBC 2024 — no provincial override required for fixture counts).
+ * Source: NBC 2020 Article 3.7.2.2, Tables 3.7.2.2.-A / -B / -C.
+ * Confirmed identical in NBC(AE) 2023, BCBC 2024, and NBC 2025.
+ * Drinking fountains are not mandated by NBC 3.7.2.2; accessibility
+ * provisions are handled by barrierFreeCalculator (NBC 3.8).
  */
 
 export interface WashroomInput {
   occupancyGroup: string;        // 'A1'|'A2'|'A3'|'A4'|'B1'|'B2'|'B3'|'C'|'D'|'E'|'F1'|'F2'|'F3'
   occupantLoad: number;          // total persons for this occupancy
-  sprinklered: boolean;          // affects some thresholds
+  sprinklered: boolean;          // reserved — no effect on fixture counts in NBC 3.7.2.2
   province: string;              // 'AB'|'BC'|'ON' etc — reserved for future overrides
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
 }
@@ -24,9 +25,8 @@ export interface FixtureRequirement {
   waterClosetsMale: number;
   waterClosetsFemale: number;
   lavatories: number;
-  drinkingFountains: number;
-  // Accessibility fixtures (NBC 3.8.3.8) — flagged but not calculated here
-  // H3 (barrier-free) will add accessible stall counts
+  // Accessibility fixtures (NBC 3.8.3.8) — flagged but not calculated here;
+  // barrierFreeCalculator adds accessible stall counts
   accessibleStallsRequired: boolean;
 }
 
@@ -38,9 +38,9 @@ export interface WashroomResult {
   // Calculated outputs
   required: FixtureRequirement;
 
-  // Full rule traceability — Prime Directive requirement
-  ruleId: string;               // 'WC-3.7.2.1-{province}'
-  nbcRef: string;               // 'NBC 2020 Table 3.7.2.1'
+  // Full rule traceability
+  ruleId: string;               // 'WC-3.7.2.2-{province}'
+  nbcRef: string;               // varies by occupancy group
   codeEdition: string;
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
   evaluationTimestamp: string;  // ISO 8601
@@ -51,91 +51,124 @@ export interface WashroomResult {
   // inferred   = occupant load from area estimate
   // advisory   = occupant load from default factors only
 
-  assumptions: string[];        // e.g. ["Occupant load assumed equal male/female split"]
+  assumptions: string[];
   severity: 'pass' | 'fail' | 'info';
 }
 
-// ─── NBC Table 3.7.2.1 fixture thresholds ───────────────────────────────────
-// Structure: [maxOccupants, waterClosetsPerSex, lavatories, drinkingFountains]
-// Read as: up to maxOccupants persons → these minimums apply
-// Source: NBC 2020 Table 3.7.2.1
+// ─── NBC Table 3.7.2.2.-A — Assembly (Groups A1–A4) ─────────────────────────
+// Separate male/female WC counts indexed by total occupant load.
+// Source: NBC 2020 Table 3.7.2.2.-A
 
-interface FixtureRow {
-  maxOccupants: number;   // upper bound of this tier (Infinity for last row)
-  wcPerSex: number;       // water closets per sex
-  lav: number;            // lavatories (combined)
-  df: number;             // drinking fountains
+interface AssemblyRow {
+  maxOccupants: number;
+  wcMale: number;
+  wcFemale: number;
 }
 
-// Group A (Assembly) — NBC Table 3.7.2.1 Part A
-const GROUP_A_FIXTURES: FixtureRow[] = [
-  { maxOccupants: 100,      wcPerSex: 1, lav: 1, df: 1 },
-  { maxOccupants: 200,      wcPerSex: 2, lav: 2, df: 1 },
-  { maxOccupants: 400,      wcPerSex: 3, lav: 3, df: 2 },
-  { maxOccupants: 750,      wcPerSex: 4, lav: 4, df: 2 },
-  { maxOccupants: Infinity, wcPerSex: 5, lav: 5, df: 3 },
+const GROUP_A_FIXTURES: AssemblyRow[] = [
+  { maxOccupants: 25,  wcMale: 1, wcFemale: 1  },
+  { maxOccupants: 50,  wcMale: 1, wcFemale: 2  },
+  { maxOccupants: 75,  wcMale: 2, wcFemale: 3  },
+  { maxOccupants: 100, wcMale: 2, wcFemale: 4  },
+  { maxOccupants: 125, wcMale: 3, wcFemale: 5  },
+  { maxOccupants: 150, wcMale: 3, wcFemale: 6  },
+  { maxOccupants: 175, wcMale: 4, wcFemale: 7  },
+  { maxOccupants: 200, wcMale: 4, wcFemale: 8  },
+  { maxOccupants: 250, wcMale: 5, wcFemale: 9  },
+  { maxOccupants: 300, wcMale: 5, wcFemale: 10 },
+  { maxOccupants: 350, wcMale: 6, wcFemale: 11 },
+  { maxOccupants: 400, wcMale: 6, wcFemale: 12 },
+  // Over 400: handled procedurally — 7+1/200 males, 13+1/100 females (50/50 split)
 ];
 
-// Group B (Institutional) — NBC Table 3.7.2.1 Part B
-const GROUP_B_FIXTURES: FixtureRow[] = [
-  { maxOccupants: 10,       wcPerSex: 1, lav: 1, df: 1 },
-  { maxOccupants: 25,       wcPerSex: 2, lav: 2, df: 1 },
-  { maxOccupants: 50,       wcPerSex: 3, lav: 3, df: 1 },
-  { maxOccupants: Infinity, wcPerSex: 4, lav: 4, df: 2 },
-];
-
-// Group C (Residential) — NBC 3.7.2.2 — 1 WC + 1 lav per dwelling unit
-// Not a table lookup — handled separately below
-
-// Group D (Business) + Group E (Mercantile) — NBC Table 3.7.2.1 Part D/E
-const GROUP_DE_FIXTURES: FixtureRow[] = [
-  { maxOccupants: 25,       wcPerSex: 1, lav: 1, df: 1 },
-  { maxOccupants: 50,       wcPerSex: 2, lav: 2, df: 1 },
-  { maxOccupants: 75,       wcPerSex: 3, lav: 2, df: 1 },
-  { maxOccupants: 100,      wcPerSex: 3, lav: 3, df: 2 },
-  { maxOccupants: Infinity, wcPerSex: 4, lav: 4, df: 2 },
-];
-
-// Group F (Industrial) — NBC Table 3.7.2.1 Part F
-const GROUP_F_FIXTURES: FixtureRow[] = [
-  { maxOccupants: 10,       wcPerSex: 1, lav: 1, df: 1 },
-  { maxOccupants: 25,       wcPerSex: 2, lav: 2, df: 1 },
-  { maxOccupants: 50,       wcPerSex: 3, lav: 3, df: 1 },
-  { maxOccupants: Infinity, wcPerSex: 4, lav: 4, df: 2 },
-];
-
-// Map occupancy group to fixture table
-const FIXTURE_TABLE: Record<string, FixtureRow[] | 'residential'> = {
-  A1: GROUP_A_FIXTURES,
-  A2: GROUP_A_FIXTURES,
-  A3: GROUP_A_FIXTURES,
-  A4: GROUP_A_FIXTURES,
-  B1: GROUP_B_FIXTURES,
-  B2: GROUP_B_FIXTURES,
-  B3: GROUP_B_FIXTURES,
-  C:  'residential',
-  D:  GROUP_DE_FIXTURES,
-  E:  GROUP_DE_FIXTURES,
-  F1: GROUP_F_FIXTURES,
-  F2: GROUP_F_FIXTURES,
-  F3: GROUP_F_FIXTURES,
-};
-
-// ─── Core lookup function ────────────────────────────────────────────────────
-
-function lookupFixtures(
-  table: FixtureRow[],
-  occupantLoad: number
-): { wcPerSex: number; lav: number; df: number } {
-  // Walk tiers in order — return first tier where load <= maxOccupants
-  for (const row of table) {
+function assemblyWC(occupantLoad: number): { wcMale: number; wcFemale: number } {
+  for (const row of GROUP_A_FIXTURES) {
     if (occupantLoad <= row.maxOccupants) {
-      return { wcPerSex: row.wcPerSex, lav: row.lav, df: row.df };
+      return { wcMale: row.wcMale, wcFemale: row.wcFemale };
     }
   }
-  // Fallback to last row (Infinity tier) — should never reach here
-  const last = table[table.length - 1];
-  return { wcPerSex: last.wcPerSex, lav: last.lav, df: last.df };
+  // Over 400: assume 50/50 sex split for excess
+  const excessPerSex = (occupantLoad - 400) / 2;
+  return {
+    wcMale:   7  + Math.ceil(excessPerSex / 200),
+    wcFemale: 13 + Math.ceil(excessPerSex / 100),
+  };
+}
+
+// ─── NBC Table 3.7.2.2.-B — Business/Personal Services (Group D) ────────────
+// Per-sex tier table. Persons per sex = ceil(occupantLoad / 2).
+// Source: NBC 2020 Table 3.7.2.2.-B
+
+interface PerSexRow {
+  maxPerSex: number;
+  wc: number;
+}
+
+const GROUP_D_FIXTURES: PerSexRow[] = [
+  { maxPerSex: 25, wc: 1 },
+  { maxPerSex: 50, wc: 2 },
+  // Over 50 per sex: 3 + 1 per additional 50 persons per sex
+];
+
+function businessWC(perSex: number): number {
+  for (const row of GROUP_D_FIXTURES) {
+    if (perSex <= row.maxPerSex) return row.wc;
+  }
+  return 3 + Math.ceil((perSex - 50) / 50);
+}
+
+// ─── NBC 3.7.2.2.(11) — Mercantile (Group E) ────────────────────────────────
+// Ratio-based: 1 WC per 300 males, 1 WC per 150 females. 50/50 split assumed.
+
+function mercantileWC(occupantLoad: number): { wcMale: number; wcFemale: number } {
+  const perSex = occupantLoad / 2;
+  return {
+    wcMale:   Math.max(1, Math.ceil(perSex / 300)),
+    wcFemale: Math.max(1, Math.ceil(perSex / 150)),
+  };
+}
+
+// ─── NBC Table 3.7.2.2.-C — Industrial (Groups F1–F3) ───────────────────────
+// Per-sex tier table. Persons per sex = ceil(occupantLoad / 2).
+// Source: NBC 2020 Table 3.7.2.2.-C
+
+const GROUP_F_FIXTURES: PerSexRow[] = [
+  { maxPerSex: 10,  wc: 1 },
+  { maxPerSex: 25,  wc: 2 },
+  { maxPerSex: 50,  wc: 3 },
+  { maxPerSex: 75,  wc: 4 },
+  { maxPerSex: 100, wc: 5 },
+  // Over 100 per sex: 6 + 1 per additional 30 persons per sex
+];
+
+function industrialWC(perSex: number): number {
+  for (const row of GROUP_F_FIXTURES) {
+    if (perSex <= row.maxPerSex) return row.wc;
+  }
+  return 6 + Math.ceil((perSex - 100) / 30);
+}
+
+// ─── Group B (Institutional) — original thresholds preserved ────────────────
+// NBC 3.7.2.2 does not publish a standalone table for Group B;
+// these tiers are a best-effort approximation pending primary-source verification.
+
+interface TotalLoadRow {
+  maxOccupants: number;
+  wcPerSex: number;
+}
+
+const GROUP_B_FIXTURES: TotalLoadRow[] = [
+  { maxOccupants: 10,       wcPerSex: 1 },
+  { maxOccupants: 25,       wcPerSex: 2 },
+  { maxOccupants: 50,       wcPerSex: 3 },
+  { maxOccupants: Infinity, wcPerSex: 4 },
+];
+
+function institutionalWC(occupantLoad: number): number {
+  for (const row of GROUP_B_FIXTURES) {
+    if (occupantLoad <= row.maxOccupants) return row.wcPerSex;
+  }
+  return GROUP_B_FIXTURES[GROUP_B_FIXTURES.length - 1].wcPerSex;
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
@@ -148,80 +181,112 @@ export function calculateWashroomRequirements(
     'Occupant load assumed equal male/female split for water closet calculation',
   ];
 
-  const table = FIXTURE_TABLE[input.occupancyGroup];
+  const codeEdition = input.province === 'AB' ? 'NBC(AE) 2023'
+                    : input.province === 'BC' ? 'BCBC 2024'
+                    : 'NBC 2020';
 
-  // Residential — NBC 3.7.2.2: 1 WC + 1 lav per dwelling unit
-  // Occupant load = number of dwelling units for this path
-  if (table === 'residential') {
-    const units = Math.ceil(input.occupantLoad / 2); // 2 persons per unit default
-    assumptions.push('Residential: 1 WC + 1 lavatory per dwelling unit (NBC 3.7.2.2)');
+  // Residential — NBC 3.7.2.2.(1)(c): 1 WC + 1 lav per dwelling unit
+  if (input.occupancyGroup === 'C') {
+    const units = Math.ceil(input.occupantLoad / 2);
+    assumptions.push('Residential: 1 WC + 1 lavatory per dwelling unit (NBC 3.7.2.2.(1)(c))');
     return {
       occupancyGroup: input.occupancyGroup,
-      occupantLoad: input.occupantLoad,
+      occupantLoad:   input.occupantLoad,
       required: {
-        waterClosetsMale:   units,
-        waterClosetsFemale: units,
-        lavatories:         units,
-        drinkingFountains:  0, // not required for residential
+        waterClosetsMale:        units,
+        waterClosetsFemale:      units,
+        lavatories:              units,
         accessibleStallsRequired: input.occupantLoad > 1,
       },
-      ruleId: `WC-3.7.2.2-${input.province}`,
-      nbcRef: 'NBC 2020 Article 3.7.2.2',
-      codeEdition: input.province === 'AB' ? 'NBC(AE) 2023'
-                 : input.province === 'BC' ? 'BCBC 2024'
-                 : 'NBC 2020',
-      jurisdictionSource: input.jurisdictionSource,
+      ruleId:              `WC-3.7.2.2-${input.province}`,
+      nbcRef:              'NBC 2020 Article 3.7.2.2.(1)(c)',
+      codeEdition,
+      jurisdictionSource:  input.jurisdictionSource,
       evaluationTimestamp: timestamp,
-      confidence: 'inferred',
+      confidence:          'inferred',
       assumptions,
-      severity: 'info',
+      severity:            'info',
     };
   }
 
-  // Unknown occupancy group — advisory result, not a failure
-  if (!table) {
+  const grp = input.occupancyGroup;
+  let wcMale:   number;
+  let wcFemale: number;
+  let nbcRef:   string;
+
+  if (grp === 'A1' || grp === 'A2' || grp === 'A3' || grp === 'A4') {
+    const counts = assemblyWC(input.occupantLoad);
+    wcMale   = counts.wcMale;
+    wcFemale = counts.wcFemale;
+    nbcRef   = 'NBC 2020 Table 3.7.2.2.-A';
+
+  } else if (grp === 'B1' || grp === 'B2' || grp === 'B3') {
+    const wc = institutionalWC(input.occupantLoad);
+    wcMale   = wc;
+    wcFemale = wc;
+    nbcRef   = 'NBC 2020 Article 3.7.2.2 (Group B — advisory; verify against occupancy-specific provisions)';
+    assumptions.push('Group B institutional: approximate tiers applied — primary-source table not yet verified');
+
+  } else if (grp === 'D') {
+    const perSex = Math.ceil(input.occupantLoad / 2);
+    const wc = businessWC(perSex);
+    wcMale   = wc;
+    wcFemale = wc;
+    nbcRef   = 'NBC 2020 Table 3.7.2.2.-B';
+
+  } else if (grp === 'E') {
+    const counts = mercantileWC(input.occupantLoad);
+    wcMale   = counts.wcMale;
+    wcFemale = counts.wcFemale;
+    nbcRef   = 'NBC 2020 Article 3.7.2.2.(11)';
+
+  } else if (grp === 'F1' || grp === 'F2' || grp === 'F3') {
+    const perSex = Math.ceil(input.occupantLoad / 2);
+    const wc = industrialWC(perSex);
+    wcMale   = wc;
+    wcFemale = wc;
+    nbcRef   = 'NBC 2020 Table 3.7.2.2.-C';
+
+  } else {
     return {
       occupancyGroup: input.occupancyGroup,
-      occupantLoad: input.occupantLoad,
+      occupantLoad:   input.occupantLoad,
       required: {
-        waterClosetsMale: 0, waterClosetsFemale: 0,
-        lavatories: 0, drinkingFountains: 0,
+        waterClosetsMale:        0,
+        waterClosetsFemale:      0,
+        lavatories:              0,
         accessibleStallsRequired: false,
       },
-      ruleId: `WC-3.7.2.1-UNKNOWN`,
-      nbcRef: 'NBC 2020 Table 3.7.2.1',
-      codeEdition: 'NBC 2020',
-      jurisdictionSource: input.jurisdictionSource,
+      ruleId:              `WC-3.7.2.2-UNKNOWN`,
+      nbcRef:              'NBC 2020 Article 3.7.2.2',
+      codeEdition,
+      jurisdictionSource:  input.jurisdictionSource,
       evaluationTimestamp: timestamp,
-      confidence: 'advisory',
-      assumptions: ['Occupancy group not recognized — manual verification required'],
-      severity: 'info',
+      confidence:          'advisory',
+      assumptions:         ['Occupancy group not recognized — manual verification required'],
+      severity:            'info',
     };
   }
 
-  // Standard table lookup
-  const { wcPerSex, lav, df } = lookupFixtures(table, input.occupantLoad);
+  // NBC 3.7.2.3.(1): lavatories = ceil((wcMale + wcFemale) / 2)
+  const lavatories = Math.ceil((wcMale + wcFemale) / 2);
 
   return {
     occupancyGroup: input.occupancyGroup,
-    occupantLoad: input.occupantLoad,
+    occupantLoad:   input.occupantLoad,
     required: {
-      waterClosetsMale:   wcPerSex,
-      waterClosetsFemale: wcPerSex,
-      lavatories:         lav,
-      drinkingFountains:  df,
+      waterClosetsMale:        wcMale,
+      waterClosetsFemale:      wcFemale,
+      lavatories,
       accessibleStallsRequired: input.occupantLoad >= 6,
-      // NBC 3.8.3.8: accessible stall required when 6+ persons
     },
-    ruleId: `WC-3.7.2.1-${input.province}`,
-    nbcRef: 'NBC 2020 Table 3.7.2.1',
-    codeEdition: input.province === 'AB' ? 'NBC(AE) 2023'
-               : input.province === 'BC' ? 'BCBC 2024'
-               : 'NBC 2020',
-    jurisdictionSource: input.jurisdictionSource,
+    ruleId:              `WC-3.7.2.2-${input.province}`,
+    nbcRef,
+    codeEdition,
+    jurisdictionSource:  input.jurisdictionSource,
     evaluationTimestamp: timestamp,
-    confidence: 'confirmed',
+    confidence:          'confirmed',
     assumptions,
-    severity: 'pass',
+    severity:            'pass',
   };
 }

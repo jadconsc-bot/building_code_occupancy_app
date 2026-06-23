@@ -52,7 +52,7 @@ export function WashroomCountsPanel({
           Washroom Requirements
         </h3>
         <span className="text-xs text-muted-foreground">
-          NBC 3.7.2.1
+          NBC 3.7.2.2
         </span>
         {evaluatedAt && (
           <span className="text-xs text-muted-foreground ml-auto">
@@ -103,9 +103,6 @@ export function WashroomCountsPanel({
 
                 <div className="text-muted-foreground">Lavatories</div>
                 <div className="font-medium">{result.required.lavatories}</div>
-
-                <div className="text-muted-foreground">Drinking Fountains</div>
-                <div className="font-medium">{result.required.drinkingFountains}</div>
 
                 <div className="text-muted-foreground">Accessible Stall</div>
                 <div className="font-medium flex items-center gap-1">

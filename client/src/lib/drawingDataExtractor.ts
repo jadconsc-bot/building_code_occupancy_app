@@ -38,7 +38,6 @@ export interface WashroomFixtureRequirement {
   waterClosetsMale: number;
   waterClosetsFemale: number;
   lavatories: number;
-  drinkingFountains: number;
   accessibleStallsRequired: boolean;
 }
 
