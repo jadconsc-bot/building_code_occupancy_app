@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertCircle,
+  CheckCircle,
   CheckCircle2,
   XCircle,
   ShieldCheck,
@@ -28,6 +29,7 @@ import {
   MapPin,
   Loader2,
   AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
 import { ExportAnalysisPDFButton } from "@/components/ExportAnalysisPDFButton";
 import { trpc } from "@/lib/trpc";
@@ -42,6 +44,8 @@ interface RuleEvaluation {
   category: string;
   severity: "critical" | "major" | "minor" | "info";
   details: string;
+  roomId?: number | null;
+  roomLabel?: string | null;
 }
 
 interface ComplianceIssue {
@@ -307,32 +311,45 @@ export function ProfessionalReviewPanel({
                 className="flex items-start gap-2 p-2 rounded bg-muted text-xs"
               >
                 {rule.result === "PASS" && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
                 )}
                 {rule.result === "FAIL" && (
-                  <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <XCircle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
                 )}
                 {rule.result === "CONDITIONAL" && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 )}
                 {rule.result === "UNABLE_TO_EVALUATE" && (
-                  <AlertCircle className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <HelpCircle size={14} className="text-muted-foreground flex-shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1 flex-wrap">
+                    {rule.roomLabel && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full mr-2">
+                        {rule.roomLabel}
+                      </span>
+                    )}
                     <span className="font-mono font-medium">{rule.clause}</span>
-                    <Badge
-                      variant={
-                        rule.result === "PASS"
-                          ? "default"
-                          : rule.result === "FAIL"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      className="text-[10px] py-0"
-                    >
-                      {rule.result}
-                    </Badge>
+                    {rule.result === "PASS" && (
+                      <Badge className="text-[10px] py-0 text-green-600 bg-green-50">
+                        Compliant
+                      </Badge>
+                    )}
+                    {rule.result === "FAIL" && (
+                      <Badge className="text-[10px] py-0 text-red-600 bg-red-50">
+                        Non-compliant
+                      </Badge>
+                    )}
+                    {rule.result === "CONDITIONAL" && (
+                      <Badge className="text-[10px] py-0 text-amber-600 bg-amber-50">
+                        Verify required
+                      </Badge>
+                    )}
+                    {rule.result === "UNABLE_TO_EVALUATE" && (
+                      <Badge className="text-[10px] py-0 text-muted-foreground bg-muted">
+                        Not assessable from drawing
+                      </Badge>
+                    )}
                     {rule.severity === "critical" && (
                       <Badge variant="destructive" className="text-[10px] py-0">
                         CRITICAL
@@ -342,6 +359,21 @@ export function ProfessionalReviewPanel({
                   <p className="text-muted-foreground truncate">{rule.description}</p>
                   {rule.details && (
                     <p className="text-muted-foreground/70 text-[10px] mt-0.5">{rule.details}</p>
+                  )}
+                  {rule.result === "CONDITIONAL" && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Verify on stamped drawings — confirm with engineer or architect before permit submission.
+                    </p>
+                  )}
+                  {rule.result === "UNABLE_TO_EVALUATE" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Provide documentation for professional review.
+                    </p>
+                  )}
+                  {rule.result === "FAIL" && (
+                    <p className="text-xs text-red-700 mt-1">
+                      Correction required before permit submission.
+                    </p>
                   )}
                 </div>
               </div>

@@ -838,6 +838,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     severity: string;
     result: string;
     details: string;
+    roomId?: number | null;
+    roomLabel?: string | null;
   }>>([]);
   const [pdIssues, setPdIssues] = useState<Array<{ severity: string; category: string; description: string; clause: string; recommendation: string }>>([]);
   const [pdRecommendations, setPdRecommendations] = useState<string[]>([]);
@@ -1084,7 +1086,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     for (const item of roomComplianceResults) {
       for (const c of (item as any).compliance ?? []) {
         if (c.status === 'not_applicable') continue;
-        if (roomRules.some(r => r.ruleId === c.ruleReference && r.details?.includes((item as any).room?.roomLabel))) continue;
+        if (roomRules.some(r => r.ruleId === c.ruleReference && r.roomId === item.room?.id)) continue;
         roomRules.push({
           ruleId: c.ruleReference,
           clause: c.ruleReference,
@@ -1094,7 +1096,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           result: c.status === 'pass' ? 'PASS'
             : c.status === 'fail' ? 'FAIL'
             : 'CONDITIONAL',
-          details: `${(item as any).room?.roomLabel ?? 'Room'}: actual=${c.actualValue ?? '?'} required=${c.requiredValue ?? '?'}`,
+          details:
+            `actual=${c.actualValue ?? '?'} ` +
+            `required=${c.requiredValue ?? '?'}`,
+          roomId: item.room?.id ?? null,
+          roomLabel: item.room?.roomLabel ?? null,
         });
       }
     }
