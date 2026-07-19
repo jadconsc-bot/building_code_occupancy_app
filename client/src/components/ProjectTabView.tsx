@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation, useSearch } from "wouter";
 import { useProject } from "@/contexts/ProjectContext";
@@ -400,8 +400,29 @@ const OCCUPANT_LOAD_FACTORS: Record<string, number> = {
   "F-1": 0.033, "F-2": 0.033, "F-3": 0.033,
 };
 
+const CALCULATOR_IDS = [
+  "occupant-load",
+  "exit",
+  "barrier-free",
+  "construction-type",
+  "sprinkler",
+] as const;
+type CalculatorId = typeof CALCULATOR_IDS[number];
+
+const CALCULATOR_LABELS: Record<CalculatorId, string> = {
+  "occupant-load": "Occupant Load",
+  exit: "Exit Requirements",
+  "barrier-free": "Barrier-Free",
+  "construction-type": "Construction Type",
+  sprinkler: "Sprinklers",
+};
+
 function CalculationsTab({ projectId, userRole }: { projectId: number; userRole: string }) {
   const isOrgAdmin = userRole === "org_admin" || userRole === "admin";
+  const search = useSearch();
+  const calculatorParam = new URLSearchParams(search).get("calculator");
+  const initialCalculator = CALCULATOR_IDS.find(id => id === calculatorParam) ?? null;
+  const [activeCalculator, setActiveCalculator] = useState<CalculatorId | null>(initialCalculator);
 
   const [province, setProvince] = useState("AB");
   const [codeEdition, setCodeEdition] = useState("NBC 2020");
@@ -433,6 +454,21 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
   const areaByFloor = (pkg?.areaByFloor as Record<string, number> | null) ?? {};
   const summary = pkg?.calculationsSummaryJson as any;
 
+  useEffect(() => {
+    const requested = CALCULATOR_IDS.find(id => id === calculatorParam) ?? null;
+    setActiveCalculator(requested);
+    if (!requested || getQuery.isLoading) return;
+
+    const targetId = requested === "occupant-load"
+      ? "calculator-occupant-load"
+      : requested === "exit"
+        ? "calculator-exit"
+        : "calculator-package-controls";
+    requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [calculatorParam, getQuery.isLoading]);
+
   const handleGenerate = () => {
     generateMutation.mutate({ projectId, province, codeEdition, sprinklered });
   };
@@ -447,6 +483,19 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap gap-2" aria-label="Calculator selection">
+        {CALCULATOR_IDS.map(id => (
+          <Button
+            key={id}
+            size="sm"
+            variant={activeCalculator === id ? "default" : "outline"}
+            onClick={() => setActiveCalculator(id)}
+          >
+            {CALCULATOR_LABELS[id]}
+          </Button>
+        ))}
+      </div>
+
       {/* Status badge */}
       {pkg && (
         <div className="flex items-center gap-3">
@@ -463,10 +512,10 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
       )}
 
       {/* Generation inputs */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+      <div id="calculator-package-controls" className="scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
         <p className="text-sm font-semibold text-gray-700">Generate Calculations Package</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
+          <div id="calculator-occupant-load" className="scroll-mt-4">
             <Label className="text-xs">Province</Label>
             <Select value={province} onValueChange={setProvince}>
               <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -555,7 +604,7 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
           </div>
 
           {/* Exit Width */}
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+          <div id="calculator-exit" className="scroll-mt-4 rounded-lg bg-blue-50 border border-blue-200 p-4">
             <h4 className="text-sm font-semibold text-blue-800 mb-1">Exit Width — NBC 3.4.3.2</h4>
             <p className="text-sm text-blue-700">
               {pkg.totalOccupantLoad ?? 0} persons × 6.1 mm/person = <strong>{Number(pkg.exitWidthRequiredMm ?? 0)} mm</strong> required exit width

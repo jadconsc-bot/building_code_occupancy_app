@@ -241,7 +241,10 @@ function InputsPanel({
 
 export function BriefTab({ projectId }: BriefTabProps) {
   const [editingInputs, setEditingInputs] = useState(false);
+  const [bedroomCount, setBedroomCount] = useState('');
   const briefQuery = trpc.projects.generateBrief.useQuery({ projectId });
+  const updateProjectMutation = trpc.projects.update.useMutation();
+  const utils = trpc.useUtils();
   const [, setLocation] = useLocation();
 
   if (briefQuery.isLoading) {
@@ -255,7 +258,24 @@ export function BriefTab({ projectId }: BriefTabProps) {
   if (!briefQuery.data) return null;
 
   const { inputs, sections, completeness } = briefQuery.data;
-  const navToTab = (tab: string) => setLocation(`/project/${projectId}?tab=${tab}`);
+  const navToCalc = (calculator: string) => setLocation(
+    `/project/${projectId}?tab=calculations&calculator=${calculator}`,
+  );
+  const saveBedroomCount = async () => {
+    const parsed = Number.parseInt(bedroomCount, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      toast.error('Enter a bedroom count of at least 1');
+      return;
+    }
+    try {
+      await updateProjectMutation.mutateAsync({ id: projectId, bedroomCount: parsed });
+      await utils.projects.generateBrief.invalidate({ projectId });
+      await briefQuery.refetch();
+      toast.success('Occupant load updated');
+    } catch {
+      toast.error('Failed to save bedroom count');
+    }
+  };
 
   if (completeness < 100 || editingInputs) {
     return (
@@ -322,12 +342,40 @@ export function BriefTab({ projectId }: BriefTabProps) {
           icon={Users}
           status={occupantLoad.value !== null ? 'ok' : 'warning'}
           value={occupantLoad.value !== null ? `${occupantLoad.value} persons` : '—'}
-          subline={`${occupantLoad.factor} m²/person · ${occupantLoad.useType}`}
+          subline={occupantLoad.factor == null
+            ? undefined
+            : typeof occupantLoad.factor === 'string'
+              ? `${occupantLoad.factor} · ${occupantLoad.useType}`
+              : `${occupantLoad.factor} m²/person · ${occupantLoad.useType}`}
           citation={occupantLoad.citation}
-          note={occupantLoad.isDefault ? occupantLoad.note : undefined}
+          note={occupantLoad.isDefault ? occupantLoad.note ?? undefined : undefined}
           linkLabel="Open Occupant Load Calculator"
-          onLink={() => navToTab('calculations')}
-        />
+          onLink={() => navToCalc('occupant-load')}
+        >
+          {inputs.occupancyGroup?.startsWith('C') && occupantLoad.value === null && (
+            <div className="space-y-2 rounded border border-amber-200 bg-amber-50 p-3">
+              <Label htmlFor="brief-bedroom-count" className="text-xs">Number of bedrooms</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="brief-bedroom-count"
+                  type="number"
+                  min={1}
+                  value={bedroomCount}
+                  onChange={event => setBedroomCount(event.target.value)}
+                  placeholder="e.g. 3"
+                  className="h-8 text-xs"
+                />
+                <Button
+                  size="sm"
+                  onClick={saveBedroomCount}
+                  disabled={updateProjectMutation.isPending}
+                >
+                  {updateProjectMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Calculate'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </SectionCard>
       )}
 
       {/* 2. Required Exits */}
@@ -348,7 +396,7 @@ export function BriefTab({ projectId }: BriefTabProps) {
               : undefined
           }
           linkLabel="Open Exit Calculator"
-          onLink={() => navToTab('calculations')}
+          onLink={() => navToCalc('exit')}
         />
       )}
 
@@ -372,7 +420,7 @@ export function BriefTab({ projectId }: BriefTabProps) {
           subline={`${exitWidth.factor} mm/person · min ${exitWidth.perDoorMm} mm per door`}
           citation={exitWidth.citations.join(' · ')}
           linkLabel="Open Exit Calculator"
-          onLink={() => navToTab('calculations')}
+          onLink={() => navToCalc('exit')}
         />
       )}
 
@@ -396,6 +444,8 @@ export function BriefTab({ projectId }: BriefTabProps) {
               ? 'User-selected sprinklered — verify code requirement applies to this building'
               : undefined
         }
+        linkLabel="Open Sprinkler Calculator"
+        onLink={() => navToCalc('sprinkler')}
       />
 
       {/* 6. Construction Type */}
@@ -406,7 +456,7 @@ export function BriefTab({ projectId }: BriefTabProps) {
         value={constructionType.permitted[0] ?? '—'}
         citation={constructionType.citation}
         linkLabel="Open Construction Type Calculator"
-        onLink={() => navToTab('calculations')}
+        onLink={() => navToCalc('construction-type')}
       />
 
       {/* 7. Accessibility Triggers */}
@@ -442,7 +492,7 @@ export function BriefTab({ projectId }: BriefTabProps) {
           ))}
         </div>
         <button
-          onClick={() => navToTab('calculations')}
+          onClick={() => navToCalc('barrier-free')}
           className="flex items-center gap-1 text-xs text-blue-600 hover:underline pt-0.5"
         >
           Open Barrier-Free Calculator <ChevronRight className="w-3 h-3" />
@@ -454,7 +504,7 @@ export function BriefTab({ projectId }: BriefTabProps) {
         <Button
           className="w-full"
           disabled={!allComputed}
-          onClick={() => navToTab('permit_package')}
+          onClick={() => setLocation(`/project/${projectId}?tab=permit_package`)}
         >
           Generate Permit Package →
         </Button>

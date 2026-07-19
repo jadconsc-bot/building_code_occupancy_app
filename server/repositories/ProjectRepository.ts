@@ -25,6 +25,7 @@ export interface CreateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  bedroomCount?: number;
   zoningCategory?: string;
   siteConstraints?: string;
   storeys?: number;
@@ -51,6 +52,7 @@ export interface UpdateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  bedroomCount?: number;
   zoningCategory?: string;
   siteConstraints?: string;
   storeys?: number;
@@ -220,6 +222,7 @@ export class ProjectRepository {
       if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
       if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
+      if (input.bedroomCount !== undefined) updateData.bedroomCount = input.bedroomCount;
       if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;
       if (input.siteConstraints !== undefined) updateData.siteConstraints = input.siteConstraints;
       if (input.storeys !== undefined) updateData.storeys = input.storeys;

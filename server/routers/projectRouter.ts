@@ -87,6 +87,7 @@ export const projectRouter = router({
         jurisdictionDetected: z.boolean().optional(),
         projectCode: z.string().max(50).optional(),
         grossFloorArea: z.number().positive().optional(),
+        bedroomCount: z.number().int().nonnegative().optional(),
         zoningCategory: z.string().max(50).optional(),
         siteConstraints: z.string().max(2000).trim().optional(),
         storeys: z.number().int().positive().optional(),
@@ -223,6 +224,7 @@ export const projectRouter = router({
           id: projects.id,
           occupancyCode: projects.occupancyCode,
           grossFloorArea: projects.grossFloorArea,
+          bedroomCount: projects.bedroomCount,
           storeys: projects.storeys,
           province: projects.province,
           sprinklersRequired: projects.sprinklersRequired,
@@ -250,16 +252,41 @@ export const projectRouter = router({
       // ── Section 1: Occupant Load ────────────────────────────────────────────
       let occupantLoadSection: {
         value: number | null;
-        factor: number;
+        factor: number | string | null;
         useType: string;
         citation: string;
-        note: string;
+        note: string | null;
         isDefault: boolean;
       } | null = null;
 
       let occupantLoad: number | null = null;
 
-      if (occupancyGroup) {
+      // Group C: dwelling units use 2 persons/bedroom
+      // (NBC 3.1.17.1 Note 2), not area-based factor
+      if (occupancyGroup?.startsWith('C')) {
+        if (project.bedroomCount != null && project.bedroomCount > 0) {
+          occupantLoad = project.bedroomCount * 2;
+          occupantLoadSection = {
+            value: occupantLoad,
+            factor: '2 persons/bedroom',
+            useType: 'Dwelling Units',
+            citation: 'NBC 3.1.17.1 Note (2)',
+            isDefault: false,
+            note: null,
+          };
+        } else {
+          // bedroomCount not yet entered — prompt user
+          occupantLoad = null;
+          occupantLoadSection = {
+            value: occupantLoad,
+            factor: null,
+            useType: 'Dwelling Units',
+            citation: 'NBC 3.1.17.1 Note (2)',
+            isDefault: true,
+            note: 'Enter bedroom count to calculate — dwelling units use 2 persons per bedroom',
+          };
+        }
+      } else if (occupancyGroup) {
         const spec = getDefaultLoadFactor(occupancyGroup);
         occupantLoad = grossFloorAreaM2 !== null
           ? Math.ceil(grossFloorAreaM2 / spec.areaPerPerson)
