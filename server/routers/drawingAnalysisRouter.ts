@@ -27,6 +27,7 @@ import {
   disclaimerAcknowledgments,
   projects,
   drawingPages,
+  sitePlanExtractions,
   detectedRooms,
   detectedFeatures,
   complianceResults,
@@ -46,6 +47,12 @@ import { extractIpAddress } from "../utils/extractIpAddress";
 import { runWallEngine } from "../services/wallEngineOrchestrator";
 import { wallEngineQueue } from "../services/wallEngineQueue";
 import { runCalculatorOrchestrator } from "../services/calculatorOrchestrator";
+import { callAnthropicVision } from "../services/anthropicVisionService";
+import {
+  buildSitePlanPrompts,
+  deriveLotCoveragePct,
+  SitePlanExtractionSchema,
+} from "../services/sitePlanExtractionService";
 
 /**
  * Drizzle returns MySQL JSON columns as already-parsed objects.
@@ -232,6 +239,7 @@ export const drawingAnalysisRouter = router({
         'institutional',
         'industrial',
         'mixed_use',
+        'site_plan',
         'auto',
       ]).default('auto').optional(),
       // PD2.0 §6.3: Disclaimer must be acknowledged before analysis
@@ -416,11 +424,200 @@ export const drawingAnalysisRouter = router({
             occupancyCode: proj.occupancyCode ?? undefined,
             province: proj.province ?? undefined,
             buildingType: proj.buildingType ?? undefined,
-            drawingType: (input.drawingType ?? 'auto') as DrawingType,
+            drawingType: input.drawingType === 'site_plan'
+              ? 'auto'
+              : (input.drawingType ?? 'auto') as DrawingType,
           };
         }
       } catch {
         // Non-critical — proceed without context
+      }
+
+      // Site plans have a dedicated extraction contract and do not enter the
+      // floor-plan compliance pipeline. A pre-pass classified as floor_plan
+      // falls through to the existing extraction path below.
+      let classifiedPageType: 'site_plan' | 'floor_plan' | null = null;
+      if (input.drawingType === 'site_plan') {
+        const classificationPrompt = 'Is this a site plan showing property lines and building footprint from above, or a floor plan showing interior room layout? Answer with exactly one word: site_plan or floor_plan';
+        const classification = await queuePageAnalysis(() => callAnthropicVision({
+          imageBase64: page1Base64,
+          mimeType: page1MimeType,
+          systemPrompt: classificationPrompt,
+          userPrompt: classificationPrompt,
+          jsonSchema: {
+            type: 'object',
+            properties: { pageType: { type: 'string', enum: ['site_plan', 'floor_plan'] } },
+            required: ['pageType'],
+          },
+          maxTokens: 32,
+        }));
+
+        classifiedPageType = (classification.parsed as { pageType?: string } | null)?.pageType === 'site_plan'
+          ? 'site_plan'
+          : 'floor_plan';
+
+        let classifiedPageId: number | null = null;
+        if (input.mimeType === 'application/pdf') {
+          const [page] = await db
+            .select({ id: drawingPages.id })
+            .from(drawingPages)
+            .where(and(eq(drawingPages.drawingId, analysisId), eq(drawingPages.pageNumber, 1)))
+            .limit(1);
+          classifiedPageId = page?.id ?? null;
+          if (classifiedPageId !== null) {
+            await db.update(drawingPages)
+              .set({ pageType: classifiedPageType })
+              .where(eq(drawingPages.id, classifiedPageId));
+          }
+        } else if (classifiedPageType === 'site_plan') {
+          const pageInsert = await db.insert(drawingPages).values({
+            drawingId: analysisId,
+            pageNumber: 1,
+            widthPx: 0,
+            heightPx: 0,
+            pageType: classifiedPageType,
+            preprocessedUrl: drawingUrl || null,
+            cropRegionJson: input.cropRegion ?? null,
+            cropRegionSetAt: input.cropRegion ? new Date() : null,
+          });
+          classifiedPageId = pageInsert[0].insertId;
+        }
+
+        if (classifiedPageType === 'site_plan') {
+          if (classifiedPageId === null) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Site plan page record was not created',
+            });
+          }
+
+          const prompts = buildSitePlanPrompts();
+          const sitePlanResponse = await queuePageAnalysis(() => callAnthropicVision({
+            imageBase64: page1Base64,
+            mimeType: page1MimeType,
+            systemPrompt: prompts.system,
+            userPrompt: prompts.user,
+            jsonSchema: {
+              type: 'object',
+              properties: {
+                parcelAreaM2: { type: ['number', 'null'] },
+                parcelWidthM: { type: ['number', 'null'] },
+                parcelDepthM: { type: ['number', 'null'] },
+                frontSetbackM: { type: ['number', 'null'] },
+                rearSetbackM: { type: ['number', 'null'] },
+                sideSetbackLeftM: { type: ['number', 'null'] },
+                sideSetbackRightM: { type: ['number', 'null'] },
+                buildingFootprintM2: { type: ['number', 'null'] },
+                lotCoveragePct: { type: ['number', 'null'] },
+                mainFloorGeodeticM: { type: ['number', 'null'] },
+                roofPeakGeodeticM: { type: ['number', 'null'] },
+                footingGeodeticM: { type: ['number', 'null'] },
+                hasLane: { type: ['boolean', 'null'] },
+                parkingStalls: { type: ['number', 'null'] },
+                parkingSurfaceType: { type: ['string', 'null'] },
+                northArrowDetected: { type: ['boolean', 'null'] },
+                municipalAddress: { type: ['string', 'null'] },
+                detectedScale: { type: ['string', 'null'] },
+                scaleConfidence: { type: ['number', 'null'] },
+              },
+              required: [
+                'parcelAreaM2', 'parcelWidthM', 'parcelDepthM', 'frontSetbackM',
+                'rearSetbackM', 'sideSetbackLeftM', 'sideSetbackRightM',
+                'buildingFootprintM2', 'lotCoveragePct', 'mainFloorGeodeticM',
+                'roofPeakGeodeticM', 'footingGeodeticM', 'hasLane', 'parkingStalls',
+                'parkingSurfaceType', 'northArrowDetected', 'municipalAddress',
+                'detectedScale', 'scaleConfidence',
+              ],
+            },
+          }));
+
+          const parsedSitePlan = SitePlanExtractionSchema.safeParse(sitePlanResponse.parsed);
+          const sitePlan = parsedSitePlan.success
+            ? {
+                ...parsedSitePlan.data,
+                lotCoveragePct: deriveLotCoveragePct(
+                  parsedSitePlan.data.buildingFootprintM2,
+                  parsedSitePlan.data.parcelAreaM2,
+                ),
+              }
+            : null;
+          const decimalValue = (value: number | null | undefined) => value == null ? null : String(value);
+
+          await db.insert(sitePlanExtractions).values({
+            pageId: classifiedPageId,
+            drawingId: analysisId,
+            parcelAreaM2: decimalValue(sitePlan?.parcelAreaM2),
+            parcelWidthM: decimalValue(sitePlan?.parcelWidthM),
+            parcelDepthM: decimalValue(sitePlan?.parcelDepthM),
+            frontSetbackM: decimalValue(sitePlan?.frontSetbackM),
+            rearSetbackM: decimalValue(sitePlan?.rearSetbackM),
+            sideSetbackLeftM: decimalValue(sitePlan?.sideSetbackLeftM),
+            sideSetbackRightM: decimalValue(sitePlan?.sideSetbackRightM),
+            buildingFootprintM2: decimalValue(sitePlan?.buildingFootprintM2),
+            lotCoveragePct: decimalValue(sitePlan?.lotCoveragePct),
+            mainFloorGeodeticM: decimalValue(sitePlan?.mainFloorGeodeticM),
+            roofPeakGeodeticM: decimalValue(sitePlan?.roofPeakGeodeticM),
+            footingGeodeticM: decimalValue(sitePlan?.footingGeodeticM),
+            hasLane: sitePlan?.hasLane == null ? null : sitePlan.hasLane ? 1 : 0,
+            parkingStalls: sitePlan?.parkingStalls ?? null,
+            parkingSurfaceType: sitePlan?.parkingSurfaceType ?? null,
+            northArrowDetected: sitePlan?.northArrowDetected == null ? null : sitePlan.northArrowDetected ? 1 : 0,
+            municipalAddress: sitePlan?.municipalAddress ?? null,
+            detectedScale: sitePlan?.detectedScale ?? null,
+            scaleConfidence: decimalValue(sitePlan?.scaleConfidence),
+            extractionModel: sitePlanResponse.modelVersion,
+            extractionPromptVersion: EXTRACTION_PROMPT_VERSION,
+            extractionConfidence: decimalValue(sitePlan?.scaleConfidence),
+            rawExtractionJson: sitePlanResponse.rawText,
+          });
+
+          await db.update(drawingAnalyses).set({
+            analysisStatus: 'UNDER_REVIEW',
+            llmModelVersion: sitePlanResponse.modelVersion,
+            updatedAt: new Date(),
+          }).where(eq(drawingAnalyses.id, analysisId));
+
+          await insertAuditEvent({
+            analysisId,
+            userId: ctx.user.id,
+            action: 'EXTRACTION_COMPLETED',
+            details: {
+              modelVersion: sitePlanResponse.modelVersion,
+              promptVersion: EXTRACTION_PROMPT_VERSION,
+              drawingType: classifiedPageType,
+              parsed: parsedSitePlan.success,
+            },
+            userEmail: ctx.user.email,
+            userFullName: ctx.user.name ?? null,
+            ipAddress,
+            userAgent,
+            sessionId,
+          });
+
+          return {
+            analysisId,
+            analysisStatus: 'UNDER_REVIEW' as const,
+            disclaimerAcknowledged: true,
+            disclaimerVersion: CURRENT_DISCLAIMER_VERSION,
+            llmModelVersion: sitePlanResponse.modelVersion,
+            ruleEngineVersion: RULE_ENGINE_VERSION,
+            pageCount,
+            complianceScore: null,
+            complianceLevel: null,
+            ruleEvaluations: [],
+            issues: parsedSitePlan.success ? [] : [{
+              severity: 'major',
+              clause: 'site-plan-extraction',
+              description: 'Site plan response could not be validated',
+              details: parsedSitePlan.error.message,
+            }],
+            recommendations: [],
+            extractedData: {
+              drawingType: classifiedPageType,
+              sitePlan,
+            },
+          };
+        }
       }
 
       let extractionResult;
@@ -630,6 +827,7 @@ export const drawingAnalysisRouter = router({
           pageNumber: 1,
           widthPx: 0,
           heightPx: 0,
+          pageType: classifiedPageType,
           preprocessedUrl: drawingUrl || null,
           cropRegionJson: clientCropRegion ?? null,
           cropRegionSetAt: clientCropRegion ? new Date() : null,

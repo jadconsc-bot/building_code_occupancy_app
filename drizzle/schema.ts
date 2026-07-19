@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -859,6 +859,7 @@ export const drawingPages = mysqlTable("drawingPages", {
   pageNumber: int("pageNumber").notNull(),
   widthPx: int("widthPx").notNull(),
   heightPx: int("heightPx").notNull(),
+  pageType: varchar("pageType", { length: 50 }),
   preprocessedUrl: varchar("preprocessedUrl", { length: 500 }),
   cropRegionJson: json("cropRegionJson"),
   cropRegionInheritedFrom: int("cropRegionInheritedFrom"),
@@ -879,6 +880,42 @@ export const drawingPages = mysqlTable("drawingPages", {
 
 export type DrawingPage = typeof drawingPages.$inferSelect;
 export type InsertDrawingPage = typeof drawingPages.$inferInsert;
+
+export const sitePlanExtractions = mysqlTable("sitePlanExtractions", {
+  id: int("id").autoincrement().primaryKey(),
+  pageId: int("pageId").notNull().references(() => drawingPages.id),
+  drawingId: int("drawingId").notNull().references(() => drawingAnalyses.id),
+  parcelAreaM2: decimal("parcelAreaM2", { precision: 10, scale: 2 }),
+  parcelWidthM: decimal("parcelWidthM", { precision: 8, scale: 2 }),
+  parcelDepthM: decimal("parcelDepthM", { precision: 8, scale: 2 }),
+  frontSetbackM: decimal("frontSetbackM", { precision: 6, scale: 2 }),
+  rearSetbackM: decimal("rearSetbackM", { precision: 6, scale: 2 }),
+  sideSetbackLeftM: decimal("sideSetbackLeftM", { precision: 6, scale: 2 }),
+  sideSetbackRightM: decimal("sideSetbackRightM", { precision: 6, scale: 2 }),
+  buildingFootprintM2: decimal("buildingFootprintM2", { precision: 10, scale: 2 }),
+  lotCoveragePct: decimal("lotCoveragePct", { precision: 5, scale: 2 }),
+  mainFloorGeodeticM: decimal("mainFloorGeodeticM", { precision: 8, scale: 3 }),
+  roofPeakGeodeticM: decimal("roofPeakGeodeticM", { precision: 8, scale: 3 }),
+  footingGeodeticM: decimal("footingGeodeticM", { precision: 8, scale: 3 }),
+  hasLane: tinyint("hasLane"),
+  parkingStalls: int("parkingStalls"),
+  parkingSurfaceType: varchar("parkingSurfaceType", { length: 50 }),
+  northArrowDetected: tinyint("northArrowDetected"),
+  municipalAddress: varchar("municipalAddress", { length: 255 }),
+  detectedScale: varchar("detectedScale", { length: 50 }),
+  scaleConfidence: decimal("scaleConfidence", { precision: 3, scale: 2 }),
+  extractionModel: varchar("extractionModel", { length: 100 }),
+  extractionPromptVersion: varchar("extractionPromptVersion", { length: 20 }),
+  extractionConfidence: decimal("extractionConfidence", { precision: 3, scale: 2 }),
+  extractedAt: datetime("extractedAt").default(sql`CURRENT_TIMESTAMP`),
+  rawExtractionJson: text("rawExtractionJson"),
+}, (table) => ({
+  pageIdIdx: index("idx_sitePlanExtractions_pageId").on(table.pageId),
+  drawingIdIdx: index("idx_sitePlanExtractions_drawingId").on(table.drawingId),
+}));
+
+export type SitePlanExtraction = typeof sitePlanExtractions.$inferSelect;
+export type InsertSitePlanExtraction = typeof sitePlanExtractions.$inferInsert;
 
 // ── Wall Geometry Tables (Phase B) ────────────────────────────────────────────
 
@@ -1760,4 +1797,3 @@ export const bcProjectLinks = mysqlTable("bcProjectLinks", {
   createdAt:           timestamp("createdAt").defaultNow().notNull(),
   updatedAt:           timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
