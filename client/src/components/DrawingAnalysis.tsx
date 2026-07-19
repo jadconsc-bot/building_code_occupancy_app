@@ -141,6 +141,126 @@ interface RayCastResult {
   source: 'ray_cast';
 }
 
+interface SitePlanResult {
+  parcelAreaM2: number | null;
+  parcelWidthM: number | null;
+  parcelDepthM: number | null;
+  frontSetbackM: number | null;
+  rearSetbackM: number | null;
+  sideSetbackLeftM: number | null;
+  sideSetbackRightM: number | null;
+  buildingFootprintM2: number | null;
+  lotCoveragePct: number | null;
+  mainFloorGeodeticM: number | null;
+  roofPeakGeodeticM: number | null;
+  footingGeodeticM: number | null;
+  hasLane: boolean | null;
+  parkingStalls: number | null;
+  parkingSurfaceType: string | null;
+  northArrowDetected: boolean | null;
+  municipalAddress: string | null;
+  detectedScale: string | null;
+  scaleConfidence: number | null;
+}
+
+function SitePlanResultsPanel({
+  data,
+  onClose,
+}: {
+  data: SitePlanResult | null;
+  onClose: () => void;
+}) {
+  const measurement = (value: number | null | undefined, unit: string) =>
+    value == null ? '—' : `${value} ${unit}`;
+  const value = (item: string | number | null | undefined) => item ?? '—';
+  const coverageWarning = data?.lotCoveragePct != null && data.lotCoveragePct > 45;
+
+  const ResultRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex items-start justify-between gap-3 py-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{children}</span>
+    </div>
+  );
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="rounded-lg border bg-card p-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
+      <div className="divide-y">{children}</div>
+    </div>
+  );
+
+  return (
+    <Card className="mt-4 border-purple-200 dark:border-purple-800" data-results-panel>
+      <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 py-3 dark:from-purple-950 dark:to-blue-950">
+        <CardTitle className="flex items-center justify-between text-sm">
+          <span className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-purple-600" />
+            Site Plan Results
+          </span>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <XCircle className="h-4 w-4" />
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Section title="Parcel">
+            <ResultRow label="Site Area">{measurement(data?.parcelAreaM2, 'm²')}</ResultRow>
+            <ResultRow label="Lot Width">{measurement(data?.parcelWidthM, 'm')}</ResultRow>
+            <ResultRow label="Lot Depth">{measurement(data?.parcelDepthM, 'm')}</ResultRow>
+          </Section>
+
+          <Section title="Setbacks">
+            <ResultRow label="Front">{measurement(data?.frontSetbackM, 'm')}</ResultRow>
+            <ResultRow label="Rear">{measurement(data?.rearSetbackM, 'm')}</ResultRow>
+            <ResultRow label="Left Side">{measurement(data?.sideSetbackLeftM, 'm')}</ResultRow>
+            <ResultRow label="Right Side">{measurement(data?.sideSetbackRightM, 'm')}</ResultRow>
+          </Section>
+
+          <Section title="Building Footprint">
+            <ResultRow label="Footprint Area">{measurement(data?.buildingFootprintM2, 'm²')}</ResultRow>
+            <ResultRow label="Lot Coverage">
+              {data?.lotCoveragePct == null ? '— (could not determine)' : `${data.lotCoveragePct}%`}
+            </ResultRow>
+            {coverageWarning && (
+              <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                Verify against land use district limit
+              </div>
+            )}
+          </Section>
+
+          <Section title="Geodetics">
+            <ResultRow label="Main Floor (TOJ)">{measurement(data?.mainFloorGeodeticM, 'm')}</ResultRow>
+            <ResultRow label="Roof Peak">{measurement(data?.roofPeakGeodeticM, 'm')}</ResultRow>
+            <ResultRow label="Footing (ATF)">{measurement(data?.footingGeodeticM, 'm')}</ResultRow>
+          </Section>
+
+          <Section title="Site Features">
+            <ResultRow label="Rear Lane">{data?.hasLane == null ? '—' : data.hasLane ? 'Yes' : 'No'}</ResultRow>
+            <ResultRow label="Parking Stalls">{value(data?.parkingStalls)}</ResultRow>
+            <ResultRow label="Parking Surface">{value(data?.parkingSurfaceType)}</ResultRow>
+            <ResultRow label="North Arrow">{data?.northArrowDetected ? '✓ Detected' : '—'}</ResultRow>
+            <ResultRow label="Municipal Address">{value(data?.municipalAddress)}</ResultRow>
+          </Section>
+
+          <Section title="Scale">
+            <ResultRow label="Detected Scale">{value(data?.detectedScale)}</ResultRow>
+            <ResultRow label="Confidence">
+              {data?.scaleConfidence == null ? '—' : `${Math.round(data.scaleConfidence * 100)}%`}
+            </ResultRow>
+          </Section>
+        </div>
+
+        <p className="border-t pt-3 text-xs text-muted-foreground">
+          Site plan data extracted by AI — verify all dimensions against stamped drawings before permit submission.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ddaRayCast(
   imageData: ImageData,
   seedX: number,
@@ -617,6 +737,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       location: string;
       compliant: boolean;
     }>;
+    sitePlan?: SitePlanResult | null;
     notes: string[];
   } | null>(null);
   const [showAiResults, setShowAiResults] = useState(false);
@@ -829,6 +950,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         scale: null,
         measurements: [],
         rooms: [],
+        sitePlan: 'sitePlan' in data.extractedData ? data.extractedData.sitePlan : null,
         notes: (data.recommendations as Array<{priority: string; clause: string; description: string}>)
           .map(r => `[${r.priority.toUpperCase()}] ${r.clause}: ${r.description}`),
       });
@@ -1877,6 +1999,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           scale: null,
           measurements: [],
           rooms: [],
+          sitePlan: lastData.extractedData.sitePlan ?? null,
           notes: allNotes,
         });
         setShowAiResults(true);
@@ -5512,12 +5635,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                 <div className="flex items-center gap-1 border-r border-border pr-2">
                   <select
-                    value={analysisType}
-                    onChange={(e) => setAnalysisType(e.target.value as typeof analysisType)}
+                    value={drawingType === 'site_plan' ? 'site_plan' : analysisType}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      if (selected === 'site_plan') {
+                        setDrawingType('site_plan');
+                        setAnalysisType('comprehensive');
+                      } else {
+                        setAnalysisType(selected as typeof analysisType);
+                        if (drawingType === 'site_plan') setDrawingType('auto');
+                      }
+                    }}
                     className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground h-8"
                     title="Select drawing type before analyzing"
                   >
                     <option value="comprehensive">Floor Plan</option>
+                    <option value="site_plan">Site Plan</option>
                     <option value="structural">Structural / Framing</option>
                   </select>
                 </div>
@@ -7828,6 +7961,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="auto">Auto-detect</SelectItem>
+                            <SelectItem value="site_plan">Site Plan</SelectItem>
                             <SelectItem value="residential_multi_unit">Residential — Multi-Unit</SelectItem>
                             <SelectItem value="residential_single_family">Residential — Single Family</SelectItem>
                             <SelectItem value="commercial_office">Commercial — Office</SelectItem>
@@ -8564,6 +8698,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
               {/* AI Analysis Results — full width below canvas */}
               {showAiResults && aiResults && (
+                aiResults.drawingType === 'site_plan' ? (
+                  <SitePlanResultsPanel
+                    data={aiResults.sitePlan ?? null}
+                    onClose={() => setShowAiResults(false)}
+                  />
+                ) : (
                 <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
                   <CardHeader className="py-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
                     <CardTitle className="text-sm flex items-center justify-between">
@@ -8656,10 +8796,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     </Button>
                   </CardContent>
                 </Card>
+                )
               )}
 
               {/* PD2.0 Professional Review Panel — full width below canvas */}
-              {analysisId !== null && analysisStatus !== null && (
+              {aiResults?.drawingType !== 'site_plan' && analysisId !== null && analysisStatus !== null && (
                 <div className="mt-4">
                   <ProfessionalReviewPanel
                     analysisId={analysisId}
