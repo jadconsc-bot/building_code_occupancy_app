@@ -14,6 +14,8 @@ import { eq, and, desc, like, gte, lte, inArray, isNull, isNotNull } from 'drizz
 import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
 import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
+// TODO: FRR calculator rebuild — see
+// docs/FRR_CALCULATOR_REBUILD_SPEC.md
 import { FireResistanceRatingCalculator } from './calculators/fireResistanceRatingCalculator';
 
 /**
@@ -585,18 +587,24 @@ export const calculationsRouter = router({
 
   // Fire-Resistance Rating Calculator
   calculateFireResistance: protectedProcedure
-    .input(
-      z.object({
-        occupancy: z.string(),
-        area_m2: z.number().optional(),
-        storeys: z.number().optional(),
-        construction_type: z.string().optional(),
-        sprinklers: z.boolean().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const calculator = new FireResistanceRatingCalculator();
-      return calculator.execute(input, {});
+    .input(z.object({
+      occupancy: z.string(),
+      area_m2: z.number().optional(),
+      storeys: z.number().optional(),
+      construction_type: z.string().optional(),
+      sprinklers: z.boolean().optional(),
+    }))
+    .mutation(async () => {
+      throw new TRPCError({
+        code: 'METHOD_NOT_SUPPORTED',
+        message:
+          'Fire Resistance Rating calculator is temporarily ' +
+          'unavailable. FRR requirements are distributed across ' +
+          'NBC articles 3.1.3, 3.2.2, 3.2.3, 3.3, 3.4, and ' +
+          '3.5-3.6 by building element and cannot be resolved ' +
+          'from a single lookup table. A rebuilt calculator ' +
+          'is planned for a future sprint.',
+      });
     }),
 });
 /**
