@@ -26,21 +26,31 @@ import type { CARLReport } from './carl/carlTypes';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 
 // FRR requirements by occupancy group for single-occupancy floors (minutes)
+// NOTE: These are conservative single-occupancy
+// FRR approximations only. NBC Table 3.1.3.1
+// requires pairwise occupancy evaluation.
+// Full pairwise FRR is computed by the adjacency
+// engine in adjacencyService.ts + Rule 7 in
+// roomComplianceEvaluator.ts. This flat lookup
+// exists only for the calculator orchestrator
+// which lacks adjacency context.
+// TODO: wire orchestrator to adjacency engine
+// output when available in calculator context.
 const FRR_BY_GROUP: Record<string, { frr: number; citation: string }> = {
-  'A-1': { frr: 60,  citation: 'NBC 2023 T.3.1.8.1' },
-  'A-2': { frr: 60,  citation: 'NBC 2023 T.3.1.8.1' },
-  'A-3': { frr: 60,  citation: 'NBC 2023 T.3.1.8.1' },
-  'A-4': { frr: 60,  citation: 'NBC 2023 T.3.1.8.1' },
-  'B-1': { frr: 90,  citation: 'NBC 2023 T.3.1.8.1' },
-  'B-2': { frr: 90,  citation: 'NBC 2023 T.3.1.8.1' },
-  'B-3': { frr: 90,  citation: 'NBC 2023 T.3.1.8.1' },
-  'B':   { frr: 90,  citation: 'NBC 2023 T.3.1.8.1' },
+  'A-1': { frr: 60,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'A-2': { frr: 60,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'A-3': { frr: 60,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'A-4': { frr: 60,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'B-1': { frr: 90,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'B-2': { frr: 90,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'B-3': { frr: 90,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'B':   { frr: 90,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
   'C':   { frr: 45,  citation: 'NBC(AE) 2023 s.9.10.9.16' },
-  'D':   { frr: 45,  citation: 'NBC 2023 T.3.1.8.1' },
-  'E':   { frr: 45,  citation: 'NBC 2023 T.3.1.8.1' },
-  'F-1': { frr: 30,  citation: 'NBC 2023 T.3.1.8.1' },
-  'F-2': { frr: 45,  citation: 'NBC 2023 T.3.1.8.1' },
-  'F-3': { frr: 60,  citation: 'NBC 2023 T.3.1.8.1' },
+  'D':   { frr: 45,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'E':   { frr: 45,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'F-1': { frr: 30,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'F-2': { frr: 45,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
+  'F-3': { frr: 60,  citation: 'NBC 3.1.3.1 / Table 3.1.3.1 (conservative single-occupancy approximation — full pairwise evaluation requires adjacency context)' },
 };
 
 // Egress window minimums — NBC s.9.9.10.1
