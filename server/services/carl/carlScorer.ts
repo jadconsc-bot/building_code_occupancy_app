@@ -331,15 +331,11 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   ));
 
   items.push(makeItem('CARL-5.2', 5, s5,
-    'Exit width calculations correct', 'NBC 3.4.3.4', 'partial', 'egressWindows[]', true,
-    o.egressWindows.length > 0
-      ? (egFails.length > 0 ? 'fail' : 'pass')
-      : 'not_evaluated',
-    o.egressWindows.length > 0
-      ? `${o.egressWindows.length} window(s) checked — ${egFails.length} fail(s)`
-      : null,
-    o.egressWindows.length > 0 ? 'high' : null,
-    egFails.length > 0 ? `${egFails.length} egress window(s) below minimum 0.35m² / 380mm` : null,
+    'Exit door minimum clear width 850mm', 'NBC 3.3.1.13.(1)(a)', 'partial', null, true,
+    'not_evaluated',
+    'Exit door width requires drawing analysis — upload floor plan to Drawing Analyzer to evaluate',
+    null,
+    'Upload a floor plan with labeled exit doors to verify 850mm minimum clear width per NBC 3.3.1.13.(1)(a)',
   ));
 
   items.push(makeItem('CARL-5.3', 5, s5,
@@ -369,9 +365,18 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   ));
 
   items.push(makeItem('CARL-5.6', 5, s5,
-    'Stair geometry compliant (rise/run/headroom)', 'NBC 9.8.4', 'manual', null, true,
-    'advisory', null, null,
-    'Verify: max rise 200mm, min run 235mm, min headroom 1950mm on section drawings',
+    'Bedroom egress window dimensions meet minimum (0.35m² opening, 380mm width)',
+    'NBC 9.8.4', 'full', 'egressWindows[]', true,
+    o.egressWindows.length > 0
+      ? (egFails.length > 0 ? 'fail' : 'pass')
+      : 'not_evaluated',
+    o.egressWindows.length > 0
+      ? `${o.egressWindows.length} window(s) checked — ${egFails.length} fail(s)`
+      : null,
+    o.egressWindows.length > 0 ? 'high' : null,
+    egFails.length > 0
+      ? `${egFails.length} egress window(s) below minimum 0.35m² / 380mm`
+      : null,
   ));
 
   items.push(makeItem('CARL-5.7', 5, s5,
@@ -393,7 +398,9 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     'Barrier-free path of travel provided', 'NBC 3.8.1', 'partial',
     'barrierFreeRequirements.accessiblePathRequired', true,
     !bfRequired ? 'pass'
-      : bf?.accessiblePathRequired ? 'advisory' : 'pass',
+      : bf == null ? 'not_evaluated'
+      : bf.accessiblePathRequired ? 'advisory'
+      : 'pass',
     !bfRequired
       ? 'Building exempt from NBC Part 3.8 (single detached ≤2 storeys)'
       : 'Barrier-free path required — verify on floor plans',
@@ -418,7 +425,9 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     'Washroom accessibility verified', 'NBC 3.8.3.8', 'partial',
     'barrierFreeRequirements.accessibleWashroomRequired', true,
     !bfRequired ? 'pass'
-      : bf?.accessibleWashroomRequired ? 'advisory' : 'pass',
+      : bf == null ? 'not_evaluated'
+      : bf.accessibleWashroomRequired ? 'advisory'
+      : 'pass',
     !bfRequired
       ? 'Exempt from NBC Part 3.8'
       : bf?.accessibleWashroomRequired
@@ -444,7 +453,9 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     'Elevators / lifts required?', 'NBC 3.8.2.1', 'partial',
     'barrierFreeRequirements.elevatorRequired', true,
     !bfRequired ? 'pass'
-      : bf?.elevatorRequired ? 'advisory' : 'pass',
+      : bf == null ? 'not_evaluated'
+      : bf.elevatorRequired ? 'advisory'
+      : 'pass',
     !bfRequired
       ? 'Exempt from NBC Part 3.8'
       : bf?.elevatorRequired
@@ -536,7 +547,7 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   const washroomPass = o.washroomCounts.every(wc => wc.severity === 'pass' || wc.severity === 'info');
 
   items.push(makeItem('CARL-9.1', 9, s9,
-    'Plumbing fixture counts meet code', 'NBC 3.7.2.1', 'full', 'washroomCounts[]', true,
+    'Plumbing fixture counts meet code', 'NBC 3.7.2.2', 'full', 'washroomCounts[]', true,
     hasWashroom ? (washroomPass ? 'pass' : 'advisory') : 'not_evaluated',
     hasWashroom
       ? o.washroomCounts.map(wc =>
@@ -544,7 +555,7 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
         ).join(' | ')
       : null,
     hasWashroom ? 'high' : null,
-    !washroomPass && hasWashroom ? 'Verify fixture counts meet NBC 3.7.2.1 minimums' : null,
+    !washroomPass && hasWashroom ? 'Verify fixture counts meet NBC 3.7.2.2 minimums' : null,
   ));
 
   items.push(makeItem('CARL-9.2', 9, s9,

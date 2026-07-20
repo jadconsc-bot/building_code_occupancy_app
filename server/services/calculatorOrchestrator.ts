@@ -74,6 +74,9 @@ export interface OrchestratorInput {
   storeys: number;
   sprinklered: boolean;
   province: string;
+  projectId?: number | null;
+  address?: string | null;
+  municipality?: string | null;
   calibrationConfidence: 'high' | 'low' | 'none';
   /**
    * How jurisdiction was determined — flows through to washroom result
@@ -502,10 +505,10 @@ export function runCalculatorOrchestrator(
       codeConflicts,
       carlReport: null as unknown as CARLReport,
     },
-    projectId: null,
-    address: null,
+    projectId: input.projectId ?? null,
+    address: input.address ?? null,
     province: input.province ?? 'CA',
-    municipality: null,
+    municipality: input.municipality ?? null,
     codeEdition: edition,
     jurisdictionSource: input.jurisdictionSource,
     storeys: input.storeys,
