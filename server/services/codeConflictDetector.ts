@@ -138,7 +138,7 @@ export function detectCodeConflicts(
   for (const ct of input.constructionTypes) {
     const group = normalize(ct.occupancyGroup);
     if (
-      ct.constructionType === 'Combustible' &&
+      ct.constructionType === 'combustible_or_noncombustible' &&
       ALWAYS_NON_COMBUSTIBLE.has(group)
     ) {
       conflicts.push({

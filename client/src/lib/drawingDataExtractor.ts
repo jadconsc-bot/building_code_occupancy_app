@@ -55,16 +55,20 @@ export interface WashroomResult {
   severity: 'pass' | 'fail' | 'info';
 }
 
+export type ConstructionType =
+  | 'noncombustible'
+  | 'combustible_or_noncombustible'
+  | 'encapsulated_mass_timber_or_noncombustible'
+  | 'heavy_timber_or_noncombustible';
+
 export interface ConstructionTypeResult {
-  constructionType: 'Non-Combustible' | 'Combustible';
-  required: boolean;
-  limitingStoreys: number;
-  limitingAreaM2: number;
-  actualStoreys: number;
-  actualAreaM2: number;
-  storeyMargin: number;
-  areaMarginM2: number;
-  areaMarginPercent: number;
+  constructionType: ConstructionType;
+  sprinklersRequired: boolean;
+  matchingArticles: string[];
+  catchAllArticle: string;
+  summary: string;
+  advisory: boolean;
+  advisoryNote?: string;
   ruleId: string;
   nbcRef: string;
   codeEdition: string;
@@ -72,10 +76,19 @@ export interface ConstructionTypeResult {
   evaluationTimestamp: string;
   confidence: 'confirmed' | 'inferred' | 'advisory';
   severity: 'pass' | 'fail' | 'conditional' | 'info';
-  reasoning: string;
+  occupancyGroup: string;
+  actualStoreys: number;
+  actualAreaM2: number;
   assumptions: string[];
   recommendations: string[];
-  occupancyGroup: string;
+  /** Legacy display fields retained for previously persisted analysis results. */
+  required?: boolean;
+  limitingStoreys?: number;
+  limitingAreaM2?: number;
+  storeyMargin?: number;
+  areaMarginM2?: number;
+  areaMarginPercent?: number;
+  reasoning?: string;
 }
 
 // Inline mirror of server/services/codeConflictDetector.ts

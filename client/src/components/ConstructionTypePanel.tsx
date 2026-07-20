@@ -108,32 +108,40 @@ export function ConstructionTypePanel({ constructionTypes }: ConstructionTypePan
                 <div className="text-muted-foreground">Actual Storeys</div>
                 <div className="font-medium">{result.actualStoreys}</div>
 
-                <div className="text-muted-foreground">Storey Limit (Combustible)</div>
-                <div className={`font-medium ${result.storeyMargin < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {result.limitingStoreys === 0 ? '—' : result.limitingStoreys}
-                  {result.limitingStoreys > 0 && (
-                    <span className="text-xs text-muted-foreground ml-1">
-                      ({result.storeyMargin >= 0
-                        ? `${result.storeyMargin} remaining`
-                        : `${Math.abs(result.storeyMargin)} exceeded`})
-                    </span>
-                  )}
-                </div>
+                {result.limitingStoreys != null && result.storeyMargin != null && (
+                  <>
+                    <div className="text-muted-foreground">Storey Limit (Combustible)</div>
+                    <div className={`font-medium ${result.storeyMargin < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {result.limitingStoreys === 0 ? '—' : result.limitingStoreys}
+                      {result.limitingStoreys > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({result.storeyMargin >= 0
+                            ? `${result.storeyMargin} remaining`
+                            : `${Math.abs(result.storeyMargin)} exceeded`})
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="text-muted-foreground">Actual Area</div>
                 <div className="font-medium">{Math.round(result.actualAreaM2)} m²</div>
 
-                <div className="text-muted-foreground">Area Limit (Combustible)</div>
-                <div className={`font-medium ${result.areaMarginM2 < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {result.limitingAreaM2 === 0 ? '—' : `${Math.round(result.limitingAreaM2)} m²`}
-                  {result.limitingAreaM2 > 0 && (
-                    <span className="text-xs text-muted-foreground ml-1">
-                      ({result.areaMarginPercent >= 0
-                        ? `${result.areaMarginPercent}% remaining`
-                        : `${Math.abs(result.areaMarginPercent)}% exceeded`})
-                    </span>
-                  )}
-                </div>
+                {result.limitingAreaM2 != null && result.areaMarginM2 != null && result.areaMarginPercent != null && (
+                  <>
+                    <div className="text-muted-foreground">Area Limit (Combustible)</div>
+                    <div className={`font-medium ${result.areaMarginM2 < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {result.limitingAreaM2 === 0 ? '—' : `${Math.round(result.limitingAreaM2)} m²`}
+                      {result.limitingAreaM2 > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({result.areaMarginPercent >= 0
+                            ? `${result.areaMarginPercent}% remaining`
+                            : `${Math.abs(result.areaMarginPercent)}% exceeded`})
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {result.reasoning && (

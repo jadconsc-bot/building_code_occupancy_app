@@ -96,7 +96,7 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
             break;
           }
           const stripe = createStripeClient();
-          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 });
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
 
           for (const item of lineItems.data) {
             const priceId = item.price?.id;

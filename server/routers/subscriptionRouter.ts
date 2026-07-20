@@ -216,7 +216,7 @@ export const subscriptionRouter = router({
       if (isFoundingPurchase) subscriptionMeta.foundingMember = "true";
 
       const session = await stripe.checkout.sessions.create({
-        customer: stripeCustomerId,
+        customer: stripeCustomerId ?? undefined,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
         success_url: `${appRoot}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
