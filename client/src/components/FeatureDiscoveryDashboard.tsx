@@ -88,7 +88,7 @@ const FEATURES = [
   {
     id: 'docs',
     title: 'Documentation',
-    description: 'NBC clauses, code references, and implementation guides.',
+    description: 'How to use CodeComply effectively — step-by-step workflow guide',
     href: '/documentation',
     icon: BookOpen,
     badge: null,

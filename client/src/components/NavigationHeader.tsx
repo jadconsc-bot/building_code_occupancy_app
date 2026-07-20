@@ -41,6 +41,7 @@ import {
   CheckCircle,
   Hammer,
   Plug,
+  HelpCircle,
 } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
@@ -302,6 +303,21 @@ export function NavigationHeader() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2">
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/10 hover:text-white"
+                  onClick={() => navigate('/documentation')}
+                  aria-label="Open user guide"
+                >
+                  <HelpCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>User Guide</TooltipContent>
+            </Tooltip>
 
             {/* Tools Dropdown */}
             <DropdownMenu>

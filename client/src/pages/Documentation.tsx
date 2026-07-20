@@ -1,532 +1,266 @@
-/**
- * Documentation Page
- * User guide, tutorials, and help articles for the Building Code Occupancy Classifier
- */
-
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Search, Book, FileText, HelpCircle, Video, ArrowLeft, 
-  Building2, Calculator, Shield, ClipboardList, Users, 
-  BarChart3, Share2, Zap, ChevronRight, ExternalLink,
-  BookOpen, Lightbulb, AlertTriangle
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  Workflow,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
-interface DocArticle {
-  id: string;
-  title: string;
-  category: string;
-  description: string;
-  content: string;
-  tags: string[];
-  difficulty: "beginner" | "intermediate" | "advanced";
-}
-
-const articles: DocArticle[] = [
-  {
-    id: "getting-started",
-    title: "Getting Started with CodeComply",
-    category: "Getting Started",
-    description: "Learn the basics of the Building Code Occupancy Classifier and how to navigate the application.",
-    content: `## Getting Started with CodeComply
-
-Welcome to the Building Code Occupancy Classifier! This guide will help you get started with the application.
-
-### Overview
-CodeComply is a professional tool for building code compliance analysis based on the National Building Code of Canada (NBC 2025). It provides:
-
-- **Occupancy Classification**: Search and classify building occupancy types
-- **Professional Calculators**: 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations
-- **Project Management**: Create and manage building projects with compliance tracking
-- **Rule Management**: Professional rule editor with audit trails and digital signatures
-- **Compliance Analysis**: Verify building plans against NBC 2025 requirements
-
-### First Steps
-1. Navigate to the **Occupancy Classifier** to search for building types
-2. Create a **Project** to track your compliance requirements
-3. Use the **Calculators** for specific code calculations
-4. Review the **Terms of Service** for important legal disclaimers`,
-    tags: ["basics", "overview", "navigation"],
-    difficulty: "beginner"
-  },
-  {
-    id: "occupancy-classification",
-    title: "Understanding Occupancy Classification",
-    category: "Core Features",
-    description: "Learn how to use the occupancy classification system based on NBC 2025 standards.",
-    content: `## Understanding Occupancy Classification
-
-The Occupancy Classifier is the core feature of CodeComply. It helps you identify the correct occupancy group for any building type.
-
-### How to Use
-1. Navigate to the **Occupancy Classifier** page
-2. Use the search bar to find building types (e.g., "restaurant", "hospital", "warehouse")
-3. Click on a result to view detailed classification information
-4. Review the occupancy group code, description, and applicable requirements
-
-### Occupancy Groups
-The NBC classifies buildings into major groups:
-- **Group A**: Assembly occupancies (theatres, restaurants, arenas)
-- **Group B**: Care, treatment, or detention occupancies (hospitals, prisons)
-- **Group C**: Residential occupancies (houses, apartments)
-- **Group D**: Business and personal services (offices, banks)
-- **Group E**: Mercantile occupancies (shops, department stores)
-- **Group F**: Industrial occupancies (factories, warehouses)
-
-### Tips
-- Use voice search for hands-free operation
-- Bookmark frequently used classifications
-- Check the Building, Plumbing, Electrical, and Additions tabs for related requirements`,
-    tags: ["occupancy", "classification", "NBC", "building types"],
-    difficulty: "beginner"
-  },
-  {
-    id: "project-management",
-    title: "Project Management Guide",
-    category: "Core Features",
-    description: "Create and manage building projects, track compliance requirements, and collaborate with team members.",
-    content: `## Project Management Guide
-
-The Project Management feature allows you to create, track, and manage building projects with full compliance tracking.
-
-### Creating a Project
-1. Navigate to **Projects** from the main navigation
-2. Click **New Project**
-3. Fill in project details: name, address, occupancy code, and notes
-4. Click **Create** to save your project
-
-### Project Checklists
-Each project includes inspection checklists that help track compliance:
-- View checklist items by phase
-- Mark items as complete, pending, or failed
-- Add notes to individual checklist items
-- Filter and search through checklist items
-
-### Project Sharing
-Share projects with reviewers and clients:
-- Create share links with different access levels (view-only, comment)
-- Set expiration dates for share links
-- Track link usage and views`,
-    tags: ["projects", "checklists", "sharing", "collaboration"],
-    difficulty: "intermediate"
-  },
-  {
-    id: "calculators",
-    title: "Professional Calculators Guide",
-    category: "Tools",
-    description: "Learn how to use the 34+ specialized calculators for structural, plumbing, electrical, and accessibility calculations.",
-    content: `## Professional Calculators Guide
-
-CodeComply includes 34+ specialized calculators organized by discipline.
-
-### Calculator Categories
-
-**Building Calculators**
-- Occupant Load Calculator
-- Fire Separation Distance
-- Egress Width Calculator
-- Construction Type Limits
-- Height & Area Limits
-
-**Plumbing Calculators**
-- Fixture Unit Calculator
-- Wet Venting Diagram
-- Gas Line Calculator
-- Drain Size Calculator
-
-**Electrical Calculators**
-- Service Load Calculator
-- Voltage Drop Calculator
-- Conduit Fill Calculator
-- Circuit Sizing
-
-**Accessibility Calculators**
-- Barrier-Free Washroom Layout
-- Grab Bar Placement
-- Ramp Slope Calculator
-
-### Calculation History
-All calculations are cryptographically signed and stored with immutable audit trails. View your calculation history from the **Calculation History** page.
-
-### Exporting Results
-- Print individual calculations
-- Export to PDF for professional reports
-- Share verification links with authorities`,
-    tags: ["calculators", "tools", "plumbing", "electrical", "structural"],
-    difficulty: "intermediate"
-  },
-  {
-    id: "rule-management",
-    title: "Rule Management & Governance",
-    category: "Administration",
-    description: "Submit, review, and manage building code rule changes with full audit trails and digital signatures.",
-    content: `## Rule Management & Governance
-
-The Rule Management system provides professional-grade governance for building code rules.
-
-### Features
-- **Submit Changes**: Propose rule modifications with justification
-- **Approval Workflow**: Multi-level admin review and authorization
-- **Digital Signatures**: Cryptographic signatures for all changes
-- **Audit Trail**: Complete, immutable history of all modifications
-
-### Submitting a Rule Change
-1. Navigate to **Rule Management**
-2. Click the **Submit Changes** tab
-3. Select the rule category and specific rule
-4. Provide your proposed change and justification
-5. Submit for admin review
-
-### Admin Approval
-Administrators can review pending changes, approve or reject them, and add comments. All actions are recorded in the audit trail.
-
-### Important Notes
-- Only authorized users can submit rule changes
-- All changes require admin approval before taking effect
-- The audit trail is immutable and cannot be modified`,
-    tags: ["rules", "governance", "admin", "audit trail"],
-    difficulty: "advanced"
-  },
-  {
-    id: "compliance-checker",
-    title: "Compliance Checker Guide",
-    category: "Core Features",
-    description: "Verify building plans against NBC 2025 requirements and identify code infractions.",
-    content: `## Compliance Checker Guide
-
-The Compliance Checker analyzes building parameters against NBC 2025 requirements.
-
-### How to Use
-1. Select a project from your project list
-2. Navigate to the **Compliance** section
-3. The analyzer will evaluate your project against applicable code requirements
-4. Review identified infractions and recommendations
-
-### Analysis Features
-- **Scenario Comparison**: Compare different design scenarios side-by-side
-- **Compliance Pathway Report**: Get a detailed pathway to full compliance
-- **Snapshot Viewer**: View historical compliance snapshots
-
-### Understanding Results
-- **Compliant**: Meets all applicable code requirements
-- **Non-Compliant**: One or more requirements not met (review recommendations)
-- **Needs Review**: Requires professional judgment for final determination
-
-### Important Disclaimer
-All compliance results must be reviewed by a qualified professional (P.Eng, OAA, RAIC) before implementation.`,
-    tags: ["compliance", "analysis", "NBC", "infractions"],
-    difficulty: "intermediate"
-  },
-  {
-    id: "keyboard-shortcuts",
-    title: "Keyboard Shortcuts & Voice Commands",
-    category: "Tips & Tricks",
-    description: "Speed up your workflow with keyboard shortcuts and voice commands.",
-    content: `## Keyboard Shortcuts & Voice Commands
-
-### Voice Commands
-The Occupancy Classifier supports voice search:
-- Say **"Residential Plumbing"** to jump to plumbing requirements for residential
-- Say **"Office Electrical"** to view electrical requirements for offices
-- Say **"Deck Additions"** to view deck/addition requirements
-- Synonyms work too: "wiring" → Electrical, "drainage" → Plumbing
-
-### Navigation Tips
-- Use the **Tools** dropdown in the navigation bar for quick access to calculators
-- Bookmark frequently used occupancy classifications
-- Use the search bar on any page to filter content
-- Share direct links to specific occupancy codes via URL hash`,
-    tags: ["shortcuts", "voice", "tips", "navigation"],
-    difficulty: "beginner"
-  },
-  {
-    id: "verification-portal",
-    title: "Verification Portal Guide",
-    category: "Tools",
-    description: "Learn how to verify the authenticity and integrity of calculations using verification codes.",
-    content: `## Verification Portal Guide
-
-The Verification Portal allows anyone to verify the authenticity of CodeComply calculations.
-
-### How Verification Works
-1. Each calculation generates a unique verification code
-2. Share this code with authorities, clients, or reviewers
-3. They can enter the code at the **Verification Portal** to confirm:
-   - The calculation was performed on a specific date
-   - The inputs and results have not been tampered with
-   - The calculation was signed by a specific professional
-
-### Creating Verification Links
-1. Go to **Sharing** → **Public Verification Portal**
-2. Click **Create Verification Link**
-3. Share the generated link or code
-
-### Security Features
-- **Digital Signature**: Cryptographic proof of authorship
-- **Timestamp Authority**: Trusted timestamp proving when the calculation was made
-- **Integrity Verification**: Hash-based detection of any modifications`,
-    tags: ["verification", "security", "integrity", "sharing"],
-    difficulty: "intermediate"
-  }
+const workflowSteps = [
+  "Create a Project",
+  "Fill in the Project Brief (3 inputs)",
+  "Upload your site plan",
+  "Upload your floor plan",
+  "Run the CARL Permit Readiness check",
+  "Generate the Permit Package",
 ];
 
-const categoryIcons: Record<string, React.ReactNode> = {
-  "Getting Started": <BookOpen className="w-5 h-5" />,
-  "Core Features": <Building2 className="w-5 h-5" />,
-  "Tools": <Calculator className="w-5 h-5" />,
-  "Administration": <Shield className="w-5 h-5" />,
-  "Tips & Tricks": <Lightbulb className="w-5 h-5" />,
-};
+function Section({
+  number,
+  title,
+  children,
+}: {
+  number: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3 border-b border-border pb-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+          {number}
+        </span>
+        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      </div>
+      <div className="space-y-4 text-sm leading-7 text-muted-foreground">{children}</div>
+    </section>
+  );
+}
 
-const difficultyColors: Record<string, string> = {
-  beginner: "bg-green-100 text-green-800 border-green-200",
-  intermediate: "bg-amber-100 text-amber-800 border-amber-200",
-  advanced: "bg-red-100 text-red-800 border-red-200",
-};
+function BulletList({ children }: { children: React.ReactNode }) {
+  return <ul className="ml-5 list-disc space-y-1.5">{children}</ul>;
+}
 
 export default function Documentation() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedArticle, setSelectedArticle] = useState<DocArticle | null>(null);
-  const [activeCategory, setActiveCategory] = useState("all");
   const [, navigate] = useLocation();
-
-  const categories = ["all", ...Array.from(new Set(articles.map(a => a.category)))];
-
-  const filteredArticles = articles.filter(article => {
-    const matchesSearch = !searchQuery || 
-      article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = activeCategory === "all" || article.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  if (selectedArticle) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => setSelectedArticle(null)}
-            className="mb-6 gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Documentation
-          </Button>
-
-          <div className="mb-4 flex items-center gap-3">
-            <Badge className={difficultyColors[selectedArticle.difficulty]}>
-              {selectedArticle.difficulty}
-            </Badge>
-            <span className="text-sm text-muted-foreground">{selectedArticle.category}</span>
-          </div>
-
-          <Card>
-            <CardContent className="p-8 prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-foreground leading-relaxed">
-                {selectedArticle.content.split('\n').map((line, i) => {
-                  if (line.startsWith('## ')) {
-                    return <h2 key={i} className="text-2xl font-bold mt-6 mb-4 text-foreground">{line.replace('## ', '')}</h2>;
-                  }
-                  if (line.startsWith('### ')) {
-                    return <h3 key={i} className="text-lg font-semibold mt-5 mb-3 text-foreground">{line.replace('### ', '')}</h3>;
-                  }
-                  if (line.startsWith('- **')) {
-                    const match = line.match(/- \*\*(.+?)\*\*:?\s*(.*)/);
-                    if (match) {
-                      return (
-                        <div key={i} className="flex gap-2 ml-4 mb-2">
-                          <span className="text-primary mt-1">•</span>
-                          <span><strong className="text-foreground">{match[1]}</strong>{match[2] ? `: ${match[2]}` : ''}</span>
-                        </div>
-                      );
-                    }
-                  }
-                  if (line.startsWith('- ')) {
-                    return (
-                      <div key={i} className="flex gap-2 ml-4 mb-1">
-                        <span className="text-primary mt-1">•</span>
-                        <span>{line.replace('- ', '')}</span>
-                      </div>
-                    );
-                  }
-                  if (line.match(/^\d+\./)) {
-                    return (
-                      <div key={i} className="flex gap-2 ml-4 mb-1">
-                        <span className="text-primary font-medium">{line.match(/^(\d+\.)/)?.[1]}</span>
-                        <span>{line.replace(/^\d+\.\s*/, '')}</span>
-                      </div>
-                    );
-                  }
-                  if (line.trim() === '') return <div key={i} className="h-2" />;
-                  return <p key={i} className="mb-2 text-muted-foreground">{line}</p>;
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            {selectedArticle.tags.map(tag => (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="w-5 h-5" />
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+          <Button variant="ghost" className="gap-2" onClick={() => navigate("/")}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to App
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-              <Book className="w-8 h-8 text-primary" />
-              Documentation
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              User guide, tutorials, and help articles for CodeComply
-            </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigate("/project-checklists")}>
+              Start a Project
+            </Button>
+            <Button onClick={() => navigate("/drawing-analyzer")}>
+              Open Drawing Analyzer
+            </Button>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative mt-6 mb-8">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search documentation..."
-            className="pl-9 max-w-lg"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <header className="mb-8 space-y-3">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              CodeComply — User Guide
+            </h1>
+          </div>
+          <p className="text-lg text-muted-foreground">
+            Alberta &amp; BC Building Code Compliance Tool
+          </p>
+          <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            Covers NBC 2020 (federal) and NBC(AE) 2023 (Alberta Edition). All compliance values verified against primary source.
+          </p>
+        </header>
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow border-primary/20" onClick={() => navigate("/occupancy-classifier")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Building2 className="w-8 h-8 text-primary" />
-              <div>
-                <p className="font-medium text-sm">Occupancy Classifier</p>
-                <p className="text-xs text-muted-foreground">Search building types</p>
-              </div>
-              <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground" />
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow border-primary/20" onClick={() => navigate("/project-checklists")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <ClipboardList className="w-8 h-8 text-primary" />
-              <div>
-                <p className="font-medium text-sm">Projects</p>
-                <p className="text-xs text-muted-foreground">Manage projects</p>
-              </div>
-              <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground" />
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow border-primary/20" onClick={() => navigate("/calculation-history")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Calculator className="w-8 h-8 text-primary" />
-              <div>
-                <p className="font-medium text-sm">Calculators</p>
-                <p className="text-xs text-muted-foreground">34+ tools</p>
-              </div>
-              <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground" />
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow border-primary/20" onClick={() => navigate("/verify")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Shield className="w-8 h-8 text-primary" />
-              <div>
-                <p className="font-medium text-sm">Verification</p>
-                <p className="text-xs text-muted-foreground">Verify calculations</p>
-              </div>
-              <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Category Tabs */}
-        <Tabs value={activeCategory} onValueChange={setActiveCategory} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="all">All Articles</TabsTrigger>
-            {categories.filter(c => c !== "all").map(cat => (
-              <TabsTrigger key={cat} value={cat} className="gap-1.5">
-                {categoryIcons[cat]}
-                {cat}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        {/* Articles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredArticles.map(article => (
-            <Card 
-              key={article.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setSelectedArticle(article)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <Badge className={`text-xs ${difficultyColors[article.difficulty]}`}>
-                    {article.difficulty}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">{article.category}</span>
+        <div className="space-y-10">
+          <Section number={1} title="How to Get the Best Results">
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-start gap-3">
+                  <Workflow className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <p className="font-medium text-foreground">
+                    Follow this workflow in order. Each step feeds the next. Skipping steps produces incomplete results.
+                  </p>
                 </div>
-                <CardTitle className="text-base leading-tight">{article.title}</CardTitle>
-                <CardDescription className="text-sm line-clamp-2">
-                  {article.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex flex-wrap gap-1">
-                  {article.tags.slice(0, 3).map(tag => (
-                    <Badge key={tag} variant="outline" className="text-[10px]">
-                      {tag}
-                    </Badge>
+                <ol className="grid gap-2 sm:grid-cols-2">
+                  {workflowSteps.map((step, index) => (
+                    <li key={step} className="flex items-center gap-2 rounded-md bg-background px-3 py-2 text-sm text-foreground shadow-sm">
+                      <span className="font-semibold text-primary">STEP {index + 1}</span>
+                      <span aria-hidden="true">→</span>
+                      <span>{step}</span>
+                    </li>
                   ))}
-                </div>
+                </ol>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </Section>
 
-        {filteredArticles.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <HelpCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium">No articles found</p>
-            <p className="text-sm">Try adjusting your search or category filter</p>
-          </div>
-        )}
-
-        {/* Disclaimer */}
-        <Card className="mt-8 border-amber-200 bg-amber-50/50">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <Section number={2} title="Step-by-Step Guide">
             <div>
-              <p className="font-medium text-sm text-amber-800">Professional Disclaimer</p>
-              <p className="text-xs text-amber-700 mt-1">
-                This documentation is for informational purposes only. All building code compliance 
-                analysis must be reviewed by a qualified professional (P.Eng, OAA, RAIC) before 
-                implementation. See our <a href="/terms" className="underline">Terms of Service</a> for full details.
+              <h3 className="text-base font-semibold text-foreground">2.1 Create a Project</h3>
+              <p>
+                Navigate to the Project Brief card on the home screen, or go to Projects. Give your project a name and address. Your project stores all inputs and results in one place.
               </p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            <div>
+              <h3 className="text-base font-semibold text-foreground">2.2 Project Brief (Start Here)</h3>
+              <p>The Brief is your pre-design compliance snapshot. Enter:</p>
+              <BulletList>
+                <li>Occupancy Group (what the building is used for)</li>
+                <li>Gross Floor Area (m²)</li>
+                <li>Number of Storeys</li>
+              </BulletList>
+              <p className="mt-2">The Brief instantly shows:</p>
+              <BulletList>
+                <li>Occupant Load (NBC Table 3.1.17.1)</li>
+                <li>Required Exits (NBC 3.4.2.2)</li>
+                <li>Travel Distance limits (NBC 3.4.2.5)</li>
+                <li>Required Exit Width (NBC 3.4.3.2)</li>
+                <li>Sprinkler Requirement (NBC 3.2.5)</li>
+                <li>Construction Type guidance (NBC 3.2.2)</li>
+                <li>Accessibility Triggers (NBC 3.8)</li>
+              </BulletList>
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-900">
+                <strong>Tip — Group C (Residential):</strong> Enter your bedroom count for an accurate occupant load. The Brief uses 2 persons/bedroom per NBC Table 3.1.17.1 Note (2).
+              </div>
+              <p className="mt-2">Each result links directly to the relevant calculator for detailed analysis.</p>
+            </div>
+
+            <div>
+              <h3 className="text-base font-semibold text-foreground">2.3 Site Plan Upload</h3>
+              <p>In the Drawing Analyzer, select “Site Plan” as the drawing type before uploading. The AI extracts:</p>
+              <BulletList>
+                <li>Parcel dimensions and area</li>
+                <li>Front, rear, and side setbacks</li>
+                <li>Building footprint and lot coverage</li>
+                <li>Geodetic elevations (main floor, roof peak, footing)</li>
+                <li>Parking stalls and surface type</li>
+                <li>Rear lane detection</li>
+                <li>Municipal address and drawing scale</li>
+              </BulletList>
+              <p className="mt-2 font-medium text-foreground">
+                Important: Always set calibration before analyzing. Use the calibration tool to set a known dimension on the drawing. Accurate calibration means accurate room areas and compliance checks.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-base font-semibold text-foreground">2.4 Floor Plan Upload</h3>
+              <p>In the Drawing Analyzer, select your drawing type—typically “Floor Plan — Residential” for Part 9, or the appropriate occupancy for Part 3.</p>
+              <p className="mt-2">For best detection results:</p>
+              <BulletList>
+                <li>Use clear, high-resolution scans (300 DPI minimum)</li>
+                <li>Ensure room labels are legible</li>
+                <li>Set calibration using a known wall or dimension before clicking Analyze</li>
+              </BulletList>
+              <p className="mt-2">
+                The analyzer detects rooms, checks compliance rules, and flags issues with room context—for example, “Room 101: Verify corridor width ≥ 1100mm — NBC 3.3.1.9.(1).”
+              </p>
+              <p className="mt-2">Results show as:</p>
+              <BulletList>
+                <li><strong className="text-foreground">Compliant</strong> — requirement confirmed met</li>
+                <li><strong className="text-foreground">Verify required</strong> — detected but needs professional confirmation on stamped drawings</li>
+                <li><strong className="text-foreground">Not assessable from drawing</strong> — provide documentation for professional review</li>
+                <li><strong className="text-foreground">Non-compliant</strong> — does not meet minimum requirement</li>
+              </BulletList>
+            </div>
+
+            <div>
+              <h3 className="text-base font-semibold text-foreground">2.5 CARL Permit Readiness</h3>
+              <p>After running a drawing analysis, open the “Permit Readiness” tab. The CARL scorer evaluates your project across 13 sections against the Calgary Application Requirements List.</p>
+              <p className="mt-2">Score interpretation:</p>
+              <BulletList>
+                <li>80%+ with no blocking failures → Ready to submit</li>
+                <li>Blocking failures present → Must resolve before submitting; items are shown in red</li>
+                <li>Advisory items → Need professional verification</li>
+                <li>Not evaluated → Missing data; see the recommendation</li>
+              </BulletList>
+              <p className="mt-2">The permit package PDF is disabled until blocking failures are resolved.</p>
+            </div>
+
+            <div>
+              <h3 className="text-base font-semibold text-foreground">2.6 Permit Package</h3>
+              <p>Once your CARL score is acceptable, generate the Permit Package from the project view. The package compiles your project inputs, calculation results, and compliance summary into a structured PDF.</p>
+              <p className="mt-2 font-medium text-foreground">
+                Important: The permit package is a compliance assistance tool, not a professionally stamped document. All outputs must be reviewed and verified by a licensed professional before submission.
+              </p>
+            </div>
+          </Section>
+
+          <Section number={3} title="Calculators">
+            <p>Access calculators from the Calculations tab within any project, or via the links in your Project Brief.</p>
+            <BulletList>
+              <li>Occupant Load — NBC Table 3.1.17.1</li>
+              <li>Fire Exit — exit count and width requirements</li>
+              <li>Travel Distance — NBC 3.4.2.5 per occupancy group</li>
+              <li>Construction Type — 72-article NBC 3.2.2 scenario engine</li>
+              <li>Barrier-Free — NBC 3.8 accessibility requirements</li>
+              <li>Washroom Fixtures — NBC 3.7.2.2 (male/female split)</li>
+              <li>Span Tables — Part 9 residential structural members</li>
+            </BulletList>
+          </Section>
+
+          <Section number={4} title="Jurisdiction Coverage">
+            <BulletList>
+              <li><strong className="text-foreground">Federal (NBC 2020):</strong> All Part 3 occupancy groups</li>
+              <li>
+                <strong className="text-foreground">Alberta (NBC(AE) 2023):</strong> Three confirmed overrides
+                <BulletList>
+                  <li>Secondary suite ceiling height: 1.95m (vs 2.10m)</li>
+                  <li>Secondary suite beam clearance: 1.85m (vs 2.00m)</li>
+                  <li>Secondary suite door height: 1890mm (vs 1980mm)</li>
+                </BulletList>
+              </li>
+              <li><strong className="text-foreground">BC (BCBC 2024):</strong> Referenced but verify locally</li>
+            </BulletList>
+          </Section>
+
+          <Section number={5} title="What the App Does Not Do">
+            <p>Be clear with your clients and authority having jurisdiction about these limitations:</p>
+            <BulletList>
+              <li>Results are AI-assisted, not engineer-stamped</li>
+              <li>Drawing detection accuracy depends on scan quality and calibration—always verify on stamped drawings</li>
+              <li>Fire Resistance Rating calculator is temporarily unavailable (rebuild in progress)</li>
+              <li>Structural design, including beam sizing and load paths, is out of scope</li>
+              <li>Zoning and land use compliance is not covered</li>
+              <li>Site-specific soil, drainage, and grading requirements require a site engineer</li>
+            </BulletList>
+          </Section>
+
+          <Section number={6} title="Professional Disclaimer">
+            <Card className="border-amber-300 bg-amber-50">
+              <CardContent className="flex gap-3 p-5 text-amber-900">
+                <AlertTriangle className="mt-1 h-5 w-5 shrink-0" />
+                <p>
+                  CodeComply is a compliance assistance tool for use by qualified professionals and informed permit applicants. All results must be independently verified by a licensed architect, engineer, or safety codes officer before permit submission. Compliance with the National Building Code and applicable provincial amendments is the responsibility of the permit applicant.
+                </p>
+              </CardContent>
+            </Card>
+          </Section>
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            Follow the workflow in order for the most complete result.
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/project-checklists")}>
+              <FileText className="mr-2 h-4 w-4" /> Start a Project
+            </Button>
+            <Button onClick={() => navigate("/drawing-analyzer")}>Open Drawing Analyzer</Button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
