@@ -227,7 +227,7 @@ function makeStackZone(code: string): StackZone | null {
 // ── Hallway / corridor helpers ─────────────────────────────────────────────────
 
 const NBC_MIN_CORRIDOR_WIDTH_MM = 1100;
-const CORRIDOR_CITATION = 'NBC 2023 s.3.3.1.7';
+const CORRIDOR_CITATION = 'NBC 3.3.1.9.(1)';
 
 const CORRIDOR_FRR_RULES: Record<string, number> = {
   'A-1': 45, 'A-2': 45, 'A-3': 45, 'A-4': 45,
@@ -1338,8 +1338,8 @@ export function OccupancyAdvisor({
                       </div>
                       <p className={`text-[10px] ${hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM ? 'text-red-600' : 'text-green-600'}`}>
                         {hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM
-                          ? `⚠ Below NBC 3.3.1.2 minimum (${NBC_MIN_CORRIDOR_WIDTH_MM}mm)`
-                          : `✓ Meets NBC 3.3.1.2 minimum corridor width`}
+                          ? `⚠ Below NBC 3.3.1.9.(1) minimum (${NBC_MIN_CORRIDOR_WIDTH_MM}mm)`
+                          : `✓ Meets NBC 3.3.1.9.(1) minimum corridor width`}
                       </p>
                       <Button variant="ghost" size="sm" className="text-red-500 text-xs h-6 px-2" onClick={() => removeHallway(idx)}>
                         Remove
@@ -1844,7 +1844,7 @@ export function OccupancyAdvisor({
                       {hallways.map((hw, idx) => (!hw.wingId || hw.wingId === activeWingId) && hw.widthMm < NBC_MIN_CORRIDOR_WIDTH_MM && (
                         <div key={idx} className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
                           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                          Hallway {idx + 1}: {hw.widthMm}mm width is below NBC 3.3.1.2 minimum ({NBC_MIN_CORRIDOR_WIDTH_MM}mm)
+                          Hallway {idx + 1}: {hw.widthMm}mm width is below NBC 3.3.1.9.(1) minimum ({NBC_MIN_CORRIDOR_WIDTH_MM}mm)
                         </div>
                       ))}
                     </div>
