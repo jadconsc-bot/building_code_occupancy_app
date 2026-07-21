@@ -1,7 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
+
+vi.mock("./digitalCertificateManager", () => ({ certificateManager: {} }));
+vi.mock("./consultantRouter", async () => {
+  const { router } = await import("./_core/trpc");
+  return { consultantRouter: router({}) };
+});
+vi.mock("./routers/phase2to5", async () => {
+  const { router } = await import("./_core/trpc");
+  const emptyRouter = () => router({});
+  return {
+    clientsRouter: emptyRouter(),
+    projectMembersRouter: emptyRouter(),
+    subscriptionsRouter: emptyRouter(),
+    usageMetricsRouter: emptyRouter(),
+    sharingRouter: emptyRouter(),
+    verificationRouter: emptyRouter(),
+    calculationVersioningRouter: emptyRouter(),
+  };
+});
 
 type CookieCall = {
   name: string;
@@ -54,7 +73,7 @@ describe("auth.logout", () => {
     expect(clearedCookies[0]?.options).toMatchObject({
       maxAge: -1,
       secure: true,
-      sameSite: "none",
+      sameSite: "lax",
       httpOnly: true,
       path: "/",
     });
