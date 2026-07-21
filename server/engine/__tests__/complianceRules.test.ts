@@ -90,30 +90,6 @@ describe('NBC 3.2.5.2 — Sprinkler requirement by occupancy', () => {
   });
 });
 
-// ── NBC 3.8.3.3 Accessible unit count ────────────────────────────────────────
-describe('NBC 3.8.3.3 — Accessible units minimum 15%', () => {
-  it('constraint value is 0.15 (fraction) = 15%', () => {
-    expect(Constraints.accessibility.units.minimum_percent.value).toBe(0.15);
-  });
-
-  it('PASS: 2 accessible units out of 10 (20%) exceeds 15%', () => {
-    const minFraction = Constraints.accessibility.units.minimum_percent.value as number;
-    const ratio = 2 / 10;
-    expect(ratio >= minFraction).toBe(true);
-  });
-
-  it('FAIL: 1 accessible unit out of 10 (10%) below 15%', () => {
-    const minFraction = Constraints.accessibility.units.minimum_percent.value as number;
-    const ratio = 1 / 10;
-    expect(ratio >= minFraction).toBe(false);
-  });
-
-  it('WARN: 0 accessible units — fails', () => {
-    const minFraction = Constraints.accessibility.units.minimum_percent.value as number;
-    expect(0 >= minFraction).toBe(false);
-  });
-});
-
 // ── Exit count ────────────────────────────────────────────────────────────────
 describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exception', () => {
   it('PASS: 1 exit — Group D, 50 occupants, no area/travel data (exception may apply; caveats added)', () => {

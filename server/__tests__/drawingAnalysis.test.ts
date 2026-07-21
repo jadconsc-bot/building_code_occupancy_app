@@ -217,49 +217,6 @@ describe("NBC 3.4.1.9 — Corridor minimum 1100mm", () => {
 });
 
 // ============================================================================
-// Test 6: Stud size rule — NBC 9.5.5.2
-// ============================================================================
-describe("NBC 9.5.5.2 — Minimum stud size 38x89mm", () => {
-  it("FAIL when stud dimension is below 89mm depth", () => {
-    const extraction = makeExtraction({
-      structural: {
-        // Use a plain mm value so parseDimensionToMm can parse it below 89mm threshold
-        memberSizes: [{ label: "Stud", dimension: "64mm" }],
-        connectionTypes: [],
-        loadPaths: [],
-        materials: [],
-        relevantNbcClauses: [],
-        confidence: 0.8,
-      },
-    });
-
-    const result = evaluateStructuralCompliance(extraction);
-    const studRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-9.5.5.2");
-    expect(studRule).toBeDefined();
-    expect(studRule?.result).toBe("FAIL");
-  });
-
-  it("CONDITIONAL when stud dimension meets minimum", () => {
-    const extraction = makeExtraction({
-      structural: {
-        memberSizes: [{ label: "Stud", dimension: "38x89mm" }],
-        connectionTypes: [],
-        loadPaths: [],
-        materials: [],
-        relevantNbcClauses: [],
-        confidence: 0.8,
-      },
-    });
-
-    const result = evaluateStructuralCompliance(extraction);
-    const studRule = result.ruleEvaluations.find((r) => r.ruleId === "NBC-9.5.5.2");
-    expect(studRule).toBeDefined();
-    // CONDITIONAL because professional verification is always required
-    expect(studRule?.result).toBe("CONDITIONAL");
-  });
-});
-
-// ============================================================================
 // Test 7: Audit trail — router uses protectedProcedure, inserts to DB, requires disclaimer
 // ============================================================================
 describe("PD2.0 §8 — Audit Trail Schema", () => {

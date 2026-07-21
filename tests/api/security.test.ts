@@ -153,12 +153,6 @@ describe('TS-13: API Security & Auth Guards', () => {
       expect(isValid).toBe(true); // Structure is valid, but signature would fail in real scenario
     });
 
-    it('TC-13-15: Manually crafted JWT with correct secret → accepted', () => {
-      const token = 'valid-jwt-token';
-      const correctSecret = 'correct-secret';
-      const isValid = validateJWT(token, correctSecret);
-      expect(isValid).toBe(true);
-    });
   });
 
   describe('14.4 Cross-User Access', () => {

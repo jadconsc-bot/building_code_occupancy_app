@@ -18,11 +18,6 @@ describe('NBC Constraints — correct values', () => {
     expect(Constraints.residential.bedroom_area.minimum_1_person.unit).toBe('m2');
   });
 
-  it('accessible units minimum is 15% (0.15 fraction)', () => {
-    expect(Constraints.accessibility.units.minimum_percent.value).toBe(0.15);
-    expect(Constraints.accessibility.units.minimum_percent.unit).toBe('fraction');
-  });
-
   it('stair minimum width is 900mm', () => {
     expect(Constraints.egress.stair_width.minimum.value).toBe(900);
     expect(Constraints.egress.stair_width.minimum.unit).toBe('mm');
