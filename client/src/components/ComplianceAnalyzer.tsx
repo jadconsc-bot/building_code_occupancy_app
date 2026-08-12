@@ -503,7 +503,7 @@ export function ComplianceAnalyzer({
 
               <TabsContent value="compliance" className="space-y-4 mt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(result.compliance_flags).map(([key, value]) => (
+                  {Object.entries(result.compliance_flags ?? {}).map(([key, value]) => (
                     <div key={key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                       {value ? (
                         <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
