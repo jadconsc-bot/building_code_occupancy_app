@@ -88,7 +88,7 @@ export const reportRouter = router({
       };
 
       // Verify existing signature
-      const signatureValid = analysis.cryptographicSignature === analysis.cryptographicSignature;
+      const signatureValid = false; // verification not yet implemented
       if (!signatureValid && !input.engineerName) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -152,25 +152,16 @@ export const reportRouter = router({
    * and has not been tampered with
    */
   verifySeal: protectedProcedure
-    .input(z.object({
-      reportId: z.string(),
-      signature: z.string(),
-    }))
-    .output(z.object({
-      valid: z.boolean(),
-      engineerName: z.string().optional(),
-      licenseNumber: z.string().optional(),
-      sealDate: z.string().optional(),
-    }))
-    .query(async ({ input }) => {
-      // In production, verify signature against stored hash
-      // For now, return basic verification
-      
+    .input(z.object({ reportId: z.number() }))
+    .mutation(async () => {
       return {
-        valid: true,
-        engineerName: 'Professional Engineer',
-        licenseNumber: 'PE123456',
-        sealDate: new Date().toISOString().split('T')[0],
+        valid: false,
+        status: 'verification_unavailable' as const,
+        message:
+          'Report verification is not yet implemented. ' +
+          'Do not rely on this for compliance or legal ' +
+          'purposes. Hash-based tamper detection is ' +
+          'planned for a future release.',
       };
     }),
 
@@ -307,5 +298,4 @@ export function generateReportContent(
 
   return content;
 }
-
 

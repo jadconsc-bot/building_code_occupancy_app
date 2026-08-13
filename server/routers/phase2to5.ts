@@ -389,19 +389,15 @@ export const verificationRouter = router({
    */
   verify: publicProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const verificationToken = await db.getVerificationTokenByToken(input.token);
-      if (!verificationToken) throw new Error("Invalid verification token");
-      if (!verificationToken.isPublic) throw new Error("Token is not public");
-      if (verificationToken.expiresAt && new Date() > verificationToken.expiresAt) {
-        throw new Error("Token has expired");
-      }
-
-      await db.incrementVerificationTokenViewCount(verificationToken.id);
+    .query(async () => {
       return {
-        calculationResultId: verificationToken.calculationResultId,
-        viewCount: verificationToken.viewCount + 1,
-        lastViewedAt: new Date(),
+        valid: false,
+        status: 'verification_unavailable' as const,
+        message:
+          'Report verification is not yet implemented. ' +
+          'Do not rely on this for compliance or legal ' +
+          'purposes. Hash-based tamper detection is ' +
+          'planned for a future release.',
       };
     }),
 });

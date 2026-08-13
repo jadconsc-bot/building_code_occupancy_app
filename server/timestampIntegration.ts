@@ -1,8 +1,7 @@
 /**
  * Timestamp Authority Integration
  * 
- * Integrates RFC 3161 timestamp authority into calculation signing
- * Provides court-defensible timestamps for legally binding decisions
+ * Placeholder timestamp integration. No external RFC 3161 authority is called.
  */
 
 import crypto from 'crypto';
@@ -55,7 +54,7 @@ export class TimestampIntegration {
       timestamp,
       tsaToken,
       tsaProvider: this.tsaProvider,
-      verified: true,
+      verified: false,
     };
   }
 
@@ -156,11 +155,9 @@ export class TimestampIntegration {
         verificationTime: new Date().toISOString(),
       },
       legalNotice:
-        'This document contains an RFC 3161 compliant timestamp from ' +
-        timestampedSig.tsaProvider +
-        '. ' +
-        'The timestamp provides proof that the calculation existed at the specified time. ' +
-        'This is legally defensible evidence in court proceedings.',
+        'Timestamp verification is unavailable. This locally generated placeholder ' +
+        'is not an RFC 3161 authority token and must not be relied on for legal or ' +
+        'compliance purposes.',
     };
 
     return JSON.stringify(proof, null, 2);

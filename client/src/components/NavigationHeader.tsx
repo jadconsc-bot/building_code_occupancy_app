@@ -38,7 +38,6 @@ import {
   Share2,
   GitBranch,
   CreditCard,
-  CheckCircle,
   Hammer,
   Plug,
   HelpCircle,
@@ -125,15 +124,6 @@ const NAV_FEATURES: NavFeature[] = [
     description: 'Share projects with reviewers',
     requiredRole: 'professional',
     upgradeMessage: 'Upgrade to Professional to share projects',
-    primaryNav: false,
-  },
-  {
-    label: 'Verification Portal',
-    icon: CheckCircle,
-    href: '/verify',
-    description: 'Verify calculation authenticity',
-    requiredRole: 'professional',
-    upgradeMessage: 'Upgrade to Professional to access verification',
     primaryNav: false,
   },
   {
