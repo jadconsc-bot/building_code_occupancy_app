@@ -375,6 +375,8 @@ interface TravelDistanceResult {
   result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
   nbcClause: '3.4.2.5';
   sprinklered: boolean;
+  isApproximation: true;
+  approximationNote: string;
 }
 
 type ComplianceLevel = 'critical' | 'major' | 'minor' | 'warning' | 'pass' | 'none';
@@ -8069,6 +8071,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           <CardDescription className="text-xs">NBC 3.4.2.5 · Travel Distance</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-2">
+                            <strong>Note:</strong> Distance measured as straight-line approximation — does not account
+                            for walls, corridors, or actual circulation path. Verify against actual path of travel on
+                            stamped drawings per NBC 3.4.2.5.
+                          </p>
 
                           {/* Badge summary */}
                           <div className="flex flex-wrap gap-1.5">

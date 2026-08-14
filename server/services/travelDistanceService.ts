@@ -46,6 +46,8 @@ export interface TravelDistanceResult {
   result: 'pass' | 'fail' | 'unable_to_evaluate' | 'not_applicable';
   nbcClause: '3.4.2.5';
   sprinklered: boolean;
+  isApproximation: true;
+  approximationNote: string;
 }
 
 /**
@@ -148,6 +150,8 @@ export function calculateTravelDistances(
       result: 'not_applicable',
       nbcClause: '3.4.2.5',
       sprinklered,
+      isApproximation: true,
+      approximationNote: 'Euclidean centroid-to-centroid — graph-based path calculation planned',
     });
   }
 
@@ -176,6 +180,8 @@ export function calculateTravelDistances(
         result: 'unable_to_evaluate',
         nbcClause: '3.4.2.5',
         sprinklered,
+        isApproximation: true,
+        approximationNote: 'Euclidean centroid-to-centroid — graph-based path calculation planned',
       });
       continue;
     }
@@ -209,6 +215,8 @@ export function calculateTravelDistances(
         result: 'unable_to_evaluate',
         nbcClause: '3.4.2.5',
         sprinklered,
+        isApproximation: true,
+        approximationNote: 'Euclidean centroid-to-centroid — graph-based path calculation planned',
       });
       continue;
     }
@@ -247,6 +255,8 @@ export function calculateTravelDistances(
       result: distanceM <= activeLimit ? 'pass' : 'fail',
       nbcClause: '3.4.2.5',
       sprinklered,
+      isApproximation: true,
+      approximationNote: 'Euclidean centroid-to-centroid — graph-based path calculation planned',
     });
   }
 

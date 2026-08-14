@@ -347,9 +347,10 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
       ? `${tdPasses.length} pass / ${tdFails.length} fail of ${tdResults.length} room(s)`
       : null,
     tdResults.length > 0 ? 'high' : null,
-    tdConflicts.length > 0
-      ? 'Travel distance passes using wrong limit — check sprinkler status'
-      : tdFails.length > 0 ? 'Reduce travel distance or add exit' : null,
+    (tdConflicts.length > 0
+      ? 'Travel distance passes using wrong limit — check sprinkler status.'
+      : tdFails.length > 0 ? 'Reduce travel distance or add exit.' : '') +
+      ' Note: travel distance is currently measured as a straight-line approximation and does not account for walls or corridors.',
   ));
 
   items.push(makeItem('CARL-5.4', 5, s5,
