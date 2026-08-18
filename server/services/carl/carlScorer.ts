@@ -358,18 +358,18 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     o.summary.totalRooms > 0 ? 'advisory' : 'not_evaluated',
     o.summary.totalRooms > 0 ? `${o.summary.totalRooms} rooms analyzed` : null,
     'low',
-    'Verify minimum exit count per floor — requires architectural review',
+    'Run a Full Analysis on the floor plan, then confirm the required exit count on the permit drawings',
   ));
 
   items.push(makeItem('CARL-5.2', 5, s5,
     'Exit door minimum clear width 850mm', 'NBC 3.3.1.13.(1)(a)', 'partial', 'findings[]', true,
     exitWidthStatus,
     exitWidthFindings.length > 0
-      ? `${exitWidthFindings.length} exit-width finding(s): ${exitWidthFindings.map(f => f.description).join('; ')}`
-      : 'Exit door width requires drawing analysis',
+      ? `${exitWidthFindings.length} exit door width finding(s): ${exitWidthFindings.map(f => f.description).join('; ')}`
+      : 'Exit door width has not been assessed from the floor plan',
     exitWidthFindings.length > 0 ? 'medium' : null,
     exitWidthStatus === 'not_evaluated'
-      ? 'Upload a floor plan with labeled exit doors to verify 850mm minimum clear width per NBC 3.3.1.13.(1)(a)'
+      ? 'Run a Full Analysis on your floor plan drawings to evaluate the 850mm (33½ inch) clear-width requirement automatically'
       : exitWidthStatus === 'fail'
         ? 'Correct exit door clear width to at least 850mm before permit submission'
         : exitWidthStatus === 'advisory'
@@ -382,10 +382,10 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     corridorWidthStatus,
     corridorWidthFindings.length > 0
       ? `${corridorWidthFindings.length} corridor-width finding(s): ${corridorWidthFindings.map(f => f.description).join('; ')}`
-      : 'Corridor clear width requires drawing analysis',
+      : 'Corridor clear width has not been assessed from the floor plan',
     corridorWidthFindings.length > 0 ? 'medium' : null,
     corridorWidthStatus === 'not_evaluated'
-      ? 'Run drawing analysis and confirm corridor clear width is at least 1100mm per NBC 3.3.1.9.(1)'
+      ? 'Run a Full Analysis on your floor plan drawings to evaluate the 1100mm (43 inch) clear-width requirement automatically'
       : corridorWidthStatus === 'fail'
         ? 'Correct corridor clear width to at least 1100mm before permit submission'
         : corridorWidthStatus === 'advisory'
@@ -405,7 +405,7 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     (tdConflicts.length > 0
       ? 'Travel distance passes using wrong limit — check sprinkler status.'
       : tdFails.length > 0 ? 'Reduce travel distance or add exit.' : '') +
-      ' Note: travel distance is currently measured as a straight-line approximation and does not account for walls or corridors.',
+      ' Travel distance shown is a straight-line estimate — actual walking distance through corridors and doors will be longer. Trace the path along room centerlines on the drawings to confirm compliance.',
   ));
 
   items.push(makeItem('CARL-5.4', 5, s5,

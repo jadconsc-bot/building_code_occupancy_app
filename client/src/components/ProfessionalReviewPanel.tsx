@@ -358,17 +358,17 @@ export function ProfessionalReviewPanel({
                   )}
                   {status.text === "Verify required" && (
                     <p className="text-xs text-amber-700 mt-1">
-                      Verify on stamped drawings — confirm with engineer or architect before permit submission.
+                      The drawing indicates a requirement that could not be confirmed. Check the cited dimension or assembly on the stamped drawings before permit submission.
                     </p>
                   )}
                   {status.text === "Not assessable from drawing" && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Provide documentation for professional review.
+                      This requirement could not be read from the drawing. Add the missing dimension or provide the referenced documentation for permit review.
                     </p>
                   )}
                   {status.text === "Non-compliant" && (
                     <p className="text-xs text-red-700 mt-1">
-                      Correction required before permit submission.
+                      The detected condition does not meet the cited minimum. Correct it and update the permit drawings before submission.
                     </p>
                   )}
                 </div>

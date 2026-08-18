@@ -88,18 +88,20 @@ export function evaluateFireSeparationRule(
   adjacentRoomIds: number[] | null,
   adjacentGroups: string[],
   fireRatedDoorCount: number,
+  adjacentLabels: string[] = [],
+  roomLabel = 'This room',
 ): ComplianceTrace {
   if (adjacentRoomIds === null) {
     return buildFederalTrace({
       result: 'warning',
       rule: 'NBC 3.1.3.1 / Table 3.1.3.1',
-      reasoning: `Room adjacency not yet computed — fire separation analysis is advisory only. Re-run analysis after adjacency computation completes`,
+      reasoning: `Room boundaries are not confirmed — fire separation between occupancies cannot be evaluated without confirmed room geometry`,
       evaluatedInputs: { actual: group, required: 'pending adjacency', unit: 'occupancy' },
       severity: 'medium',
       constraintId: 'fire.separation.mixed_occupancy',
       recommendations: [
-        'Re-run analysis to get adjacency-based fire separation assessment',
-        'Manually verify mixed occupancy groups in adjacent rooms'
+        'Run Full Analysis with calibration set to confirm room boundaries and adjacency',
+        'Confirm occupancy groups for adjoining rooms on the architectural drawings'
       ]
     });
   }
@@ -129,10 +131,11 @@ export function evaluateFireSeparationRule(
 
   if (f1ProhibitedWith.length > 0) {
     const pairedWith = group === 'F-1' ? f1ProhibitedWith.join('/') : 'F-1';
+    const prohibitedRoom = group === 'F-1' ? roomLabel : (adjacentLabels.join(', ') || 'The adjoining space');
     return buildFederalTrace({
       result: 'fail',
       rule: Constraints.fire.prohibitions.f1_with_abc.ref,
-      reasoning: `Prohibited occupancy combination: Group F-1 (high-hazard industrial) may not be in a building containing Group ${pairedWith} — not permitted per NBC 3.1.3.2.(1) regardless of fire separation assembly`,
+      reasoning: `${prohibitedRoom} (Group F-1, high-hazard industrial) cannot be in the same building as Group ${pairedWith} occupancies. This combination is prohibited — no fire separation can resolve it`,
       evaluatedInputs: {
         actual: `${group} + ${pairedWith}`,
         required: 'Groups F-1 and A/B/C must not be in same building',
@@ -142,7 +145,7 @@ export function evaluateFireSeparationRule(
       constraintId: 'fire.prohibition.f1_with_abc',
       recommendations: [
         'Remove Group F-1 occupancy from this building or relocate it to a separate building',
-        'NBC 3.1.3.2.(1) prohibits this combination — it cannot be resolved with any fire separation assembly'
+        'Consult a code consultant before proceeding per NBC 3.1.3.2.(1)'
       ]
     });
   }
@@ -156,12 +159,15 @@ export function evaluateFireSeparationRule(
 
   if (maxFRR && maxFRR.hr > 0) {
     const hasSeparation = fireRatedDoorCount > 0;
+    const adjacentDescription = adjacentLabels.length > 0
+      ? adjacentLabels.join(', ')
+      : 'the adjoining space(s)';
     return buildFederalTrace({
       result: hasSeparation ? 'pass' : 'warning',
       rule: maxFRR.ref,
       reasoning: hasSeparation
-        ? `Fire-rated door(s) detected — ${maxFRR.hr}hr separation indicated between Group ${group} and adjacent Group(s) ${adjacentGroups.join(', ')}`
-        : `Adjacent rooms: Group ${group} shares wall with Group(s) ${adjacentGroups.join(', ')} — ${maxFRR.hr}hr fire separation required`,
+        ? `${roomLabel} (Group ${group}) adjoins ${adjacentDescription} (Group ${adjacentGroups.join(', ')}). A ${maxFRR.hr}-hour fire-rated assembly is required; ${fireRatedDoorCount} fire-rated door(s) were detected`
+        : `${roomLabel} (Group ${group}) adjoins ${adjacentDescription} (Group ${adjacentGroups.join(', ')}). A ${maxFRR.hr}-hour fire-rated assembly is required between these spaces per NBC Table 3.1.3.1`,
       evaluatedInputs: {
         actual: hasSeparation ? `${fireRatedDoorCount} fire-rated door(s)` : 'not confirmed',
         required: `${maxFRR.hr}hr fire separation`,
@@ -170,8 +176,8 @@ export function evaluateFireSeparationRule(
       severity: hasSeparation ? 'info' : 'high',
       constraintId: 'fire.separation.mixed_occupancy',
       recommendations: hasSeparation ? [] : [
-        `Provide ${maxFRR.hr}hr fire-rated separation between Group ${group} and adjacent Group ${adjacentGroups.join('/')} occupancies`,
-        'Verify fire separation assembly in architectural details'
+        `Show a ${maxFRR.hr}-hour fire-rated assembly between Group ${group} and Group ${adjacentGroups.join('/')} spaces`,
+        'Confirm the wall construction and FRR rating on the architectural drawings'
       ]
     });
   }
@@ -322,10 +328,10 @@ export async function evaluateRoomCompliance(
       : doorWidth >= doorWidthMin ? 'pass' : 'fail',
     rule: Constraints.egress.exit_width.minimum.ref,
     reasoning: doorWidth === null
-      ? `Exit door width not measurable from drawing — manual measurement required`
+      ? `${exitDoors.length} exit door(s) identified — clear width could not be read from this drawing. Exit doors must open to at least ${doorWidthMin}mm (33½ inches) clear`
       : doorWidth >= doorWidthMin
-        ? `Exit door width ${doorWidth}mm meets minimum ${doorWidthMin}mm clear width`
-        : `Exit door width ${doorWidth}mm is below minimum ${doorWidthMin}mm clear width`,
+        ? `${exitDoors.length} exit door(s) identified; the measured clear width is ${doorWidth}mm, at or above the ${doorWidthMin}mm (33½ inch) minimum`
+        : `Exit door at ${room.label} measures ${doorWidth}mm — below the ${doorWidthMin}mm (33½ inch) minimum. This must be corrected before permit submission`,
     evaluatedInputs: {
       actual: doorWidth ?? 'not measured',
       required: doorWidthMin,
@@ -335,7 +341,7 @@ export async function evaluateRoomCompliance(
     severity: doorWidth === null ? 'info' : doorWidth >= doorWidthMin ? 'info' : 'high',
     constraintId: 'egress.exit_width',
     recommendations: doorWidth === null
-      ? ['Measure exit door clear width from architectural drawings — minimum 850mm required per NBC 3.3.1.13.(1)(a)']
+      ? ['Measure the clear opening on the stamped drawings and confirm before submitting per NBC 3.3.1.13.(1)(a)']
       : doorWidth >= doorWidthMin ? []
       : [`Widen exit door to minimum ${doorWidthMin}mm clear width (current: ${doorWidth}mm)`]
   }));
@@ -360,10 +366,10 @@ export async function evaluateRoomCompliance(
         : estimatedWidthMm >= corrWidthMin ? 'pass' : 'warning',
       rule: Constraints.egress.corridor_width.minimum.ref,
       reasoning: estimatedWidthMm === null
-        ? `Corridor width cannot be determined — manual measurement required`
+        ? `1 corridor identified — width could not be estimated from the available room geometry. Public corridors must be at least ${corrWidthMin}mm (43 inches) wide`
         : estimatedWidthMm >= corrWidthMin
-          ? `Estimated corridor width ~${estimatedWidthMm}mm meets minimum ${corrWidthMin}mm (estimated from area + bounding box)`
-          : `Estimated corridor width ~${estimatedWidthMm}mm may be below minimum ${corrWidthMin}mm — verify from scaled drawing`,
+          ? `Corridor width is estimated at approximately ${estimatedWidthMm}mm, at or above the ${corrWidthMin}mm (43 inch) minimum. This is a geometry estimate, not a measured clear width`
+          : `Corridor width is estimated at approximately ${estimatedWidthMm}mm — below the ${corrWidthMin}mm (43 inch) minimum. Confirm the clear width on scaled drawings`,
       evaluatedInputs: {
         actual: estimatedWidthMm ?? 'not measurable',
         required: corrWidthMin,
@@ -372,10 +378,14 @@ export async function evaluateRoomCompliance(
       },
       severity: estimatedWidthMm === null ? 'info' : estimatedWidthMm >= corrWidthMin ? 'info' : 'medium',
       constraintId: 'egress.corridor_width',
-      recommendations: (estimatedWidthMm === null || estimatedWidthMm >= corrWidthMin) ? [] : [
-        `Verify corridor clear width on scaled drawing — minimum ${corrWidthMin}mm required`,
-        'Width estimated from area and bounding box aspect ratio only'
-      ]
+      recommendations: estimatedWidthMm === null
+        ? ['Confirm the corridor clear width on scaled drawings per NBC 3.3.1.9.(1)']
+        : estimatedWidthMm >= corrWidthMin ? [
+          'Confirm the geometry estimate by measuring clear width on scaled drawings'
+        ] : [
+          `Confirm and correct corridor clear width to at least ${corrWidthMin}mm before permit submission`,
+          'The displayed width is estimated from room area and bounding-box aspect ratio'
+        ]
     }));
   }
 
@@ -397,18 +407,32 @@ export async function evaluateRoomCompliance(
           : (typeof rawAdj === 'string' ? (JSON.parse(rawAdj) as number[]) : []);
 
       let adjacentGroups: string[] = [];
+      let adjacentLabels: string[] = [];
       if (adjIds && adjIds.length > 0) {
         const adjRooms = await db7
-          .select({ occupancyGroup: detectedRooms.occupancyGroup })
+          .select({
+            occupancyGroup: detectedRooms.occupancyGroup,
+            roomLabel: detectedRooms.roomLabel,
+          })
           .from(detectedRooms)
           .where(inArray(detectedRooms.id, adjIds));
         adjacentGroups = Array.from(new Set(
           adjRooms.map(r => r.occupancyGroup).filter((g): g is string => !!g && g !== group)
         ));
+        adjacentLabels = adjRooms
+          .map(r => r.roomLabel)
+          .filter((label): label is string => !!label);
       }
 
       const fireRatedDoorCount = room.features.filter(f => f.type === 'door_fire_rated').length;
-      traces.push(evaluateFireSeparationRule(group, adjIds, adjacentGroups, fireRatedDoorCount));
+      traces.push(evaluateFireSeparationRule(
+        group,
+        adjIds,
+        adjacentGroups,
+        fireRatedDoorCount,
+        adjacentLabels,
+        room.label,
+      ));
     }
   } catch (err) {
     console.error('[RoomCompliance] Rule 7 fire separation query failed:', err);

@@ -410,9 +410,9 @@ export function BriefTab({ projectId }: BriefTabProps) {
         citation={travelDistance.citation}
       >
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-2">
-          <strong>Note:</strong> Distance measured as straight-line approximation — does not account
-          for walls, corridors, or actual circulation path. Verify against actual path of travel on
-          stamped drawings per NBC 3.4.2.5.
+          <strong>Note:</strong> Travel distance shown is a straight-line estimate — actual walking
+          distance through corridors and doors will be longer. Trace the path along room centerlines
+          on your drawings to confirm compliance per NBC 3.4.2.5.
         </p>
       </SectionCard>
 
