@@ -283,7 +283,7 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   ));
 
   items.push(makeItem('CARL-4.4', 4, s4,
-    'Fire separations between occupancies', 'NBC 3.3.4', 'partial', 'fireSeparation[]', true,
+    'Fire separations between occupancies', 'NBC 3.1.3.1 / Table 3.1.3.1', 'partial', 'fireSeparation[]', true,
     fsConflict ? 'fail'
       : o.fireSeparation.length > 0 ? 'advisory'
       : isMixedUse ? 'fail' : 'pass',
@@ -321,6 +321,37 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
     c.conflictId.startsWith('CONFLICT-TD')
   );
   const egFails = o.egressWindows.filter(w => w.result === 'fail');
+  type TraceableFinding = (typeof o.findings)[number] & {
+    constraintId?: string;
+    ruleReference?: string;
+    result?: 'pass' | 'fail' | 'warning' | 'conditional';
+  };
+  const findings = (o.findings ?? []) as TraceableFinding[];
+  const deriveFindingStatus = (matchedFindings: TraceableFinding[]): CARLStatus => {
+    if (matchedFindings.length === 0) return 'not_evaluated';
+    const statuses = matchedFindings.map(f => f.result ?? f.severity);
+    if (statuses.includes('fail')) return 'fail';
+    if (statuses.some(status => status === 'warning' || status === 'conditional' || status === 'advisory')) {
+      return 'advisory';
+    }
+    return 'pass';
+  };
+  const exitWidthFindings = findings.filter(f =>
+    f.constraintId?.includes('exit_width')
+    || f.ruleReference?.includes('3.3.1.13')
+    || f.citation?.includes('3.3.1.13')
+    || /exit door.*width/i.test(f.description)
+  );
+  const exitWidthStatus = deriveFindingStatus(exitWidthFindings);
+  const corridorWidthFindings = findings.filter(f =>
+    f.constraintId?.includes('corridor_width')
+    || f.ruleReference?.includes('3.3.1.9')
+    || f.ruleReference?.includes('3.4.1.9')
+    || f.citation?.includes('3.3.1.9')
+    || f.citation?.includes('3.4.1.9')
+    || /corridor.*width/i.test(f.description)
+  );
+  const corridorWidthStatus = deriveFindingStatus(corridorWidthFindings);
 
   items.push(makeItem('CARL-5.1', 5, s5,
     'Number of exits per floor compliant', 'NBC 3.4.2.2', 'partial', 'summary', true,
@@ -331,11 +362,35 @@ export function scoreCARLItems(input: CARLScorerInput): CARLReport {
   ));
 
   items.push(makeItem('CARL-5.2', 5, s5,
-    'Exit door minimum clear width 850mm', 'NBC 3.3.1.13.(1)(a)', 'partial', null, true,
-    'not_evaluated',
-    'Exit door width requires drawing analysis — upload floor plan to Drawing Analyzer to evaluate',
-    null,
-    'Upload a floor plan with labeled exit doors to verify 850mm minimum clear width per NBC 3.3.1.13.(1)(a)',
+    'Exit door minimum clear width 850mm', 'NBC 3.3.1.13.(1)(a)', 'partial', 'findings[]', true,
+    exitWidthStatus,
+    exitWidthFindings.length > 0
+      ? `${exitWidthFindings.length} exit-width finding(s): ${exitWidthFindings.map(f => f.description).join('; ')}`
+      : 'Exit door width requires drawing analysis',
+    exitWidthFindings.length > 0 ? 'medium' : null,
+    exitWidthStatus === 'not_evaluated'
+      ? 'Upload a floor plan with labeled exit doors to verify 850mm minimum clear width per NBC 3.3.1.13.(1)(a)'
+      : exitWidthStatus === 'fail'
+        ? 'Correct exit door clear width to at least 850mm before permit submission'
+        : exitWidthStatus === 'advisory'
+          ? 'Confirm exit door clear width on stamped drawings before permit submission'
+          : null,
+  ));
+
+  items.push(makeItem('CARL-5.2b', 5, s5,
+    'Corridor minimum clear width 1100mm', 'NBC 3.3.1.9.(1)', 'partial', 'findings[]', true,
+    corridorWidthStatus,
+    corridorWidthFindings.length > 0
+      ? `${corridorWidthFindings.length} corridor-width finding(s): ${corridorWidthFindings.map(f => f.description).join('; ')}`
+      : 'Corridor clear width requires drawing analysis',
+    corridorWidthFindings.length > 0 ? 'medium' : null,
+    corridorWidthStatus === 'not_evaluated'
+      ? 'Run drawing analysis and confirm corridor clear width is at least 1100mm per NBC 3.3.1.9.(1)'
+      : corridorWidthStatus === 'fail'
+        ? 'Correct corridor clear width to at least 1100mm before permit submission'
+        : corridorWidthStatus === 'advisory'
+          ? 'Confirm corridor clear width on scaled stamped drawings before permit submission'
+          : null,
   ));
 
   items.push(makeItem('CARL-5.3', 5, s5,

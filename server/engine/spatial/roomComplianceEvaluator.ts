@@ -335,7 +335,7 @@ export async function evaluateRoomCompliance(
     severity: doorWidth === null ? 'info' : doorWidth >= doorWidthMin ? 'info' : 'high',
     constraintId: 'egress.exit_width',
     recommendations: doorWidth === null
-      ? ['Measure exit door clear width from architectural drawings — minimum 860mm required']
+      ? ['Measure exit door clear width from architectural drawings — minimum 850mm required per NBC 3.3.1.13.(1)(a)']
       : doorWidth >= doorWidthMin ? []
       : [`Widen exit door to minimum ${doorWidthMin}mm clear width (current: ${doorWidth}mm)`]
   }));

@@ -233,11 +233,11 @@ export function evaluateExitWidth(inputs: ComplianceInput): ComplianceTrace {
     return buildFederalTrace({
       result: 'not_applicable',
       rule: Constraints.egress.exit_width.minimum.ref,
-      reasoning: 'Exit door width not provided — verify manually per NBC 3.4.3.4.(1)',
+      reasoning: 'Exit door width not provided — verify manually per NBC 3.3.1.13.(1)(a)',
       evaluatedInputs: { actual: 'not measured', required, unit: 'mm' },
       severity: 'medium',
       constraintId: 'egress.exit_width.minimum',
-      recommendations: ['Verify exit door clear width is minimum 860mm'],
+      recommendations: ['Verify exit door clear width is minimum 850mm per NBC 3.3.1.13.(1)(a)'],
     });
   }
 

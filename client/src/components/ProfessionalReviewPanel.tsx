@@ -30,6 +30,8 @@ import {
   Loader2,
   AlertTriangle,
   HelpCircle,
+  Minus,
+  Info,
 } from "lucide-react";
 import { ExportAnalysisPDFButton } from "@/components/ExportAnalysisPDFButton";
 import { trpc } from "@/lib/trpc";
@@ -66,6 +68,25 @@ interface ProfessionalReviewPanelProps {
   recommendations: string[];
   onStatusChange: (newStatus: "VALID" | "REJECTED") => void;
 }
+
+function statusLabel(status: string): { text: string; color: string; icon: string } {
+  switch (status) {
+    case "PASS": case "pass": case "compliant":
+      return { text: "Compliant", color: "text-green-700", icon: "CheckCircle" };
+    case "FAIL": case "fail": case "non_compliant":
+      return { text: "Non-compliant", color: "text-red-700", icon: "XCircle" };
+    case "CONDITIONAL": case "warning": case "advisory":
+      return { text: "Verify required", color: "text-amber-700", icon: "AlertTriangle" };
+    case "UNABLE_TO_EVALUATE": case "not_evaluated":
+      return { text: "Not assessable from drawing", color: "text-gray-500", icon: "HelpCircle" };
+    case "not_applicable":
+      return { text: "Not applicable", color: "text-gray-400", icon: "Minus" };
+    default:
+      return { text: status, color: "text-gray-600", icon: "Info" };
+  }
+}
+
+const statusIcons = { CheckCircle, XCircle, AlertTriangle, HelpCircle, Minus, Info };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -116,9 +137,9 @@ export function ProfessionalReviewPanel({
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const passCount = ruleEvaluations.filter((r) => r.result === "PASS").length;
-  const failCount = ruleEvaluations.filter((r) => r.result === "FAIL").length;
-  const conditionalCount = ruleEvaluations.filter((r) => r.result === "CONDITIONAL").length;
+  const passCount = ruleEvaluations.filter((r) => statusLabel(r.result).text === "Compliant").length;
+  const failCount = ruleEvaluations.filter((r) => statusLabel(r.result).text === "Non-compliant").length;
+  const conditionalCount = ruleEvaluations.filter((r) => statusLabel(r.result).text === "Verify required").length;
   const criticalIssues = issues.filter((i) => i.severity === "critical");
 
   const getScoreColor = (score: number | null) => {
@@ -305,23 +326,15 @@ export function ProfessionalReviewPanel({
         <div>
           <p className="text-sm font-semibold mb-2">Rule Evaluations</p>
           <div className="space-y-1 max-h-48 overflow-y-auto">
-            {ruleEvaluations.map((rule, idx) => (
+            {ruleEvaluations.map((rule, idx) => {
+              const status = statusLabel(rule.result);
+              const StatusIcon = statusIcons[status.icon as keyof typeof statusIcons];
+              return (
               <div
                 key={idx}
                 className="flex items-start gap-2 p-2 rounded bg-muted text-xs"
               >
-                {rule.result === "PASS" && (
-                  <CheckCircle size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
-                )}
-                {rule.result === "FAIL" && (
-                  <XCircle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
-                )}
-                {rule.result === "CONDITIONAL" && (
-                  <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                )}
-                {rule.result === "UNABLE_TO_EVALUATE" && (
-                  <HelpCircle size={14} className="text-muted-foreground flex-shrink-0 mt-0.5" />
-                )}
+                <StatusIcon size={14} className={`${status.color} flex-shrink-0 mt-0.5`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1 flex-wrap">
                     {rule.roomLabel && (
@@ -330,26 +343,9 @@ export function ProfessionalReviewPanel({
                       </span>
                     )}
                     <span className="font-mono font-medium">{rule.clause}</span>
-                    {rule.result === "PASS" && (
-                      <Badge className="text-[10px] py-0 text-green-600 bg-green-50">
-                        Compliant
-                      </Badge>
-                    )}
-                    {rule.result === "FAIL" && (
-                      <Badge className="text-[10px] py-0 text-red-600 bg-red-50">
-                        Non-compliant
-                      </Badge>
-                    )}
-                    {rule.result === "CONDITIONAL" && (
-                      <Badge className="text-[10px] py-0 text-amber-600 bg-amber-50">
-                        Verify required
-                      </Badge>
-                    )}
-                    {rule.result === "UNABLE_TO_EVALUATE" && (
-                      <Badge className="text-[10px] py-0 text-muted-foreground bg-muted">
-                        Not assessable from drawing
-                      </Badge>
-                    )}
+                    <Badge className={`text-[10px] py-0 ${status.color} bg-muted`}>
+                      {status.text}
+                    </Badge>
                     {rule.severity === "critical" && (
                       <Badge variant="destructive" className="text-[10px] py-0">
                         CRITICAL
@@ -360,24 +356,25 @@ export function ProfessionalReviewPanel({
                   {rule.details && (
                     <p className="text-muted-foreground/70 text-[10px] mt-0.5">{rule.details}</p>
                   )}
-                  {rule.result === "CONDITIONAL" && (
+                  {status.text === "Verify required" && (
                     <p className="text-xs text-amber-700 mt-1">
                       Verify on stamped drawings — confirm with engineer or architect before permit submission.
                     </p>
                   )}
-                  {rule.result === "UNABLE_TO_EVALUATE" && (
+                  {status.text === "Not assessable from drawing" && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Provide documentation for professional review.
                     </p>
                   )}
-                  {rule.result === "FAIL" && (
+                  {status.text === "Non-compliant" && (
                     <p className="text-xs text-red-700 mt-1">
                       Correction required before permit submission.
                     </p>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
