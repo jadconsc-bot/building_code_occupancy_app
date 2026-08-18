@@ -1014,20 +1014,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   );
 
 
-  const waitingForRooms = detectedRoomsData.length === 0 && roomPollCount < 20;
-  const hasPolygons = detectedRoomsData.some(r => (r as any).polygonJson != null);
-  const waitingForEval = detectedRoomsData.length > 0 && evalData === null && !hasPolygons && roomPollCount < 50;
-  const { data: roomsData } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
+  const { data: detectedRoomsResponse } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
-      refetchInterval: (waitingForRooms || waitingForEval)
-        ? (roomPollCount < 5 ? 2000 : 5000)
-        : false,
+      refetchInterval: query => {
+        const response = query.state.data;
+        const complete =
+          (response?.pages?.length ?? 0) > 0 &&
+          (response?.pages ?? []).every((page: any) => page.detectionComplete === 1);
+        const waitingForRooms = !complete && roomPollCount < 60;
+        const waitingForEval =
+          complete &&
+          (response?.rooms?.length ?? 0) > 0 &&
+          evalData === null &&
+          roomPollCount < 80;
+        return (waitingForRooms || waitingForEval)
+          ? (roomPollCount < 5 ? 2000 : 5000)
+          : false;
+      },
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     }
   );
+  const detectionComplete =
+    (detectedRoomsResponse?.pages?.length ?? 0) > 0 &&
+    (detectedRoomsResponse?.pages ?? []).every(
+      (page: any) => page.detectionComplete === 1
+    );
+  const waitingForRooms = !detectionComplete && roomPollCount < 60;
+  const waitingForEval =
+    detectionComplete &&
+    detectedRoomsData.length > 0 &&
+    evalData === null &&
+    roomPollCount < 80;
+  const roomsData = detectedRoomsResponse;
 
   // Compute pixelsPerMm from calibration state for travel distance calculation
   const pixelsPerMm = pixelsPerDrawingUnit > 0
@@ -1205,18 +1226,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         if (hasPolygonsNow) return { stage: 'evaluating', pct: 75, label: 'Evaluating compliance…' };
         return { stage: 'polygons', pct: 50, label: 'Rooms detected, tracing polygons…' };
       });
-      // Eval runs fire-and-forget async — polling stops once polygons arrive so
-      // evalAccuracy may never be fetched. Force complete after 12s grace period.
-      if (hasPolygonsNow) {
-        setTimeout(() => {
-          setAnalysisProgress(prev => {
-            if (prev.stage !== 'evaluating') return prev;
-            setIsAnalyzing(false);
-            setTimeout(() => setAnalysisProgress(p => p.stage === 'complete' ? { stage: 'idle', pct: 0, label: '' } : p), 2000);
-            return { stage: 'complete', pct: 100, label: 'Analysis complete' };
-          });
-        }, 12000);
-      }
     } else if (roomsData !== undefined) {
       setAnalysisProgress(prev =>
         prev.stage === 'idle' ? prev : { stage: 'detecting', pct: 35, label: 'Detecting rooms…' }
@@ -1253,7 +1262,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         }, 2000);
       }
     }
-    const pollCapApproaching = roomPollCount >= 16;
+    const pollCapApproaching = detectionComplete || roomPollCount >= 60;
     const hasRoomsInData = !!(roomsData?.rooms && roomsData.rooms.length > 0);
     const alreadyComplete = analysisProgress.stage === 'complete' || analysisProgress.stage === 'idle';
     if (pollCapApproaching && hasRoomsInData && !alreadyComplete) {
@@ -1261,7 +1270,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setIsAnalyzing(false);
       setTimeout(() => setAnalysisProgress(p => p.stage === 'complete' ? { stage: 'idle', pct: 0, label: '' } : p), 2000);
     }
-  }, [roomsData]);
+  }, [roomsData, detectionComplete]);
 
   // Legacy mutation (kept for backward compat, now unused)
   const analyzeDrawingMutation = trpc.analyzeDrawing.useMutation({

@@ -87,6 +87,14 @@ export async function detectRoomsFromPage(
 ): Promise<RoomDetectionResult> {
   const startTime = Date.now();
 
+  const dbForReset = await getDb();
+  if (!dbForReset) {
+    throw new Error('Database unavailable');
+  }
+  await dbForReset.update(drawingPages)
+    .set({ detectionComplete: 0 })
+    .where(eq(drawingPages.id, pageId));
+
   // Inject org-specific training examples into prompt context (org-first, global fallback)
   const drawingTypeForTraining = projectContext?.drawingType ?? 'auto';
   const trainingExamplesList = await getTrainingExamples(drawingTypeForTraining, orgId);
@@ -716,6 +724,14 @@ async function saveRoomsToDb(
   await Promise.allSettled(polygonPromises);
   computeRoomAdjacency(pageId)
     .catch(err => console.error('[AdjacencyService] Computation failed:', err));
+
+  const dbForComplete = await getDb();
+  if (dbForComplete) {
+    await dbForComplete.update(drawingPages)
+      .set({ detectionComplete: 1 })
+      .where(eq(drawingPages.id, pageId));
+    console.log('[RoomDetection] Detection complete for page', pageId);
+  }
 
   // Post-loop: persist Roboflow polygons that no Claude room claimed (missed rooms).
   if (rfPolygons.length > 0) {
