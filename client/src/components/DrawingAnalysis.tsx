@@ -597,6 +597,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     none:     { fill: '',                       stroke: ''                      },
   };
 
+  const isFallbackGeometry = (room: any): boolean => {
+    const source = room.polygonSource;
+    return source === 'fallback_bbox' || source === null || source === undefined;
+  };
+
+  const isVerifiedGeometry = (room: any): boolean => {
+    const source = room.polygonSource;
+    return source === 'roboflow_segmentation' ||
+      source === 'dda_ray_cast' ||
+      source === 'ray_cast' ||
+      source === 'flood_fill' ||
+      source === 'manual';
+  };
+
   // State for dimension input
   const [dimensionValue, setDimensionValue] = useState<string>("");
   const [dimensionCategory, setDimensionCategory] = useState<DimensionAnnotation["category"]>("other");
@@ -2285,34 +2299,42 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
         const polygon: { x: number; y: number }[] | null =
           (room as any).polygonJson ?? null;
-        if (polygon && polygon.length >= 4) {
+        const hasPolygon = !!polygon && polygon.length >= 4;
+        const fallbackGeometry = isFallbackGeometry(room) || !hasPolygon;
+        const verifiedGeometry = isVerifiedGeometry(room) && hasPolygon;
+        const renderedFillColor = fallbackGeometry
+          ? fillColor.replace(/,\s*[\d.]+\)$/, ', 0.10)')
+          : fillColor;
+        if (hasPolygon && polygon) {
           ctx.beginPath();
           ctx.moveTo(polygon[0].x * scaleX * zoom + pan.x, polygon[0].y * scaleY * zoom + pan.y);
           for (let i = 1; i < polygon.length; i++) {
             ctx.lineTo(polygon[i].x * scaleX * zoom + pan.x, polygon[i].y * scaleY * zoom + pan.y);
           }
           ctx.closePath();
-          ctx.fillStyle = fillColor;
+          ctx.fillStyle = renderedFillColor;
           ctx.fill();
           if (room.flaggedForReview) {
             ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
             ctx.fill();
           }
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = isSevere ? 2.5 : 1.5;
-          ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+          ctx.strokeStyle = fallbackGeometry ? 'rgba(245, 158, 11, 0.85)' : strokeColor;
+          ctx.lineWidth = fallbackGeometry ? 1.5 : (isSevere ? 2.5 : 1.5);
+          ctx.setLineDash(
+            fallbackGeometry ? [6, 3] : (verifiedGeometry && room.flaggedForReview ? [4, 3] : []),
+          );
           ctx.stroke();
           ctx.setLineDash([]);
         } else {
-          ctx.fillStyle = fillColor;
+          ctx.fillStyle = renderedFillColor;
           ctx.fillRect(screenX, screenY, screenW, screenH);
           if (room.flaggedForReview) {
             ctx.fillStyle = ROOM_OVERLAY_COLORS.status.flaggedFill;
             ctx.fillRect(screenX, screenY, screenW, screenH);
           }
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = isSevere ? 2.5 : 1.5;
-          ctx.setLineDash(room.flaggedForReview ? [4, 3] : []);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 3]);
           ctx.strokeRect(screenX, screenY, screenW, screenH);
           ctx.setLineDash([]);
         }
@@ -7081,6 +7103,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onTouchEnd={handleCanvasTouchEnd}
                       onContextMenu={handleCanvasContextMenu}
                     />
+                    {showRoomOverlay && detectedRoomsData.length > 0 && (
+                      <div className="absolute bottom-2 left-2 z-10 bg-white/90 border border-gray-200 rounded px-2 py-1.5 text-xs space-y-1 pointer-events-none">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-0.5 bg-blue-600" />
+                          <span>Verified boundary</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-0.5 border-t-2 border-dashed border-amber-500" />
+                          <span className="text-amber-700">Estimated boundary (verify on drawings)</span>
+                        </div>
+                      </div>
+                    )}
                     {analyzedPageDims && zoom > 1.05 && (
                       <div
                         style={{
