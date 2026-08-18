@@ -122,7 +122,7 @@ export async function computeRoomAdjacency(pageId: number): Promise<void> {
   await Promise.all(
     [...adjacency.entries()].map(([roomId, neighbours]) =>
       db.update(detectedRooms)
-        .set({ adjacentRoomIds: JSON.stringify(neighbours) })
+        .set({ adjacentRoomIds: neighbours })
         .where(eq(detectedRooms.id, roomId))
     )
   );

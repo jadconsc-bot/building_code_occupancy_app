@@ -578,6 +578,9 @@ async function saveRoomsToDb(
 
   // Track which Roboflow polygons are claimed by a Claude room (for post-loop unmatched insert).
   const matchedRfPolygons = new Set<typeof rfPolygons[number]>();
+  // Track only polygon jobs created by this page analysis. Waiting on the
+  // global queue would also block on unrelated pages under concurrent load.
+  const polygonPromises: Promise<void>[] = [];
 
   for (const room of rooms) {
     // Path C: skip AI room if a confirmed correction exists for this label
@@ -630,7 +633,7 @@ async function saveRoomsToDb(
         if (db2) {
           await db2.update(detectedRooms)
             .set({
-              polygonJson: JSON.stringify(bestMatch.p.vertices),
+              polygonJson: bestMatch.p.vertices,
               polygonSource: 'roboflow_segmentation',
               polygonExtractedAt: new Date(),
               roboflowIou: bestMatch.iou.toFixed(4),
@@ -648,7 +651,7 @@ async function saveRoomsToDb(
           x: capturedBbox.x + Math.floor(capturedBbox.width / 2),
           y: capturedBbox.y + Math.floor(capturedBbox.height / 2),
         };
-        polygonQueue.add(async () => {
+        const polygonPromise = polygonQueue.add(async () => {
           const pageRows = await (await getDb())
             ?.select({ calibrationScale: drawingPages.calibrationScale })
             .from(drawingPages)
@@ -671,7 +674,7 @@ async function saveRoomsToDb(
           if (!db2) return;
           await db2.update(detectedRooms)
             .set({
-              polygonJson: JSON.stringify(result.vertices),
+              polygonJson: result.vertices,
               polygonSource: result.source,
               polygonExtractedAt: new Date(),
               polygonToBboxRatio: result.polygonToBboxRatio.toFixed(3),
@@ -688,7 +691,10 @@ async function saveRoomsToDb(
             `ratio=${result.polygonToBboxRatio.toFixed(2)}` +
             `${result.leakSuspected ? ' ⚠️ LEAK SUSPECTED' : ''}`
           );
-        }).catch(err => console.error('[PolygonExtraction] Queue error:', err));
+        }).catch(err => {
+          console.error('[PolygonExtraction] Queue error:', err);
+        });
+        polygonPromises.push(polygonPromise as Promise<void>);
       }
     }
 
@@ -705,7 +711,9 @@ async function saveRoomsToDb(
     }
   }
 
-  // Fire-and-forget adjacency computation (uses bounding boxes; polygons filled in later async)
+  // Wait only for polygon jobs created by this page analysis, then compute
+  // adjacency after every successfully extracted polygon has been persisted.
+  await Promise.allSettled(polygonPromises);
   computeRoomAdjacency(pageId)
     .catch(err => console.error('[AdjacencyService] Computation failed:', err));
 

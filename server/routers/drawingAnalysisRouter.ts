@@ -37,6 +37,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
 import { evaluateCompliance, RULE_ENGINE_VERSION } from "../services/drawingComplianceEngine";
 import { calculateTravelDistances } from "../services/travelDistanceService";
+import { computeRoomAdjacency } from "../services/adjacencyService";
 import { storagePut } from "../storage";
 import { preprocessDocument } from "../services/documentPreprocessingService";
 import { queuePageAnalysis } from "../services/analysisQueue";
@@ -1537,6 +1538,13 @@ export const drawingAnalysisRouter = router({
         detectionMethod: 'dda_ray_cast',
         confidence: '1.000',
       } as any);
+
+      computeRoomAdjacency(input.drawingPageId).catch(err =>
+        console.error(
+          '[AdjacencyService] Post-polygon-save recomputation failed:',
+          err,
+        )
+      );
 
       return { roomId: result[0].insertId };
     }),

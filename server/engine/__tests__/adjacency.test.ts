@@ -78,7 +78,7 @@ beforeEach(async () => {
 // Two rooms close together (8px gap) → each appears in the other's adjacentRoomIds
 describe('computeRoomAdjacency', () => {
   it('adjacent rooms → each gets the other in adjacentRoomIds', async () => {
-    const updates: Array<{ id: number; neighbours: string }> = [];
+    const updates: Array<{ id: number; neighbours: number[] }> = [];
 
     mockDb.where
       // First call: select rows
@@ -99,13 +99,13 @@ describe('computeRoomAdjacency', () => {
     await computeRoomAdjacency(1);
 
     // Verify both rooms were updated with each other's ID
-    const ids = updates.map(u => JSON.parse(u.neighbours) as number[]);
+    const ids = updates.map(u => u.neighbours);
     expect(ids.some(arr => arr.includes(1))).toBe(true);
     expect(ids.some(arr => arr.includes(2))).toBe(true);
   });
 
   it('rooms far apart (200px gap) → adjacentRoomIds = [] for both', async () => {
-    const updatedNeighbours: string[] = [];
+    const updatedNeighbours: number[][] = [];
 
     mockDb.where
       .mockResolvedValueOnce([
@@ -122,7 +122,7 @@ describe('computeRoomAdjacency', () => {
 
     await computeRoomAdjacency(2);
 
-    expect(updatedNeighbours.every(n => n === '[]')).toBe(true);
+    expect(updatedNeighbours.every(n => Array.isArray(n) && n.length === 0)).toBe(true);
   });
 
   it('room with null polygonJson is excluded — adjacentRoomIds stays NULL', async () => {
