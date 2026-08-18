@@ -1422,7 +1422,7 @@ export const complianceResults = mysqlTable('complianceResults', {
   id: int('id').autoincrement().primaryKey(),
   projectId: int('projectId').notNull(),
   roomId: int('roomId'),
-  ruleReference: varchar('ruleReference', { length: 50 }).notNull(),
+  ruleReference: varchar('ruleReference', { length: 255 }).notNull(),
   ruleCategory: varchar('ruleCategory', { length: 50 }).notNull(),
   ruleText: text('ruleText').notNull(),
   status: mysqlEnum('status', ['pass', 'fail', 'warning', 'not_applicable']).notNull(),
