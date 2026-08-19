@@ -524,7 +524,7 @@ function rejectKeyPlanRooms(
   return rooms;
 }
 
-async function saveRoomsToDb(
+export async function saveRoomsToDb(
   rooms: DetectedRoom[],
   pageId: number,
   projectId: number,
@@ -613,6 +613,7 @@ async function saveRoomsToDb(
   // Track only polygon jobs created by this page analysis. Waiting on the
   // global queue would also block on unrelated pages under concurrent load.
   const polygonPromises: Promise<void>[] = [];
+  const complianceJobs: Array<{ room: DetectedRoom; roomId: number }> = [];
 
   for (const room of rooms) {
     // Path C: skip AI room if a confirmed correction exists for this label
@@ -638,9 +639,9 @@ async function saveRoomsToDb(
 
     const roomId = result[0].insertId;
 
-    // Queue compliance evaluation (non-blocking)
-    evaluateRoomCompliance(room, roomId, projectId, province)
-      .catch(err => console.error('[RoomCompliance] Evaluation failed:', err));
+    // Defer compliance until all rooms on the page have been persisted and
+    // adjacency has been computed for the final geometry set.
+    complianceJobs.push({ room, roomId });
 
     // Polygon extraction: Roboflow first, flood fill fallback (POLYGON-D-001)
     if (pageBase64) {
@@ -746,8 +747,19 @@ async function saveRoomsToDb(
   // Wait only for polygon jobs created by this page analysis, then compute
   // adjacency after every successfully extracted polygon has been persisted.
   await Promise.allSettled(polygonPromises);
-  computeRoomAdjacency(pageId)
-    .catch(err => console.error('[AdjacencyService] Computation failed:', err));
+
+  try {
+    await computeRoomAdjacency(pageId);
+  } catch (err) {
+    console.error('[AdjacencyService] Computation failed:', err);
+  }
+
+  await Promise.allSettled(
+    complianceJobs.map(({ room, roomId }) =>
+      evaluateRoomCompliance(room, roomId, projectId, province)
+        .catch(err => console.error('[RoomCompliance] Evaluation failed:', err))
+    )
+  );
 
   const dbForComplete = await getDb();
   if (dbForComplete) {
