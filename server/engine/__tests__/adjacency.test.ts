@@ -152,7 +152,7 @@ describe('Rule 7 — evaluateFireSeparationRule', () => {
     const trace = evaluateFireSeparationRule('D', null, [], 0);
     expect(trace.result).toBe('warning');
     expect(trace.severity).toBe('medium');
-    expect(trace.reasoning).toContain('not yet computed');
+    expect(trace.reasoning).toContain('Room boundaries are not confirmed');
   });
 
   it('adjacentRoomIds = [] → not_applicable (no neighbours)', () => {
@@ -182,7 +182,7 @@ describe('Rule 7 — evaluateFireSeparationRule', () => {
     const trace = evaluateFireSeparationRule('F-1', [8], ['C'], 0);
     expect(trace.result).toBe('fail');
     expect(trace.severity).toBe('critical');
-    expect(trace.reasoning).toContain('Prohibited occupancy combination');
+    expect(trace.reasoning).toContain('This combination is prohibited');
   });
 
   it('C room adjacent to F-1 → critical prohibition fail', () => {
