@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { minPolygonEdgeDist, ADJACENCY_THRESHOLD_PX, computeRoomAdjacency } from '../../services/adjacencyService';
-import { evaluateFireSeparationRule } from '../spatial/roomComplianceEvaluator';
+import {
+  evaluateFireSeparationRule,
+  isRoomScopedConstraint,
+} from '../spatial/roomComplianceEvaluator';
 
 // ── Geometry helpers (used by tests, not duplicated from service) ─────────────
 
@@ -200,5 +203,23 @@ describe('Rule 7 — evaluateFireSeparationRule', () => {
     const trace = evaluateFireSeparationRule('B', [11], ['D'], 0);
     expect(trace.result).toBe('warning');
     expect(trace.evaluatedInputs.unit).toBe('hr');
+  });
+});
+
+describe('room compliance scope', () => {
+  it('keeps rules that can be determined for one room', () => {
+    expect(isRoomScopedConstraint('occupancy.load_factors.C')).toBe(true);
+    expect(isRoomScopedConstraint('egress.exit_width')).toBe(true);
+    expect(isRoomScopedConstraint('fire.separation.mixed_occupancy')).toBe(true);
+    expect(isRoomScopedConstraint('residential.bedroom_area')).toBe(true);
+  });
+
+  it('excludes floor-area and building-level rules', () => {
+    expect(isRoomScopedConstraint('egress.exit_count')).toBe(false);
+    expect(isRoomScopedConstraint('sprinklers.required_occupancies.group_a')).toBe(false);
+    expect(isRoomScopedConstraint('fire.alarm_required')).toBe(false);
+    expect(isRoomScopedConstraint('building_limits.part3_determination')).toBe(false);
+    expect(isRoomScopedConstraint('fire.resistance_rating.construction_type')).toBe(false);
+    expect(isRoomScopedConstraint('occupancy.area_plausibility')).toBe(false);
   });
 });

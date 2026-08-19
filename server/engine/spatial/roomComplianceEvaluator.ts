@@ -50,6 +50,32 @@ export interface RoomComplianceResult {
   criticalIssues: number;
 }
 
+/**
+ * Findings this per-room evaluator is allowed to publish.
+ *
+ * Floor-area and building-level rules (exit count, sprinkler coverage, fire
+ * alarms, Part 3/9 applicability, and construction type) are evaluated by the
+ * project compliance engine, where the required aggregate inputs exist.  They
+ * must not be repeated once per AI-detected room.
+ */
+export const ROOM_SCOPED_CONSTRAINT_IDS = new Set([
+  'occupancy.load_factors',
+  'egress.exit_width',
+  'egress.corridor_width',
+  'fire.separation.mixed_occupancy',
+  'accessibility.door_width',
+  'occupancy.high_hazard_f1',
+  'egress.stair_enclosure',
+  'residential.bedroom_area',
+  'occupancy.storage_group_c',
+]);
+
+export function isRoomScopedConstraint(constraintId: string): boolean {
+  return [...ROOM_SCOPED_CONSTRAINT_IDS].some(
+    allowed => constraintId === allowed || constraintId.startsWith(`${allowed}.`)
+  );
+}
+
 function pairFRR(g1: string, g2: string): { hr: number; ref: string } | null {
   const sep = Constraints.fire.separation;
   const b1 = g1.split('-')[0];
@@ -741,23 +767,35 @@ export async function evaluateRoomCompliance(
     }
   }
 
-  // Save all traces to complianceResults table
-  await saveTracesToDb(traces, roomDbId, projectId);
+  // This service runs once per detected room. Keep aggregate floor/building
+  // rules in the project compliance engine instead of publishing duplicate,
+  // under-informed conclusions for every room.
+  const roomScopedTraces = traces.filter(trace => {
+    const inScope = isRoomScopedConstraint(trace.constraintId);
+    if (!inScope) {
+      console.log(
+        `[RoomCompliance] Skipped non-room-scoped finding ${trace.constraintId} for "${room.label}"`
+      );
+    }
+    return inScope;
+  });
 
-  const criticalIssues = traces.filter(
+  await saveTracesToDb(roomScopedTraces, roomDbId, projectId);
+
+  const criticalIssues = roomScopedTraces.filter(
     t => t.result === 'fail' && t.severity === 'critical'
   ).length;
 
   const overallStatus = criticalIssues > 0 ? 'fail'
-    : traces.some(t => t.result === 'fail') ? 'fail'
-    : traces.some(t => t.result === 'warning') ? 'warning'
+    : roomScopedTraces.some(t => t.result === 'fail') ? 'fail'
+    : roomScopedTraces.some(t => t.result === 'warning') ? 'warning'
     : 'pass';
 
   return {
     roomId: roomDbId,
     roomLabel: room.label,
     occupancyGroup: group,
-    traces,
+    traces: roomScopedTraces,
     overallStatus,
     criticalIssues
   };
