@@ -124,6 +124,7 @@ export async function detectRoomsFromPage(
     : await detectPageRegions(jpegBuffer, imgW, imgH);
 
   const rawRooms: any[] = [];
+  const acceptedOcrLabels = new Set<string>();
   let modelVersion = '';
   let metadata: any = {};
 
@@ -202,7 +203,8 @@ export async function detectRoomsFromPage(
       const legend = extractLegend(ocrResult.allLabels, croppedW, croppedH);
       legendContext = formatLegendForPrompt(legend);
       const roomLabels = filterRoomLabels(ocrResult.allLabels, croppedH, croppedW);
-      ocrLabelSet = new Set(ocrResult.allLabels.map((l: any) => l.text.trim().toLowerCase()));
+      ocrLabelSet = new Set(roomLabels.map(l => l.text.trim().toLowerCase()));
+      for (const label of ocrLabelSet) acceptedOcrLabels.add(label);
       if (roomLabels.length > 0) {
         // Scale OCR coords (in croppedW/H space) into promptW/H space so Claude's
         // label anchor points match the vision image it actually receives.
@@ -211,13 +213,12 @@ export async function detectRoomsFromPage(
         labelContext =
           `\nAzure OCR has detected these room labels at these EXACT pixel coordinates:\n` +
           roomLabels.slice(0, 30).map(l => `- "${l.text}" at pixel (${Math.round(l.x * ocrScaleX)}, ${Math.round(l.y * ocrScaleY)})`).join('\n') +
-          `\n\nYou MUST return a bounding box for EVERY label listed above. Do not skip any labels.\n` +
-          `For every single label provided, return a bounding box entry.\n` +
+          `\n\nReturn a bounding box only for rooms you can clearly locate in the drawing.\n` +
+          `If a label appears in a note, schedule, legend, or title block rather than inside a room boundary, omit it.\n` +
+          `Quality over completeness — a missing room is preferable to a fabricated one.\n` +
           `If the label has a leader line/arrow, follow it to the room.\n` +
           `Place the bounding box around the WALLS of that room, not the label.\n` +
-          `Use the label coordinates as anchor points to find the correct room.\n` +
-          `If you cannot determine exact walls, use your best estimate with confidence < 0.7.\n` +
-          `Skipping a labeled room is not acceptable — return ALL rooms.\n`;
+          `Use the label coordinates as anchor points to find the correct room.\n`;
       }
     } catch (err) {
       console.warn(`[RoomDetection] ${region.label} Azure OCR failed, proceeding without labels:`, err);
@@ -271,9 +272,7 @@ export async function detectRoomsFromPage(
       const labelLower = r.label?.trim().toLowerCase() ?? '';
       const isOcrMatch = ocrLabelSet.size === 0 ||
         ocrLabelSet.has(labelLower) ||
-        [...ocrLabelSet].some(l => l.includes(labelLower) || labelLower.includes(l)) ||
-        labelLower.startsWith('unlabeled') ||
-        ['corridor', 'stair', 'hallway', 'lobby', 'common', 'circulation'].some(k => labelLower.includes(k));
+        [...ocrLabelSet].some(l => l.includes(labelLower) || labelLower.includes(l));
       if (!isOcrMatch && (r.confidence ?? 1) < 0.75) {
         console.log(`[RoomDetection] Rejected hallucinated label "${r.label}"`);
         continue;
@@ -332,17 +331,51 @@ export async function detectRoomsFromPage(
     cropRegion ? cropRegion.height : imgH,
   );
 
+  // Fetch segmentation once before persistence so room acceptance can require
+  // OCR evidence, polygon evidence, or high model confidence.
+  const rfPolygons = jpegBuffer.length > 0
+    ? await getDcvRoomPolygons(jpegBuffer)
+    : [];
+  if (rfPolygons.length > 0) {
+    console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId}`);
+  }
+
+  const roomsToSave = filteredRooms.filter(room => {
+    const label = room.label.trim().toLowerCase();
+    const hasOcrSupport = acceptedOcrLabels.has(label);
+    const roomBbox = {
+      x: room.boundingBox.x,
+      y: room.boundingBox.y,
+      w: room.boundingBox.width,
+      h: room.boundingBox.height,
+    };
+    const hasRoboflowPolygon = rfPolygons.some(p =>
+      bboxIou(roomBbox, {
+        x: p.bbox.x,
+        y: p.bbox.y,
+        w: p.bbox.width,
+        h: p.bbox.height,
+      }) >= 0.3
+    );
+    const highConfidence = room.confidence >= 0.75;
+    const accepted = hasOcrSupport || hasRoboflowPolygon || highConfidence;
+    if (!accepted) {
+      console.log(`[RoomDetection] Rejected unsupported low-confidence room "${room.label}"`);
+    }
+    return accepted;
+  });
+
   const evalMimeType = pageBase64.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
-  evaluateDetectionAccuracy(filteredRooms, pageId, pageBase64, imgW, imgH, evalMimeType)
+  evaluateDetectionAccuracy(roomsToSave, pageId, pageBase64, imgW, imgH, evalMimeType)
     .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
 
-  const flaggedForReview = filteredRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
+  const flaggedForReview = roomsToSave.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(filteredRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64, jpegBuffer);
-  console.log('[RoomDetection] Saved', filteredRooms.length, 'rooms to DB for page', pageId);
+  await saveRoomsToDb(roomsToSave, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64, rfPolygons);
+  console.log('[RoomDetection] Saved', roomsToSave.length, 'rooms to DB for page', pageId);
 
   return {
-    rooms: filteredRooms,
+    rooms: roomsToSave,
     metadata: (metadata ?? {}) as RoomDetectionResult['metadata'],
     pageNumber,
     modelVersion,
@@ -500,7 +533,7 @@ async function saveRoomsToDb(
   imgH: number = 0,
   detectedScale: string | null = null,
   pageBase64: string = '',
-  jpegBuffer: Buffer = Buffer.alloc(0),
+  rfPolygons: Awaited<ReturnType<typeof getDcvRoomPolygons>> = [],
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
@@ -573,15 +606,6 @@ async function saveRoomsToDb(
     await db.update(drawingPages)
       .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ? detectedScale.substring(0, 100) : null })
       .where(eq(drawingPages.id, pageId));
-  }
-
-  // POLYGON-D-001: attempt Roboflow segmentation for all rooms in batch.
-  // Single call per page (not per room). Falls through to flood fill for any unmatched room (INV-1).
-  const rfPolygons = jpegBuffer.length > 0
-    ? await getDcvRoomPolygons(jpegBuffer)
-    : [];
-  if (rfPolygons.length > 0) {
-    console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId} (detect-count-and-visualize / codecomply/7)`);
   }
 
   // Track which Roboflow polygons are claimed by a Claude room (for post-loop unmatched insert).
