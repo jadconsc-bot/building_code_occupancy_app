@@ -1233,7 +1233,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setRoomPollCount(c => c + 1);
     }
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
-      setDetectedRoomsData(roomsData.rooms);
+      setDetectedRoomsData(prev => {
+        if (!prev || prev.length === 0) {
+          return roomsData.rooms;
+        }
+        const localById = new Map(prev.map(r => [r.id, r]));
+        return roomsData.rooms.map(serverRoom => {
+          const localRoom = localById.get(serverRoom.id);
+          if (!localRoom) return serverRoom;
+          const polygonJson = serverRoom.polygonJson ?? localRoom.polygonJson;
+          return { ...serverRoom, polygonJson };
+        });
+      });
       const hasPolygonsNow = roomsData.rooms.some((r: any) => r.polygonJson != null);
       setAnalysisProgress(prev => {
         if (prev.stage === 'idle') return prev;
