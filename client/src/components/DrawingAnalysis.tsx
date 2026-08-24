@@ -4421,6 +4421,31 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
 
       if (didMove && correctedBbox && originalBbox) {
+        const existingPolygon: { x: number; y: number }[] | null =
+          (room as any)?.polygonJson ?? null;
+
+        let transformedPolygon: { x: number; y: number }[] | null = null;
+
+        if (existingPolygon && existingPolygon.length >= 3) {
+          if (interactingRoom.mode === 'move') {
+            const deltaX = correctedBbox.x - originalBbox.x;
+            const deltaY = correctedBbox.y - originalBbox.y;
+            transformedPolygon = existingPolygon.map(v => ({
+              x: v.x + deltaX,
+              y: v.y + deltaY,
+            }));
+          } else {
+            const scaleX = correctedBbox.width / originalBbox.width;
+            const scaleY = correctedBbox.height / originalBbox.height;
+            const anchorX = originalBbox.x;
+            const anchorY = originalBbox.y;
+            transformedPolygon = existingPolygon.map(v => ({
+              x: anchorX + (v.x - anchorX) * scaleX,
+              y: anchorY + (v.y - anchorY) * scaleY,
+            }));
+          }
+        }
+
         saveCorrectionMutation.mutate({
           roomId:         interactingRoom.roomId,
           pageId:         currentPageId!,
@@ -4431,6 +4456,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           },
           correctedValue: {
             boundingBox: correctedBbox,
+            polygon: transformedPolygon,
             delta: {
               dx: correctedBbox.x      - originalBbox.x,
               dy: correctedBbox.y      - originalBbox.y,
@@ -4442,7 +4468,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         });
         setDetectedRoomsData(prev => prev.map(r =>
           r.id === interactingRoom.roomId
-            ? { ...r, boundingBox: correctedBbox, polygonJson: null } as any
+            ? {
+                ...r,
+                boundingBox: correctedBbox,
+                polygonJson: transformedPolygon,
+                polygonSource: transformedPolygon ? 'manual' : null,
+              } as any
             : r
         ));
       }
