@@ -1028,7 +1028,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   );
 
 
-  const { data: detectedRoomsResponse } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
+  const {
+    data: detectedRoomsResponse,
+    refetch: refetchRoomsForDrawing,
+  } = trpc.drawingAnalysis.getRoomsForDrawing.useQuery(
     { drawingId: analysisId ?? 0 },
     {
       enabled: !!analysisId,
@@ -1104,7 +1107,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     { enabled: !!currentPageId },
   );
   const saveCorrectionMutation = trpc.correction.saveCorrection.useMutation({
-    onSuccess: () => toast.success('Correction saved and added to training pool.'),
+    onSuccess: async (_data, variables) => {
+      toast.success('Correction saved and added to training pool.');
+      if (variables?.roomId != null && variables?.correctedValue?.boundingBox) {
+        setOriginalBboxes(prev =>
+          new Map(prev).set(variables.roomId, variables.correctedValue.boundingBox as { x: number; y: number; width: number; height: number })
+        );
+      }
+      await refetchRoomsForDrawing();
+    },
     onError: () => toast.error('Failed to save correction.'),
   });
 
@@ -4421,31 +4432,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
 
       if (didMove && correctedBbox && originalBbox) {
-        const existingPolygon: { x: number; y: number }[] | null =
-          (room as any)?.polygonJson ?? null;
-
-        let transformedPolygon: { x: number; y: number }[] | null = null;
-
-        if (existingPolygon && existingPolygon.length >= 3) {
-          if (interactingRoom.mode === 'move') {
-            const deltaX = correctedBbox.x - originalBbox.x;
-            const deltaY = correctedBbox.y - originalBbox.y;
-            transformedPolygon = existingPolygon.map(v => ({
-              x: v.x + deltaX,
-              y: v.y + deltaY,
-            }));
-          } else {
-            const scaleX = correctedBbox.width / originalBbox.width;
-            const scaleY = correctedBbox.height / originalBbox.height;
-            const anchorX = originalBbox.x;
-            const anchorY = originalBbox.y;
-            transformedPolygon = existingPolygon.map(v => ({
-              x: anchorX + (v.x - anchorX) * scaleX,
-              y: anchorY + (v.y - anchorY) * scaleY,
-            }));
-          }
-        }
-
         saveCorrectionMutation.mutate({
           roomId:         interactingRoom.roomId,
           pageId:         currentPageId!,
@@ -4456,7 +4442,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           },
           correctedValue: {
             boundingBox: correctedBbox,
-            polygon: transformedPolygon,
+            polygon: (room as any)?.polygonJson ?? null,
             delta: {
               dx: correctedBbox.x      - originalBbox.x,
               dy: correctedBbox.y      - originalBbox.y,
@@ -4466,16 +4452,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           },
           planType: aiResults?.drawingType ?? 'floor_plan',
         });
-        setDetectedRoomsData(prev => prev.map(r =>
-          r.id === interactingRoom.roomId
-            ? {
-                ...r,
-                boundingBox: correctedBbox,
-                polygonJson: transformedPolygon,
-                polygonSource: transformedPolygon ? 'manual' : null,
-              } as any
-            : r
-        ));
       }
       setInteractingRoom(null);
       return;
