@@ -1488,6 +1488,7 @@ export const drawingAnalysisRouter = router({
       roomLabel: z.string().max(100),
       polygonPoints: z.array(z.object({ x: z.number(), y: z.number() })).max(720),
       areaM2: z.number().optional(),
+      occupancyGroup: z.string().optional(),
       seedX: z.number(),
       seedY: z.number(),
       doorBarriers: z.array(z.object({
@@ -1532,6 +1533,7 @@ export const drawingAnalysisRouter = router({
         polygonSource: 'dda_ray_cast',
         polygonExtractedAt: new Date(),
         areaSqm: input.areaM2 != null ? String(input.areaM2) : null,
+        occupancyGroup: input.occupancyGroup ?? 'C',
         seedX: input.seedX,
         seedY: input.seedY,
         doorBarriersJson: input.doorBarriers ?? null,

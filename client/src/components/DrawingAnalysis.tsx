@@ -1151,6 +1151,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         drawingPageId: currentPageId,
         roomLabel,
         polygonPoints,
+        occupancyGroup: newRoomOccupancy,
         seedX: polygonPoints[0].x,
         seedY: polygonPoints[0].y,
       });
@@ -1167,6 +1168,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     handleCancelNewRoom,
     newRoomLabel,
     newRoomVertices,
+    newRoomOccupancy,
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
   ]);
