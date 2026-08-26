@@ -81,7 +81,8 @@ import {
   MapPin,
   FileCheck,
   Flame,
-  Calculator
+  Calculator,
+  Plus
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -537,8 +538,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [reviewMode, setReviewMode] = useState(false);
   const [selectedRoomForCorrection, setSelectedRoomForCorrection] = useState<any | null>(null);
   const [correctionPopover, setCorrectionPopover] = useState<{ x: number; y: number; room: any } | null>(null);
-  const [boundaryRedrawMode, setBoundaryRedrawMode] = useState<'rect' | 'polygon' | null>(null);
+  const [boundaryRedrawMode, setBoundaryRedrawMode] = useState<'rect' | 'polygon' | 'new_room' | null>(null);
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number }[]>([]);
+  const [newRoomVertices, setNewRoomVertices] = useState<{ x: number; y: number }[]>([]);
+  const [showAddRoomForm, setShowAddRoomForm] = useState(false);
+  const [newRoomLabel, setNewRoomLabel] = useState('');
+  const [newRoomOccupancy, setNewRoomOccupancy] = useState('C');
   const boundaryRectDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const boundaryRectDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -1119,6 +1124,53 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     onError: () => toast.error('Failed to save correction.'),
   });
 
+  const handleCancelNewRoom = useCallback(() => {
+    setBoundaryRedrawMode(null);
+    setNewRoomVertices([]);
+    setShowAddRoomForm(false);
+    setNewRoomLabel('');
+    setNewRoomOccupancy('C');
+  }, []);
+
+  const handleSaveNewRoom = useCallback(async () => {
+    if (!currentPageId || !analysisId) {
+      toast.error('Select a drawing page before adding a room.');
+      return;
+    }
+
+    if (newRoomVertices.length < 3) {
+      toast.error('Add at least 3 vertices before saving the room.');
+      return;
+    }
+
+    const roomLabel = newRoomLabel.trim() || 'Room';
+    const polygonPoints = newRoomVertices.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
+
+    try {
+      await saveRoomPolygonMutation.mutateAsync({
+        drawingPageId: currentPageId,
+        roomLabel,
+        polygonPoints,
+        seedX: polygonPoints[0].x,
+        seedY: polygonPoints[0].y,
+      });
+      await refetchRoomsForDrawing();
+      toast.success(`Room saved — ${roomLabel}`);
+      handleCancelNewRoom();
+    } catch (err) {
+      console.error('[DrawingAnalysis] Failed to save new room:', err);
+      toast.error('Failed to save new room.');
+    }
+  }, [
+    analysisId,
+    currentPageId,
+    handleCancelNewRoom,
+    newRoomLabel,
+    newRoomVertices,
+    refetchRoomsForDrawing,
+    saveRoomPolygonMutation,
+  ]);
+
   // Fetch room-level compliance results once rooms have loaded
   const { data: roomComplianceResults } = trpc.drawingAnalysis.getRoomCompliance.useQuery(
     { drawingId: analysisId ?? 0, projectId: selectedProjectId },
@@ -1601,6 +1653,41 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setDraggingVertexIdx(null);
     if (canvasRef.current) canvasRef.current.style.cursor = 'default';
   };
+
+  const handleFinishNewRoom = () => {
+    if (newRoomVertices.length < 3) {
+      toast.error('Add at least 3 vertices before finishing the room.');
+      return;
+    }
+    setShowAddRoomForm(true);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName ?? '').toUpperCase();
+      const isTypingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag);
+
+      if (boundaryRedrawMode !== 'new_room') return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCancelNewRoom();
+        return;
+      }
+
+      if (e.key === 'Backspace' && !isTypingField) {
+        e.preventDefault();
+        if (showAddRoomForm) {
+          setShowAddRoomForm(false);
+          return;
+        }
+        setNewRoomVertices(prev => prev.slice(0, -1));
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [boundaryRedrawMode, handleCancelNewRoom, showAddRoomForm]);
 
   // Read URL params on mount to pre-configure fire assembly tool
   useEffect(() => {
@@ -2911,6 +2998,32 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       ctx.restore();
     }
 
+    // ===== NEW ROOM DRAW PREVIEW =====
+    if (boundaryRedrawMode === 'new_room' && newRoomVertices.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(37,99,235,0.95)';
+      ctx.fillStyle = 'rgba(37,99,235,0.18)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      newRoomVertices.forEach((pt, i) => {
+        const sx = pt.x * zoom + pan.x;
+        const sy = pt.y * zoom + pan.y;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      if (newRoomVertices.length >= 3) ctx.closePath();
+      ctx.stroke();
+      if (newRoomVertices.length >= 3) ctx.fill();
+      ctx.setLineDash([]);
+      newRoomVertices.forEach(pt => {
+        ctx.beginPath();
+        ctx.arc(pt.x * zoom + pan.x, pt.y * zoom + pan.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
     // ===== WALL OVERLAY LAYER (admin/professional only) =====
     if (showWallOverlay && wallSegmentsList.length > 0) {
       ctx.save();
@@ -3772,6 +3885,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
+    // Missing room draw mode: add vertices for a new room polygon
+    if (boundaryRedrawMode === 'new_room') {
+      if (showAddRoomForm) return;
+      setNewRoomVertices(prev => [...prev, { x: Math.round(drawX), y: Math.round(drawY) }]);
+      return;
+    }
+
     // Polygon vertex editor: drag vertex or add vertex via midpoint
     if (polygonEditMode) {
       const canvasX = e.clientX - rect.left;
@@ -4110,6 +4230,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         if (Math.hypot(canvasX - mx, canvasY - my) <= 7) { canvas.style.cursor = 'cell'; return; }
       }
       canvas.style.cursor = 'default';
+      return;
+    }
+
+    if (boundaryRedrawMode === 'new_room') {
+      canvas.style.cursor = showAddRoomForm ? 'default' : 'crosshair';
       return;
     }
 
@@ -6282,6 +6407,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           setSelectedRoomForCorrection(null);
                           setBoundaryRedrawMode(null);
                           setPolygonPoints([]);
+                          setNewRoomVertices([]);
+                          setShowAddRoomForm(false);
+                          setNewRoomLabel('');
+                          setNewRoomOccupancy('C');
                           setPolygonEditMode(null);
                           setDraggingVertexIdx(null);
                         }
@@ -6292,6 +6421,24 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       <PenLine className="w-4 h-4 mr-1" />
                       {reviewMode ? "Reviewing…" : "Review"}
                     </Button>
+                    {reviewMode && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setBoundaryRedrawMode('new_room');
+                          setNewRoomVertices([]);
+                          setShowAddRoomForm(false);
+                          setNewRoomLabel('');
+                          setNewRoomOccupancy('C');
+                        }}
+                        className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        title="Draw a polygon for a missed room"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Room
+                      </Button>
+                    )}
                     {polygonEditMode && (
                       <div className="flex items-center gap-2 border-r border-border pr-2">
                         <span className="text-xs text-muted-foreground">
@@ -6315,16 +6462,75 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         </Button>
                       </div>
                     )}
-                    {reviewMode && boundaryRedrawMode && (
+                    {reviewMode && boundaryRedrawMode && boundaryRedrawMode !== 'new_room' && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setBoundaryRedrawMode(null); setPolygonPoints([]); }}
+                        onClick={() => {
+                          setBoundaryRedrawMode(null);
+                          setPolygonPoints([]);
+                          setNewRoomVertices([]);
+                          setShowAddRoomForm(false);
+                          setNewRoomLabel('');
+                          setNewRoomOccupancy('C');
+                        }}
                         className="text-red-600 border-red-200 text-xs"
                       >
                         Cancel
                       </Button>
                     )}
+                    {boundaryRedrawMode === 'new_room' && (
+                      <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
+                        <span className="text-xs text-muted-foreground">
+                          New room: {newRoomVertices.length} vertices
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleFinishNewRoom}
+                          disabled={newRoomVertices.length < 3}
+                          className="text-xs"
+                        >
+                          Done
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelNewRoom}
+                          className="text-xs text-red-600 border-red-200"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {boundaryRedrawMode === 'new_room' && showAddRoomForm && (
+                  <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
+                    <Input
+                      value={newRoomLabel}
+                      onChange={(e) => setNewRoomLabel(e.target.value)}
+                      placeholder="Room label"
+                      className="h-8 w-40 text-xs"
+                    />
+                    <select
+                      value={newRoomOccupancy}
+                      onChange={(e) => setNewRoomOccupancy(e.target.value)}
+                      className="h-8 rounded border border-input bg-background px-2 text-xs"
+                    >
+                      {['A', 'B', 'C', 'D', 'E', 'F'].map(g => (
+                        <option key={g} value={g}>Group {g}</option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={handleSaveNewRoom}
+                      disabled={saveRoomPolygonMutation.isPending}
+                    >
+                      Save Room
+                    </Button>
                   </div>
                 )}
 
@@ -7115,7 +7321,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
-                      onDoubleClick={() => { if (activeTool === "fire_assembly" && isDrawingFireAssembly) { finishFireAssemblyStroke(); } }}
+                      onDoubleClick={() => {
+                        if (boundaryRedrawMode === 'new_room') {
+                          handleFinishNewRoom();
+                          return;
+                        }
+                        if (activeTool === "fire_assembly" && isDrawingFireAssembly) {
+                          finishFireAssemblyStroke();
+                        }
+                      }}
                       onTouchStart={handleCanvasTouchStart}
                       onTouchMove={handleCanvasTouchMove}
                       onTouchEnd={handleCanvasTouchEnd}
