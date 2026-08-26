@@ -25,6 +25,7 @@ interface RawExportRow {
   correctedAt: string | Date;
   roomLabel: string | null;
   imageCropBase64: string | null;
+  correctedValueJson: unknown;
   polygonJson: unknown;
 }
 
@@ -127,6 +128,45 @@ function toNumber(value: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function extractBoundingBox(correctedValueJson: unknown): BoundingBox | null {
+  const correctedValue = parseJson<{ boundingBox?: unknown }>(correctedValueJson);
+  if (!correctedValue?.boundingBox) return null;
+  const bbox = parseJson<BoundingBox>(correctedValue.boundingBox);
+  if (!bbox) return null;
+
+  const x = toNumber(bbox.x);
+  const y = toNumber(bbox.y);
+  const width = toNumber(bbox.width);
+  const height = toNumber(bbox.height);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) {
+    return null;
+  }
+  if (width <= 0 || height <= 0) return null;
+  return { x, y, width, height };
+}
+
+function transformPolygonToCrop(
+  polygon: Array<{ x: number; y: number }>,
+  bbox: BoundingBox,
+): Array<{ x: number; y: number }> {
+  return polygon.map(v => ({
+    x: Math.max(0, Math.min(v.x - bbox.x, bbox.width)),
+    y: Math.max(0, Math.min(v.y - bbox.y, bbox.height)),
+  }));
+}
+
+function polygonHasThreeDistinctVertices(polygon: Array<{ x: number; y: number }>): boolean {
+  const unique = new Set(polygon.map(v => `${Math.round(v.x * 1000) / 1000},${Math.round(v.y * 1000) / 1000}`));
+  return unique.size >= 3;
+}
+
 function polygonToGeometry(polygon: Array<{ x: number; y: number }>): {
   segmentation: [number[]];
   bbox: [number, number, number, number];
@@ -182,6 +222,7 @@ async function main(): Promise<void> {
         rc.correctedAt,
         dr.roomLabel,
         te.imageCropBase64,
+        rc.correctedValueJson,
         dr.polygonJson
       FROM roomCorrections rc
       JOIN trainingExamples te
@@ -225,6 +266,7 @@ async function main(): Promise<void> {
         rc.correctedAt,
         dr.roomLabel,
         te.imageCropBase64,
+        rc.correctedValueJson,
         dr.polygonJson
       FROM roomCorrections rc
       JOIN trainingExamples te
@@ -306,6 +348,19 @@ async function main(): Promise<void> {
         continue;
       }
 
+      const bbox = extractBoundingBox(row.correctedValueJson);
+      if (!bbox) {
+        skipped.push({ roomId: row.roomId, reason: 'missing or invalid boundingBox' });
+        continue;
+      }
+
+      const clampedPolygon = transformPolygonToCrop(polygon, bbox);
+      if (clampedPolygon.length < 3 || !polygonHasThreeDistinctVertices(clampedPolygon)) {
+        console.log(`[Export] Skipped roomId=${row.roomId}: polygon collapses after crop-relative transform`);
+        skipped.push({ roomId: row.roomId, reason: 'polygon collapses after crop-relative transform' });
+        continue;
+      }
+
       const imageBuffer = decodeBase64Image(imageCropBase64);
       const meta = await sharp(imageBuffer).metadata();
       const width = meta.width ?? 0;
@@ -315,7 +370,7 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const { segmentation, bbox, area } = polygonToGeometry(polygon);
+      const { segmentation, bbox: cocoBbox, area } = polygonToGeometry(clampedPolygon);
       const label = row.roomLabel?.trim() || 'room';
       const safeLabel = slugify(label);
       const fileName = `${row.roomId}_${safeLabel}.jpg`;
@@ -336,7 +391,7 @@ async function main(): Promise<void> {
         image_id: row.roomId,
         category_id: 1,
         segmentation,
-        bbox,
+        bbox: cocoBbox,
         area,
         iscrowd: 0,
       });
