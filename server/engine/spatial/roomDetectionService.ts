@@ -17,6 +17,7 @@ import { evaluateRoomCompliance } from './roomComplianceEvaluator';
 import { polygonQueue } from '../../services/polygonQueue';
 import { extractRoomPolygon } from '../../services/polygonExtractionService';
 import { bboxIou } from '../../services/roboflowSegmentationService';
+import { getCodeComplyRoomPolygons } from '../../services/codeComplyWorkflowService';
 import { getDcvRoomPolygons } from '../../services/detectCountVisualizeService';
 import { getTrainingExamples } from '../../services/correctionService';
 import { buildContextBlock, type ExtractedSetContext } from '../../services/drawingSetContextService';
@@ -333,9 +334,12 @@ export async function detectRoomsFromPage(
 
   // Fetch segmentation once before persistence so room acceptance can require
   // OCR evidence, polygon evidence, or high model confidence.
-  const rfPolygons = jpegBuffer.length > 0
-    ? await getDcvRoomPolygons(jpegBuffer)
+  const codeComplyPolygons = jpegBuffer.length > 0
+    ? await getCodeComplyRoomPolygons(jpegBuffer)
     : [];
+  const rfPolygons = codeComplyPolygons.length > 0
+    ? codeComplyPolygons
+    : (jpegBuffer.length > 0 ? await getDcvRoomPolygons(jpegBuffer) : []);
   if (rfPolygons.length > 0) {
     console.log(`[Roboflow] ${rfPolygons.length} room polygon(s) returned for page ${pageId}`);
   }
@@ -533,7 +537,7 @@ export async function saveRoomsToDb(
   imgH: number = 0,
   detectedScale: string | null = null,
   pageBase64: string = '',
-  rfPolygons: Awaited<ReturnType<typeof getDcvRoomPolygons>> = [],
+  rfPolygons: Awaited<ReturnType<typeof getCodeComplyRoomPolygons>> = [],
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');

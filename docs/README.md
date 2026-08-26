@@ -25,6 +25,8 @@ This folder contains the main project docs and specs.
 - lays out phases for room, door, and window annotation rollout
 - captures data governance and success metrics for the training program
 
+Roboflow workflow integrations now live in `server/services/codeComplyWorkflowService.ts` and are exercised by `server/scripts/smokeCodeComplyWorkflow.ts`. The workflow uses `ROBOFLOW_API_KEY` via the `Authorization: Bearer` header.
+
 ## Other docs
 
 - `ARCHITECTURE_NORTH_STAR.md`

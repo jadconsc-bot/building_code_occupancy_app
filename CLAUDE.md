@@ -52,6 +52,7 @@ Every commit must follow:
 React 18, TypeScript, Express, tRPC, Drizzle ORM, MySQL 8
 Clerk auth, Stripe, Anthropic Claude, Railway hosting
 Node: pnpm for package management
+Roboflow workflow integrations live in `server/services/codeComplyWorkflowService.ts`; use Bearer auth from `ENV.roboflowApiKey` and keep `server/scripts/smokeCodeComplyWorkflow.ts` as the manual smoke check.
 
 ## NBC Compliance Discipline
 - Primary source: NBC 2020 PDF (1,530 pages, in project)

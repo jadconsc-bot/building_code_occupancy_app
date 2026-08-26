@@ -377,8 +377,10 @@ In priority order:
    Subtract bounding box origin from polygon vertices before COCO export.
    Blocked: v13 upload cannot succeed without this.
 
-2. **Deploy v12** — Update detect-count-and-visualize-2 workflow in Roboflow UI.
-   Already trained, metrics confirmed, ready to deploy.
+2. **Deploy v15 workflow** — Update the active Roboflow workflow to
+   `codecomply-vcodecomply-15-rfdetr-seg-small-t1-logic`.
+   The new workflow client is wired through
+   `server/services/codeComplyWorkflowService.ts`.
 
 3. **Complete Add Room tool** — `client/src/components/DrawingAnalysis.tsx`
    In progress. Enables annotation of missed rooms.
