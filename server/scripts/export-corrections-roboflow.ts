@@ -322,6 +322,7 @@ async function main(): Promise<void> {
     }
 
     fs.mkdirSync(IMAGES_DIR, { recursive: true });
+    const exportTimestamp = Date.now();
 
     const images: CocoImage[] = [];
     const annotations: CocoAnnotation[] = [];
@@ -373,7 +374,7 @@ async function main(): Promise<void> {
       const { segmentation, bbox: cocoBbox, area } = polygonToGeometry(clampedPolygon);
       const label = row.roomLabel?.trim() || 'room';
       const safeLabel = slugify(label);
-      const fileName = `${row.roomId}_${safeLabel}.jpg`;
+      const fileName = `cc_${exportTimestamp}_${row.roomId}_${safeLabel}.jpg`;
       const imagePath = path.join(IMAGES_DIR, fileName);
 
       const jpegBuffer = await sharp(imageBuffer).jpeg({ quality: 92 }).toBuffer();
