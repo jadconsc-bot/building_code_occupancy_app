@@ -28,6 +28,64 @@ const CROP_RIGHT_PCT = 0.15;  // title blocks are on the right — was erroneous
 const CROP_TOP_PCT = 0.15;
 const CLAUDE_VISION_MAX_PX = 2048;  // was 1568; higher res reduces inverse-scale amplification of LLM error
 
+function normalizeRoomLabel(label: string): string {
+  return label
+    .replace(/\s*\(?(upper|lower|left|right|top|bottom|unit\s*\d+|floor\s*\d+)\)?\s*/gi, '')
+    .trim()
+    .toLowerCase();
+}
+
+function computeBboxIou(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): number {
+  const xOverlap = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const yOverlap = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  const intersection = xOverlap * yOverlap;
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+function deduplicateRooms<T extends {
+  label?: string | null;
+  confidence?: number | null;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  polygonSource?: string | null;
+}>(rooms: T[]): T[] {
+  const kept: T[] = [];
+
+  for (const room of rooms) {
+    const baseLabel = normalizeRoomLabel(room.label ?? 'unlabeled');
+    const duplicateIdx = kept.findIndex(k => {
+      const kBase = normalizeRoomLabel(k.label ?? 'unlabeled');
+      if (kBase !== baseLabel) return false;
+      return computeBboxIou(k.boundingBox, room.boundingBox) > 0.3;
+    });
+
+    if (duplicateIdx === -1) {
+      kept.push(room);
+      continue;
+    }
+
+    const existing = kept[duplicateIdx];
+    const existingScore =
+      (existing.confidence ?? 0) +
+      (existing.polygonSource === 'roboflow_segmentation' ? 0.2 : 0);
+    const newScore =
+      (room.confidence ?? 0) +
+      (room.polygonSource === 'roboflow_segmentation' ? 0.2 : 0);
+
+    if (newScore > existingScore) {
+      console.log(`[RoomDetection] Deduplicated: ${room.label} → kept over ${existing.label}`);
+      kept[duplicateIdx] = room;
+    } else {
+      console.log(`[RoomDetection] Deduplicated: ${room.label} → discarded in favor of ${existing.label}`);
+    }
+  }
+
+  return kept;
+}
+
 interface PageRegion {
   top: number;
   height: number;
@@ -367,19 +425,29 @@ export async function detectRoomsFromPage(
       console.log(`[RoomDetection] Rejected unsupported low-confidence room "${room.label}"`);
     }
     return accepted;
-  });
+  }).map(room => ({
+    ...room,
+    polygonSource: rfPolygons.some(p =>
+      computeBboxIou(
+        { x: room.boundingBox.x, y: room.boundingBox.y, width: room.boundingBox.width, height: room.boundingBox.height },
+        { x: p.bbox.x, y: p.bbox.y, width: p.bbox.width, height: p.bbox.height },
+      ) >= 0.3
+    ) ? 'roboflow_segmentation' : null,
+  }));
+
+  const dedupedRooms = deduplicateRooms(roomsToSave);
 
   const evalMimeType = pageBase64.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
-  evaluateDetectionAccuracy(roomsToSave, pageId, pageBase64, imgW, imgH, evalMimeType)
+  evaluateDetectionAccuracy(dedupedRooms, pageId, pageBase64, imgW, imgH, evalMimeType)
     .catch(err => console.error('[DetectionEval] Evaluation failed:', err));
 
-  const flaggedForReview = roomsToSave.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
+  const flaggedForReview = dedupedRooms.filter(r => r.confidence < CONFIDENCE_THRESHOLD);
 
-  await saveRoomsToDb(roomsToSave, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64, rfPolygons);
-  console.log('[RoomDetection] Saved', roomsToSave.length, 'rooms to DB for page', pageId);
+  await saveRoomsToDb(dedupedRooms, pageId, projectId, province, imgW, imgH, metadata?.scale ?? null, pageBase64, rfPolygons);
+  console.log('[RoomDetection] Saved', dedupedRooms.length, 'rooms to DB for page', pageId);
 
   return {
-    rooms: roomsToSave,
+    rooms: dedupedRooms,
     metadata: (metadata ?? {}) as RoomDetectionResult['metadata'],
     pageNumber,
     modelVersion,
