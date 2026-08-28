@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -525,6 +525,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [roomPollCount, setRoomPollCount] = useState(0);
   const [detectedScale, setDetectedScale] = useState<string | null>(null);
   const [currentPageId, setCurrentPageId] = useState<number | null>(null);
+  const overlayRooms = useMemo(
+    () => detectedRoomsData.filter((room: any) => room.pageId === currentPageId),
+    [detectedRoomsData, currentPageId],
+  );
   const [calibrationRestored, setCalibrationRestored] = useState(false);
 
   // User-defined analysis region (click-and-drag crop)
@@ -1833,7 +1837,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const handlePolygonEditDone = () => {
     if (!polygonEditMode || !currentPageId) return;
-    const room = detectedRoomsData.find(r => r.id === polygonEditMode.roomId);
+    const room = overlayRooms.find(r => r.id === polygonEditMode.roomId);
     if (!room) return;
 
     const xs = polygonEditMode.vertices.map(v => v.x);
@@ -2329,7 +2333,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // ===== ROOM OVERLAY LAYER =====
-    if (showRoomOverlay && detectedRoomsData?.length) {
+    if (showRoomOverlay && overlayRooms?.length) {
       // Compute scale factor: Claude Vision may process images at a lower internal
       // resolution. If we stored the analyzed dimensions (widthPx/heightPx) and the
       // canvas image has different natural dimensions, scale bounding boxes accordingly.
@@ -2381,7 +2385,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         }
       }
 
-      for (const room of detectedRoomsData) {
+      for (const room of overlayRooms) {
         const geometry = bboxOverrides.get(room.id) ?? room.boundingBox;
         if (!geometry) continue;
 
@@ -3938,7 +3942,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // Review mode: drag/resize bounding boxes
-    if (reviewMode && detectedRoomsData.length > 0) {
+    if (reviewMode && overlayRooms.length > 0) {
       const naturalW = imageRef.current?.naturalWidth ?? 0;
       const naturalH = imageRef.current?.naturalHeight ?? 0;
       const sX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
@@ -3955,7 +3959,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
       // Check handles first (higher priority than room body)
       let foundHandle: { roomId: number; id: HandleId } | null = null;
-      for (const room of detectedRoomsData) {
+      for (const room of overlayRooms) {
         const g = bboxOverrides.get(room.id) ?? room.boundingBox;
         if (!g) continue;
         const rsx = g.x * sX * zoom + pan.x;
@@ -3977,7 +3981,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         if (!originalBboxes.has(roomId)) {
           setOriginalBboxes(prev => new Map(prev).set(
             roomId,
-            bboxOverrides.get(roomId) ?? detectedRoomsData.find(r => r.id === roomId)!.boundingBox,
+            bboxOverrides.get(roomId) ?? overlayRooms.find(r => r.id === roomId)!.boundingBox,
           ));
         }
         setInteractingRoom({
@@ -3986,13 +3990,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           handle: handleId,
           startMouseX: imgX,
           startMouseY: imgY,
-          startBbox: bboxOverrides.get(roomId) ?? detectedRoomsData.find(r => r.id === roomId)!.boundingBox,
+          startBbox: bboxOverrides.get(roomId) ?? overlayRooms.find(r => r.id === roomId)!.boundingBox,
         });
         return;
       }
 
       // Check room body (move)
-      const clickedRoom = detectedRoomsData.find(room => {
+      const clickedRoom = overlayRooms.find(room => {
         const g = bboxOverrides.get(room.id) ?? room.boundingBox;
         if (!g) return false;
         const rsx = g.x * sX * zoom + pan.x;
@@ -4287,7 +4291,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const canvasX = e.clientX - rect.left;
       const canvasY = e.clientY - rect.top;
       let cursor = 'default';
-      outer: for (const room of detectedRoomsData) {
+      outer: for (const room of overlayRooms) {
         const g = bboxOverrides.get(room.id) ?? room.boundingBox;
         if (!g) continue;
         const rsx = g.x * sX * zoom + pan.x;
@@ -4408,7 +4412,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
 
     // Room hover hit-test (for popover) — RAF-throttled to 60fps
-    if (showRoomOverlay && detectedRoomsData.length > 0) {
+    if (showRoomOverlay && overlayRooms.length > 0) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       const capturedX = x;
       const capturedY = y;
@@ -4424,7 +4428,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           ? naturalH / analyzedPageDims.height : 1;
 
         let found: { roomId: number; screenX: number; screenY: number } | null = null;
-        for (const room of detectedRoomsData) {
+        for (const room of overlayRooms) {
           const bbox = room.boundingBox;
           if (!bbox) continue;
           const rx = bbox.x * hScaleX;
@@ -4541,7 +4545,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Review mode: auto-save correction on drag/resize release
     if (reviewMode && interactingRoom) {
       const correctedBbox = bboxOverrides.get(interactingRoom.roomId);
-      const room = detectedRoomsData.find(r => r.id === interactingRoom.roomId);
+      const room = overlayRooms.find(r => r.id === interactingRoom.roomId);
       const originalBbox = originalBboxes.get(interactingRoom.roomId) ?? room?.boundingBox;
 
       const didMove = correctedBbox && originalBbox && (
@@ -7451,7 +7455,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                   {/* Room hover popover */}
                   {hoveredRoom && showRoomOverlay && (() => {
-                    const room = detectedRoomsData.find(r => r.id === hoveredRoom.roomId);
+                    const room = overlayRooms.find(r => r.id === hoveredRoom.roomId);
                     if (!room) return null;
                     const tdResult = showTravelDistanceOverlay
                       ? travelDistanceResults.find(r => r.roomId === hoveredRoom.roomId)
