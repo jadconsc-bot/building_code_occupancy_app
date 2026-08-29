@@ -558,6 +558,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     handle?: HandleId;
     startMouseX: number;
     startMouseY: number;
+    startClientX: number;
+    startClientY: number;
+    startTime: number;
     startBbox: { x: number; y: number; width: number; height: number };
   } | null>(null);
   const [bboxOverrides, setBboxOverrides] = useState<
@@ -3990,6 +3993,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           handle: handleId,
           startMouseX: imgX,
           startMouseY: imgY,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startTime: Date.now(),
           startBbox: bboxOverrides.get(roomId) ?? overlayRooms.find(r => r.id === roomId)!.boundingBox,
         });
         return;
@@ -4014,6 +4020,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           mode: 'move',
           startMouseX: imgX,
           startMouseY: imgY,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startTime: Date.now(),
           startBbox: bboxOverrides.get(clickedRoom.id) ?? clickedRoom.boundingBox,
         });
         return;
@@ -4256,6 +4265,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const imgY = y / sY;
 
       if (interactingRoom) {
+        const screenDx = e.clientX - interactingRoom.startClientX;
+        const screenDy = e.clientY - interactingRoom.startClientY;
+        const screenDist = Math.hypot(screenDx, screenDy);
+        const CLICK_DRAG_THRESHOLD_PX = 4;
+        if (screenDist < CLICK_DRAG_THRESHOLD_PX) {
+          return;
+        }
+
         const dx = imgX - interactingRoom.startMouseX;
         const dy = imgY - interactingRoom.startMouseY;
         const s = interactingRoom.startBbox;
@@ -4548,12 +4565,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const room = overlayRooms.find(r => r.id === interactingRoom.roomId);
       const originalBbox = originalBboxes.get(interactingRoom.roomId) ?? room?.boundingBox;
 
-      const didMove = correctedBbox && originalBbox && (
-        correctedBbox.x !== originalBbox.x ||
-        correctedBbox.y !== originalBbox.y ||
-        correctedBbox.width  !== originalBbox.width ||
-        correctedBbox.height !== originalBbox.height
+      const MIN_CORRECTION_DELTA_PX = 1;
+      const MIN_INTERACTION_DURATION_MS = 400;
+      const elapsedMs = Date.now() - interactingRoom.startTime;
+      const movedEnough = correctedBbox && originalBbox && (
+        Math.abs(correctedBbox.x - originalBbox.x)      >= MIN_CORRECTION_DELTA_PX ||
+        Math.abs(correctedBbox.y - originalBbox.y)      >= MIN_CORRECTION_DELTA_PX ||
+        Math.abs(correctedBbox.width  - originalBbox.width)  >= MIN_CORRECTION_DELTA_PX ||
+        Math.abs(correctedBbox.height - originalBbox.height) >= MIN_CORRECTION_DELTA_PX
       );
+      const didMove = movedEnough && elapsedMs >= MIN_INTERACTION_DURATION_MS;
 
       if (!didMove && room) {
         // Short click with no movement — open correction popover
