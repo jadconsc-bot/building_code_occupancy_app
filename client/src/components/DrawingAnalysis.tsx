@@ -1248,8 +1248,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     if (doorAnnotationPhase !== 'leaf') {
       return;
     }
-    if (newDoorVertices.length < 2) {
-      toast.error('Add at least 2 vertices before finishing the leaf.');
+    if (newDoorVertices.length < 3) {
+      toast.error('Add at least 3 vertices before finishing the leaf.');
       return;
     }
     setDoorAnnotationPhase('swing');
@@ -6780,7 +6780,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
                         <span className="text-xs text-muted-foreground">
                           {doorAnnotationPhase === 'leaf' && (
-                            <>New door leaf: {newDoorVertices.length} vertices</>
+                            <>New door leaf: {newDoorVertices.length} vertices · Trace the door leaf as a rectangle — typically 3–4 points</>
                           )}
                           {doorAnnotationPhase === 'swing' && (
                             <>Click hinge, tip, then swing side: {arcAnchorPoints.length}/3 points</>
@@ -6794,7 +6794,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             size="sm"
                             variant="outline"
                             onClick={handleFinishNewDoor}
-                            disabled={newDoorVertices.length < 2}
+                            disabled={newDoorVertices.length < 3}
                             className="text-xs"
                           >
                             Finish Leaf →
