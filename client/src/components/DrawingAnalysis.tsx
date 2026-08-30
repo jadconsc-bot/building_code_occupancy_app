@@ -453,6 +453,50 @@ interface DrawingProject {
   updatedAt: Date;
 }
 
+const DOOR_SWING_ARC_SAMPLE_POINTS = 12;
+const DOOR_SWING_ARC_DEGREES = 90;
+
+const distanceBetweenPoints = (a: Point, b: Point): number =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
+const buildDoorSwingArcPoints = (
+  hinge: Point,
+  tip: Point,
+  direction: 1 | -1,
+): Point[] => {
+  const radius = distanceBetweenPoints(hinge, tip);
+  if (radius <= 0) return [];
+
+  const startAngle = Math.atan2(tip.y - hinge.y, tip.x - hinge.x);
+  const sweep = (DOOR_SWING_ARC_DEGREES * Math.PI / 180) * direction;
+
+  return Array.from({ length: DOOR_SWING_ARC_SAMPLE_POINTS }, (_, index) => {
+    const progress = (index + 1) / DOOR_SWING_ARC_SAMPLE_POINTS;
+    const angle = startAngle + sweep * progress;
+    return {
+      x: hinge.x + radius * Math.cos(angle),
+      y: hinge.y + radius * Math.sin(angle),
+    };
+  });
+};
+
+const sampleDoorSwingArcPoints = (
+  hinge: Point,
+  tip: Point,
+  hint: Point,
+): Point[] => {
+  const clockwise = buildDoorSwingArcPoints(hinge, tip, 1);
+  const counterClockwise = buildDoorSwingArcPoints(hinge, tip, -1);
+
+  const score = (points: Point[]) =>
+    points.reduce(
+      (best, pt) => Math.min(best, distanceBetweenPoints(pt, hint)),
+      Number.POSITIVE_INFINITY,
+    );
+
+  return score(clockwise) <= score(counterClockwise) ? clockwise : counterClockwise;
+};
+
 interface DrawingAnalysisProps {
   projectId?: number;
 }
@@ -502,6 +546,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const panRef = useRef(pan);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
+  const [canvasPointer, setCanvasPointer] = useState<Point | null>(null);
   
   // State for annotation tools
   const [activeTool, setActiveTool] = useState<"select" | "dimension" | "label" | "area" | "pan" | "fire_assembly" | "door_barrier" | "select_room">("select");
@@ -550,6 +595,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [newRoomLabel, setNewRoomLabel] = useState('');
   const [newRoomOccupancy, setNewRoomOccupancy] = useState('C');
   const [newDoorVertices, setNewDoorVertices] = useState<{ x: number; y: number }[]>([]);
+  const [doorAnnotationPhase, setDoorAnnotationPhase] = useState<'leaf' | 'swing' | null>(null);
+  const [arcAnchorPoints, setArcAnchorPoints] = useState<Point[]>([]);
+  const [doorArcAssisted, setDoorArcAssisted] = useState(false);
   const [showAddDoorForm, setShowAddDoorForm] = useState(false);
   const [newDoorServedRoomId, setNewDoorServedRoomId] = useState('');
   const boundaryRectDragStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -1146,6 +1194,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const handleCancelNewDoor = useCallback(() => {
     setBoundaryRedrawMode(null);
+    setDoorAnnotationPhase(null);
+    setArcAnchorPoints([]);
+    setDoorArcAssisted(false);
     setNewDoorVertices([]);
     setShowAddDoorForm(false);
     setNewDoorServedRoomId('');
@@ -1194,12 +1245,26 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   ]);
 
   const handleFinishNewDoor = useCallback(() => {
-    if (newDoorVertices.length < 3) {
-      toast.error('Add at least 3 vertices before finishing the door.');
+    if (doorAnnotationPhase !== 'leaf') {
       return;
     }
+    if (newDoorVertices.length < 2) {
+      toast.error('Add at least 2 vertices before finishing the leaf.');
+      return;
+    }
+    setDoorAnnotationPhase('swing');
+    setArcAnchorPoints([]);
+    setDoorArcAssisted(false);
+  }, [doorAnnotationPhase, newDoorVertices.length]);
+
+  const handleSkipDoorSwing = useCallback(() => {
+    if (doorAnnotationPhase !== 'swing') {
+      return;
+    }
+    setArcAnchorPoints([]);
+    setDoorAnnotationPhase(null);
     setShowAddDoorForm(true);
-  }, [newDoorVertices.length]);
+  }, [doorAnnotationPhase]);
 
   const handleSaveNewDoor = useCallback(async () => {
     if (!currentPageId || !analysisId) {
@@ -1214,12 +1279,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     const geometryJson = newDoorVertices.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
     const roomId = newDoorServedRoomId ? Number(newDoorServedRoomId) : undefined;
+    const metadataJson = doorArcAssisted ? { arcAssisted: true } : undefined;
 
     try {
       await saveDoorFeatureMutation.mutateAsync({
         pageId: currentPageId,
         geometryJson,
         roomId,
+        metadataJson,
       });
       toast.success('Door annotation saved.');
       handleCancelNewDoor();
@@ -1229,6 +1296,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   }, [
     analysisId,
+    doorArcAssisted,
     currentPageId,
     handleCancelNewDoor,
     newDoorServedRoomId,
@@ -1747,6 +1815,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
       if (e.key === 'Backspace' && !isTypingField) {
         e.preventDefault();
+        if (!isNewRoomMode && doorAnnotationPhase === 'swing') {
+          if (arcAnchorPoints.length > 0) {
+            setArcAnchorPoints(prev => prev.slice(0, -1));
+          }
+          return;
+        }
         if (isNewRoomMode ? showAddRoomForm : showAddDoorForm) {
           if (isNewRoomMode) {
             setShowAddRoomForm(false);
@@ -1762,7 +1836,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [boundaryRedrawMode, handleCancelNewDoor, handleCancelNewRoom, showAddDoorForm, showAddRoomForm]);
+  }, [arcAnchorPoints.length, boundaryRedrawMode, doorAnnotationPhase, handleCancelNewDoor, handleCancelNewRoom, showAddDoorForm, showAddRoomForm]);
 
   // Read URL params on mount to pre-configure fire assembly tool
   useEffect(() => {
@@ -3102,6 +3176,39 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       ctx.restore();
     }
 
+    // ===== NEW DOOR DRAW PREVIEW =====
+    if (boundaryRedrawMode === 'new_door') {
+      const activeDoorPreviewPoints = doorAnnotationPhase === 'swing' ? arcAnchorPoints : newDoorVertices;
+      const liveDoorPoint = showAddDoorForm ? null : canvasPointer;
+      if (activeDoorPreviewPoints.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(16,185,129,0.95)';
+      ctx.fillStyle = 'rgba(16,185,129,0.16)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      activeDoorPreviewPoints.forEach((pt, i) => {
+        const sx = pt.x * zoom + pan.x;
+        const sy = pt.y * zoom + pan.y;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      if (liveDoorPoint) {
+        ctx.lineTo(liveDoorPoint.x * zoom + pan.x, liveDoorPoint.y * zoom + pan.y);
+      }
+      if (doorAnnotationPhase === 'leaf' && activeDoorPreviewPoints.length >= 3) ctx.closePath();
+      ctx.stroke();
+      if (doorAnnotationPhase === 'leaf' && activeDoorPreviewPoints.length >= 3) ctx.fill();
+      ctx.setLineDash([]);
+      activeDoorPreviewPoints.forEach(pt => {
+        ctx.beginPath();
+        ctx.arc(pt.x * zoom + pan.x, pt.y * zoom + pan.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+      }
+    }
+
     // ===== WALL OVERLAY LAYER (admin/professional only) =====
     if (showWallOverlay && wallSegmentsList.length > 0) {
       ctx.save();
@@ -3174,7 +3281,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       );
       ctx.restore();
     }
-  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex, ddaRoomCompliance, sharedWalls]);
+  }, [drawingImage, imageLoaded, zoom, pan, annotations, selectedAnnotation, showAnnotations, isDrawing, currentPoints, activeTool, isCalibrating, calibrationLine, isDraggingDimension, dragStartPoint, dragCurrentPoint, pixelsPerDrawingUnit, selectedScale, scaleSystem, imageRotation, measurementUnit, showDrawingLayer, drawingStrokes, currentStroke, showRoomOverlay, detectedRoomsData, analyzedPageDims, measuredWindows, windowMeasureMode, showTravelDistanceOverlay, travelDistanceResults, showComplianceHeatmap, roomComplianceData, cropRegionConfirmed, reviewMode, boundaryRedrawMode, polygonPoints, newRoomVertices, newDoorVertices, doorAnnotationPhase, arcAnchorPoints, showAddDoorForm, canvasPointer, showWallOverlay, wallSegmentsList, bboxOverrides, interactingRoom, polygonEditMode, draggingVertexIdx, fireAssemblyStrokes, activeFireStrokePoints, isDrawingFireAssembly, fireAssemblyType, doorBarriers, detectedPolygons, draggingPolyVertex, ddaRoomCompliance, sharedWalls]);
 
   // Draw dimension annotation
   const drawDimensionAnnotation = (ctx: CanvasRenderingContext2D, annotation: DimensionAnnotation, isSelected: boolean) => {
@@ -3973,7 +4080,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Door annotation mode: add vertices for a new door polygon
     if (boundaryRedrawMode === 'new_door') {
       if (showAddDoorForm) return;
-      setNewDoorVertices(prev => [...prev, { x: Math.round(drawX), y: Math.round(drawY) }]);
+      const point = { x: Math.round(drawX), y: Math.round(drawY) };
+      if (doorAnnotationPhase === 'swing') {
+        const nextAnchors = [...arcAnchorPoints, point];
+        if (nextAnchors.length < 3) {
+          setArcAnchorPoints(nextAnchors);
+          return;
+        }
+
+        const [hinge, tip, hint] = nextAnchors;
+        const swingArcPoints = sampleDoorSwingArcPoints(hinge, tip, hint);
+        setNewDoorVertices(prev => [...prev, hinge, tip, ...swingArcPoints]);
+        setDoorArcAssisted(true);
+        setArcAnchorPoints([]);
+        setDoorAnnotationPhase(null);
+        setShowAddDoorForm(true);
+        return;
+      }
+
+      setNewDoorVertices(prev => [...prev, point]);
       return;
     }
 
@@ -4272,6 +4397,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     // Clamped to page bounds for draw-mode writes only; hover/pan paths use raw x, y.
     const drawX = analyzedPageDims ? Math.max(0, Math.min(x, analyzedPageDims.width)) : x;
     const drawY = analyzedPageDims ? Math.max(0, Math.min(y, analyzedPageDims.height)) : y;
+    setCanvasPointer({ x: drawX, y: drawY });
 
     // Phase C — live DDA polygon vertex drag
     if (draggingPolyVertex) {
@@ -6514,6 +6640,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           setCorrectionPopover(null);
                           setSelectedRoomForCorrection(null);
                           setBoundaryRedrawMode(null);
+                          setDoorAnnotationPhase(null);
+                          setArcAnchorPoints([]);
+                          setDoorArcAssisted(false);
                           setPolygonPoints([]);
                           setNewRoomVertices([]);
                           setShowAddRoomForm(false);
@@ -6539,6 +6668,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           variant="outline"
                           onClick={() => {
                             setBoundaryRedrawMode('new_door');
+                            setDoorAnnotationPhase('leaf');
+                            setArcAnchorPoints([]);
+                            setDoorArcAssisted(false);
                             setNewDoorVertices([]);
                             setShowAddDoorForm(false);
                             setNewDoorServedRoomId('');
@@ -6603,11 +6735,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         size="sm"
                         onClick={() => {
                           setBoundaryRedrawMode(null);
+                          setDoorAnnotationPhase(null);
+                          setArcAnchorPoints([]);
+                          setDoorArcAssisted(false);
                           setPolygonPoints([]);
                           setNewRoomVertices([]);
                           setShowAddRoomForm(false);
                           setNewRoomLabel('');
                           setNewRoomOccupancy('C');
+                          setNewDoorVertices([]);
+                          setShowAddDoorForm(false);
+                          setNewDoorServedRoomId('');
                         }}
                         className="text-red-600 border-red-200 text-xs"
                       >
@@ -6641,17 +6779,37 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     {boundaryRedrawMode === 'new_door' && (
                       <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
                         <span className="text-xs text-muted-foreground">
-                          New door: {newDoorVertices.length} vertices
+                          {doorAnnotationPhase === 'leaf' && (
+                            <>New door leaf: {newDoorVertices.length} vertices</>
+                          )}
+                          {doorAnnotationPhase === 'swing' && (
+                            <>Click hinge, tip, then swing side: {arcAnchorPoints.length}/3 points</>
+                          )}
+                          {doorAnnotationPhase === null && (
+                            <>New door: {newDoorVertices.length} vertices</>
+                          )}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleFinishNewDoor}
-                          disabled={newDoorVertices.length < 3}
-                          className="text-xs"
-                        >
-                          Done
-                        </Button>
+                        {doorAnnotationPhase === 'leaf' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleFinishNewDoor}
+                            disabled={newDoorVertices.length < 2}
+                            className="text-xs"
+                          >
+                            Finish Leaf →
+                          </Button>
+                        )}
+                        {doorAnnotationPhase === 'swing' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSkipDoorSwing}
+                            className="text-xs"
+                          >
+                            Skip Swing →
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -6711,7 +6869,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       size="sm"
                       className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={handleSaveNewDoor}
-                      disabled={saveDoorFeatureMutation.isPending}
+                      disabled={saveDoorFeatureMutation.isPending || newDoorVertices.length < 3}
                     >
                       Save Door
                     </Button>
@@ -7504,14 +7662,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onMouseDown={handleCanvasMouseDown}
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
-                      onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); }}
+                      onMouseLeave={() => { handleCanvasMouseUp({ clientX: 0, clientY: 0 } as any); setHoveredRoom(null); setCanvasPointer(null); }}
                       onDoubleClick={() => {
                         if (boundaryRedrawMode === 'new_room') {
                           handleFinishNewRoom();
                           return;
                         }
                         if (boundaryRedrawMode === 'new_door') {
-                          handleFinishNewDoor();
+                          if (doorAnnotationPhase === 'leaf') {
+                            handleFinishNewDoor();
+                          }
                           return;
                         }
                         if (activeTool === "fire_assembly" && isDrawingFireAssembly) {
