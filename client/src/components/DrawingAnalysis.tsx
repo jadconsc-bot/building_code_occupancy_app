@@ -82,7 +82,8 @@ import {
   FileCheck,
   Flame,
   Calculator,
-  Plus
+  Plus,
+  DoorOpen
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -542,12 +543,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [reviewMode, setReviewMode] = useState(false);
   const [selectedRoomForCorrection, setSelectedRoomForCorrection] = useState<any | null>(null);
   const [correctionPopover, setCorrectionPopover] = useState<{ x: number; y: number; room: any } | null>(null);
-  const [boundaryRedrawMode, setBoundaryRedrawMode] = useState<'rect' | 'polygon' | 'new_room' | null>(null);
+  const [boundaryRedrawMode, setBoundaryRedrawMode] = useState<'rect' | 'polygon' | 'new_room' | 'new_door' | null>(null);
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number }[]>([]);
   const [newRoomVertices, setNewRoomVertices] = useState<{ x: number; y: number }[]>([]);
   const [showAddRoomForm, setShowAddRoomForm] = useState(false);
   const [newRoomLabel, setNewRoomLabel] = useState('');
   const [newRoomOccupancy, setNewRoomOccupancy] = useState('C');
+  const [newDoorVertices, setNewDoorVertices] = useState<{ x: number; y: number }[]>([]);
+  const [showAddDoorForm, setShowAddDoorForm] = useState(false);
+  const [newDoorServedRoomId, setNewDoorServedRoomId] = useState('');
   const boundaryRectDragStartRef = useRef<{ x: number; y: number } | null>(null);
   const boundaryRectDraftRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -1104,6 +1108,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
   const saveRoomPolygonMutation = trpc.drawingAnalysis.saveRoomPolygon.useMutation();
+  const saveDoorFeatureMutation = trpc.drawingAnalysis.saveDoorFeature.useMutation();
   const runOrchestratorMutation = trpc.drawingAnalysis.runCalculatorOrchestrator.useMutation({
     onSuccess: (result) => {
       setOrchestratorResult(result);
@@ -1137,6 +1142,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setShowAddRoomForm(false);
     setNewRoomLabel('');
     setNewRoomOccupancy('C');
+  }, []);
+
+  const handleCancelNewDoor = useCallback(() => {
+    setBoundaryRedrawMode(null);
+    setNewDoorVertices([]);
+    setShowAddDoorForm(false);
+    setNewDoorServedRoomId('');
+    if (canvasRef.current) canvasRef.current.style.cursor = 'default';
   }, []);
 
   const handleSaveNewRoom = useCallback(async () => {
@@ -1178,6 +1191,49 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     newRoomOccupancy,
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
+  ]);
+
+  const handleFinishNewDoor = useCallback(() => {
+    if (newDoorVertices.length < 3) {
+      toast.error('Add at least 3 vertices before finishing the door.');
+      return;
+    }
+    setShowAddDoorForm(true);
+  }, [newDoorVertices.length]);
+
+  const handleSaveNewDoor = useCallback(async () => {
+    if (!currentPageId || !analysisId) {
+      toast.error('Select a drawing page before annotating a door.');
+      return;
+    }
+
+    if (newDoorVertices.length < 3) {
+      toast.error('Add at least 3 vertices before saving the door.');
+      return;
+    }
+
+    const geometryJson = newDoorVertices.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
+    const roomId = newDoorServedRoomId ? Number(newDoorServedRoomId) : undefined;
+
+    try {
+      await saveDoorFeatureMutation.mutateAsync({
+        pageId: currentPageId,
+        geometryJson,
+        roomId,
+      });
+      toast.success('Door annotation saved.');
+      handleCancelNewDoor();
+    } catch (err) {
+      console.error('[DrawingAnalysis] Failed to save new door:', err);
+      toast.error('Failed to save new door.');
+    }
+  }, [
+    analysisId,
+    currentPageId,
+    handleCancelNewDoor,
+    newDoorServedRoomId,
+    newDoorVertices,
+    saveDoorFeatureMutation,
   ]);
 
   // Fetch room-level compliance results once rooms have loaded
@@ -1298,6 +1354,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setInteractingRoom(null);
     setPolygonEditMode(null);
     setDraggingVertexIdx(null);
+    setNewDoorVertices([]);
+    setShowAddDoorForm(false);
+    setNewDoorServedRoomId('');
   }, [analysisId]);
 
   useEffect(() => {
@@ -1676,27 +1735,34 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const activeTag = (document.activeElement?.tagName ?? '').toUpperCase();
       const isTypingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag);
 
-      if (boundaryRedrawMode !== 'new_room') return;
+      if (boundaryRedrawMode !== 'new_room' && boundaryRedrawMode !== 'new_door') return;
+      const isNewRoomMode = boundaryRedrawMode === 'new_room';
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        handleCancelNewRoom();
+        if (isNewRoomMode) handleCancelNewRoom();
+        else handleCancelNewDoor();
         return;
       }
 
       if (e.key === 'Backspace' && !isTypingField) {
         e.preventDefault();
-        if (showAddRoomForm) {
-          setShowAddRoomForm(false);
+        if (isNewRoomMode ? showAddRoomForm : showAddDoorForm) {
+          if (isNewRoomMode) {
+            setShowAddRoomForm(false);
+          } else {
+            setShowAddDoorForm(false);
+          }
           return;
         }
-        setNewRoomVertices(prev => prev.slice(0, -1));
+        if (isNewRoomMode) setNewRoomVertices(prev => prev.slice(0, -1));
+        else setNewDoorVertices(prev => prev.slice(0, -1));
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [boundaryRedrawMode, handleCancelNewRoom, showAddRoomForm]);
+  }, [boundaryRedrawMode, handleCancelNewDoor, handleCancelNewRoom, showAddDoorForm, showAddRoomForm]);
 
   // Read URL params on mount to pre-configure fire assembly tool
   useEffect(() => {
@@ -2077,6 +2143,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setAiResults(null);
     setShowAiResults(false);
     setRoomPollCount(0);
+    setNewDoorVertices([]);
+    setShowAddDoorForm(false);
+    setNewDoorServedRoomId('');
   };
 
   const handleStopAnalysis = () => {
@@ -3901,6 +3970,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
+    // Door annotation mode: add vertices for a new door polygon
+    if (boundaryRedrawMode === 'new_door') {
+      if (showAddDoorForm) return;
+      setNewDoorVertices(prev => [...prev, { x: Math.round(drawX), y: Math.round(drawY) }]);
+      return;
+    }
+
     // Polygon vertex editor: drag vertex or add vertex via midpoint
     if (polygonEditMode) {
       const canvasX = e.clientX - rect.left;
@@ -4250,6 +4326,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     if (boundaryRedrawMode === 'new_room') {
       canvas.style.cursor = showAddRoomForm ? 'default' : 'crosshair';
+      return;
+    }
+
+    if (boundaryRedrawMode === 'new_door') {
+      canvas.style.cursor = showAddDoorForm ? 'default' : 'crosshair';
       return;
     }
 
@@ -6438,6 +6519,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           setShowAddRoomForm(false);
                           setNewRoomLabel('');
                           setNewRoomOccupancy('C');
+                          setNewDoorVertices([]);
+                          setShowAddDoorForm(false);
+                          setNewDoorServedRoomId('');
                           setPolygonEditMode(null);
                           setDraggingVertexIdx(null);
                         }
@@ -6449,22 +6533,46 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       {reviewMode ? "Reviewing…" : "Review"}
                     </Button>
                     {reviewMode && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setBoundaryRedrawMode('new_room');
-                          setNewRoomVertices([]);
-                          setShowAddRoomForm(false);
-                          setNewRoomLabel('');
-                          setNewRoomOccupancy('C');
-                        }}
-                        className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                        title="Draw a polygon for a missed room"
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Add Room
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setBoundaryRedrawMode('new_door');
+                            setNewDoorVertices([]);
+                            setShowAddDoorForm(false);
+                            setNewDoorServedRoomId('');
+                            setNewRoomVertices([]);
+                            setShowAddRoomForm(false);
+                            setNewRoomLabel('');
+                            setNewRoomOccupancy('C');
+                          }}
+                          className="text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                          title="Annotate a door opening"
+                        >
+                          <DoorOpen className="w-4 h-4 mr-1" />
+                          Add Door
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setBoundaryRedrawMode('new_room');
+                            setNewRoomVertices([]);
+                            setShowAddRoomForm(false);
+                            setNewRoomLabel('');
+                            setNewRoomOccupancy('C');
+                            setNewDoorVertices([]);
+                            setShowAddDoorForm(false);
+                            setNewDoorServedRoomId('');
+                          }}
+                          className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                          title="Draw a polygon for a missed room"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Room
+                        </Button>
+                      </>
                     )}
                     {polygonEditMode && (
                       <div className="flex items-center gap-2 border-r border-border pr-2">
@@ -6530,6 +6638,30 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         </Button>
                       </div>
                     )}
+                    {boundaryRedrawMode === 'new_door' && (
+                      <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
+                        <span className="text-xs text-muted-foreground">
+                          New door: {newDoorVertices.length} vertices
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleFinishNewDoor}
+                          disabled={newDoorVertices.length < 3}
+                          className="text-xs"
+                        >
+                          Done
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelNewDoor}
+                          className="text-xs text-red-600 border-red-200"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -6557,6 +6689,31 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       disabled={saveRoomPolygonMutation.isPending}
                     >
                       Save Room
+                    </Button>
+                  </div>
+                )}
+
+                {boundaryRedrawMode === 'new_door' && showAddDoorForm && (
+                  <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
+                    <select
+                      value={newDoorServedRoomId}
+                      onChange={(e) => setNewDoorServedRoomId(e.target.value)}
+                      className="h-8 rounded border border-input bg-background px-2 text-xs min-w-40"
+                    >
+                      <option value="">None selected</option>
+                      {overlayRooms.map(room => (
+                        <option key={room.id} value={room.id}>
+                          {room.roomLabel ?? `Room ${room.id}`}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={handleSaveNewDoor}
+                      disabled={saveDoorFeatureMutation.isPending}
+                    >
+                      Save Door
                     </Button>
                   </div>
                 )}
@@ -7351,6 +7508,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onDoubleClick={() => {
                         if (boundaryRedrawMode === 'new_room') {
                           handleFinishNewRoom();
+                          return;
+                        }
+                        if (boundaryRedrawMode === 'new_door') {
+                          handleFinishNewDoor();
                           return;
                         }
                         if (activeTool === "fire_assembly" && isDrawingFireAssembly) {

@@ -1552,6 +1552,54 @@ export const drawingAnalysisRouter = router({
     }),
 
   /**
+   * Save a manual door annotation for a page.
+   * Ownership: pageId → drawingAnalyses.userId must equal ctx.user.id
+   */
+  saveDoorFeature: protectedProcedure
+    .input(z.object({
+      pageId: z.number().int().positive(),
+      geometryJson: z.array(z.object({ x: z.number(), y: z.number() })).min(3),
+      roomId: z.number().int().positive().optional(),
+      metadataJson: z.record(z.string(), z.any()).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [page] = await db
+        .select({ drawingId: drawingPages.drawingId })
+        .from(drawingPages)
+        .where(eq(drawingPages.id, input.pageId));
+      if (!page) throw new TRPCError({ code: 'NOT_FOUND', message: 'Page not found' });
+
+      const [analysisRow] = await db
+        .select({ id: drawingAnalyses.id, projectId: drawingAnalyses.projectId })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
+      if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+
+      const xs = input.geometryJson.map(p => p.x);
+      const ys = input.geometryJson.map(p => p.y);
+      const centroid = {
+        x: xs.reduce((sum, value) => sum + value, 0) / xs.length,
+        y: ys.reduce((sum, value) => sum + value, 0) / ys.length,
+      };
+
+      const result = await db.insert(detectedFeatures).values({
+        pageId: input.pageId,
+        roomId: input.roomId ?? null,
+        featureType: 'door',
+        positionJson: centroid,
+        geometryJson: input.geometryJson,
+        confidence: '1.00',
+        metadataJson: input.metadataJson ?? null,
+        source: 'manual_annotation',
+      } as any);
+
+      return { featureId: result[0].insertId };
+    }),
+
+  /**
    * Phase C — load all DDA ray-cast polygons for a page (persisted across sessions).
    */
   getRoomPolygons: protectedProcedure

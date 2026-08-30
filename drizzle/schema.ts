@@ -1401,16 +1401,21 @@ export type RoboflowUnmatchedDetection = typeof roboflowUnmatchedDetections.$inf
 export type InsertRoboflowUnmatchedDetection = typeof roboflowUnmatchedDetections.$inferInsert;
 
 /**
- * Detected Features — architectural features within detected rooms
+ * Detected Features — architectural features
+ * Auto-detected rows remain room-scoped; manual annotations can be page-scoped.
  */
 export const detectedFeatures = mysqlTable("detectedFeatures", {
   id: int("id").autoincrement().primaryKey(),
-  roomId: int("roomId").notNull(),        // FK → detectedRooms.id
+  roomId: int("roomId"),                  // FK → detectedRooms.id
+  pageId: int("pageId"),                  // FK → drawingPages.id
 
   featureType: varchar("featureType", { length: 50 }).notNull(),
   positionJson: json("positionJson").notNull(),          // { x, y }
+  geometryJson: json("geometryJson"),                    // Array<{x,y}> polygon vertices in full-image px
   confidence: decimal("confidence", { precision: 3, scale: 2 }),
   metadataJson: json("metadataJson"),                    // { count, ...extra }
+  source: mysqlEnum("source", ["auto_detected", "manual_annotation"]).notNull().default("auto_detected"),
+  exportedAt: timestamp("exportedAt"),
 
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
