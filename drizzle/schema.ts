@@ -1363,6 +1363,10 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   areaSqm: decimal("areaSqm", { precision: 10, scale: 2 }),
   floorLevel: varchar("floorLevel", { length: 100 }),
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
+  spaceType: mysqlEnum("spaceType", [
+    "room", "corridor", "stairwell", "closet", "storage",
+    "mechanical", "vestibule", "lobby", "other",
+  ]).notNull().default("room"),
   occupancyDivision: int("occupancyDivision"),
   confidence: decimal("confidence", { precision: 3, scale: 2 }),
   flagsJson: json("flagsJson"),                          // JSON string[]

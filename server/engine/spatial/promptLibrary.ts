@@ -36,7 +36,7 @@ EXAMPLE DETECTIONS for multi-unit residential:
 - Label "KITCHEN AR-51" at pixel (1200,850) → {label:"Kitchen AR-51", boundingBox:{x:1100,y:780,width:380,height:240}, occupancyGroup:"C", confidence:0.85}
 - Label "VESTIBULE AR-30" at pixel (600,1100) → {label:"Vestibule AR-30", boundingBox:{x:540,y:1050,width:180,height:160}, occupancyGroup:"C", confidence:0.80}
 - Label "MECHANICAL" at pixel (300,1400) → {label:"Mechanical Room", boundingBox:{x:240,y:1340,width:220,height:200}, occupancyGroup:"F", confidence:0.85}
-- Label "CORRIDOR" at pixel (900,1300) → {label:"Corridor", boundingBox:{x:400,y:1250,width:1000,height:120}, occupancyGroup:"C", confidence:0.78}
+- Label "CORRIDOR" at pixel (900,1300) → {label:"Corridor", boundingBox:{x:400,y:1250,width:1000,height:120}, occupancyGroup:"C", spaceType:"corridor", confidence:0.78}
 `,
   },
 

@@ -28,6 +28,31 @@ const CROP_RIGHT_PCT = 0.15;  // title blocks are on the right — was erroneous
 const CROP_TOP_PCT = 0.15;
 const CLAUDE_VISION_MAX_PX = 2048;  // was 1568; higher res reduces inverse-scale amplification of LLM error
 
+const SPACE_TYPE_VALUES = [
+  'room',
+  'corridor',
+  'stairwell',
+  'closet',
+  'storage',
+  'mechanical',
+  'vestibule',
+  'lobby',
+  'other',
+] as const;
+
+type SpaceType = (typeof SPACE_TYPE_VALUES)[number];
+
+function inferSpaceTypeFromLabel(label: string): SpaceType {
+  if (/corridor|hallway|hall\b/i.test(label)) return 'corridor';
+  if (/stair|stairwell|stairway|landing/i.test(label)) return 'stairwell';
+  if (/\bwic\b|walk-in closet|closet/i.test(label)) return 'closet';
+  if (/storage|stor\b|locker|utility room/i.test(label)) return 'storage';
+  if (/mech|mechanical|electrical|utility/i.test(label)) return 'mechanical';
+  if (/vestibule/i.test(label)) return 'vestibule';
+  if (/lobby/i.test(label)) return 'lobby';
+  return 'room';
+}
+
 function normalizeRoomLabel(label: string): string {
   return label
     .replace(/\s*\(?(upper|lower|left|right|top|bottom|unit\s*\d+|floor\s*\d+)\)?\s*/gi, '')
@@ -342,17 +367,18 @@ export async function detectRoomsFromPage(
 
   reduceOverlap(rawRooms);
 
-  const rooms: DetectedRoom[] = rawRooms.map((r: any) => ({
+  const rooms = rawRooms.map((r: any) => ({
     label: r.label ?? 'Unknown Room',
     boundingBox: r.boundingBox ?? { x: 0, y: 0, width: 0, height: 0 },
     areaSqm: r.areaSqm ?? 0,
     floorLevel: r.floorLevel ?? 'Ground Floor',
     occupancyGroup: r.occupancyGroup ?? 'D',
+    spaceType: r.spaceType ?? inferSpaceTypeFromLabel(r.label ?? ''),
     occupancyDivision: r.occupancyDivision ?? null,
     confidence: Math.min(1, Math.max(0, r.confidence ?? 0.5)),
     features: r.features ?? [],
     flags: r.flags ?? [],
-  }));
+  })) as Array<DetectedRoom & { spaceType: SpaceType }>;
 
   const inBoundsRooms = rooms.filter(r => {
     const b = r.boundingBox;
@@ -648,21 +674,22 @@ export async function saveRoomsToDb(
   }
 
   // ── Path C: Re-insert confirmed rooms after clearing ──────────────────
-  for (const confirmed of confirmedRooms) {
-    await db.insert(detectedRooms).values({
-      pageId:            confirmed.pageId,
-      projectId:         confirmed.projectId,
-      roomLabel:         confirmed.roomLabel,
-      boundingBoxJson:   confirmed.boundingBoxJson,
-      polygonJson:       confirmed.polygonJson,
-      polygonSource:     confirmed.polygonSource,
-      areaSqm:           confirmed.areaSqm,
-      floorLevel:        confirmed.floorLevel,
-      occupancyGroup:    confirmed.occupancyGroup,
-      occupancyDivision: confirmed.occupancyDivision,
-      confidence:        confirmed.confidence,
-      flagsJson:         confirmed.flagsJson,
-      flaggedForReview:  0,
+    for (const confirmed of confirmedRooms) {
+      await db.insert(detectedRooms).values({
+        pageId:            confirmed.pageId,
+        projectId:         confirmed.projectId,
+        roomLabel:         confirmed.roomLabel,
+        boundingBoxJson:   confirmed.boundingBoxJson,
+        polygonJson:       confirmed.polygonJson,
+        polygonSource:     confirmed.polygonSource,
+        areaSqm:           confirmed.areaSqm,
+        floorLevel:        confirmed.floorLevel,
+        occupancyGroup:    confirmed.occupancyGroup,
+        spaceType:         confirmed.spaceType ?? 'room',
+        occupancyDivision: confirmed.occupancyDivision,
+        confidence:        confirmed.confidence,
+        flagsJson:         confirmed.flagsJson,
+        flaggedForReview:  0,
       manualOverride:    1,
       correctionCount:   confirmed.correctionCount,
       lastCorrectedAt:   confirmed.lastCorrectedAt,
@@ -702,6 +729,7 @@ export async function saveRoomsToDb(
       areaSqm: room.areaSqm.toFixed(2),
       floorLevel: room.floorLevel,
       occupancyGroup: room.occupancyGroup,
+      spaceType: (room as any).spaceType ?? 'room',
       occupancyDivision: room.occupancyDivision ?? null,
       confidence: room.confidence.toFixed(3),
       flagsJson: room.flags.length > 0 ? JSON.stringify(room.flags) : null,
