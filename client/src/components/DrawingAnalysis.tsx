@@ -594,6 +594,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showAddRoomForm, setShowAddRoomForm] = useState(false);
   const [newRoomLabel, setNewRoomLabel] = useState('');
   const [newRoomOccupancy, setNewRoomOccupancy] = useState('C');
+  const [newSpaceType, setNewSpaceType] = useState<
+    'room' | 'corridor' | 'stairwell' | 'closet' | 'storage' | 'mechanical' | 'vestibule' | 'lobby' | 'other'
+  >('room');
   const [newDoorVertices, setNewDoorVertices] = useState<{ x: number; y: number }[]>([]);
   const [doorAnnotationPhase, setDoorAnnotationPhase] = useState<'leaf' | 'swing' | null>(null);
   const [arcAnchorPoints, setArcAnchorPoints] = useState<Point[]>([]);
@@ -1190,6 +1193,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setShowAddRoomForm(false);
     setNewRoomLabel('');
     setNewRoomOccupancy('C');
+    setNewSpaceType('room');
   }, []);
 
   const handleCancelNewDoor = useCallback(() => {
@@ -1223,15 +1227,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         roomLabel,
         polygonPoints,
         occupancyGroup: newRoomOccupancy,
+        spaceType: newSpaceType,
         seedX: polygonPoints[0].x,
         seedY: polygonPoints[0].y,
       });
       await refetchRoomsForDrawing();
-      toast.success(`Room saved — ${roomLabel}`);
+      toast.success(`Area saved — ${roomLabel}`);
       handleCancelNewRoom();
     } catch (err) {
       console.error('[DrawingAnalysis] Failed to save new room:', err);
-      toast.error('Failed to save new room.');
+      toast.error('Failed to save new area.');
     }
   }, [
     analysisId,
@@ -1240,6 +1245,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     newRoomLabel,
     newRoomVertices,
     newRoomOccupancy,
+    newSpaceType,
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
   ]);
@@ -6690,19 +6696,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           variant="outline"
                           onClick={() => {
                             setBoundaryRedrawMode('new_room');
-                            setNewRoomVertices([]);
-                            setShowAddRoomForm(false);
-                            setNewRoomLabel('');
-                            setNewRoomOccupancy('C');
-                            setNewDoorVertices([]);
-                            setShowAddDoorForm(false);
-                            setNewDoorServedRoomId('');
-                          }}
-                          className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                          title="Draw a polygon for a missed room"
-                        >
+                          setNewRoomVertices([]);
+                          setShowAddRoomForm(false);
+                          setNewRoomLabel('');
+                          setNewRoomOccupancy('C');
+                          setNewSpaceType('room');
+                          setNewDoorVertices([]);
+                          setShowAddDoorForm(false);
+                          setNewDoorServedRoomId('');
+                        }}
+                        className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        title="Draw a polygon for a missed area"
+                      >
                           <Plus className="w-4 h-4 mr-1" />
-                          Add Room
+                          Add Area
                         </Button>
                       </>
                     )}
@@ -6755,7 +6762,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     {boundaryRedrawMode === 'new_room' && (
                       <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
                         <span className="text-xs text-muted-foreground">
-                          New room: {newRoomVertices.length} vertices
+                          New area: {newRoomVertices.length} vertices
                         </span>
                         <Button
                           size="sm"
@@ -6828,7 +6835,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     <Input
                       value={newRoomLabel}
                       onChange={(e) => setNewRoomLabel(e.target.value)}
-                      placeholder="Room label"
+                      placeholder="Area label"
                       className="h-8 w-40 text-xs"
                     />
                     <select
@@ -6840,13 +6847,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <option key={g} value={g}>Group {g}</option>
                       ))}
                     </select>
+                    <select
+                      value={newSpaceType}
+                      onChange={(e) => setNewSpaceType(e.target.value as typeof newSpaceType)}
+                      className="h-8 rounded border border-input bg-background px-2 text-xs"
+                    >
+                      {['room', 'corridor', 'stairwell', 'closet', 'storage', 'mechanical', 'vestibule', 'lobby', 'other'].map(t => (
+                        <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      ))}
+                    </select>
                     <Button
                       size="sm"
                       className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={handleSaveNewRoom}
                       disabled={saveRoomPolygonMutation.isPending}
                     >
-                      Save Room
+                      Save Area
                     </Button>
                   </div>
                 )}
