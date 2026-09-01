@@ -1365,7 +1365,7 @@ export const detectedRooms = mysqlTable("detectedRooms", {
   occupancyGroup: varchar("occupancyGroup", { length: 10 }),
   spaceType: mysqlEnum("spaceType", [
     "room", "corridor", "stairwell", "closet", "storage",
-    "mechanical", "vestibule", "lobby", "other",
+    "mechanical", "garage", "exterior", "vestibule", "lobby", "other",
   ]).notNull().default("room"),
   occupancyDivision: int("occupancyDivision"),
   confidence: decimal("confidence", { precision: 3, scale: 2 }),

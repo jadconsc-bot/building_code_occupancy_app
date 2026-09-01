@@ -6852,8 +6852,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       onChange={(e) => setNewSpaceType(e.target.value as typeof newSpaceType)}
                       className="h-8 rounded border border-input bg-background px-2 text-xs"
                     >
-                      {['room', 'corridor', 'stairwell', 'closet', 'storage', 'mechanical', 'vestibule', 'lobby', 'other'].map(t => (
-                        <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      {['room', 'corridor', 'stairwell', 'closet', 'storage', 'mechanical', 'garage', 'exterior', 'vestibule', 'lobby', 'other'].map(t => (
+                        <option key={t} value={t}>{t === 'exterior' ? 'Exterior/Site' : t.charAt(0).toUpperCase() + t.slice(1)}</option>
                       ))}
                     </select>
                     <Button

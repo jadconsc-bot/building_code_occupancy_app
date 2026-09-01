@@ -1491,7 +1491,7 @@ export const drawingAnalysisRouter = router({
       occupancyGroup: z.string().optional(),
       spaceType: z.enum([
         'room', 'corridor', 'stairwell', 'closet', 'storage',
-        'mechanical', 'vestibule', 'lobby', 'other',
+        'mechanical', 'garage', 'exterior', 'vestibule', 'lobby', 'other',
       ]).optional(),
       seedX: z.number(),
       seedY: z.number(),

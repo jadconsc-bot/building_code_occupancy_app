@@ -12,7 +12,7 @@ For each room/space detected, classify occupancy using NBC 2020:
 - F: Industrial (warehouses, labs, manufacturing)
 
 Also classify each room/space with a semantic spaceType using:
-room, corridor, stairwell, closet, storage, mechanical, vestibule, lobby, other
+room, corridor, stairwell, closet, storage, mechanical, garage, exterior, vestibule, lobby, other
 
 Default to more restrictive classification when ambiguous.
 Flag rooms with confidence below 0.7 for human review.`;
@@ -57,7 +57,7 @@ Critical rules:
 9. DO NOT detect equipment labels, procurement symbols, or specification call-outs as rooms. These are graphical shapes that annotate equipment — not enclosed floor plan spaces. Ignore any shape whose text contains: "DESIGN-BUILDER", "CONTRACTOR", "PROVIDED & INSTALLED", "BY OWNER", "BY OTHERS", "N.I.C.", "NOT IN CONTRACT", "OWNER SUPPLIED", "LEGEND", "REVISION", "KEYNOTE", "PARTITION PLAN", "LOWER FLOOR", "FOUNDATION PLAN", "ROOF PLAN". Also ignore: revision clouds (irregular scalloped outlines used to mark drawing changes), north arrows, scale bars, drawing title bubbles, and legend key boxes. These shapes have NO bounding box in the rooms array.
 10. DOOR WIDTH METADATA: For each feature of type "door" or "door_fire_rated", look for a dimension annotation immediately adjacent to the door symbol (e.g. "900", "2'-6\"", "36\"", "860mm", "0.9m", "2'-8\""). If a dimension annotation is clearly visible near the door, convert it to millimetres and record it as metadata: { "width": <number in mm> }. Imperial conversions: 2'-0"=610mm, 2'-6"=762mm, 2'-8"=813mm, 2'-10"=864mm, 3'-0"=914mm, 3'-6"=1067mm, 4'-0"=1219mm. If no dimension annotation is clearly visible adjacent to the door, omit metadata entirely — do not guess.
 11. WASHROOMS AND BATHROOMS: Even when unlabeled, detect any space containing toilet, bathroom sink, or bathtub fixtures. These are almost always present between residential units and in mechanical cores. Label as "Washroom", "Bathroom", or "W/C" based on size and fixtures visible.
-12. SPACE TYPE: For every detected room, set spaceType to one of room, corridor, stairwell, closet, storage, mechanical, vestibule, lobby, other. Use corridor for hallways/common corridors, stairwell for stairs and landings, closet for walk-in closets, storage for utility/storage rooms, mechanical for mech/electrical/service rooms, vestibule for entry vestibules, lobby for lobbies, and room for ordinary enclosed rooms.
+12. SPACE TYPE: For every detected room, set spaceType to one of room, corridor, stairwell, closet, storage, mechanical, garage, exterior, vestibule, lobby, other. Use corridor for hallways/common corridors, stairwell for stairs and stair landings, closet for walk-in closets, storage for utility/storage rooms, mechanical for mech/electrical/service rooms, garage for garage spaces, exterior for driveways/patios/landings/walkways/exterior steps, vestibule for entry vestibules, lobby for lobbies, and room for ordinary enclosed rooms.
 ${labelConstraint}
 13. DOOR AND WINDOW TAGS: In architectural drawings, doors and windows are identified by elongated hexagon tags. These are NOT room labels and NOT room boundaries — do not create rooms for them.
 Door tags: elongated hexagon containing alphanumeric text like "D201", "D202", "101" — these reference the door schedule. Record as a feature: type "door_tag", metadata: { "tagId": "D201" }.
@@ -73,7 +73,7 @@ export const ROOM_DETECTION_JSON_SCHEMA = {
     areaSqm: 'number',
     floorLevel: 'string',
     occupancyGroup: 'A|B|C|D|E|F',
-    spaceType: 'room|corridor|stairwell|closet|storage|mechanical|vestibule|lobby|other',
+    spaceType: 'room|corridor|stairwell|closet|storage|mechanical|garage|exterior|vestibule|lobby|other',
     occupancyDivision: 'number|null',
     confidence: 'number 0.0-1.0',
     features: [{

@@ -56,6 +56,8 @@ EXAMPLE DETECTIONS for single-family residential:
 - Label "ENSUITE" at pixel (1100,380) → {label:"Ensuite", boundingBox:{x:1060,y:320,width:280,height:240}, occupancyGroup:"C", confidence:0.85}
 - Label "GREAT ROOM" at pixel (600,900) → {label:"Great Room", boundingBox:{x:400,y:780,width:680,height:480}, occupancyGroup:"C", confidence:0.88}
 - Label "GARAGE" at pixel (200,800) → {label:"Garage", boundingBox:{x:80,y:700,width:380,height:480}, occupancyGroup:"F", confidence:0.85}
+- Label "DOUBLE GARAGE" at pixel (220,820) → {label:"Garage", boundingBox:{x:90,y:710,width:420,height:500}, occupancyGroup:"F", spaceType:"garage", confidence:0.86}
+- Label "CONCRETE DRIVEWAY" at pixel (250,1220) → {label:"Concrete Driveway", boundingBox:{x:100,y:1120,width:920,height:260}, occupancyGroup:"C", spaceType:"exterior", confidence:0.82}
 - Label "MUDROOM" at pixel (380,700) → {label:"Mudroom", boundingBox:{x:320,y:650,width:180,height:160}, occupancyGroup:"C", confidence:0.80}
 `,
   },
