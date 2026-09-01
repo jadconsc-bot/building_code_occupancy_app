@@ -10,6 +10,7 @@ import { extractLegend, formatLegendForPrompt } from './legendExtractor';
 import { evaluateDetectionAccuracy } from './roomDetectionEvaluator';
 import { getPromptTemplate, DrawingType } from './promptLibrary';
 import type { RoomDetectionResult, DetectedRoom } from './types';
+import { inferSpaceTypeFromLabel, type SpaceType } from './spaceTypeClassifier';
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../../db';
 import { detectedRooms, detectedFeatures, drawingPages, roboflowUnmatchedDetections } from '../../../drizzle/schema';
@@ -27,35 +28,6 @@ const CONFIDENCE_THRESHOLD = 0.7;
 const CROP_RIGHT_PCT = 0.15;  // title blocks are on the right — was erroneously CROP_LEFT_PCT=0.20
 const CROP_TOP_PCT = 0.15;
 const CLAUDE_VISION_MAX_PX = 2048;  // was 1568; higher res reduces inverse-scale amplification of LLM error
-
-const SPACE_TYPE_VALUES = [
-  'room',
-  'corridor',
-  'stairwell',
-  'closet',
-  'storage',
-  'mechanical',
-  'garage',
-  'exterior',
-  'vestibule',
-  'lobby',
-  'other',
-] as const;
-
-type SpaceType = (typeof SPACE_TYPE_VALUES)[number];
-
-function inferSpaceTypeFromLabel(label: string): SpaceType {
-  if (/corridor|hallway|hall\b/i.test(label)) return 'corridor';
-  if (/stair|stairwell|stairway/i.test(label)) return 'stairwell';
-  if (/\bwic\b|walk-in closet|closet/i.test(label)) return 'closet';
-  if (/storage|stor\b|locker|utility room/i.test(label)) return 'storage';
-  if (/mech|mechanical|electrical|utility/i.test(label)) return 'mechanical';
-  if (/garage/i.test(label)) return 'garage';
-  if (/driveway|concrete|patio|landing|walkway|porch|deck\b/i.test(label)) return 'exterior';
-  if (/vestibule/i.test(label)) return 'vestibule';
-  if (/lobby/i.test(label)) return 'lobby';
-  return 'room';
-}
 
 function normalizeRoomLabel(label: string): string {
   return label
