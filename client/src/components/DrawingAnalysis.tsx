@@ -567,6 +567,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     missedRooms: string[];
   } | null>(null);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
+  const [doorFeaturesData, setDoorFeaturesData] = useState<any[]>([]);
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
   const [roomPollCount, setRoomPollCount] = useState(0);
   const [detectedScale, setDetectedScale] = useState<string | null>(null);
@@ -574,6 +575,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const overlayRooms = useMemo(
     () => detectedRoomsData.filter((room: any) => room.pageId === currentPageId),
     [detectedRoomsData, currentPageId],
+  );
+  const overlayDoors = useMemo(
+    () => doorFeaturesData.filter((door: any) => door.pageId === currentPageId),
+    [doorFeaturesData, currentPageId],
   );
   const [calibrationRestored, setCalibrationRestored] = useState(false);
 
@@ -1286,14 +1291,30 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const geometryJson = newDoorVertices.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
     const roomId = newDoorServedRoomId ? Number(newDoorServedRoomId) : undefined;
     const metadataJson = doorArcAssisted ? { arcAssisted: true } : undefined;
+    const centroid = geometryJson.length > 0
+      ? {
+          x: geometryJson.reduce((sum, point) => sum + point.x, 0) / geometryJson.length,
+          y: geometryJson.reduce((sum, point) => sum + point.y, 0) / geometryJson.length,
+        }
+      : null;
 
     try {
-      await saveDoorFeatureMutation.mutateAsync({
+      const result = await saveDoorFeatureMutation.mutateAsync({
         pageId: currentPageId,
         geometryJson,
         roomId,
         metadataJson,
       });
+      setDoorFeaturesData(prev => [...prev, {
+        id: result.featureId,
+        pageId: currentPageId,
+        roomId: roomId ?? null,
+        featureType: 'door',
+        positionJson: centroid,
+        geometryJson,
+        metadataJson: metadataJson ?? null,
+      }]);
+      await refetchRoomsForDrawing();
       toast.success('Door annotation saved.');
       handleCancelNewDoor();
     } catch (err) {
@@ -1307,6 +1328,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     handleCancelNewDoor,
     newDoorServedRoomId,
     newDoorVertices,
+    refetchRoomsForDrawing,
     saveDoorFeatureMutation,
   ]);
 
@@ -1431,11 +1453,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setNewDoorVertices([]);
     setShowAddDoorForm(false);
     setNewDoorServedRoomId('');
+    setDoorFeaturesData([]);
   }, [analysisId]);
 
   useEffect(() => {
     if (roomsData !== undefined) {
       setRoomPollCount(c => c + 1);
+    }
+    if (roomsData?.pages) {
+      setDoorFeaturesData(
+        roomsData.pages.flatMap((page: any) => page.doorFeatures ?? []),
+      );
     }
     if (roomsData?.rooms && roomsData.rooms.length > 0) {
       setDetectedRoomsData(prev => {
@@ -2687,6 +2715,34 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       }
     }
     // ===== END ROOM OVERLAY LAYER =====
+
+    // ===== DOOR OVERLAY LAYER =====
+    if (showRoomOverlay && overlayDoors?.length) {
+      const naturalW = imageRef.current?.naturalWidth ?? 0;
+      const naturalH = imageRef.current?.naturalHeight ?? 0;
+      const scaleX = (analyzedPageDims && naturalW > 0 && analyzedPageDims.width > 0)
+        ? naturalW / analyzedPageDims.width : 1;
+      const scaleY = (analyzedPageDims && naturalH > 0 && analyzedPageDims.height > 0)
+        ? naturalH / analyzedPageDims.height : 1;
+
+      ctx.save();
+      for (const door of overlayDoors) {
+        const polygon = Array.isArray(door.geometryJson) ? door.geometryJson : [];
+        if (!polygon || polygon.length < 3) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(polygon[0].x * scaleX * zoom + pan.x, polygon[0].y * scaleY * zoom + pan.y);
+        for (let i = 1; i < polygon.length; i++) {
+          ctx.lineTo(polygon[i].x * scaleX * zoom + pan.x, polygon[i].y * scaleY * zoom + pan.y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // ===== END DOOR OVERLAY LAYER =====
 
     // ===== POLYGON EDIT MODE LAYER =====
     // Phase C integration point: ray-cast polygons from WallSegments render here too.

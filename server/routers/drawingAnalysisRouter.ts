@@ -1203,11 +1203,30 @@ export const drawingAnalysisRouter = router({
         .where(eq(drawingPages.drawingId, input.drawingId));
 
       const rooms = [];
+      const pagesWithDoors = [];
       for (const page of pages) {
         const pageRooms = await db
           .select()
           .from(detectedRooms)
           .where(eq(detectedRooms.pageId, page.id));
+
+        const doorFeatures = await db
+          .select()
+          .from(detectedFeatures)
+          .where(and(
+            eq(detectedFeatures.pageId, page.id),
+            eq(detectedFeatures.featureType, 'door'),
+          ));
+
+        pagesWithDoors.push({
+          ...page,
+          doorFeatures: doorFeatures.map(f => ({
+            ...f,
+            geometryJson: typeof f.geometryJson === 'string'
+              ? safeJsonParse(f.geometryJson)
+              : f.geometryJson,
+          })),
+        });
 
         for (const room of pageRooms) {
           const features = await db
@@ -1236,7 +1255,7 @@ export const drawingAnalysisRouter = router({
       }
 
       console.log('[RoomQuery] returning', rooms.length, 'rooms for drawingId', input.drawingId);
-      return { pages, rooms };
+      return { pages: pagesWithDoors, rooms };
     }),
 
   /**
