@@ -6740,6 +6740,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             setShowAddRoomForm(false);
                             setNewRoomLabel('');
                             setNewRoomOccupancy('C');
+                            if (zoom < 1.0) {
+                              toast.info('Zoom in for more precise door tracing', { duration: 3000 });
+                            }
                           }}
                           className="text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                           title="Annotate a door opening"
