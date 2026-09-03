@@ -6,14 +6,12 @@ import {
   getScaleById,
   calculateRealDistance,
   formatDistance,
-  ScaleSystem,
-  ArchitecturalScale
-} from '../lib/architecturalScales';
+} from '../client/src/lib/architecturalScales';
 
 describe('Architectural Scales Data', () => {
   describe('Imperial Scales', () => {
-    it('should have 10 imperial scales', () => {
-      expect(imperialScales).toHaveLength(10);
+    it('should have 12 imperial scales', () => {
+      expect(imperialScales).toHaveLength(12);
     });
 
     it('should have correct scale ratios for common scales', () => {
@@ -21,9 +19,17 @@ describe('Architectural Scales Data', () => {
       expect(scale1_8).toBeDefined();
       expect(scale1_8?.ratio).toBe(96); // 1/8" = 1'-0" means 1" = 8' = 96"
 
+      const scale3_16 = imperialScales.find(s => s.id === 'imp-3-16');
+      expect(scale3_16).toBeDefined();
+      expect(scale3_16?.ratio).toBe(64); // 3/16" = 1'-0" means 1" = 16/3' = 64"
+
       const scale1_4 = imperialScales.find(s => s.id === 'imp-1-4');
       expect(scale1_4).toBeDefined();
       expect(scale1_4?.ratio).toBe(48); // 1/4" = 1'-0" means 1" = 4' = 48"
+
+      const scale3_8 = imperialScales.find(s => s.id === 'imp-3-8');
+      expect(scale3_8).toBeDefined();
+      expect(scale3_8?.ratio).toBe(32); // 3/8" = 1'-0" means 1" = 8/3' = 32"
 
       const scale1_1 = imperialScales.find(s => s.id === 'imp-1-1');
       expect(scale1_1).toBeDefined();
@@ -82,7 +88,7 @@ describe('Scale Utility Functions', () => {
     it('should return imperial scales for imperial system', () => {
       const scales = getScalesBySystem('imperial');
       expect(scales).toBe(imperialScales);
-      expect(scales).toHaveLength(10);
+      expect(scales).toHaveLength(12);
     });
 
     it('should return metric scales for metric system', () => {
@@ -115,17 +121,12 @@ describe('Scale Utility Functions', () => {
 describe('Distance Calculations', () => {
   describe('calculateRealDistance - Imperial', () => {
     it('should calculate distance correctly at 1/4" = 1\'-0" scale', () => {
-      // At 1/4" = 1'-0", 1 inch on drawing = 4 feet in reality
-      // If we have 100 pixels per inch on drawing, and measure 200 pixels
-      // That's 2 inches on drawing = 8 feet in reality
       const scale = getScaleById('imp-1-4')!;
-      const pixelsPerDrawingUnit = 100; // 100 pixels per inch on drawing
-      const pixelDistance = 200; // 200 pixels measured
+      const pixelsPerDrawingUnit = 100;
+      const pixelDistance = 200;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'imperial');
-      
-      // 200 pixels / 100 pixels per inch = 2 inches on drawing
-      // 2 inches * 48 (ratio) = 96 inches = 8 feet
+
       expect(result.value).toBeCloseTo(8, 1);
       expect(result.unit).toBe('ft');
     });
@@ -133,23 +134,21 @@ describe('Distance Calculations', () => {
     it('should calculate distance correctly at 1/8" = 1\'-0" scale', () => {
       const scale = getScaleById('imp-1-8')!;
       const pixelsPerDrawingUnit = 100;
-      const pixelDistance = 100; // 1 inch on drawing
+      const pixelDistance = 100;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'imperial');
-      
-      // 1 inch on drawing * 96 (ratio) = 96 inches = 8 feet
+
       expect(result.value).toBeCloseTo(8, 1);
       expect(result.unit).toBe('ft');
     });
 
     it('should return inches for small measurements', () => {
-      const scale = getScaleById('imp-full')!; // 1:1 scale
+      const scale = getScaleById('imp-full')!;
       const pixelsPerDrawingUnit = 100;
-      const pixelDistance = 50; // 0.5 inches on drawing
+      const pixelDistance = 50;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'imperial');
-      
-      // At 1:1, 0.5 inches on drawing = 0.5 inches in reality
+
       expect(result.value).toBeCloseTo(0.5, 1);
       expect(result.unit).toBe('in');
     });
@@ -157,17 +156,12 @@ describe('Distance Calculations', () => {
 
   describe('calculateRealDistance - Metric', () => {
     it('should calculate distance correctly at 1:100 scale', () => {
-      // At 1:100, 1mm on drawing = 100mm in reality
-      // If we have 10 pixels per mm on drawing, and measure 100 pixels
-      // That's 10mm on drawing = 1000mm = 1m in reality
       const scale = getScaleById('met-1-100')!;
-      const pixelsPerDrawingUnit = 10; // 10 pixels per mm on drawing
-      const pixelDistance = 100; // 100 pixels measured
+      const pixelsPerDrawingUnit = 10;
+      const pixelDistance = 100;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'metric');
-      
-      // 100 pixels / 10 pixels per mm = 10mm on drawing
-      // 10mm * 100 (ratio) = 1000mm = 1m
+
       expect(result.value).toBeCloseTo(1, 1);
       expect(result.unit).toBe('m');
     });
@@ -175,11 +169,10 @@ describe('Distance Calculations', () => {
     it('should calculate distance correctly at 1:50 scale', () => {
       const scale = getScaleById('met-1-50')!;
       const pixelsPerDrawingUnit = 10;
-      const pixelDistance = 100; // 10mm on drawing
+      const pixelDistance = 100;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'metric');
-      
-      // 10mm * 50 = 500mm = 50cm (function converts to cm when >= 10mm)
+
       expect(result.value).toBeCloseTo(50, 0);
       expect(result.unit).toBe('cm');
     });
@@ -187,11 +180,10 @@ describe('Distance Calculations', () => {
     it('should return cm for medium measurements', () => {
       const scale = getScaleById('met-1-10')!;
       const pixelsPerDrawingUnit = 10;
-      const pixelDistance = 50; // 5mm on drawing
+      const pixelDistance = 50;
 
       const result = calculateRealDistance(pixelDistance, pixelsPerDrawingUnit, scale, 'metric');
-      
-      // 5mm * 10 = 50mm = 5cm
+
       expect(result.value).toBeCloseTo(5, 1);
       expect(result.unit).toBe('cm');
     });

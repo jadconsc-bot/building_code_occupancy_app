@@ -6541,7 +6541,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     const newSystem = v as ScaleSystem;
                     setScaleSystem(newSystem);
                     // Reset to default scale for the new system
-                    setSelectedScale(newSystem === "imperial" ? imperialScales[3] : metricScales[5]);
+                    setSelectedScale(newSystem === "imperial"
+                      ? imperialScales[3]
+                      : getScaleById('met-1-100') ?? metricScales[5]);
                   }}>
                     <SelectTrigger className="w-24 h-8 text-xs">
                       <SelectValue />

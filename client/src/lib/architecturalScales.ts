@@ -44,9 +44,23 @@ export const imperialScales: ArchitecturalScale[] = [
     levelOfDetail: "Interiors and exteriors with walls, floors and furniture"
   },
   {
+    id: "imp-3-16",
+    label: '3/16" = 1\'-0"',
+    ratio: 64, // 3/16 inch = 1 foot, so 1 inch = 16/3 feet = 64 inches
+    drawingType: "Floor plans, elevations, and sections",
+    levelOfDetail: "Interiors and exteriors with walls, floors and furniture"
+  },
+  {
     id: "imp-1-4",
     label: '1/4" = 1\'-0"',
     ratio: 48, // 1/4 inch = 1 foot, so 1 inch = 4 feet = 48 inches
+    drawingType: "Room layouts and interior elevations",
+    levelOfDetail: "Materials, construction, and joinery"
+  },
+  {
+    id: "imp-3-8",
+    label: '3/8" = 1\'-0"',
+    ratio: 32, // 3/8 inch = 1 foot, so 1 inch = 8/3 feet = 32 inches
     drawingType: "Room layouts and interior elevations",
     levelOfDetail: "Materials, construction, and joinery"
   },
