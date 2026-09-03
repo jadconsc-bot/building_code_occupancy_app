@@ -185,17 +185,17 @@ export function calculateWashroomRequirements(
                     : input.province === 'BC' ? 'BCBC 2024'
                     : 'NBC 2020';
 
-  // Residential — NBC 3.7.2.2.(1)(c): 1 WC + 1 lav per dwelling unit
+  // Residential — NBC 3.7.2.2.(1)(c): at least 1 WC + 1 lav per dwelling unit.
+  // Flat minimum, not scaled by occupant load.
   if (input.occupancyGroup === 'C') {
-    const units = Math.ceil(input.occupantLoad / 2);
-    assumptions.push('Residential: 1 WC + 1 lavatory per dwelling unit (NBC 3.7.2.2.(1)(c))');
+    assumptions.push('Residential: at least 1 water closet and 1 lavatory per dwelling unit (NBC 3.7.2.2.(1)(c)) - flat minimum, not occupant-load-scaled');
     return {
       occupancyGroup: input.occupancyGroup,
       occupantLoad:   input.occupantLoad,
       required: {
-        waterClosetsMale:        units,
-        waterClosetsFemale:      units,
-        lavatories:              units,
+        waterClosetsMale:        1,
+        waterClosetsFemale:      1,
+        lavatories:              1,
         accessibleStallsRequired: input.occupantLoad > 1,
       },
       ruleId:              `WC-3.7.2.2-${input.province}`,
@@ -203,9 +203,9 @@ export function calculateWashroomRequirements(
       codeEdition,
       jurisdictionSource:  input.jurisdictionSource,
       evaluationTimestamp: timestamp,
-      confidence:          'inferred',
+      confidence:          'confirmed',
       assumptions,
-      severity:            'info',
+      severity:            'pass',
     };
   }
 

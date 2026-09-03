@@ -145,6 +145,42 @@ describe('Group E — Mercantile (Article 3.7.2.2.(11))', () => {
   });
 });
 
+// ─── Group C (Residential) — Article 3.7.2.2.(1)(c) ─────────────────────────
+
+describe('Group C — Residential (Article 3.7.2.2.(1)(c))', () => {
+  it('2 persons still returns 1 WC male, 1 WC female, 1 lavatory', () => {
+    const r = req({ occupancyGroup: 'C', occupantLoad: 2 });
+    expect(r.required.waterClosetsMale).toBe(1);
+    expect(r.required.waterClosetsFemale).toBe(1);
+    expect(r.required.lavatories).toBe(1);
+  });
+
+  it('20 persons still returns 1 WC male, 1 WC female, 1 lavatory', () => {
+    const r = req({ occupancyGroup: 'C', occupantLoad: 20 });
+    expect(r.required.waterClosetsMale).toBe(1);
+    expect(r.required.waterClosetsFemale).toBe(1);
+    expect(r.required.lavatories).toBe(1);
+  });
+
+  it('0 persons still returns 1 WC male, 1 WC female, 1 lavatory', () => {
+    const r = req({ occupancyGroup: 'C', occupantLoad: 0 });
+    expect(r.required.waterClosetsMale).toBe(1);
+    expect(r.required.waterClosetsFemale).toBe(1);
+    expect(r.required.lavatories).toBe(1);
+  });
+
+  it('cites Article 3.7.2.2.(1)(c)', () => {
+    const r = req({ occupancyGroup: 'C', occupantLoad: 2 });
+    expect(r.nbcRef).toContain('3.7.2.2.(1)(c)');
+  });
+
+  it('uses confirmed pass metadata', () => {
+    const r = req({ occupancyGroup: 'C', occupantLoad: 2 });
+    expect(r.confidence).toBe('confirmed');
+    expect(r.severity).toBe('pass');
+  });
+});
+
 // ─── Group F (Industrial) — Table 3.7.2.2.-C ─────────────────────────────────
 
 describe('Group F — Industrial (Table 3.7.2.2.-C)', () => {
