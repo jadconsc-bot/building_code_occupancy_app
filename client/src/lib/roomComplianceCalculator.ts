@@ -76,7 +76,7 @@ function isPointNearPolygon(
  * polygon: image-coordinate points (px)
  * pixelsPerM: calibrated pixels-per-metre, or null if uncalibrated
  *
- * Area rule:     NBC 9.5.21  — bedroom ≥ 7.4 m², other habitable ≥ 4.65 m²
+ * Area rule:     NBC Section 9.5 - Minimum Areas — bedroom ≥ 7.4 m², other habitable ≥ 4.65 m²
  * Egress window: NBC 9.10.7  — ≥ 0.35 m², min dimension 380 mm (sleeping rooms)
  * Travel distance: NBC 3.4.2.5 — wired from travelDistanceResults by room label
  */

@@ -201,12 +201,57 @@ export function runCalculatorOrchestrator(
   const occupantLoad: OrchestratorResult['occupantLoad'] = [];
   let totalOccupants = 0;
 
+  const groupCRooms = input.rooms.filter(
+    r => r.occupancyGroup.trim().toUpperCase() === 'C' && r.areaM2 !== null && r.areaM2 > 0
+  );
+
+  if (groupCRooms.length > 0) {
+    const totalGroupCArea = groupCRooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0);
+    const bedroomRooms = groupCRooms.filter(r => /bed|sleep|master|bedroom/i.test(r.label));
+    const bedroomCount = bedroomRooms.length;
+    const issueId = 'OCC-UNIT-001';
+
+    occupantLoad.push({
+      roomLabel: 'Dwelling Unit',
+      occupancyGroup: 'C',
+      areaM2: totalGroupCArea,
+      areaM2PerPerson: 0,
+      maxOccupants: bedroomCount > 0 ? bedroomCount * 2 : 0,
+      nbcRef: 'NBC 3.1.17.1 Note (2)',
+    });
+
+    if (bedroomCount > 0) {
+      const unitOccupants = bedroomCount * 2;
+      totalOccupants += unitOccupants;
+      findings.push({
+        issueId,
+        severity: 'pass',
+        description: 'Occupant load — Dwelling unit',
+        actual: `Total area: ${totalGroupCArea.toFixed(1)} m² — ${bedroomCount} bedroom${bedroomCount !== 1 ? 's' : ''} identified × 2 persons/bedroom = ${unitOccupants} persons`,
+        required: '2 persons per bedroom (dwelling units)',
+        citation: 'NBC 3.1.17.1 Note (2)',
+      });
+      passCount++;
+    } else {
+      findings.push({
+        issueId,
+        severity: 'advisory',
+        description: 'Occupant load — Dwelling unit',
+        actual: `Total area: ${totalGroupCArea.toFixed(1)} m² — no bedroom-labeled rooms detected among Group C spaces; occupant count could not be determined`,
+        required: 'Verify bedroom count and occupancy classification — NBC 3.1.17.1 Note (2) requires 2 persons/bedroom for dwelling units',
+        citation: 'NBC 3.1.17.1 Note (2)',
+      });
+      advisoryCount++;
+    }
+  }
+
   for (let i = 0; i < input.rooms.length; i++) {
     const room = input.rooms[i];
     if (room.areaM2 === null || room.areaM2 <= 0) continue;
 
     // Normalize group: "B-1" → "B-1", "B" → "B"
     const group = room.occupancyGroup.trim().toUpperCase();
+    if (group === 'C') continue;
     const spec = getDefaultLoadFactor(group);
     const maxOccupants = Math.ceil(room.areaM2 / spec.areaPerPerson);
     totalOccupants += maxOccupants;

@@ -9132,7 +9132,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                                       roomLabel: result.roomLabel,
                                       finding: `Area ${result.areaM2.toFixed(1)} m² < ${minArea} m² minimum`,
                                       severity: 'fail',
-                                      nbcRef: 'NBC 9.5.21',
+                                      nbcRef: 'NBC Section 9.5 - Minimum Areas',
                                     });
                                   }
                                 }
