@@ -135,8 +135,9 @@ export async function evaluateDetectionAccuracy(
     score: scoreRoom(r as RoomEvalScore),
   }));
 
+  const passing = roomScores.filter(r => r.score >= 0.7).length;
   const overallAccuracy = roomScores.length > 0
-    ? roomScores.reduce((sum, r) => sum + r.score, 0) / roomScores.length
+    ? passing / roomScores.length
     : 0;
 
   const result: DetectionEvalResult = {
@@ -148,7 +149,6 @@ export async function evaluateDetectionAccuracy(
     modelVersion: response.model,
   };
 
-  const passing = roomScores.filter(r => r.score >= 0.7).length;
   console.log(
     `[DetectionEval] page=${pageId} accuracy=${(overallAccuracy * 100).toFixed(1)}% ` +
     `(${passing}/${roomScores.length} rooms passing) ` +
