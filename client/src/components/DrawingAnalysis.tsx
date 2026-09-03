@@ -696,7 +696,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   
   // State for scale calibration
   const [scaleSystem, setScaleSystem] = useState<ScaleSystem>("imperial");
-  const [selectedScale, setSelectedScale] = useState<ArchitecturalScale>(imperialScales[3]); // Default 1/8" = 1'-0"
+  const [selectedScale, setSelectedScale] = useState<ArchitecturalScale>(
+    imperialScales.find(s => s.id === 'imp-1-8') ?? imperialScales[0]
+  );
   const [pixelsPerDrawingUnit, setPixelsPerDrawingUnit] = useState<number>(0); // Calibrated from reference measurement
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationLine, setCalibrationLine] = useState<{ start: Point; end: Point } | null>(null);
@@ -6541,9 +6543,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     const newSystem = v as ScaleSystem;
                     setScaleSystem(newSystem);
                     // Reset to default scale for the new system
-                    setSelectedScale(newSystem === "imperial"
-                      ? imperialScales[3]
-                      : getScaleById('met-1-100') ?? metricScales[5]);
+                    const defaultImperial = imperialScales.find(s => s.id === 'imp-1-8') ?? imperialScales[0];
+                    const defaultMetric = metricScales.find(s => s.id === 'met-1-100') ?? metricScales[0];
+                    setSelectedScale(newSystem === "imperial" ? defaultImperial : defaultMetric);
                   }}>
                     <SelectTrigger className="w-24 h-8 text-xs">
                       <SelectValue />
