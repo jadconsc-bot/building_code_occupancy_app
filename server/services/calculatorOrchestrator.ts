@@ -207,7 +207,7 @@ export function runCalculatorOrchestrator(
 
   if (groupCRooms.length > 0) {
     const totalGroupCArea = groupCRooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0);
-    const bedroomRooms = groupCRooms.filter(r => /bed|sleep|master|bedroom/i.test(r.label));
+    const bedroomRooms = groupCRooms.filter(r => /bed|sleep|master|bedroom|bdrm|mstr/i.test(r.label));
     const bedroomCount = bedroomRooms.length;
     const issueId = 'OCC-UNIT-001';
 

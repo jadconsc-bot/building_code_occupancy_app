@@ -9128,7 +9128,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               let idx = 1;
                               for (const [key, result] of ddaRoomCompliance.entries()) {
                                 if (result.severity === 'fail' && result.areaM2 > 0) {
-                                  const isSleepingRoom = /bed|sleep|master/i.test(result.roomLabel);
+                                  const isSleepingRoom = /bed|sleep|master|bedroom|bdrm|mstr/i.test(result.roomLabel);
                                   const minArea = isSleepingRoom ? 7.4 : 4.65;
                                   if (result.areaM2 < minArea) {
                                     phaseFindings.push({

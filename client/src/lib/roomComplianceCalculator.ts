@@ -123,7 +123,7 @@ export function calculateRoomCompliance(
 
   const areaM2 = pixelsPerM ? areaPx2 / (pixelsPerM * pixelsPerM) : 0;
 
-  const isSleeping = /bed|sleep|master|bedroom/i.test(roomLabel);
+  const isSleeping = /bed|sleep|master|bedroom|bdrm|mstr/i.test(roomLabel);
   const minAreaM2 = isSleeping ? 7.4 : 4.65;
   const areaCompliant = pixelsPerM ? areaM2 >= minAreaM2 : true;
 
