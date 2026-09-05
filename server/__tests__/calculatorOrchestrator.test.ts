@@ -98,3 +98,81 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(14);
   });
 });
+
+describe('runCalculatorOrchestrator — barrier-free dwelling-unit exemption', () => {
+  const baseGroupCInput = buildInput({
+    rooms: [
+      { label: 'MASTER', occupancyGroup: 'C', areaM2: 20 },
+      { label: 'BDRM#3', occupancyGroup: 'C', areaM2: 15 },
+    ],
+    storeys: 2,
+  });
+
+  it('exempts a single dwelling unit with two or fewer storeys', () => {
+    const result = runCalculatorOrchestrator(
+      {
+        ...baseGroupCInput,
+        totalDwellingUnits: 1,
+      },
+      'AB',
+    );
+
+    expect(result.barrierFreeRequirements).toMatchObject({
+      isBarrierFreeRequired: false,
+      ruleId: 'BF-EXEMPT-3.8.1.1',
+      nbcRef: 'NBC 2020 Article 3.8.1.1',
+    });
+    expect(result.barrierFreeRequirements?.assumptions).toContain(
+      'Single/semi-detached/duplex dwelling ≤2 storeys — exempt from NBC Part 3.8 (NBC 3.8.1.1)',
+    );
+  });
+
+  it('safe-fails when dwelling-unit count is missing', () => {
+    const result = runCalculatorOrchestrator(
+      {
+        ...baseGroupCInput,
+        totalDwellingUnits: undefined,
+      },
+      'AB',
+    );
+
+    expect(result.barrierFreeRequirements).toMatchObject({
+      isBarrierFreeRequired: true,
+      ruleId: 'BF-3.8',
+      nbcRef: 'NBC 2020 Part 3.8',
+    });
+
+    const nullResult = runCalculatorOrchestrator(
+      {
+        ...baseGroupCInput,
+        totalDwellingUnits: null as unknown as number,
+      },
+      'AB',
+    );
+
+    expect(nullResult.barrierFreeRequirements).toMatchObject({
+      isBarrierFreeRequired: true,
+      ruleId: 'BF-3.8',
+      nbcRef: 'NBC 2020 Part 3.8',
+    });
+  });
+
+  it('requires compliance for a triplex or larger dwelling-unit count', () => {
+    const result = runCalculatorOrchestrator(
+      {
+        ...baseGroupCInput,
+        totalDwellingUnits: 3,
+      },
+      'AB',
+    );
+
+    expect(result.barrierFreeRequirements).toMatchObject({
+      isBarrierFreeRequired: true,
+      ruleId: 'BF-3.8',
+      nbcRef: 'NBC 2020 Part 3.8',
+    });
+    expect(result.barrierFreeRequirements?.assumptions).toContain(
+      'Group C: 3 dwelling units — 1 must be accessible (NBC 3.8.3.3)',
+    );
+  });
+});
