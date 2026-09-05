@@ -778,6 +778,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Zone auto-lookup state
   const [addressInput, setAddressInput] = useState('');
+  const [addressManuallyEdited, setAddressManuallyEdited] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [zoneResult, setZoneResult] = useState<{
     zoneCode: string; zoneName: string; communityName: string | null;
@@ -1095,6 +1096,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   });
 
   const activeProjectId = selectedProjectId || projectId;
+  const activeProjectRecord = useMemo(
+    () => projectListQuery.data?.find((p: any) => p.id === selectedProjectId) ?? null,
+    [projectListQuery.data, selectedProjectId],
+  );
+  const activeProjectAddress = activeProjectRecord?.address ?? project?.address ?? '';
 
   const { data: recentAnalyses } = trpc.drawingAnalysis.listByProject.useQuery(
     { projectId: activeProjectId! },
@@ -1769,6 +1775,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     }
   }, [projectListQuery.data, selectedProjectId]);
 
+  useEffect(() => {
+    setAddressManuallyEdited(false);
+    setSetContext(null);
+    setAddressInput(activeProjectAddress);
+  }, [analysisId, selectedProjectId]);
+
+  useEffect(() => {
+    if (addressManuallyEdited) return;
+    setAddressInput(activeProjectAddress);
+  }, [addressManuallyEdited, activeProjectAddress]);
+
   // Persist selected project to localStorage
   useEffect(() => {
     if (selectedProjectId > 0) {
@@ -2137,7 +2154,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         `Context extracted — ${result.context.projectName ?? 'project'}, ` +
         `${Object.keys(result.context.abbreviations ?? {}).length} abbreviations loaded`
       );
-      if (result.context.projectAddress && !addressInput) {
+      if (result.context.projectAddress && !addressManuallyEdited && !addressInput) {
         const extractedAddress = result.context.projectAddress;
         const extractedMun = result.context.municipality ?? '';
         setAddressInput(extractedAddress);
@@ -8364,7 +8381,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               {setContext.projectName ?? 'Project'} · {setContext.buildingOccupancy ?? 'Unknown type'} · {setContext.confirmedScale ?? 'Scale unknown'}
                             </p>
                           ) : (
-                            <p className="text-xs text-blue-500 mt-0.5">Read all pages to improve detection accuracy</p>
+                            <p className="text-xs text-blue-500 mt-0.5">Context not yet read for this drawing — click Read Full Set</p>
                           )}
                         </div>
                         <Button
@@ -8435,7 +8452,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <div className="flex gap-1.5">
                           <Input
                             value={addressInput}
-                            onChange={e => setAddressInput(e.target.value)}
+                            onChange={e => {
+                              setAddressInput(e.target.value);
+                              setAddressManuallyEdited(true);
+                            }}
                             onKeyDown={e => e.key === 'Enter' && handleAddressLookup()}
                             placeholder="109 Silverhorn Terrace SW"
                             className="text-sm h-8 flex-1"
