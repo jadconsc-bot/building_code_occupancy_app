@@ -2411,7 +2411,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         ?? project?.municipality
         ?? undefined,
       address: project?.address ?? undefined,
-      totalDwellingUnits: undefined,
+      totalDwellingUnits: project?.totalDwellingUnits ?? undefined,
       stackSeparations:
         Array.isArray((project as any)?.stackSeparationsJson)
           ? (project as any).stackSeparationsJson

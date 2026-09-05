@@ -77,6 +77,7 @@ export interface OrchestratorInput {
   projectId?: number | null;
   address?: string | null;
   municipality?: string | null;
+  totalDwellingUnits?: number;
   calibrationConfidence: 'high' | 'low' | 'none';
   /**
    * How jurisdiction was determined — flows through to washroom result
@@ -315,7 +316,7 @@ export function runCalculatorOrchestrator(
     totalOccupants: occupantLoad.reduce((sum, ol) => sum + ol.maxOccupants, 0),
     totalAreaM2: input.rooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0),
     washroomCounts,
-    totalDwellingUnits: undefined,
+    totalDwellingUnits: input.totalDwellingUnits,
     province: input.province ?? 'CA',
     jurisdictionSource: input.jurisdictionSource,
   });

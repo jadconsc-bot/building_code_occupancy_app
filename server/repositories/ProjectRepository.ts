@@ -26,6 +26,7 @@ export interface CreateProjectInput {
   projectCode?: string;
   grossFloorArea?: number;
   bedroomCount?: number;
+  totalDwellingUnits?: number;
   zoningCategory?: string;
   siteConstraints?: string;
   storeys?: number;
@@ -53,6 +54,7 @@ export interface UpdateProjectInput {
   projectCode?: string;
   grossFloorArea?: number;
   bedroomCount?: number;
+  totalDwellingUnits?: number;
   zoningCategory?: string;
   siteConstraints?: string;
   storeys?: number;
@@ -169,6 +171,7 @@ export class ProjectRepository {
         projectNumber,
         zoningCategory: input.zoningCategory || null,
         storeys: input.storeys || null,
+        totalDwellingUnits: input.totalDwellingUnits || null,
         buildingHeight: input.buildingHeight ? String(input.buildingHeight) : null,
         constructionType: (input.constructionType || null) as "combustible" | "non_combustible" | "mixed" | null,
         sprinklersRequired: input.sprinklersRequired !== undefined ? (input.sprinklersRequired ? 1 : 0) : null,
@@ -223,6 +226,7 @@ export class ProjectRepository {
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
       if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
       if (input.bedroomCount !== undefined) updateData.bedroomCount = input.bedroomCount;
+      if (input.totalDwellingUnits !== undefined) updateData.totalDwellingUnits = input.totalDwellingUnits;
       if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;
       if (input.siteConstraints !== undefined) updateData.siteConstraints = input.siteConstraints;
       if (input.storeys !== undefined) updateData.storeys = input.storeys;

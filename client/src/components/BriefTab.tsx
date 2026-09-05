@@ -24,6 +24,7 @@ type BriefInputs = {
   occupancyGroup: string | null;
   grossFloorAreaM2: number | null;
   storeys: number | null;
+  totalDwellingUnits: number | null;
   province: string | null;
   sprinklered: boolean | null;
 };
@@ -96,6 +97,7 @@ function InputsPanel({
     occupancyCode: defaultValues.occupancyGroup ?? '',
     grossFloorArea: defaultValues.grossFloorAreaM2 != null ? String(defaultValues.grossFloorAreaM2) : '',
     storeys: defaultValues.storeys != null ? String(defaultValues.storeys) : '',
+    totalDwellingUnits: defaultValues.totalDwellingUnits != null ? String(defaultValues.totalDwellingUnits) : '',
     province: defaultValues.province ?? '',
     sprinklersRequired: defaultValues.sprinklered != null ? String(defaultValues.sprinklered) : '',
   });
@@ -107,6 +109,7 @@ function InputsPanel({
         ...(form.occupancyCode     && { occupancyCode: form.occupancyCode }),
         ...(form.grossFloorArea    && { grossFloorArea: parseFloat(form.grossFloorArea) }),
         ...(form.storeys           && { storeys: parseInt(form.storeys, 10) }),
+        ...(form.totalDwellingUnits && { totalDwellingUnits: parseInt(form.totalDwellingUnits, 10) }),
         ...(form.province          && { province: form.province }),
         ...(form.sprinklersRequired !== '' && {
           sprinklersRequired: form.sprinklersRequired === 'true',
@@ -132,7 +135,7 @@ function InputsPanel({
       <div>
         <p className="text-sm font-medium">Brief Inputs</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          These five fields drive all seven compliance sections.
+          These project inputs drive all seven compliance sections.
         </p>
       </div>
 
@@ -176,6 +179,17 @@ function InputsPanel({
             value={form.storeys}
             onChange={e => setForm(f => ({ ...f, storeys: e.target.value }))}
             placeholder="e.g. 2"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Number of dwelling units</Label>
+          <Input
+            type="number"
+            min={1}
+            className="h-8 text-xs"
+            value={form.totalDwellingUnits}
+            onChange={e => setForm(f => ({ ...f, totalDwellingUnits: e.target.value }))}
+            placeholder="e.g. 1"
           />
         </div>
       </div>
