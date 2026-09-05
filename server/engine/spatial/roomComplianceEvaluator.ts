@@ -1,6 +1,10 @@
 import { Constraints } from '../constraints';
 import { buildFederalTrace, computeMargin } from '../types/trace';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import {
+  ACCESSORY_SPACE_TYPES,
+  reclassifyAccessoryOccupancy,
+} from './accessoryOccupancyReclassifier';
 import type { ComplianceTrace } from '../types/trace';
 import type { DetectedRoom } from './types';
 import { getDb } from '../../db';
@@ -99,6 +103,38 @@ function pairFRR(g1: string, g2: string): { hr: number; ref: string } | null {
   if ((g1 === 'F-1' && b2 === 'E') || (g2 === 'F-1' && b1 === 'E'))
     return { hr: sep.high_hazard_mercantile.value as number, ref: sep.high_hazard_mercantile.ref };
   return null;
+}
+
+function determineDominantOccupancyGroup(
+  rows: Array<{ occupancyGroup: string | null; spaceType?: string | null }>
+): string | null {
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    const spaceType = row.spaceType?.trim().toLowerCase();
+    if (spaceType && ACCESSORY_SPACE_TYPES.includes(spaceType as (typeof ACCESSORY_SPACE_TYPES)[number])) {
+      continue;
+    }
+    const group = row.occupancyGroup?.trim().toUpperCase();
+    if (!group) continue;
+    counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+
+  let dominant: string | null = null;
+  let dominantCount = 0;
+  let tied = false;
+
+  for (const [group, count] of counts.entries()) {
+    if (count > dominantCount) {
+      dominant = group;
+      dominantCount = count;
+      tied = false;
+    } else if (count === dominantCount) {
+      tied = true;
+    }
+  }
+
+  return tied ? null : dominant;
 }
 
 /**
@@ -227,7 +263,56 @@ export async function evaluateRoomCompliance(
 ): Promise<RoomComplianceResult> {
 
   const traces: ComplianceTrace[] = [];
-  const group = room.occupancyGroup;
+  let group = room.occupancyGroup;
+  const roomSpaceType = (room as DetectedRoom & { spaceType?: string }).spaceType ?? 'room';
+
+  try {
+    const dbAccessory = await getDb();
+    if (dbAccessory) {
+      const [projectRow] = await dbAccessory
+        .select({ totalDwellingUnits: projects.totalDwellingUnits })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+
+      const projectRooms = await dbAccessory
+        .select({
+          occupancyGroup: detectedRooms.occupancyGroup,
+          spaceType: detectedRooms.spaceType,
+        })
+        .from(detectedRooms)
+        .where(eq(detectedRooms.projectId, projectId));
+
+      const accessoryDecision = reclassifyAccessoryOccupancy({
+        occupancyGroup: group,
+        spaceType: roomSpaceType,
+        dominantOccupancyGroup: determineDominantOccupancyGroup(projectRooms),
+        totalDwellingUnits: projectRow?.totalDwellingUnits ?? undefined,
+      });
+
+      if (accessoryDecision.action === 'reclassified') {
+        group = accessoryDecision.newOccupancyGroup;
+      } else if (accessoryDecision.action === 'flagForVerification') {
+        traces.push(buildFederalTrace({
+          result: 'warning',
+          rule: accessoryDecision.citation,
+          reasoning: accessoryDecision.reason,
+          evaluatedInputs: {
+            actual: `${group} / ${roomSpaceType}`,
+            required: accessoryDecision.reason,
+            unit: 'occupancy group',
+          },
+          severity: 'medium',
+          constraintId: 'occupancy.storage_group_c',
+          recommendations: [
+            accessoryDecision.reason,
+          ],
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('[RoomCompliance] Accessory occupancy reclassification failed:', err);
+  }
 
   // 1. Occupant load calculation
   const spec = getDefaultLoadFactor(group);
@@ -729,43 +814,8 @@ export async function evaluateRoomCompliance(
   // 3.8.5 (Adaptable Dwelling Units) and AHJ designation per 3.8.2.3.(2)(l).
   // Provincial percentages (if any) belong in a provincial overlay, not here.
 
-  // 17. Storage room occupancy group check — accessory residential storage should be Group C
-  const isStorageGroupF = /storage|stor\b|locker|utility room/i.test(room.label) && group === 'F';
-  if (isStorageGroupF) {
-    try {
-      const dbStor = await getDb();
-      if (dbStor) {
-        const groupCRooms = await dbStor
-          .select({ id: detectedRooms.id })
-          .from(detectedRooms)
-          .where(and(
-            eq(detectedRooms.projectId, projectId),
-            eq(detectedRooms.occupancyGroup, 'C')
-          ));
-        if (groupCRooms.length > 0) {
-          traces.push(buildFederalTrace({
-            result: 'warning',
-            rule: 'NBC 3.1.2',
-            reasoning: `Storage room "${room.label}" is classified as Group F, but Group C (residential) occupancies exist in this project. Accessory storage serving residential units is Group C under NBC 3.1.2 — not Group F`,
-            evaluatedInputs: {
-              actual: 'Group F',
-              required: 'Verify — likely Group C for residential accessory storage',
-              unit: 'occupancy group'
-            },
-            severity: 'medium',
-            constraintId: 'occupancy.storage_group_c',
-            recommendations: [
-              `Reclassify "${room.label}" as Group C if it exclusively serves residential units`,
-              'Accessory storage (lockers, cold storage, bicycle rooms) in residential buildings = Group C (NBC 3.1.2)',
-              'Group F applies to industrial storage involving hazardous materials or manufacturing'
-            ]
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('[RoomCompliance] Rule 17 storage group check failed:', err);
-    }
-  }
+  // 17. Accessory occupancy reclassification is handled above by the shared
+  // accessoryOccupancyReclassifier. No storage-only regex remains here.
 
   // This service runs once per detected room. Keep aggregate floor/building
   // rules in the project compliance engine instead of publishing duplicate,

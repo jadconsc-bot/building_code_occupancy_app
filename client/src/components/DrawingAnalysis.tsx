@@ -2415,6 +2415,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       rooms: payload.rooms.map(r => ({
         label: r.label,
         occupancyGroup: r.occupancyGroup,
+        spaceType: r.spaceType,
         areaM2: r.areaM2,
       })),
       windows: payload.windows,

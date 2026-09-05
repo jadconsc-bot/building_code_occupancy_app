@@ -1673,6 +1673,7 @@ export const drawingAnalysisRouter = router({
       rooms: z.array(z.object({
         label: z.string(),
         occupancyGroup: z.string(),
+        spaceType: z.string().optional(),
         areaM2: z.number().nullable(),
       })),
       windows: z.array(z.object({

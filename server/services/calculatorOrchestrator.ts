@@ -24,6 +24,11 @@ import {
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import {
+  ACCESSORY_SPACE_TYPES,
+  reclassifyAccessoryOccupancy,
+  type ReclassificationResult,
+} from '../engine/spatial/accessoryOccupancyReclassifier';
 
 // FRR requirements by occupancy group for single-occupancy floors (minutes)
 // NOTE: These are conservative single-occupancy
@@ -61,6 +66,7 @@ export interface OrchestratorInput {
   rooms: Array<{
     label: string;
     occupancyGroup: string;
+    spaceType?: string;
     areaM2: number | null;
   }>;
   windows: Array<{ widthMm: number; heightMm: number; areaM2: number }>;
@@ -198,11 +204,72 @@ export function runCalculatorOrchestrator(
   let failCount = 0;
   let advisoryCount = 0;
 
+  const normalizeGroup = (value: string) => value.trim().toUpperCase();
+  const dominantOccupancyGroup = (() => {
+    const counts = new Map<string, number>();
+    for (const room of input.rooms) {
+      const spaceType = room.spaceType?.trim().toLowerCase();
+      if (spaceType && ACCESSORY_SPACE_TYPES.includes(spaceType as (typeof ACCESSORY_SPACE_TYPES)[number])) {
+        continue;
+      }
+      const group = normalizeGroup(room.occupancyGroup);
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+    let dominant: string | null = null;
+    let dominantCount = 0;
+    let tied = false;
+    for (const [group, count] of counts.entries()) {
+      if (count > dominantCount) {
+        dominant = group;
+        dominantCount = count;
+        tied = false;
+      } else if (count === dominantCount) {
+        tied = true;
+      }
+    }
+    return tied ? null : dominant;
+  })();
+
+  const effectiveRooms: Array<OrchestratorInput['rooms'][number]> = [];
+  let accessoryAdvisoryIndex = 1;
+
+  for (const room of input.rooms) {
+    const decision = reclassifyAccessoryOccupancy({
+      occupancyGroup: room.occupancyGroup,
+      spaceType: room.spaceType,
+      dominantOccupancyGroup,
+      totalDwellingUnits: input.totalDwellingUnits,
+    });
+
+    if (decision.action === 'reclassified') {
+      effectiveRooms.push({
+        ...room,
+        occupancyGroup: decision.newOccupancyGroup,
+      });
+      continue;
+    }
+
+    if (decision.action === 'flagForVerification') {
+      findings.push({
+        issueId: `ACC-${String(accessoryAdvisoryIndex++).padStart(3, '0')}`,
+        severity: 'advisory',
+        description: `Accessory occupancy verification — ${room.label}`,
+        actual: `Occupancy group ${room.occupancyGroup} with space type ${room.spaceType ?? 'unknown'}`,
+        required: decision.reason,
+        citation: decision.citation,
+      });
+      advisoryCount++;
+      continue;
+    }
+
+    effectiveRooms.push(room);
+  }
+
   // ── Occupant Load ──────────────────────────────────────────────────────────
   const occupantLoad: OrchestratorResult['occupantLoad'] = [];
   let totalOccupants = 0;
 
-  const groupCRooms = input.rooms.filter(
+  const groupCRooms = effectiveRooms.filter(
     r => r.occupancyGroup.trim().toUpperCase() === 'C' && r.areaM2 !== null && r.areaM2 > 0
   );
 
@@ -246,8 +313,8 @@ export function runCalculatorOrchestrator(
     }
   }
 
-  for (let i = 0; i < input.rooms.length; i++) {
-    const room = input.rooms[i];
+  for (let i = 0; i < effectiveRooms.length; i++) {
+    const room = effectiveRooms[i];
     if (room.areaM2 === null || room.areaM2 <= 0) continue;
 
     // Normalize group: "B-1" → "B-1", "B" → "B"
@@ -314,7 +381,7 @@ export function runCalculatorOrchestrator(
     occupancyGroups: [...new Set(occupantLoad.map(ol => ol.occupancyGroup))],
     storeys: input.storeys,
     totalOccupants: occupantLoad.reduce((sum, ol) => sum + ol.maxOccupants, 0),
-    totalAreaM2: input.rooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0),
+    totalAreaM2: effectiveRooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0),
     washroomCounts,
     totalDwellingUnits: input.totalDwellingUnits,
     province: input.province ?? 'CA',

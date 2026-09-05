@@ -234,6 +234,17 @@ describe('Group F — Industrial (Table 3.7.2.2.-C)', () => {
   });
 });
 
+describe('Group F — bare occupancy group fallback', () => {
+  it('does not pretend to know fixture counts when division is unspecified', () => {
+    const r = req({ occupancyGroup: 'F', occupantLoad: 29 });
+    expect(r.required.waterClosetsMale).toBe('—');
+    expect(r.required.waterClosetsFemale).toBe('—');
+    expect(r.required.lavatories).toBe('—');
+    expect(r.confidence).toBe('advisory');
+    expect(r.assumptions[0]).toContain('without an F1/F2/F3 division');
+  });
+});
+
 // ─── Lavatory ratio (NBC 3.7.2.3.(1)) ────────────────────────────────────────
 
 describe('Lavatories — ratio ceil((wcMale + wcFemale) / 2)', () => {

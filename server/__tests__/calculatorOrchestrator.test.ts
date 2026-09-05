@@ -23,8 +23,8 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
           { label: 'Bedroom 2', occupancyGroup: 'C', areaM2: 12 },
           { label: 'Hallway', occupancyGroup: 'C', areaM2: 8 },
           { label: 'Closet', occupancyGroup: 'C', areaM2: 6 },
-          { label: 'Office', occupancyGroup: 'D', areaM2: 46.5 },
-          { label: 'Retail', occupancyGroup: 'E', areaM2: 37 },
+          { label: 'Office', occupancyGroup: 'D', spaceType: 'room', areaM2: 46.5 },
+          { label: 'Retail', occupancyGroup: 'E', spaceType: 'room', areaM2: 37 },
         ],
       }),
       'AB',
@@ -96,6 +96,73 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
 
     expect(result.summary.totalOccupants).toBe(0);
     expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(14);
+  });
+
+  it('reclassifies accessory garage space into the dwelling-unit total when the project is clearly single-unit', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        rooms: [
+          { label: 'MASTER', occupancyGroup: 'C', spaceType: 'room', areaM2: 20 },
+          { label: 'DOUBLE GARAGE', occupancyGroup: 'F', spaceType: 'garage', areaM2: 30 },
+        ],
+        totalDwellingUnits: 1,
+      }),
+      'AB',
+    );
+
+    expect(result.findings.some(f => f.issueId.startsWith('ACC-'))).toBe(false);
+    expect(result.occupantLoad).toHaveLength(1);
+    expect(result.occupantLoad[0]).toMatchObject({
+      roomLabel: 'Dwelling Unit',
+      occupancyGroup: 'C',
+      areaM2: 50,
+      maxOccupants: 2,
+    });
+    expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
+      actual: 'Total area: 50.0 m² — 1 bedroom identified × 2 persons/bedroom = 2 persons',
+    });
+    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(50);
+  });
+
+  it('flags accessory garage space for verification when dwelling-unit count is missing', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        rooms: [
+          { label: 'MASTER', occupancyGroup: 'C', spaceType: 'room', areaM2: 20 },
+          { label: 'DOUBLE GARAGE', occupancyGroup: 'F', spaceType: 'garage', areaM2: 30 },
+        ],
+        totalDwellingUnits: undefined,
+      }),
+      'AB',
+    );
+
+    expect(result.findings.find(f => f.issueId === 'ACC-001')).toMatchObject({
+      severity: 'advisory',
+      description: 'Accessory occupancy verification — DOUBLE GARAGE',
+    });
+    expect(result.occupantLoad).toHaveLength(1);
+    expect(result.occupantLoad[0].areaM2).toBe(20);
+    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(20);
+  });
+
+  it('flags accessory garage space for verification when dwelling-unit count is multi-unit', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        rooms: [
+          { label: 'MASTER', occupancyGroup: 'C', spaceType: 'room', areaM2: 20 },
+          { label: 'DOUBLE GARAGE', occupancyGroup: 'F', spaceType: 'garage', areaM2: 30 },
+        ],
+        totalDwellingUnits: 3,
+      }),
+      'AB',
+    );
+
+    expect(result.findings.find(f => f.issueId === 'ACC-001')).toMatchObject({
+      severity: 'advisory',
+      description: 'Accessory occupancy verification — DOUBLE GARAGE',
+    });
+    expect(result.occupantLoad).toHaveLength(1);
+    expect(result.occupantLoad[0].areaM2).toBe(20);
   });
 });
 

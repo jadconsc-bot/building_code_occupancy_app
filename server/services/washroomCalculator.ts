@@ -22,9 +22,9 @@ export interface WashroomInput {
 }
 
 export interface FixtureRequirement {
-  waterClosetsMale: number;
-  waterClosetsFemale: number;
-  lavatories: number;
+  waterClosetsMale: number | string;
+  waterClosetsFemale: number | string;
+  lavatories: number | string;
   // Accessibility fixtures (NBC 3.8.3.8) — flagged but not calculated here;
   // barrierFreeCalculator adds accessible stall counts
   accessibleStallsRequired: boolean;
@@ -252,18 +252,18 @@ export function calculateWashroomRequirements(
       occupancyGroup: input.occupancyGroup,
       occupantLoad:   input.occupantLoad,
       required: {
-        waterClosetsMale:        0,
-        waterClosetsFemale:      0,
-        lavatories:              0,
+        waterClosetsMale:        '—',
+        waterClosetsFemale:      '—',
+        lavatories:              '—',
         accessibleStallsRequired: false,
       },
       ruleId:              `WC-3.7.2.2-UNKNOWN`,
-      nbcRef:              'NBC 2020 Article 3.7.2.2',
+      nbcRef:              'NBC 2020 Article 3.7.2.2 (division unspecified)',
       codeEdition,
       jurisdictionSource:  input.jurisdictionSource,
       evaluationTimestamp: timestamp,
       confidence:          'advisory',
-      assumptions:         ['Occupancy group not recognized — manual verification required'],
+      assumptions:         ['Occupancy group F was supplied without an F1/F2/F3 division — fixture counts cannot be determined until the division is specified'],
       severity:            'info',
     };
   }

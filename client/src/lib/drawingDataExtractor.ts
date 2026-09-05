@@ -5,6 +5,7 @@ export interface DetectedRoom {
   key: string;
   label: string;
   occupancyGroup: string;
+  spaceType?: string;
   polygon: Point[];
   areaM2: number | null;
 }
@@ -35,9 +36,9 @@ export interface DrawingPayload {
 }
 
 export interface WashroomFixtureRequirement {
-  waterClosetsMale: number;
-  waterClosetsFemale: number;
-  lavatories: number;
+  waterClosetsMale: number | string;
+  waterClosetsFemale: number | string;
+  lavatories: number | string;
   accessibleStallsRequired: boolean;
 }
 
@@ -351,10 +352,11 @@ export function extractDrawingData(params: {
       (r: any) => r.roomLabel === label || r.id === compliance?.roomId
     );
     const occupancyGroup = roomData?.occupancyGroup ?? roomData?.occupancy_group ?? 'D';
+    const spaceType = roomData?.spaceType ?? roomData?.space_type ?? undefined;
 
     const areaM2 = compliance?.areaM2 ?? null;
 
-    rooms.push({ key, label, occupancyGroup, polygon, areaM2 });
+    rooms.push({ key, label, occupancyGroup, spaceType, polygon, areaM2 });
   }
 
   // ── F1-C: Multi-page fallback ──────────────────────────────────────────
@@ -381,6 +383,7 @@ export function extractDrawingData(params: {
       ?? r.occupancy_group
       ?? r.occupancyCode
       ?? 'D';
+    const spaceType = r.spaceType ?? r.space_type ?? undefined;
 
     // Estimate area from bounding box if available
     // boundingBox shape: { x, y, width, height } in pixels
@@ -401,6 +404,7 @@ export function extractDrawingData(params: {
       key: `fallback-${label}`,
       label,
       occupancyGroup,
+      spaceType,
       polygon: [],      // empty polygon — no DDA trace available
       areaM2,
     });
