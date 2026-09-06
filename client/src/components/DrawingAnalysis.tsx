@@ -2416,6 +2416,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         label: r.label,
         occupancyGroup: r.occupancyGroup,
         spaceType: r.spaceType,
+        manualOverride: r.manualOverride === true || r.manualOverride === 1,
         areaM2: r.areaM2,
       })),
       windows: payload.windows,

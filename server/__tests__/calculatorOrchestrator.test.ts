@@ -164,6 +164,37 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.occupantLoad).toHaveLength(1);
     expect(result.occupantLoad[0].areaM2).toBe(20);
   });
+
+  it('skips accessory reclassification when a room has been manually overridden', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        rooms: [
+          { label: 'MASTER', occupancyGroup: 'C', spaceType: 'room', areaM2: 20 },
+          {
+            label: 'DOUBLE GARAGE',
+            occupancyGroup: 'F',
+            spaceType: 'garage',
+            manualOverride: true,
+            areaM2: 30,
+          },
+        ],
+        totalDwellingUnits: 1,
+      }),
+      'AB',
+    );
+
+    expect(result.occupantLoad).toHaveLength(2);
+    expect(result.occupantLoad.find(ol => ol.roomLabel === 'DOUBLE GARAGE')).toMatchObject({
+      occupancyGroup: 'F',
+      areaM2: 30,
+    });
+    expect(result.barrierFreeRequirements).toMatchObject({
+      occupancyGroups: ['C', 'F'],
+      isBarrierFreeRequired: true,
+    });
+    expect(result.findings.some(f => f.issueId.startsWith('ACC-'))).toBe(false);
+    expect(result.findings.some(f => f.description === 'FRR advisory — Group C occupancy')).toBe(true);
+  });
 });
 
 describe('runCalculatorOrchestrator — barrier-free dwelling-unit exemption', () => {

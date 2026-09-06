@@ -111,4 +111,42 @@ describe('evaluateRoomCompliance — accessory occupancy reclassification', () =
     expect(result.traces.some(t => t.constraintId === 'occupancy.storage_group_c')).toBe(true);
     expect(result.traces[0]?.constraintId).toBe('occupancy.storage_group_c');
   });
+
+  it('skips accessory reclassification when a room has been manually overridden', async () => {
+    mockDb = createMockDb([
+      [{ totalDwellingUnits: 1 }],
+      [
+        { occupancyGroup: 'C', spaceType: 'room' },
+        { occupancyGroup: 'C', spaceType: 'room' },
+        { occupancyGroup: 'F', spaceType: 'garage' },
+      ],
+      [{ adjacentRoomIds: null }],
+      [],
+      [{ id: 1 }, { id: 2 }],
+    ]);
+    const { getDb } = await import('../../db');
+    (getDb as ReturnType<typeof vi.fn>).mockResolvedValue(mockDb);
+
+    const result = await evaluateRoomCompliance(
+      {
+        label: 'DOUBLE GARAGE',
+        boundingBox: { x: 0, y: 0, width: 100, height: 100 },
+        areaSqm: 29.3,
+        floorLevel: 'Ground Floor',
+        occupancyGroup: 'F',
+        occupancyDivision: null,
+        confidence: 0.95,
+        features: [],
+        flags: [],
+        spaceType: 'garage',
+        manualOverride: true,
+      } as any,
+      99,
+      123,
+      'AB',
+    );
+
+    expect(result.occupancyGroup).toBe('F');
+    expect(result.traces.some(t => t.constraintId === 'occupancy.storage_group_c')).toBe(false);
+  });
 });

@@ -67,6 +67,7 @@ export interface OrchestratorInput {
     label: string;
     occupancyGroup: string;
     spaceType?: string;
+    manualOverride?: boolean;
     areaM2: number | null;
   }>;
   windows: Array<{ widthMm: number; heightMm: number; areaM2: number }>;
@@ -234,6 +235,11 @@ export function runCalculatorOrchestrator(
   let accessoryAdvisoryIndex = 1;
 
   for (const room of input.rooms) {
+    if (room.manualOverride) {
+      effectiveRooms.push(room);
+      continue;
+    }
+
     const decision = reclassifyAccessoryOccupancy({
       occupancyGroup: room.occupancyGroup,
       spaceType: room.spaceType,

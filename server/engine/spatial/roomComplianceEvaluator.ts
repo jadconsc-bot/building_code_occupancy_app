@@ -265,53 +265,56 @@ export async function evaluateRoomCompliance(
   const traces: ComplianceTrace[] = [];
   let group = room.occupancyGroup;
   const roomSpaceType = (room as DetectedRoom & { spaceType?: string }).spaceType ?? 'room';
+  const roomManualOverride = Boolean((room as DetectedRoom & { manualOverride?: boolean | number }).manualOverride);
 
-  try {
-    const dbAccessory = await getDb();
-    if (dbAccessory) {
-      const [projectRow] = await dbAccessory
-        .select({ totalDwellingUnits: projects.totalDwellingUnits })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
+  if (!roomManualOverride) {
+    try {
+      const dbAccessory = await getDb();
+      if (dbAccessory) {
+        const [projectRow] = await dbAccessory
+          .select({ totalDwellingUnits: projects.totalDwellingUnits })
+          .from(projects)
+          .where(eq(projects.id, projectId))
+          .limit(1);
 
-      const projectRooms = await dbAccessory
-        .select({
-          occupancyGroup: detectedRooms.occupancyGroup,
-          spaceType: detectedRooms.spaceType,
-        })
-        .from(detectedRooms)
-        .where(eq(detectedRooms.projectId, projectId));
+        const projectRooms = await dbAccessory
+          .select({
+            occupancyGroup: detectedRooms.occupancyGroup,
+            spaceType: detectedRooms.spaceType,
+          })
+          .from(detectedRooms)
+          .where(eq(detectedRooms.projectId, projectId));
 
-      const accessoryDecision = reclassifyAccessoryOccupancy({
-        occupancyGroup: group,
-        spaceType: roomSpaceType,
-        dominantOccupancyGroup: determineDominantOccupancyGroup(projectRooms),
-        totalDwellingUnits: projectRow?.totalDwellingUnits ?? undefined,
-      });
+        const accessoryDecision = reclassifyAccessoryOccupancy({
+          occupancyGroup: group,
+          spaceType: roomSpaceType,
+          dominantOccupancyGroup: determineDominantOccupancyGroup(projectRooms),
+          totalDwellingUnits: projectRow?.totalDwellingUnits ?? undefined,
+        });
 
-      if (accessoryDecision.action === 'reclassified') {
-        group = accessoryDecision.newOccupancyGroup;
-      } else if (accessoryDecision.action === 'flagForVerification') {
-        traces.push(buildFederalTrace({
-          result: 'warning',
-          rule: accessoryDecision.citation,
-          reasoning: accessoryDecision.reason,
-          evaluatedInputs: {
-            actual: `${group} / ${roomSpaceType}`,
-            required: accessoryDecision.reason,
-            unit: 'occupancy group',
-          },
-          severity: 'medium',
-          constraintId: 'occupancy.storage_group_c',
-          recommendations: [
-            accessoryDecision.reason,
-          ],
-        }));
+        if (accessoryDecision.action === 'reclassified') {
+          group = accessoryDecision.newOccupancyGroup;
+        } else if (accessoryDecision.action === 'flagForVerification') {
+          traces.push(buildFederalTrace({
+            result: 'warning',
+            rule: accessoryDecision.citation,
+            reasoning: accessoryDecision.reason,
+            evaluatedInputs: {
+              actual: `${group} / ${roomSpaceType}`,
+              required: accessoryDecision.reason,
+              unit: 'occupancy group',
+            },
+            severity: 'medium',
+            constraintId: 'occupancy.storage_group_c',
+            recommendations: [
+              accessoryDecision.reason,
+            ],
+          }));
+        }
       }
+    } catch (err) {
+      console.error('[RoomCompliance] Accessory occupancy reclassification failed:', err);
     }
-  } catch (err) {
-    console.error('[RoomCompliance] Accessory occupancy reclassification failed:', err);
   }
 
   // 1. Occupant load calculation

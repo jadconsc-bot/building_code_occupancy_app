@@ -1674,6 +1674,7 @@ export const drawingAnalysisRouter = router({
         label: z.string(),
         occupancyGroup: z.string(),
         spaceType: z.string().optional(),
+        manualOverride: z.boolean().optional(),
         areaM2: z.number().nullable(),
       })),
       windows: z.array(z.object({

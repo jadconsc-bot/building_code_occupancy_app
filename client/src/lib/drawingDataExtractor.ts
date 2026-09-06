@@ -6,6 +6,7 @@ export interface DetectedRoom {
   label: string;
   occupancyGroup: string;
   spaceType?: string;
+  manualOverride?: boolean | number;
   polygon: Point[];
   areaM2: number | null;
 }
@@ -353,10 +354,19 @@ export function extractDrawingData(params: {
     );
     const occupancyGroup = roomData?.occupancyGroup ?? roomData?.occupancy_group ?? 'D';
     const spaceType = roomData?.spaceType ?? roomData?.space_type ?? undefined;
+    const manualOverride = roomData?.manualOverride ?? roomData?.manual_override ?? undefined;
 
     const areaM2 = compliance?.areaM2 ?? null;
 
-    rooms.push({ key, label, occupancyGroup, spaceType, polygon, areaM2 });
+    rooms.push({
+      key,
+      label,
+      occupancyGroup,
+      spaceType,
+      manualOverride: manualOverride ? true : undefined,
+      polygon,
+      areaM2,
+    });
   }
 
   // ── F1-C: Multi-page fallback ──────────────────────────────────────────
@@ -384,6 +394,7 @@ export function extractDrawingData(params: {
       ?? r.occupancyCode
       ?? 'D';
     const spaceType = r.spaceType ?? r.space_type ?? undefined;
+    const manualOverride = r.manualOverride ?? r.manual_override ?? undefined;
 
     // Estimate area from bounding box if available
     // boundingBox shape: { x, y, width, height } in pixels
@@ -405,6 +416,7 @@ export function extractDrawingData(params: {
       label,
       occupancyGroup,
       spaceType,
+      manualOverride: manualOverride ? true : undefined,
       polygon: [],      // empty polygon — no DDA trace available
       areaM2,
     });
