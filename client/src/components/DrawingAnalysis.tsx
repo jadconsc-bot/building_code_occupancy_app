@@ -2601,6 +2601,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
         const heatmapEntry = heatmapMap.get(room.id);
         const useHeatmap = showComplianceHeatmap && !!heatmapEntry && heatmapEntry.level !== 'none';
+        const isGarageRoom = typeof room.spaceType === 'string'
+          && room.spaceType.trim().toLowerCase() === 'garage';
+        const showGarageMarker = isGarageRoom && group === 'C' && !useHeatmap;
 
         const fillColor = useHeatmap && heatmapEntry
           ? HEATMAP_COLORS[heatmapEntry.level].fill
@@ -2640,6 +2643,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             fallbackGeometry ? [6, 3] : (verifiedGeometry && room.flaggedForReview ? [4, 3] : []),
           );
           ctx.stroke();
+          if (showGarageMarker) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(220, 38, 38, 0.85)';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([]);
+            ctx.stroke();
+            ctx.restore();
+          }
           ctx.setLineDash([]);
         } else {
           ctx.fillStyle = renderedFillColor;

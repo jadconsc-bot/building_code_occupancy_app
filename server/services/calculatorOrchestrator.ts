@@ -232,11 +232,16 @@ export function runCalculatorOrchestrator(
   })();
 
   const effectiveRooms: Array<OrchestratorInput['rooms'][number]> = [];
+  const accessoryAssessments: Array<{
+    room: OrchestratorInput['rooms'][number];
+    decision: ReclassificationResult;
+  }> = [];
   let accessoryAdvisoryIndex = 1;
 
   for (const room of input.rooms) {
     if (room.manualOverride) {
       effectiveRooms.push(room);
+      accessoryAssessments.push({ room, decision: { action: 'unchanged' } });
       continue;
     }
 
@@ -252,6 +257,7 @@ export function runCalculatorOrchestrator(
         ...room,
         occupancyGroup: decision.newOccupancyGroup,
       });
+      accessoryAssessments.push({ room, decision });
       continue;
     }
 
@@ -265,10 +271,12 @@ export function runCalculatorOrchestrator(
         citation: decision.citation,
       });
       advisoryCount++;
+      accessoryAssessments.push({ room, decision });
       continue;
     }
 
     effectiveRooms.push(room);
+    accessoryAssessments.push({ room, decision });
   }
 
   // ── Occupant Load ──────────────────────────────────────────────────────────
@@ -553,6 +561,26 @@ export function runCalculatorOrchestrator(
       actual: 'Verify assembly rating on drawing',
       required: `${spec.frr} min FRR`,
       citation: spec.citation,
+    });
+    advisoryCount++;
+  }
+
+  // ── Garage-specific separation advisory ───────────────────────────────────
+  // Adds a garage-specific marker when Phase 1 reclassified a garage into the
+  // dwelling-unit total (single-dwelling-unit case only). This is additive and
+  // does not replace the generic Group C FRR advisory above.
+  let garageAdvisoryIndex = 1;
+  for (const item of accessoryAssessments) {
+    if (item.decision.action !== 'reclassified') continue;
+    if ((item.room.spaceType ?? '').trim().toLowerCase() !== 'garage') continue;
+
+    findings.push({
+      issueId: `FRR-GARAGE-${garageAdvisoryIndex++}`,
+      severity: 'advisory',
+      description: 'Garage-dwelling separation required',
+      actual: 'Verify air barrier system and self-closing, weather-stripped, solid-core door on stamped drawings',
+      required: 'Air barrier system (NBC 9.10.9.16.(4)) + self-closing, weather-stripped, solid-core door (NBC 9.10.13.15)',
+      citation: 'NBC 9.10.9.16 / 9.10.13.15',
     });
     advisoryCount++;
   }
