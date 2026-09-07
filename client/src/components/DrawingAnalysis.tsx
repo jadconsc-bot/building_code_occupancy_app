@@ -1596,6 +1596,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         return roomsData.rooms.map(serverRoom => {
           const localRoom = localById.get(serverRoom.id);
           if (!localRoom) return serverRoom;
+          const isManuallyCorrected =
+            localRoom.manualOverride === 1 || localRoom.manualOverride === true;
+          if (isManuallyCorrected) {
+            return {
+              ...serverRoom,
+              roomLabel: localRoom.roomLabel ?? serverRoom.roomLabel,
+              occupancyGroup: localRoom.occupancyGroup ?? serverRoom.occupancyGroup,
+              spaceType: localRoom.spaceType ?? serverRoom.spaceType,
+              manualOverride: localRoom.manualOverride ?? serverRoom.manualOverride,
+              polygonJson: localRoom.polygonJson ?? serverRoom.polygonJson,
+            };
+          }
           const polygonJson = serverRoom.polygonJson ?? localRoom.polygonJson;
           return { ...serverRoom, polygonJson };
         });
