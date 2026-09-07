@@ -605,6 +605,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [showDdaRoomForm, setShowDdaRoomForm] = useState(false);
   const [pendingDdaRoomKey, setPendingDdaRoomKey] = useState<string | null>(null);
   const [pendingDdaSeed, setPendingDdaSeed] = useState<Point | null>(null);
+  const [pendingDdaRoomContext, setPendingDdaRoomContext] = useState<{
+    pageId: number | null;
+    analysisId: number | null;
+  } | null>(null);
   const [ddaRoomLabel, setDdaRoomLabel] = useState('');
   const [ddaRoomOccupancy, setDdaRoomOccupancy] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | ''>('');
   const [ddaRoomSpaceType, setDdaRoomSpaceType] = useState<
@@ -1233,13 +1237,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setShowDdaRoomForm(false);
     setPendingDdaRoomKey(null);
     setPendingDdaSeed(null);
+    setPendingDdaRoomContext(null);
     setDdaRoomLabel('');
     setDdaRoomOccupancy('');
     setDdaRoomSpaceType('');
   }, [pendingDdaRoomKey]);
 
   const handleSaveDdaRoom = useCallback(async () => {
-    if (!currentPageId || !analysisId) {
+    const pageContext = pendingDdaRoomContext;
+
+    if (!pageContext?.pageId || !pageContext?.analysisId) {
       toast.error('Select a drawing page before adding a room.');
       return;
     }
@@ -1255,6 +1262,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
+    if (currentPageId !== pageContext.pageId || analysisId !== pageContext.analysisId) {
+      toast.error('The selected page changed since this room was traced — please retrace it.');
+      return;
+    }
+
     const polygon = detectedPolygons.get(pendingDdaRoomKey);
     if (!polygon || polygon.length < 3) {
       toast.error('Trace a room first.');
@@ -1266,7 +1278,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     try {
       await saveRoomPolygonMutation.mutateAsync({
-        drawingPageId: currentPageId,
+        drawingPageId: pageContext.pageId,
         roomLabel,
         polygonPoints,
         occupancyGroup: ddaRoomOccupancy,
@@ -1293,9 +1305,23 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     handleCancelDdaRoom,
     pendingDdaRoomKey,
     pendingDdaSeed,
+    pendingDdaRoomContext,
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
   ]);
+
+  const ddaRoomContextIsStale =
+    !!pendingDdaRoomContext &&
+    (pendingDdaRoomContext.pageId !== currentPageId || pendingDdaRoomContext.analysisId !== analysisId);
+
+  const ddaRoomSaveBlocked =
+    saveRoomPolygonMutation.isPending ||
+    !ddaRoomLabel.trim() ||
+    !ddaRoomOccupancy ||
+    !ddaRoomSpaceType ||
+    !pendingDdaRoomContext?.pageId ||
+    !pendingDdaRoomContext?.analysisId ||
+    ddaRoomContextIsStale;
 
   const handleCancelNewDoor = useCallback(() => {
     setBoundaryRedrawMode(null);
@@ -4904,6 +4930,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
       setPendingDdaRoomKey(key);
       setPendingDdaSeed({ x: canvasX, y: canvasY });
+      setPendingDdaRoomContext({ pageId: currentPageId, analysisId });
       setDdaRoomLabel('');
       setDdaRoomOccupancy('');
       setDdaRoomSpaceType('');
@@ -7070,11 +7097,16 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <option key={t} value={t}>{t === 'exterior' ? 'Exterior/Site' : t.charAt(0).toUpperCase() + t.slice(1)}</option>
                       ))}
                     </select>
+                    {ddaRoomContextIsStale && (
+                      <span className="text-[11px] leading-tight text-amber-700 dark:text-amber-300 max-w-[180px]">
+                        Page changed since this room was traced — retrace it before saving.
+                      </span>
+                    )}
                     <Button
                       size="sm"
                       className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={handleSaveDdaRoom}
-                      disabled={saveRoomPolygonMutation.isPending || !ddaRoomLabel.trim() || !ddaRoomOccupancy || !ddaRoomSpaceType}
+                      disabled={ddaRoomSaveBlocked}
                     >
                       Save Room
                     </Button>
