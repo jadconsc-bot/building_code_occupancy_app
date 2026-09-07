@@ -602,6 +602,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [newSpaceType, setNewSpaceType] = useState<
     'room' | 'corridor' | 'stairwell' | 'closet' | 'storage' | 'mechanical' | 'vestibule' | 'lobby' | 'other'
   >('room');
+  const [showDdaRoomForm, setShowDdaRoomForm] = useState(false);
+  const [pendingDdaRoomKey, setPendingDdaRoomKey] = useState<string | null>(null);
+  const [pendingDdaSeed, setPendingDdaSeed] = useState<Point | null>(null);
+  const [ddaRoomLabel, setDdaRoomLabel] = useState('');
+  const [ddaRoomOccupancy, setDdaRoomOccupancy] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | ''>('');
+  const [ddaRoomSpaceType, setDdaRoomSpaceType] = useState<
+    'room' | 'corridor' | 'stairwell' | 'closet' | 'storage' | 'mechanical' | 'garage' | 'exterior' | 'vestibule' | 'lobby' | 'other' | ''
+  >('');
   const [newDoorVertices, setNewDoorVertices] = useState<{ x: number; y: number }[]>([]);
   const [doorAnnotationPhase, setDoorAnnotationPhase] = useState<'leaf' | 'swing' | null>(null);
   const [arcAnchorPoints, setArcAnchorPoints] = useState<Point[]>([]);
@@ -1208,6 +1216,86 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     setNewRoomOccupancy('C');
     setNewSpaceType('room');
   }, []);
+
+  const handleCancelDdaRoom = useCallback(() => {
+    if (pendingDdaRoomKey) {
+      setDetectedPolygons(prev => {
+        const next = new Map(prev);
+        next.delete(pendingDdaRoomKey);
+        return next;
+      });
+      setDdaRoomCompliance(prev => {
+        const next = new Map(prev);
+        next.delete(pendingDdaRoomKey);
+        return next;
+      });
+    }
+    setShowDdaRoomForm(false);
+    setPendingDdaRoomKey(null);
+    setPendingDdaSeed(null);
+    setDdaRoomLabel('');
+    setDdaRoomOccupancy('');
+    setDdaRoomSpaceType('');
+  }, [pendingDdaRoomKey]);
+
+  const handleSaveDdaRoom = useCallback(async () => {
+    if (!currentPageId || !analysisId) {
+      toast.error('Select a drawing page before adding a room.');
+      return;
+    }
+
+    if (!pendingDdaRoomKey || !pendingDdaSeed) {
+      toast.error('Trace a room first.');
+      return;
+    }
+
+    const roomLabel = ddaRoomLabel.trim();
+    if (!roomLabel || !ddaRoomOccupancy || !ddaRoomSpaceType) {
+      toast.error('Select a room label, occupancy group, and space type before saving.');
+      return;
+    }
+
+    const polygon = detectedPolygons.get(pendingDdaRoomKey);
+    if (!polygon || polygon.length < 3) {
+      toast.error('Trace a room first.');
+      return;
+    }
+
+    const compliance = ddaRoomCompliance.get(pendingDdaRoomKey);
+    const polygonPoints = polygon.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
+
+    try {
+      await saveRoomPolygonMutation.mutateAsync({
+        drawingPageId: currentPageId,
+        roomLabel,
+        polygonPoints,
+        occupancyGroup: ddaRoomOccupancy,
+        spaceType: ddaRoomSpaceType || undefined,
+        areaM2: compliance?.areaM2 && compliance.areaM2 > 0 ? compliance.areaM2 : undefined,
+        seedX: pendingDdaSeed.x,
+        seedY: pendingDdaSeed.y,
+      });
+      await refetchRoomsForDrawing();
+      toast.success(`Area saved — ${roomLabel}`);
+      handleCancelDdaRoom();
+    } catch (err) {
+      console.error('[DrawingAnalysis] Failed to save DDA room:', err);
+      toast.error('Failed to save room.');
+    }
+  }, [
+    analysisId,
+    currentPageId,
+    ddaRoomLabel,
+    ddaRoomOccupancy,
+    ddaRoomSpaceType,
+    detectedPolygons,
+    ddaRoomCompliance,
+    handleCancelDdaRoom,
+    pendingDdaRoomKey,
+    pendingDdaSeed,
+    refetchRoomsForDrawing,
+    saveRoomPolygonMutation,
+  ]);
 
   const handleCancelNewDoor = useCallback(() => {
     setBoundaryRedrawMode(null);
@@ -4773,6 +4861,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const handleSelectRoomClick = async (canvasX: number, canvasY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !imageRef.current || isRayCasting) return;
+    if (showDdaRoomForm || pendingDdaRoomKey) return;
     setIsRayCasting(true);
     try {
       const tempCanvas = document.createElement('canvas');
@@ -4813,19 +4902,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const pixelsPerM = pixelsPerMm ? pixelsPerMm * 1000 : null;
       const compliance = calculateRoomCompliance(key, 'Room', imageVerts, pixelsPerM, measuredWindows);
       setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
-
-      // Phase C Step 5 — persist to DB (fire-and-forget)
-      if (currentPageId) {
-        saveRoomPolygonMutation.mutate({
-          drawingPageId: currentPageId,
-          roomLabel: 'Room',
-          polygonPoints: imageVerts,
-          areaM2: compliance.areaM2 > 0 ? compliance.areaM2 : undefined,
-          seedX: canvasX,
-          seedY: canvasY,
-          doorBarriers: doorBarriers.length > 0 ? doorBarriers : undefined,
-        });
-      }
+      setPendingDdaRoomKey(key);
+      setPendingDdaSeed({ x: canvasX, y: canvasY });
+      setDdaRoomLabel('');
+      setDdaRoomOccupancy('');
+      setDdaRoomSpaceType('');
+      setShowDdaRoomForm(true);
     } catch (err) {
       console.error('[Phase C] Ray cast failed:', err);
     } finally {
@@ -6956,6 +7038,53 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       disabled={saveRoomPolygonMutation.isPending}
                     >
                       Save Area
+                    </Button>
+                  </div>
+                )}
+
+                {showDdaRoomForm && pendingDdaRoomKey && (
+                  <div className="flex items-center gap-2 border-r border-border pr-2 ml-2">
+                    <Input
+                      value={ddaRoomLabel}
+                      onChange={(e) => setDdaRoomLabel(e.target.value)}
+                      placeholder="Room label"
+                      className="h-8 w-40 text-xs"
+                    />
+                    <select
+                      value={ddaRoomOccupancy}
+                      onChange={(e) => setDdaRoomOccupancy(e.target.value as 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | '')}
+                      className="h-8 rounded border border-input bg-background px-2 text-xs"
+                    >
+                      <option value="">Select group</option>
+                      {['A', 'B', 'C', 'D', 'E', 'F'].map(g => (
+                        <option key={g} value={g}>Group {g}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={ddaRoomSpaceType}
+                      onChange={(e) => setDdaRoomSpaceType(e.target.value as typeof ddaRoomSpaceType)}
+                      className="h-8 rounded border border-input bg-background px-2 text-xs"
+                    >
+                      <option value="">Select space type</option>
+                      {['room', 'corridor', 'stairwell', 'closet', 'storage', 'mechanical', 'garage', 'exterior', 'vestibule', 'lobby', 'other'].map(t => (
+                        <option key={t} value={t}>{t === 'exterior' ? 'Exterior/Site' : t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={handleSaveDdaRoom}
+                      disabled={saveRoomPolygonMutation.isPending || !ddaRoomLabel.trim() || !ddaRoomOccupancy || !ddaRoomSpaceType}
+                    >
+                      Save Room
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelDdaRoom}
+                      className="h-8 px-3 text-xs text-red-600 border-red-200"
+                    >
+                      Cancel
                     </Button>
                   </div>
                 )}
