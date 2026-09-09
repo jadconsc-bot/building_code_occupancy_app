@@ -93,5 +93,9 @@ describe('saveRoomsToDb', () => {
       'detectionComplete',
     ]);
     expect(evaluateRoomCompliance).toHaveBeenCalledTimes(1);
+    expect(mockDb.insert.mock.results[0].value.values).toHaveBeenCalledWith(
+      expect.objectContaining({ pageId: 7, projectId: 42 }),
+    );
+    expect(evaluateRoomCompliance).toHaveBeenCalledWith(room, 101, 42, 'AB');
   });
 });

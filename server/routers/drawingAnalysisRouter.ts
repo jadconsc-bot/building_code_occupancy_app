@@ -297,6 +297,18 @@ export const drawingAnalysisRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
+      // Validate attribution before storage uploads or any database writes.
+      const [selectedProject] = await db.select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)))
+        .limit(1);
+      if (!selectedProject) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Select a project you own before running analysis.",
+        });
+      }
+
       const ipAddress = extractIpAddress(ctx.req);
       const userAgent = ctx.req.headers["user-agent"] ?? "unknown";
       const sessionId = ctx.req.headers["x-session-id"] as string | undefined;
@@ -1535,6 +1547,18 @@ export const drawingAnalysisRouter = router({
         .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
       if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
 
+      const projectId = analysisRow.projectId;
+      if (projectId == null || !Number.isSafeInteger(projectId) || projectId <= 0) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This drawing has no valid project. Select a project and analyze the drawing again before adding rooms.' });
+      }
+      const [selectedProject] = await db.select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.userId, ctx.user.id)))
+        .limit(1);
+      if (!selectedProject) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'The drawing project is unavailable or does not belong to you.' });
+      }
+
       // Derive bounding box from polygon points for the notNull column
       const xs = input.polygonPoints.map(p => p.x);
       const ys = input.polygonPoints.map(p => p.y);
@@ -1549,7 +1573,7 @@ export const drawingAnalysisRouter = router({
 
       const result = await db.insert(detectedRooms).values({
         pageId: input.drawingPageId,
-        projectId: analysisRow.projectId ?? 0,
+        projectId,
         roomLabel: input.roomLabel,
         boundingBoxJson: bbox,
         polygonJson: input.polygonPoints,

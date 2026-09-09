@@ -9,6 +9,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ProjectWizard } from "@/components/ProjectWizard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -966,6 +967,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(projectId || 0);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [showNoProjectWarning, setShowNoProjectWarning] = useState(false);
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [analysisType, setAnalysisType] = useState<"structural" | "fire-safety" | "connections" | "comprehensive">("comprehensive");
   const [analysisQuality, setAnalysisQuality] = useState<"fast" | "standard" | "detailed">("standard");
   const [drawingType, setDrawingType] = useState<string>("auto");
@@ -1894,13 +1896,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     return tempCanvas.toDataURL('image/png');
   };
 
-  // Auto-select first project when list loads and no project is selected
-  useEffect(() => {
-    if (selectedProjectId === 0 && projectListQuery.data && projectListQuery.data.length > 0) {
-      setSelectedProjectId(projectListQuery.data[0].id);
-    }
-  }, [projectListQuery.data, selectedProjectId]);
-
   useEffect(() => {
     setAddressManuallyEdited(false);
     setSetContext(null);
@@ -2409,14 +2404,18 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     handleClearOverlay();
   };
 
-  // Core analysis logic — call this only after all guards have passed.
-  // effectiveProjectId: uses selectedProjectId if set, otherwise falls back to first
-  // available project so the server's positive-int constraint is always satisfied.
+  // Every analysis entry point must have an explicitly selected project.
   const triggerAnalysis = async () => {
     if (!drawingImage) return;
-    const effectiveProjectId = selectedProjectId > 0
-      ? selectedProjectId
-      : (projectListQuery.data?.[0]?.id ?? 1);
+    if (!disclaimerAcknowledged) {
+      toast.error("You must acknowledge the disclaimer before running analysis.");
+      return;
+    }
+    if (!Number.isSafeInteger(selectedProjectId) || selectedProjectId <= 0) {
+      setShowNoProjectWarning(true);
+      return;
+    }
+    const effectiveProjectId = selectedProjectId;
 
     setIsAnalyzing(true);
     setAnalysisProgress({ stage: 'uploading', pct: 10, label: 'Uploading drawing…' });
@@ -2502,18 +2501,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     });
   };
 
-  // Guard function: shows confirmation dialog if no project is selected, otherwise
-  // fires immediately. Kept as runAiAnalysis so internal Re-run buttons still work.
+  // Keep re-run buttons on the same guarded entry point.
   const runAiAnalysis = async () => {
-    if (!drawingImage) return;
-    if (!disclaimerAcknowledged) {
-      toast.error("You must acknowledge the disclaimer before running analysis.");
-      return;
-    }
-    if (selectedProjectId === 0) {
-      setShowNoProjectWarning(true);
-      return;
-    }
     await triggerAnalysis();
   };
 
@@ -6075,6 +6064,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button variant="outline" size="sm" onClick={() => setShowProjectWizard(true)}>
+                      Create new project
+                    </Button>
                   </div>
 
                   {disclaimerAcknowledged ? (
@@ -6815,6 +6807,12 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           ))
                         )}
                       </div>
+                      <Button variant="ghost" className="w-full" onClick={() => {
+                        setShowProjectSelector(false);
+                        setShowProjectWizard(true);
+                      }}>
+                        Create new project
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -9156,7 +9154,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       run + page loaded. Gives one-click access to Full Analysis
                       without hunting for the button. */}
                   {detectedRoomsData.length > 0 &&
-                   (activeProjectId ?? 0) > 0 &&
+                   activeProjectId != null && activeProjectId > 0 &&
                    !orchestratorResult &&
                    currentPageId && (
                     <div className="flex items-center justify-between p-2 rounded-md bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 mb-2">
@@ -9740,7 +9738,19 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         </CardContent>
       </Card>
 
-      {/* No-project confirmation dialog */}
+      {showProjectWizard && (
+        <ProjectWizard
+          open={showProjectWizard}
+          onOpenChange={setShowProjectWizard}
+          onSuccess={(id) => {
+            setSelectedProjectId(id);
+            setShowProjectWizard(false);
+            void projectListQuery.refetch();
+          }}
+        />
+      )}
+
+      {/* Analysis requires an explicit project choice. */}
       <AlertDialog open={showNoProjectWarning} onOpenChange={setShowNoProjectWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -9748,16 +9758,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               <FolderOpen className="w-5 h-5 text-amber-500" />
               No Project Selected
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                This analysis will not be linked to any project.
-                Results will be saved as a standalone scan and may
-                be harder to find later.
-              </p>
-              <p className="text-amber-600 font-medium">
-                We recommend linking analyses to a project for
-                organized compliance tracking and professional review.
-              </p>
+            <AlertDialogDescription>
+              Select an existing project or create a new one before running analysis.
+              The drawing and detected rooms will be saved to that project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -9774,11 +9777,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
             <AlertDialogAction
               onClick={() => {
                 setShowNoProjectWarning(false);
-                triggerAnalysis();
+                setShowProjectWizard(true);
               }}
               className="bg-amber-500 hover:bg-amber-600 text-white"
             >
-              Continue Without Project
+              Create new project
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
