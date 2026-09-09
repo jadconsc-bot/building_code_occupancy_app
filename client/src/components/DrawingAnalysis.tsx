@@ -800,6 +800,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   } | null>(null);
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [jurisdictionSource, setJurisdictionSource] = useState<'geocoded' | 'manual'>('manual');
 
   const [analysisProgress, setAnalysisProgress] = useState<{
     stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
@@ -2358,12 +2359,20 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const handleApplyZone = async () => {
     if (!zoneResult || !activeProjectId) return;
+    const confirmedAddress = zoneResult.confirmedAddress?.trim() || addressInput.trim();
+    // Reflect the confirmed lookup in the fields used by the rest of the analyzer.
+    setAddressInput(confirmedAddress);
+    // Keep the confirmed value from being replaced by the active project's
+    // previous address synchronization effect.
+    setAddressManuallyEdited(true);
+    setSelectedMunicipalityId(selectedMunicipalityId);
+    setJurisdictionSource('geocoded');
     setSelectedZone(zoneResult.zoneCode);
     setZoneConfirmed(true);
     try {
       await saveZoneMutation.mutateAsync({
         projectId:     activeProjectId,
-        address:       addressInput,
+        address:       confirmedAddress,
         municipality:  selectedMunicipalityId,
         province:      'AB',
         zoneCode:      zoneResult.zoneCode,
@@ -2540,7 +2549,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       sprinklered: payload.sprinklered,
       province: payload.province,
       calibrationConfidence: payload.calibrationConfidence,
-      jurisdictionSource: complianceInputSlice?.jurisdictionSource ?? 'manual',
+      jurisdictionSource,
       municipality: complianceInputSlice?.municipality
         ?? project?.municipality
         ?? undefined,
@@ -8695,7 +8704,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                           </div>
                         )}
                         {lookupError && (
-                          <p className="text-xs text-amber-600">
+                          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
                             {selectedMunicipalityId === 'rocky_view_county' ? (
                               <>
                                 ⚠ Rocky View County zone lookup not available — visit{' '}
@@ -8738,7 +8747,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             ) : (
                               <>⚠ {lookupError} — select zone manually below</>
                             )}
-                          </p>
+                          </div>
                         )}
                       </div>
 
