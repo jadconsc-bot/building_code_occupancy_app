@@ -2518,6 +2518,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const handleAnalyzeClick = () => { runAiAnalysis(); };
 
   const handleRunOrchestrator = () => {
+    if (!detectionComplete) {
+      toast.info('Room detection is still in progress — Full Analysis will be available when it finishes.');
+      return;
+    }
     if (!currentPageId || detectedPolygons.size === 0) return;
     setIsOrchestratorRunning(true);
 
@@ -7214,8 +7218,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     variant="default"
                     size="sm"
                     onClick={handleRunOrchestrator}
-                    disabled={detectedPolygons.size === 0 || isOrchestratorRunning || !currentPageId}
-                    title={detectedPolygons.size === 0 ? "Detect rooms first (DDA ray cast)" : !currentPageId ? "Upload a drawing first" : "Run all calculators on detected rooms"}
+                    disabled={!detectionComplete || detectedPolygons.size === 0 || isOrchestratorRunning || !currentPageId}
+                    title={!detectionComplete ? "Room detection is still in progress" : detectedPolygons.size === 0 ? "Detect rooms first (DDA ray cast)" : !currentPageId ? "Upload a drawing first" : "Run all calculators on detected rooms"}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     {isOrchestratorRunning
@@ -7224,6 +7228,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     }
                     Full Analysis
                   </Button>
+                  {!detectionComplete && currentPageId && (
+                    <span role="status" className="text-xs text-amber-700" data-detection-gate-message>
+                      Room detection is still in progress. Full Analysis unlocks when all rooms finish processing.
+                    </span>
+                  )}
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
@@ -9162,7 +9171,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       Shows when: rooms detected + project linked + analysis not yet
                       run + page loaded. Gives one-click access to Full Analysis
                       without hunting for the button. */}
-                  {detectedRoomsData.length > 0 &&
+                  {detectedRoomsData.length > 0 && detectionComplete &&
                    activeProjectId != null && activeProjectId > 0 &&
                    !orchestratorResult &&
                    currentPageId && (
@@ -9187,7 +9196,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       <Button
                         size="sm"
                         onClick={handleRunOrchestrator}
-                        disabled={isOrchestratorRunning || detectedPolygons.size === 0}
+                        disabled={!detectionComplete || isOrchestratorRunning || detectedPolygons.size === 0}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-3 ml-2 shrink-0"
                       >
                         {isOrchestratorRunning
