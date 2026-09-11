@@ -608,7 +608,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [pendingDdaSeed, setPendingDdaSeed] = useState<Point | null>(null);
   const [pendingDdaRoomContext, setPendingDdaRoomContext] = useState<{
     pageId: number | null;
-    analysisId: number | null;
   } | null>(null);
   const [ddaRoomLabel, setDdaRoomLabel] = useState('');
   const [ddaRoomOccupancy, setDdaRoomOccupancy] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | ''>('');
@@ -1249,7 +1248,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const handleSaveDdaRoom = useCallback(async () => {
     const pageContext = pendingDdaRoomContext;
 
-    if (!pageContext?.pageId || !pageContext?.analysisId) {
+    if (!pageContext?.pageId) {
       toast.error('Select a drawing page before adding a room.');
       return;
     }
@@ -1265,7 +1264,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       return;
     }
 
-    if (currentPageId !== pageContext.pageId || analysisId !== pageContext.analysisId) {
+    if (currentPageId !== pageContext.pageId) {
       toast.error('The selected page changed since this room was traced — please retrace it.');
       return;
     }
@@ -1298,7 +1297,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       toast.error('Failed to save room.');
     }
   }, [
-    analysisId,
     currentPageId,
     ddaRoomLabel,
     ddaRoomOccupancy,
@@ -1315,7 +1313,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const ddaRoomContextIsStale =
     !!pendingDdaRoomContext &&
-    (pendingDdaRoomContext.pageId !== currentPageId || pendingDdaRoomContext.analysisId !== analysisId);
+    pendingDdaRoomContext.pageId !== currentPageId;
 
   const ddaRoomSaveBlocked =
     saveRoomPolygonMutation.isPending ||
@@ -1323,7 +1321,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     !ddaRoomOccupancy ||
     !ddaRoomSpaceType ||
     !pendingDdaRoomContext?.pageId ||
-    !pendingDdaRoomContext?.analysisId ||
     ddaRoomContextIsStale;
 
   const handleCancelNewDoor = useCallback(() => {
@@ -1777,6 +1774,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         setDetectedRoomsData([]);
         setRoomComplianceData([]);
         setAnalysisId(null);
+        setCurrentPageId(null);
         setShowRoomOverlay(true);
         setShowComplianceHeatmap(false);
         setShowTravelDistanceOverlay(false);
@@ -1790,6 +1788,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           setDetectedRoomsData([]);
           setRoomComplianceData([]);
           setAnalysisId(null);
+          setCurrentPageId(null);
           setShowRoomOverlay(true);
           setShowComplianceHeatmap(false);
           setShowTravelDistanceOverlay(false);
@@ -1833,6 +1832,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setDetectedRoomsData([]);
       setRoomComplianceData([]);
       setAnalysisId(null);
+      setCurrentPageId(null);
       setShowRoomOverlay(true);
       setShowComplianceHeatmap(false);
       setShowTravelDistanceOverlay(false);
@@ -4944,7 +4944,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       setDdaRoomCompliance(prev => new Map(prev).set(key, compliance));
       setPendingDdaRoomKey(key);
       setPendingDdaSeed({ x: canvasX, y: canvasY });
-      setPendingDdaRoomContext({ pageId: currentPageId, analysisId });
+      setPendingDdaRoomContext({ pageId: currentPageId });
       setDdaRoomLabel('');
       setDdaRoomOccupancy('');
       setDdaRoomSpaceType('');
@@ -6163,6 +6163,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             setDetectedRoomsData([]);
                             setRoomComplianceData([]);
                             setAnalysisId(null);
+                            setCurrentPageId(null);
                             setShowRoomOverlay(true);
                             setShowComplianceHeatmap(false);
                             setShowTravelDistanceOverlay(false);
@@ -7887,6 +7888,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               setDetectedRoomsData([]);
                               setRoomComplianceData([]);
                               setAnalysisId(null);
+                              setCurrentPageId(null);
                               setShowRoomOverlay(true);
                               setShowComplianceHeatmap(false);
                               setShowTravelDistanceOverlay(false);
