@@ -7887,8 +7887,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               setDrawingImage(pageImg);
                               setDetectedRoomsData([]);
                               setRoomComplianceData([]);
-                              setAnalysisId(null);
-                              setCurrentPageId(null);
                               setShowRoomOverlay(true);
                               setShowComplianceHeatmap(false);
                               setShowTravelDistanceOverlay(false);
