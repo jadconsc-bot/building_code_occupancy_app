@@ -6403,9 +6403,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     variant={activeTool === "select_room" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setActiveTool(activeTool === "select_room" ? "select" : "select_room")}
-                    title="Click inside a room to detect its boundary using DDA ray casting."
+                    title={selectedProjectId > 0
+                      ? "Click inside a room to detect its boundary using DDA ray casting."
+                      : "Select or create a project before tracing a room."}
                     className={activeTool === "select_room" ? "bg-[#0696D7] hover:bg-[#057ab8] text-white" : ""}
-                    disabled={isRayCasting}
+                    disabled={isRayCasting || selectedProjectId <= 0}
                   >
                     {isRayCasting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
                   </Button>
