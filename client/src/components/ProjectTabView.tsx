@@ -989,6 +989,11 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
   }
 
   const project = projectQuery.data;
+  const determinationQuery = trpc.occupancyAdvisor.determinePart.useQuery({
+    footprintM2: (project as any)?.buildingFootprintJson?.value ?? null,
+    storeys: (project as any)?.storeys ?? null,
+    occupancyGroup: (project as any)?.occupancyCode ?? null,
+  }, { enabled: !!project });
   const snapshots = snapshotsQuery.data ?? [];
   const me = meQuery.data;
 
@@ -1102,6 +1107,9 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
           )}
           {project.part3Determination && (
             <Badge variant="outline" className="text-xs">🏗️ {project.part3Determination}</Badge>
+          )}
+          {determinationQuery.data?.determination && project.part3Determination && determinationQuery.data.determination !== project.part3Determination && (
+            <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">⚠️ Scope determination needs review</Badge>
           )}
           {project.constructionType && (
             <Badge variant="outline" className="text-xs">

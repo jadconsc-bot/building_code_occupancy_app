@@ -15,6 +15,7 @@ import { editionForProvince } from '../rules/overlays/index';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { getLimits } from '../services/travelDistanceService';
 import { Constraints } from '../engine/constraints/index';
+import { determineBuildingPart } from '../engine/buildingPartDetermination';
 
 export const projectRouter = router({
   /**
@@ -51,6 +52,7 @@ export const projectRouter = router({
       jurisdictionDetected: z.boolean().optional(),
       projectCode: z.string().max(50).optional(),
       grossFloorArea: z.number().positive().optional(),
+      buildingFootprintJson: z.object({ value: z.number().nonnegative(), confirmed: z.boolean(), source: z.string().min(1).max(100) }).optional(),
       zoningCategory: z.string().max(50).optional(),
       siteConstraints: z.string().max(2000).trim().optional(),
       storeys: z.number().int().positive().optional(),
@@ -88,6 +90,7 @@ export const projectRouter = router({
         jurisdictionDetected: z.boolean().optional(),
         projectCode: z.string().max(50).optional(),
         grossFloorArea: z.number().positive().optional(),
+        buildingFootprintJson: z.object({ value: z.number().nonnegative(), confirmed: z.boolean(), source: z.string().min(1).max(100) }).optional(),
         bedroomCount: z.number().int().nonnegative().optional(),
         totalDwellingUnits: z.number().int().positive().optional(),
         zoningCategory: z.string().max(50).optional(),
@@ -226,6 +229,7 @@ export const projectRouter = router({
           id: projects.id,
           occupancyCode: projects.occupancyCode,
           grossFloorArea: projects.grossFloorArea,
+          buildingFootprintJson: projects.buildingFootprintJson,
           bedroomCount: projects.bedroomCount,
           totalDwellingUnits: projects.totalDwellingUnits,
           storeys: projects.storeys,
@@ -242,6 +246,9 @@ export const projectRouter = router({
       const occupancyGroup = project.occupancyCode ?? null;
       const grossFloorAreaM2 = project.grossFloorArea ? parseFloat(project.grossFloorArea) : null;
       const storeys = project.storeys ?? null;
+      const footprintFact = project.buildingFootprintJson as { value?: number } | null;
+      const footprintM2 = typeof footprintFact?.value === 'number' ? footprintFact.value : null;
+      const determination = determineBuildingPart({ footprintM2, storeys, occupancyGroup });
       const province = project.province ?? null;
       const sprinkleredInput = project.sprinklersRequired != null
         ? project.sprinklersRequired === 1
@@ -375,10 +382,7 @@ export const projectRouter = router({
       const area = grossFloorAreaM2 ?? 0;
       const storeysNum = storeys ?? 0;
 
-      const part3Required =
-        storeysNum > 3 ||
-        (code.startsWith('C') && area > 600) ||
-        (!code.startsWith('C') && area > 5000);
+      const part3Required = determination.determination === 'Part 3';
 
       let codeRequiredSprinklers = false;
       let sprinklerCitation = '';
@@ -447,6 +451,8 @@ export const projectRouter = router({
         inputs: {
           occupancyGroup,
           grossFloorAreaM2,
+          buildingFootprintM2: footprintM2,
+          partDetermination: determination,
           storeys,
           province,
           sprinklered: sprinkleredInput,

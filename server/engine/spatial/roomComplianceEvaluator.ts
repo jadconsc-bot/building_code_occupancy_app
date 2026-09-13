@@ -10,6 +10,7 @@ import type { DetectedRoom } from './types';
 import { getDb } from '../../db';
 import { complianceResults, detectedRooms, projects } from '../../../drizzle/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { determineBuildingPart } from '../buildingPartDetermination';
 
 // Feature-to-occupancy scoring rules from the detection spec
 const FEATURE_OCCUPANCY_RULES = [
@@ -626,46 +627,34 @@ export async function evaluateRoomCompliance(
   // 10. Part 3 vs Part 9 determination
   try {
     const db10 = await getDb();
-    let grossFloorArea: number | null = null;
+    let footprintM2: number | null = null;
+    let storeys: number | null = null;
+    let occupancyGroup: string | null = group;
     if (db10) {
       const [proj] = await db10
-        .select({ grossFloorArea: projects.grossFloorArea })
+        .select({ buildingFootprintJson: projects.buildingFootprintJson, storeys: projects.storeys, occupancyCode: projects.occupancyCode })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
-      if (proj?.grossFloorArea) {
-        grossFloorArea = parseFloat(String(proj.grossFloorArea));
-      }
+      const fact = proj?.buildingFootprintJson as { value?: number } | null | undefined;
+      footprintM2 = typeof fact?.value === 'number' ? fact.value : null;
+      storeys = proj?.storeys ?? null;
+      occupancyGroup = proj?.occupancyCode ?? group;
     }
-
-    const part3AreaThreshold = Constraints.building_limits.part3_area_threshold.value;
-    const isPart3ByArea = grossFloorArea !== null && grossFloorArea > part3AreaThreshold;
+    const determination = determineBuildingPart({ footprintM2, storeys, occupancyGroup });
 
     traces.push(buildFederalTrace({
-      result: grossFloorArea === null ? 'not_applicable'
-        : isPart3ByArea ? 'warning' : 'pass',
-      rule: Constraints.building_limits.part3_area_threshold.ref,
-      reasoning: grossFloorArea === null
-        ? `Building gross floor area not set — Part 3 vs Part 9 determination requires manual review`
-        : isPart3ByArea
-          ? `Building GFA ${grossFloorArea}m² exceeds ${part3AreaThreshold}m² Part 9 limit — Part 3 provisions apply to this Group ${group} room`
-          : `Building GFA ${grossFloorArea}m² is within Part 9 limits (≤${part3AreaThreshold}m²)`,
+      result: determination.determination === 'needs_review' ? 'not_applicable' : determination.determination === 'Part 3' ? 'warning' : 'pass',
+      rule: 'NBC 9.10.1',
+      reasoning: determination.reasoning,
       evaluatedInputs: {
-        actual: grossFloorArea ?? 'not available',
-        required: part3AreaThreshold,
+        actual: JSON.stringify({ footprintM2, storeys, occupancyGroup }),
+        required: 'footprint ≤600 m²; storeys ≤3; occupancy B-4/C/D/E/F-2/F-3',
         unit: 'm²',
-        ...(grossFloorArea !== null ? computeMargin(grossFloorArea, part3AreaThreshold) : {})
       },
-      severity: grossFloorArea === null ? 'info' : isPart3ByArea ? 'high' : 'info',
+      severity: determination.determination === 'Part 3' ? 'high' : 'info',
       constraintId: 'building_limits.part3_determination',
-      recommendations: isPart3ByArea
-        ? [
-            `Part 3 (NBC Division B) provisions apply — Group ${group} room must comply with Part 3 requirements`,
-            'Engage licensed architect/engineer for Part 3 compliance review'
-          ]
-        : grossFloorArea === null
-          ? ['Enter building gross floor area in project settings to enable Part 3 vs Part 9 determination']
-          : []
+      recommendations: determination.determination === 'Part 3' ? ['Part 3 (NBC Division B) provisions apply; engage a licensed architect/engineer for review'] : determination.determination === 'needs_review' ? ['Enter and verify building footprint, storeys, and major occupancy'] : []
     }));
   } catch (err) {
     console.error('[RoomCompliance] Rule 10 Part 3 determination failed:', err);

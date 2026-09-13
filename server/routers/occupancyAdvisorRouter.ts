@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, router } from '../_core/trpc';
 import { callAnthropicText } from '../services/anthropicTextService';
+import { determineBuildingPart } from '../engine/buildingPartDetermination';
 
 const SYSTEM_PROMPT = `You are a Canadian building code expert specializing in NBC occupancy classification. Your role is to SUGGEST occupancy candidates only — never make final determinations. A licensed professional must confirm all classifications.
 
@@ -45,15 +46,13 @@ const classifyResponseSchema = z.object({
   defaultToMoreRestrictive: z.boolean(),
 });
 
-function scoreOccupancyCandidate(code: string, area: number, storeys: number, province: string) {
+function scoreOccupancyCandidate(code: string, area: number, footprintM2: number | null, storeys: number, province: string) {
   const warnings: string[] = [];
   const nbcRefs = new Set<string>(['NBC 3.1.2', 'NBC 3.2.2']);
 
   // Part 3 / Part 9 determination
-  const part3Required =
-    storeys > 3 ||
-    (code === 'C' && area > 600) ||
-    (code !== 'C' && area > 5000);
+  const determination = determineBuildingPart({ footprintM2, storeys, occupancyGroup: code });
+  const part3Required = determination.determination === 'Part 3';
 
   // Sprinkler requirements
   let sprinklersRequired = false;
@@ -120,6 +119,14 @@ function scoreOccupancyCandidate(code: string, area: number, storeys: number, pr
 }
 
 export const occupancyAdvisorRouter = router({
+  determinePart: protectedProcedure
+    .input(z.object({
+      footprintM2: z.number().finite().nonnegative().nullable(),
+      storeys: z.number().int().positive().nullable(),
+      occupancyGroup: z.string().trim().nullable(),
+    }))
+    .query(({ input }) => determineBuildingPart(input)),
+
   classify: protectedProcedure
     .input(z.object({
       buildingDescription: z.string().min(1),
@@ -175,10 +182,11 @@ export const occupancyAdvisorRouter = router({
     .input(z.object({
       code: z.string(),
       area: z.number(),
+      footprintM2: z.number().nonnegative().nullable(),
       storeys: z.number(),
       province: z.string(),
     }))
     .mutation(({ input }) => {
-      return scoreOccupancyCandidate(input.code, input.area, input.storeys, input.province);
+    return scoreOccupancyCandidate(input.code, input.area, input.footprintM2, input.storeys, input.province);
     }),
 });

@@ -24,6 +24,7 @@ import {
 export type { ComplianceInput, EvaluationContext } from './engine/types/context';
 export type { EvaluationResult } from './engine/EvaluationContract';
 import type { ComplianceInput } from './engine/types/context';
+import { determineBuildingPart } from './engine/buildingPartDetermination';
 
 export interface Rule {
   rule_id: string;
@@ -166,24 +167,23 @@ export class ComplianceEvaluator {
     // Area check (no dedicated rule file — uses building_limits constraint)
     const areaLimit  = Constraints.building_limits.part9_threshold.max_area.value as number;
     const areaActual = inputs.area_m2 ?? 0;
-    const areaPass   = !(outputs.area_exceeds_limit === true) && areaActual <= areaLimit;
-    const { margin: areaMargin, marginPercent: areaMarginPct } = computeMargin(areaActual, areaLimit);
+    const determination = determineBuildingPart({ footprintM2: inputs.footprint_m2 ?? null, storeys: inputs.storeys ?? null, occupancyGroup: inputs.occupancy_major });
+    const areaPass   = determination.determination === 'Part 9';
+    const { margin: areaMargin, marginPercent: areaMarginPct } = computeMargin(inputs.footprint_m2 ?? 0, areaLimit);
     const areaTrace = buildFederalTrace({
-      result: areaPass ? 'pass' : 'fail',
+      result: determination.determination === 'needs_review' ? 'not_applicable' : areaPass ? 'pass' : 'fail',
       rule: Constraints.building_limits.part9_threshold.max_area.ref,
       constraintId: 'building_limits.part9_threshold.max_area',
       severity: areaPass ? 'info' : 'high',
       evaluatedInputs: {
-        actual: areaActual,
+        actual: inputs.footprint_m2 ?? 'not available',
         required: areaLimit,
         unit: 'm²',
         margin: areaMargin,
         marginPercent: areaMarginPct,
       },
-      reasoning: areaPass
-        ? `Floor area of ${areaActual} m² is within the Part 9 limit of ${areaLimit} m².`
-        : `Floor area of ${areaActual} m² exceeds the Part 9 limit of ${areaLimit} m². Part 3 applies.`,
-      recommendations: areaPass ? [] : ['Review Part 3 requirements for this building.'],
+      reasoning: determination.reasoning,
+      recommendations: areaPass ? [] : ['Review Part 3 requirements and verify the building footprint, storeys, and occupancy group.'],
     });
 
     // ── Compliance flags (derived from rule traces) ───────────────────────────

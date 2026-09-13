@@ -25,6 +25,7 @@ export interface CreateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  buildingFootprintJson?: { value: number; confirmed: boolean; source: string };
   bedroomCount?: number;
   totalDwellingUnits?: number;
   zoningCategory?: string;
@@ -53,6 +54,7 @@ export interface UpdateProjectInput {
   jurisdictionDetected?: boolean;
   projectCode?: string;
   grossFloorArea?: number;
+  buildingFootprintJson?: { value: number; confirmed: boolean; source: string };
   bedroomCount?: number;
   totalDwellingUnits?: number;
   zoningCategory?: string;
@@ -168,6 +170,7 @@ export class ProjectRepository {
         jurisdictionDetected: input.jurisdictionDetected ?? false,
         projectCode: input.projectCode || null,
         grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
+        buildingFootprintJson: input.buildingFootprintJson ?? null,
         projectNumber,
         zoningCategory: input.zoningCategory || null,
         storeys: input.storeys || null,
@@ -225,6 +228,7 @@ export class ProjectRepository {
       if (input.jurisdictionDetected !== undefined) updateData.jurisdictionDetected = input.jurisdictionDetected;
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
       if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
+      if (input.buildingFootprintJson !== undefined) updateData.buildingFootprintJson = input.buildingFootprintJson;
       if (input.bedroomCount !== undefined) updateData.bedroomCount = input.bedroomCount;
       if (input.totalDwellingUnits !== undefined) updateData.totalDwellingUnits = input.totalDwellingUnits;
       if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;

@@ -4,6 +4,7 @@
  * Generates code pathways and justification narratives from compliance results
  * Extracts applicable clauses and creates AHJ-ready explanations
  */
+import { determineBuildingPart } from './engine/buildingPartDetermination';
 
 export interface ComplianceClause {
   clauseNumber: string;
@@ -29,6 +30,7 @@ export interface CompliancePathway {
     constructionType: string;
     sprinklers: boolean;
     codeEdition: string;
+    determination: ReturnType<typeof determineBuildingPart>;
   };
   applicableClauses: ComplianceClause[];
   alternativeSolutions: AlternativeSolution[];
@@ -53,7 +55,9 @@ export class CompliancePathwayGenerator {
   ): CompliancePathway {
     const occupancy = inputs.occupancy_major || inputs.occupancy || 'D';
     const area_m2 = inputs.area_m2 || 5000;
+    const footprint_m2 = inputs.footprint_m2 ?? null;
     const storeys = inputs.storeys || 1;
+    const determination = determineBuildingPart({ footprintM2: footprint_m2, storeys, occupancyGroup: occupancy });
     const constructionType = inputs.construction_type || 'Non-Combustible';
     const sprinklers = inputs.sprinklers || false;
     const province = (inputs.province as string) || '';
@@ -114,6 +118,7 @@ export class CompliancePathwayGenerator {
         constructionType,
         sprinklers,
         codeEdition,
+        determination,
       },
       applicableClauses,
       alternativeSolutions,

@@ -2,6 +2,7 @@ export interface ComplianceInput {
   occupancy_major: string;
   occupancy_division?: string;
   area_m2?: number;
+  footprint_m2?: number;
   storeys?: number;
   travel_distance_m?: number;
   exits?: number;

@@ -431,6 +431,7 @@ export function OccupancyAdvisor({
   const [occupantBehavior, setOccupantBehavior] = useState("");
   const [hazardLevel, setHazardLevel] = useState("");
   const [estimatedArea, setEstimatedArea] = useState(initialArea?.toString() ?? "");
+  const [estimatedFootprint, setEstimatedFootprint] = useState(initialArea?.toString() ?? "");
   const [storeysStr, setStoreysStr] = useState(initialStoreys?.toString() ?? "");
   const [isMixedUse, setIsMixedUse] = useState(false);
   const [mixedUseZones, setMixedUseZones] = useState<{ use: string; area: string }[]>([]);
@@ -463,6 +464,7 @@ export function OccupancyAdvisor({
   useEffect(() => {
     if (open) {
       setEstimatedArea(initialArea?.toString() ?? "");
+      setEstimatedFootprint(initialArea?.toString() ?? "");
       setStoreysStr(initialStoreys?.toString() ?? "");
       setSelectedProvince(province ?? "");
     }
@@ -493,7 +495,7 @@ export function OccupancyAdvisor({
       const area = parseFloat(estimatedArea) || 500;
       const storeysNum = parseInt(storeysStr) || 1;
       data.candidates.forEach((c: any) => {
-        scoreMutation.mutate({ code: c.code, area, storeys: storeysNum, province: selectedProvince });
+        scoreMutation.mutate({ code: c.code, area, footprintM2: parseFloat(estimatedFootprint) || null, storeys: storeysNum, province: selectedProvince });
       });
     },
     onError: (err) => {
@@ -865,6 +867,10 @@ export function OccupancyAdvisor({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="oa-footprint">Estimated Footprint at Grade m²</Label>
+                <Input id="oa-footprint" type="number" min="0" value={estimatedFootprint} onChange={e => setEstimatedFootprint(e.target.value)} />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="oa-area">Estimated Area m²</Label>
                 <Input

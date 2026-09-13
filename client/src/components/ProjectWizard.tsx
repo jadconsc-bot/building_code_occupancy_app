@@ -216,6 +216,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [occupancyCode, setOccupancyCode] = useState("A-1");
   const [grossFloorArea, setGrossFloorArea] = useState<number | undefined>(undefined);
+  const [buildingFootprintM2, setBuildingFootprintM2] = useState<number | undefined>(undefined);
   const [storeys, setStoreys] = useState<number | undefined>(undefined);
   const [buildingHeight, setBuildingHeight] = useState<number | undefined>(undefined);
   const [part3Determination, setPart3Determination] = useState("");
@@ -287,16 +288,23 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-calculate Part 3/9 + sprinklers when inputs change
+  const determinationQuery = trpc.occupancyAdvisor.determinePart.useQuery({
+    footprintM2: buildingFootprintM2 ?? null,
+    storeys: storeys ?? null,
+    occupancyGroup: occupancyCode || null,
+  }, { enabled: buildingFootprintM2 !== undefined && storeys !== undefined && occupancyCode !== "" });
+
+  // Server-authoritative Part 3/9 determination and derived construction default.
   useEffect(() => {
-    if (grossFloorArea && storeys && occupancyCode && !part3Override) {
-      const det = determinePart(storeys, grossFloorArea, occupancyCode);
-      setPart3Determination(det);
-      if (!constructionType) {
-        setConstructionType(suggestConstruction(det));
+    if (determinationQuery.data) {
+      setPart3Determination(determinationQuery.data.determination);
+      if (determinationQuery.data.determination === "Part 9") setBuildingType("part9_single_family");
+      if (determinationQuery.data.determination === "Part 3") setBuildingType("part3_residential");
+      if (!constructionType && determinationQuery.data.determination !== "needs_review") {
+        setConstructionType(suggestConstruction(determinationQuery.data.determination));
       }
     }
-  }, [grossFloorArea, storeys, occupancyCode, part3Override]);
+  }, [determinationQuery.data, constructionType]);
 
   useEffect(() => {
     if (part3Determination && grossFloorArea && storeys && sprinklersOverride === null) {
@@ -366,7 +374,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     setProvince(""); setCodeEdition(""); setCodeEditionOverride(false);
     setZoningCategory(""); setSiteConstraints([]);
     setShowAdvisor(false);
-    setOccupancyCode("A-1"); setGrossFloorArea(undefined); setStoreys(undefined);
+    setOccupancyCode("A-1"); setGrossFloorArea(undefined); setBuildingFootprintM2(undefined); setStoreys(undefined);
     setBuildingHeight(undefined); setPart3Determination(""); setPart3Override(false);
     setConstructionType(""); setSprinklersRequired(false); setSprinklersOverride(null);
     setBuildingType("");
@@ -419,6 +427,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       jurisdictionDetected,
       projectCode: projectCode.trim() || undefined,
       grossFloorArea: grossFloorArea || undefined,
+      buildingFootprintJson: buildingFootprintM2 !== undefined ? { value: buildingFootprintM2, confirmed: true, source: "user-entered" } : undefined,
       zoningCategory: zoningCategory || undefined,
       siteConstraints: siteConstraints.length > 0 ? JSON.stringify(siteConstraints) : undefined,
       storeys: storeys || undefined,
@@ -432,7 +441,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
 
   const step1Valid = name.trim().length > 0 && address.trim().length > 0;
   const step2Valid = province !== "" && zoningCategory !== "";
-  const step3Valid = occupancyCode !== "" && buildingType !== "" && !!grossFloorArea && !!storeys && constructionType !== "";
+  const step3Valid = occupancyCode !== "" && buildingType !== "" && !!grossFloorArea && !!buildingFootprintM2 && !!storeys && constructionType !== "" && part3Determination !== "needs_review";
 
   const selectedOccupancy = occupancyData.find(o => o.code === occupancyCode);
 
@@ -665,7 +674,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="wiz-area">Building Area m² *</Label>
+                <Label htmlFor="wiz-area">Total/Gross Floor Area m² *</Label>
                 <Input
                   id="wiz-area"
                   type="number"
@@ -673,6 +682,18 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                   value={grossFloorArea ?? ""}
                   onChange={e => setGrossFloorArea(e.target.value ? parseFloat(e.target.value) : undefined)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wiz-footprint">Building Footprint at Grade m² *</Label>
+                <Input
+                  id="wiz-footprint"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 418"
+                  value={buildingFootprintM2 ?? ""}
+                  onChange={e => setBuildingFootprintM2(e.target.value ? parseFloat(e.target.value) : undefined)}
+                />
+                <p className="text-xs text-muted-foreground">Ground-floor footprint, not total floor area across storeys.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="wiz-storeys">Storeys *</Label>
@@ -701,35 +722,15 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
             {/* Part 3 / Part 9 Determination */}
             {part3Determination && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Part 3 / Part 9 Determination</Label>
-                  <button
-                    type="button"
-                    className="text-xs text-primary underline"
-                    onClick={() => setPart3Override(v => !v)}
-                  >
-                    {part3Override ? "Use auto" : "Override"}
-                  </button>
-                </div>
-                {part3Override ? (
-                  <select
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                    value={part3Determination}
-                    onChange={e => setPart3Determination(e.target.value)}
-                  >
-                    <option value="Part 9">Part 9 — Small Buildings</option>
-                    <option value="Part 3">Part 3 — Large Buildings</option>
-                  </select>
-                ) : (
-                  <div className="flex items-center gap-2">
+                <Label>Part 3 / Part 9 Determination</Label>
+                <div className="flex items-center gap-2">
                     <Badge className={part3Determination === "Part 9" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}>
                       {part3Determination}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
                       {part3Determination === "Part 9" ? "≤3 storeys, ≤600 m²" : ">3 storeys or >600 m²"}
                     </span>
-                  </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -804,6 +805,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 className="w-full px-3 py-2 border border-input rounded-md bg-background"
                 value={buildingType}
                 onChange={e => setBuildingType(e.target.value)}
+                disabled
               >
                 <option value="">Select building type...</option>
                 {BUILDING_TYPES.map(bt => (

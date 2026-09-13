@@ -100,6 +100,7 @@ export const projects = mysqlTable("projects", {
   jurisdictionDetected: boolean("jurisdictionDetected").default(false),
   projectCode: varchar("projectCode", { length: 50 }), // user-entered code e.g. "CCC21", "ABC-2024"
   grossFloorArea: decimal("grossFloorArea", { precision: 10, scale: 2 }),
+  buildingFootprintJson: json("buildingFootprintJson"),
   bedroomCount: int("bedroomCount"),
   totalDwellingUnits: int("totalDwellingUnits"),
   projectNumber: varchar("projectNumber", { length: 20 }), // auto-generated e.g. "CC-2025-001"
