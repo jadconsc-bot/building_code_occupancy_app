@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useProject } from '@/contexts/ProjectContext';
@@ -9,32 +8,33 @@ export default function BriefPage() {
   const [, navigate] = useLocation();
   const { activeProjectId, setActiveProjectId } = useProject();
   const projectsQuery = trpc.projects.list.useQuery();
-  const [redirectCancelled, setRedirectCancelled] = useState(false);
-
-  // Path A: active project known — redirect immediately
-  useEffect(() => {
-    if (!activeProjectId || redirectCancelled) return;
-    const timer = window.setTimeout(() => {
-      navigate(`/project/${activeProjectId}?tab=brief`);
-    }, 1500);
-    return () => window.clearTimeout(timer);
-  }, [activeProjectId, navigate, redirectCancelled]);
-
-  // Still redirecting
+  // Path A: active project known — keep the escape action persistently visible.
   if (activeProjectId) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 min-h-[60vh]">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        <Button
-          variant="outline"
-          onClick={() => {
-            setRedirectCancelled(true);
-            setActiveProjectId(null);
-            navigate('/brief');
-          }}
-        >
-          Start a new project
-        </Button>
+      <div className="max-w-lg mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold">Project Brief</h1>
+            <p className="text-sm text-muted-foreground">Your active project is selected.</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <Button onClick={() => navigate(`/project/${activeProjectId}?tab=brief`)}>
+            View current project brief
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setActiveProjectId(null);
+              navigate('/brief');
+            }}
+          >
+            Start a new project
+          </Button>
+        </div>
       </div>
     );
   }
