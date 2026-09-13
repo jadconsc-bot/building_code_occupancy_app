@@ -335,6 +335,9 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     onSuccess: (data) => {
       toast.success("Project created successfully!");
       if (data?.id) {
+        // Register the new project immediately so every project entry point
+        // (including Project Brief) reflects it before the wizard is closed.
+        setActiveProjectId(data.id);
         const phases = getChecklistForOccupancy(occupancyCode);
         bulkSaveChecklist.mutate({
           projectId: data.id,

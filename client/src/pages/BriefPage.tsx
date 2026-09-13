@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useProject } from '@/contexts/ProjectContext';
@@ -9,19 +9,32 @@ export default function BriefPage() {
   const [, navigate] = useLocation();
   const { activeProjectId, setActiveProjectId } = useProject();
   const projectsQuery = trpc.projects.list.useQuery();
+  const [redirectCancelled, setRedirectCancelled] = useState(false);
 
   // Path A: active project known — redirect immediately
   useEffect(() => {
-    if (activeProjectId) {
+    if (!activeProjectId || redirectCancelled) return;
+    const timer = window.setTimeout(() => {
       navigate(`/project/${activeProjectId}?tab=brief`);
-    }
-  }, [activeProjectId, navigate]);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [activeProjectId, navigate, redirectCancelled]);
 
   // Still redirecting
   if (activeProjectId) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex flex-col items-center justify-center gap-4 min-h-[60vh]">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <Button
+          variant="outline"
+          onClick={() => {
+            setRedirectCancelled(true);
+            setActiveProjectId(null);
+            navigate('/brief');
+          }}
+        >
+          Start a new project
+        </Button>
       </div>
     );
   }
