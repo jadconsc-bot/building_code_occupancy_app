@@ -70,7 +70,8 @@ export class CompliancePathwayGenerator {
       area_m2,
       storeys,
       constructionType,
-      sprinklers
+      sprinklers,
+      determination
     );
 
     // Generate alternative solutions
@@ -78,7 +79,8 @@ export class CompliancePathwayGenerator {
       occupancy,
       area_m2,
       storeys,
-      constructionType
+      constructionType,
+      determination
     );
 
     // Perform risk assessment
@@ -136,7 +138,8 @@ export class CompliancePathwayGenerator {
     area_m2: number,
     storeys: number,
     constructionType: string,
-    sprinklers: boolean
+    sprinklers: boolean,
+    determination: ReturnType<typeof determineBuildingPart>
   ): ComplianceClause[] {
     const clauses: ComplianceClause[] = [];
 
@@ -202,7 +205,7 @@ export class CompliancePathwayGenerator {
     }
 
     // Area limitation requirements
-    if (area_m2 > 5000) {
+    if (determination.failedCriteria.includes('footprint')) {
       clauses.push({
         clauseNumber: '3.2.1',
         title: 'Building Area Limitations',
@@ -223,7 +226,8 @@ export class CompliancePathwayGenerator {
     occupancy: string,
     area_m2: number,
     storeys: number,
-    constructionType: string
+    constructionType: string,
+    determination: ReturnType<typeof determineBuildingPart>
   ): AlternativeSolution[] {
     const solutions: AlternativeSolution[] = [];
 
@@ -263,7 +267,7 @@ export class CompliancePathwayGenerator {
     });
 
     // Alternative 3: Reduce area
-    if (area_m2 > 5000) {
+    if (determination.failedCriteria.includes('footprint')) {
       solutions.push({
         approach: 'Reduce building area or add fire separation',
         advantages: [
@@ -281,7 +285,7 @@ export class CompliancePathwayGenerator {
     }
 
     // Alternative 4: Reduce storeys
-    if (storeys > 3) {
+    if (determination.failedCriteria.includes('storeys')) {
       solutions.push({
         approach: 'Reduce number of storeys',
         advantages: [

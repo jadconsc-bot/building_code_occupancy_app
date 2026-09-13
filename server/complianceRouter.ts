@@ -9,6 +9,7 @@ import { getDb } from "./db";
 import { rulesets, complianceSnapshots, ruleChangelog, auditLog, ruleTests } from "../drizzle/schema";
 import { ComplianceEvaluator, createEvaluator, validateInputsForStrictMode, ComplianceInput, EvaluationResult } from "./complianceEngine";
 import { eq, and, isNull } from "drizzle-orm";
+import { hydrateFootprintInput } from './services/projectFootprintHydration';
 
 export const complianceRouter = router({
   /**
@@ -87,7 +88,9 @@ export const complianceRouter = router({
       }
 
       // Run analysis
-      const result: EvaluationResult = await evaluator.evaluate(input.inputs as ComplianceInput);
+      const hydratedInputs = await hydrateFootprintInput(db, ctx.user.id, input.projectId, input.inputs as ComplianceInput);
+      console.log('[ComplianceRouter] hydrated ComplianceInput', { projectId: input.projectId, footprint_m2: hydratedInputs.footprint_m2 });
+      const result: EvaluationResult = await evaluator.evaluate(hydratedInputs as ComplianceInput);
 
       // Create snapshot
       const snapshotId = `snap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

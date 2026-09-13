@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { determineBuildingPart } from './buildingPartDetermination';
+import { ComplianceEvaluator } from '../complianceEngine';
+import { CompliancePathwayGenerator } from '../compliancePathwayGenerator';
 
 const input = (overrides: Partial<Parameters<typeof determineBuildingPart>[0]> = {}) => ({
   footprintM2: 600,
@@ -26,5 +28,20 @@ describe('determineBuildingPart', () => {
   });
   it('returns needs_review when required inputs are missing', () => {
     expect(determineBuildingPart({ footprintM2: null, storeys: null, occupancyGroup: null })).toMatchObject({ determination: 'needs_review' });
+  });
+  it('evaluates 836 total / 418 footprint / 2-storey Group C as Part 9', async () => {
+    const result = await new ComplianceEvaluator([], 'soft').evaluate({ occupancy_major: 'C', area_m2: 836, footprint_m2: 418, storeys: 2 });
+    expect(result.traces.find(t => t.constraintId === 'building_limits.part9_threshold.max_area')?.result).toBe('pass');
+    expect(CompliancePathwayGenerator.generatePathway({}, { occupancy_major: 'C', area_m2: 836, footprint_m2: 418, storeys: 2 }).projectSummary.determination.determination).toBe('Part 9');
+  });
+  it('evaluates 836 m² footprint as Part 3', async () => {
+    const result = await new ComplianceEvaluator([], 'soft').evaluate({ occupancy_major: 'C', area_m2: 836, footprint_m2: 836, storeys: 2 });
+    expect(result.traces.find(t => t.constraintId === 'building_limits.part9_threshold.max_area')?.result).toBe('fail');
+    expect(CompliancePathwayGenerator.generatePathway({}, { occupancy_major: 'C', area_m2: 836, footprint_m2: 836, storeys: 2 }).projectSummary.determination.determination).toBe('Part 3');
+  });
+  it('degrades to needs_review without a footprint', async () => {
+    const result = await new ComplianceEvaluator([], 'soft').evaluate({ occupancy_major: 'C', area_m2: 836, storeys: 2 });
+    expect(result.traces.find(t => t.constraintId === 'building_limits.part9_threshold.max_area')?.result).toBe('not_applicable');
+    expect(CompliancePathwayGenerator.generatePathway({}, { occupancy_major: 'C', area_m2: 836, storeys: 2 }).projectSummary.determination.determination).toBe('needs_review');
   });
 });

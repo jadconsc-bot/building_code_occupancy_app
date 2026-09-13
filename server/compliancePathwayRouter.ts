@@ -2,6 +2,8 @@ import { CompliancePathwayGenerator } from './compliancePathwayGenerator';
 import { protectedProcedure, router } from './_core/trpc';
 import { ReportGenerator } from './reportGenerator';
 import { z } from 'zod';
+import { getDb } from './db';
+import { hydrateFootprintInput } from './services/projectFootprintHydration';
 
 export const compliancePathwayRouter = router({
   // Generate compliance pathway
@@ -12,10 +14,15 @@ export const compliancePathwayRouter = router({
         inputs: z.record(z.string(), z.any()),
       })
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('Database not available');
+      const projectId = typeof input.inputs.projectId === 'number' ? input.inputs.projectId : undefined;
+      const hydratedInputs = await hydrateFootprintInput(db, ctx.user.id, projectId, input.inputs);
+      console.log('[CompliancePathwayRouter] hydrated pathway inputs', { projectId, footprint_m2: hydratedInputs.footprint_m2 });
       return CompliancePathwayGenerator.generatePathway(
         input.complianceResult,
-        input.inputs,
+        hydratedInputs,
       );
     }),
 
