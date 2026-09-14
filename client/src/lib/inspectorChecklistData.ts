@@ -30,7 +30,7 @@ const baseChecklists: Record<ConstructionPhase, ChecklistItem[]> = {
     { id: 'found-05', description: 'Check foundation drainage tile installation', codeReference: '9.14.1.1', critical: false },
     { id: 'found-06', description: 'Verify anchor bolt placement and spacing', codeReference: '9.23.3.4', critical: true },
     { id: 'found-07', description: 'Verify setback distances comply with zoning bylaw', codeReference: 'Zoning Bylaw', critical: true },
-    { id: 'found-08', description: 'Confirm site drainage meets NBC 9.13 requirements', codeReference: '9.13', critical: false },
+    { id: 'found-08', description: 'Confirm site drainage is graded so water will not accumulate at or near the building per NBC 9.14.6.1', codeReference: '9.14.6.1', critical: false },
     { id: 'found-09', description: 'Verify foundation frost depth per NBC 9.12 for climate zone', codeReference: '9.12.2.1', critical: false },
   ],
   'Framing': [
