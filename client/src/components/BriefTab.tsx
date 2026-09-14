@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
+import { AreaUnitSelector } from '@/components/AreaUnitSelector';
+import { formatArea, toSquareMeters } from '@/lib/areaUnits';
+import { useAreaUnitPreference } from '@/hooks/useAreaUnitPreference';
 import { occupancyData } from '@/lib/occupancyData';
 import { toast } from 'sonner';
 import {
@@ -96,6 +99,7 @@ function InputsPanel({
   defaultValues: BriefInputs;
   onSaved: () => void;
 }) {
+  const { areaUnit, setAreaUnit } = useAreaUnitPreference();
   const updateMutation = trpc.projects.update.useMutation();
   const utils = trpc.useUtils();
   const [form, setForm] = useState({
@@ -105,8 +109,8 @@ function InputsPanel({
     totalDwellingUnits: defaultValues.totalDwellingUnits != null ? String(defaultValues.totalDwellingUnits) : '',
     province: defaultValues.province ?? '',
     sprinklersRequired: defaultValues.sprinklered != null ? String(defaultValues.sprinklered) : '',
-    footprint: defaultValues.buildingFootprintJson?.value != null ? String(defaultValues.buildingFootprintJson.value) : '',
   });
+  const [footprintM2, setFootprintM2] = useState<number | null>(defaultValues.buildingFootprintJson?.value != null ? Number(defaultValues.buildingFootprintJson.value) : null);
   const [determination, setDetermination] = useState<any>(null);
 
   const handleSave = async () => {
@@ -121,10 +125,10 @@ function InputsPanel({
         ...(form.sprinklersRequired !== '' && {
           sprinklersRequired: form.sprinklersRequired === 'true',
         }),
-        ...(form.footprint && { buildingFootprintJson: { value: parseFloat(form.footprint), confirmed: true, source: 'user-entered' } }),
+        ...(footprintM2 != null && { buildingFootprintJson: { value: footprintM2, confirmed: true, source: 'user-entered' } }),
       });
       const result = await utils.occupancyAdvisor.determinePart.fetch({
-        footprintM2: form.footprint ? parseFloat(form.footprint) : null,
+        footprintM2,
         storeys: form.storeys ? parseInt(form.storeys, 10) : null,
         occupancyGroup: form.occupancyCode || null,
       });
@@ -153,7 +157,7 @@ function InputsPanel({
           These project inputs drive all seven compliance sections.
         </p>
       </div>
-      {(['completed', 'archived'].includes(defaultValues.status) || ['UNDER_REVIEW', 'VALID'].includes(defaultValues.analysisStatus ?? '') || (defaultValues.latestSnapshotStatus !== null && !['compliant', 'non_compliant'].includes(defaultValues.latestSnapshotStatus))) && form.footprint && (
+      {(['completed', 'archived'].includes(defaultValues.status) || ['UNDER_REVIEW', 'VALID'].includes(defaultValues.analysisStatus ?? '') || (defaultValues.latestSnapshotStatus !== null && !['compliant', 'non_compliant'].includes(defaultValues.latestSnapshotStatus))) && footprintM2 != null && (
         <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           This project&apos;s status is {defaultValues.status}. Changing the footprint may affect the Part 9/3 determination this status was based on — review prior approvals or permit packages before relying on them.
         </div>
@@ -180,8 +184,8 @@ function InputsPanel({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Building Footprint at Grade (m²)</Label>
-          <Input type="number" min={0} className="h-8 text-xs" value={form.footprint} onChange={e => setForm(f => ({ ...f, footprint: e.target.value }))} placeholder="e.g. 418" />
+          <div className="flex items-center justify-between"><Label className="text-xs">Building Footprint at Grade ({areaUnit === 'ft2' ? 'ft²' : 'm²'})</Label><AreaUnitSelector value={areaUnit} onChange={setAreaUnit} /></div>
+          <Input type="number" min={0} className="h-8 text-xs" value={footprintM2 == null ? '' : formatArea(footprintM2, areaUnit, 2)} onChange={e => setFootprintM2(e.target.value ? toSquareMeters(parseFloat(e.target.value), areaUnit) : null)} placeholder="e.g. 418" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Gross Floor Area (m²)</Label>

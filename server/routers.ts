@@ -39,6 +39,7 @@ import { zoneLookupRouter } from "./routers/zoneLookupRouter";
 import { siteAnalysisRouter } from "./routers/siteAnalysisRouter";
 import { fireAssemblyRouter } from "./routers/fireAssemblyRouter";
 import { apsRouter } from "./routers/apsRouter";
+import { userRouter } from "./routers/userRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 export { handleAPSWebhook } from "./routers/apsRouter";
 
@@ -78,6 +79,7 @@ export const appRouter = router({
   siteAnalysis: siteAnalysisRouter,
   fireAssembly: fireAssemblyRouter,
   aps: apsRouter,
+  user: userRouter,
   auth: router({
     me: protectedProcedure.query(async (opts) => {
       const db = await getDb();

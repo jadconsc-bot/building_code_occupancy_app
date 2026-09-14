@@ -18,6 +18,9 @@ import { occupancyData } from "@/lib/occupancyData";
 import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
 import { getChecklistForOccupancy } from "@/lib/inspectorChecklistData";
 import { useProject } from "@/contexts/ProjectContext";
+import { AreaUnitSelector } from "@/components/AreaUnitSelector";
+import { formatArea, toSquareMeters } from "@/lib/areaUnits";
+import { useAreaUnitPreference } from "@/hooks/useAreaUnitPreference";
 
 interface ProjectWizardProps {
   open: boolean;
@@ -192,6 +195,7 @@ function RiskFlagCard({ flag }: { flag: RiskFlag }) {
 }
 
 export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardProps) {
+  const { areaUnit, setAreaUnit } = useAreaUnitPreference();
   const [, setLocation] = useLocation();
   const { setActiveProjectId } = useProject();
   const [step, setStep] = useState(1);
@@ -672,7 +676,8 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+              <div className="flex justify-end"><AreaUnitSelector value={areaUnit} onChange={setAreaUnit} /></div>
+              <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="wiz-area">Total/Gross Floor Area m² *</Label>
                 <Input
@@ -684,14 +689,14 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="wiz-footprint">Building Footprint at Grade m² *</Label>
+                <Label htmlFor="wiz-footprint">Building Footprint at Grade ({areaUnit === "ft2" ? "ft²" : "m²"}) *</Label>
                 <Input
                   id="wiz-footprint"
                   type="number"
                   min="0"
                   placeholder="e.g. 418"
-                  value={buildingFootprintM2 ?? ""}
-                  onChange={e => setBuildingFootprintM2(e.target.value ? parseFloat(e.target.value) : undefined)}
+                  value={buildingFootprintM2 == null ? "" : formatArea(buildingFootprintM2, areaUnit, 2)}
+                  onChange={e => setBuildingFootprintM2(e.target.value ? toSquareMeters(parseFloat(e.target.value), areaUnit) : undefined)}
                 />
                 <p className="text-xs text-muted-foreground">Ground-floor footprint, not total floor area across storeys.</p>
               </div>
