@@ -76,11 +76,39 @@ export default function CompliancePage() {
 
   const handleGeneratePathway = async () => {
     if (!complianceResult) return;
+    const resultInputs = complianceResult.inputs ?? {};
+    const buildingTypeToConstruction: Record<string, string> = {
+      part9_single_family: 'combustible',
+      part9_multiplex: 'combustible',
+      part3_residential: 'non_combustible',
+      part3_commercial: 'non_combustible',
+      part3_industrial: 'non_combustible',
+    };
     await pathwayMutation.mutateAsync({
       complianceResult,
       inputs: {
-        occupancy_major: complianceResult.inputs?.occupancy_major ?? 'D',
-        area_m2: complianceResult.inputs?.area_m2 ?? 0,
+        ...resultInputs,
+        projectId,
+        occupancy_major: resultInputs.occupancy_major ?? project?.occupancyCode ?? 'D',
+        area_m2: resultInputs.area_m2 ?? (project?.grossFloorArea ? parseFloat(project.grossFloorArea as string) : 0),
+        ...(resultInputs.storeys != null || project?.storeys != null
+          ? { storeys: resultInputs.storeys ?? project?.storeys }
+          : {}),
+        ...(resultInputs.construction_type != null || project?.buildingType != null
+          ? { construction_type: resultInputs.construction_type ?? buildingTypeToConstruction[project?.buildingType ?? ''] }
+          : {}),
+        ...(resultInputs.sprinklers != null || project?.sprinklersRequired != null
+          ? { sprinklers: resultInputs.sprinklers ?? (project?.sprinklersRequired === 1) }
+          : {}),
+        ...(resultInputs.province != null || project?.province != null
+          ? { province: resultInputs.province ?? project?.province }
+          : {}),
+        ...(resultInputs.municipality != null || project?.municipality != null
+          ? { municipality: resultInputs.municipality ?? project?.municipality }
+          : {}),
+        ...(resultInputs.codeEdition != null || project?.codeEdition != null
+          ? { codeEdition: resultInputs.codeEdition ?? project?.codeEdition }
+          : {}),
       },
     });
   };
