@@ -9,8 +9,8 @@ import { protectedProcedure, router } from '../_core/trpc';
 import { projectRepository } from '../repositories/ProjectRepository';
 import { geocodeAddress as geocodeAddressService } from '../services/geocodingService';
 import { getDb } from '../db';
-import { projects } from '../../drizzle/schema';
-import { eq, and } from 'drizzle-orm';
+import { projects, drawingAnalyses } from '../../drizzle/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { editionForProvince } from '../rules/overlays/index';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { getLimits } from '../services/travelDistanceService';
@@ -244,6 +244,12 @@ export const projectRouter = router({
         .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
 
       if (!project) throw new Error('Project not found');
+      const [latestAnalysis] = await db
+        .select({ analysisStatus: drawingAnalyses.analysisStatus })
+        .from(drawingAnalyses)
+        .where(and(eq(drawingAnalyses.projectId, input.projectId), eq(drawingAnalyses.userId, ctx.user.id)))
+        .orderBy(desc(drawingAnalyses.id))
+        .limit(1);
 
       const occupancyGroup = project.occupancyCode ?? null;
       const grossFloorAreaM2 = project.grossFloorArea ? parseFloat(project.grossFloorArea) : null;
@@ -462,6 +468,7 @@ export const projectRouter = router({
           buildingFootprintJson: project.buildingFootprintJson,
           status: project.status,
           buildingType: project.buildingType,
+          analysisStatus: latestAnalysis?.analysisStatus ?? null,
         },
         sections: {
           occupantLoad: occupantLoadSection,
