@@ -31,6 +31,7 @@ type BriefInputs = {
   status: string;
   buildingType: string | null;
   analysisStatus: string | null;
+  latestSnapshotStatus: string | null;
 };
 
 function StatusDot({ status }: { status: 'ok' | 'warning' | 'na' }) {
@@ -152,7 +153,7 @@ function InputsPanel({
           These project inputs drive all seven compliance sections.
         </p>
       </div>
-      {(['completed', 'archived'].includes(defaultValues.status) || ['UNDER_REVIEW', 'VALID'].includes(defaultValues.analysisStatus ?? '')) && form.footprint && (
+      {(['completed', 'archived'].includes(defaultValues.status) || ['UNDER_REVIEW', 'VALID'].includes(defaultValues.analysisStatus ?? '') || (defaultValues.latestSnapshotStatus !== null && !['compliant', 'non_compliant'].includes(defaultValues.latestSnapshotStatus))) && form.footprint && (
         <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           This project&apos;s status is {defaultValues.status}. Changing the footprint may affect the Part 9/3 determination this status was based on — review prior approvals or permit packages before relying on them.
         </div>

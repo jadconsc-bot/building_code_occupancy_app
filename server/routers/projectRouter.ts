@@ -9,7 +9,7 @@ import { protectedProcedure, router } from '../_core/trpc';
 import { projectRepository } from '../repositories/ProjectRepository';
 import { geocodeAddress as geocodeAddressService } from '../services/geocodingService';
 import { getDb } from '../db';
-import { projects, drawingAnalyses } from '../../drizzle/schema';
+import { projects, drawingAnalyses, complianceSnapshots } from '../../drizzle/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { editionForProvince } from '../rules/overlays/index';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
@@ -250,6 +250,12 @@ export const projectRouter = router({
         .where(and(eq(drawingAnalyses.projectId, input.projectId), eq(drawingAnalyses.userId, ctx.user.id)))
         .orderBy(desc(drawingAnalyses.id))
         .limit(1);
+      const [latestSnapshot] = await db
+        .select({ complianceStatus: complianceSnapshots.complianceStatus })
+        .from(complianceSnapshots)
+        .where(and(eq(complianceSnapshots.projectId, input.projectId), eq(complianceSnapshots.userId, ctx.user.id)))
+        .orderBy(desc(complianceSnapshots.createdAt))
+        .limit(1);
 
       const occupancyGroup = project.occupancyCode ?? null;
       const grossFloorAreaM2 = project.grossFloorArea ? parseFloat(project.grossFloorArea) : null;
@@ -469,6 +475,7 @@ export const projectRouter = router({
           status: project.status,
           buildingType: project.buildingType,
           analysisStatus: latestAnalysis?.analysisStatus ?? null,
+          latestSnapshotStatus: latestSnapshot?.complianceStatus ?? null,
         },
         sections: {
           occupantLoad: occupantLoadSection,
