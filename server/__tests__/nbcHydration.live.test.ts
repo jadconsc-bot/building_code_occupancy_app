@@ -23,12 +23,13 @@ describe.skipIf(!live)('NBC footprint hydration live router round-trip', () => {
       occupancyCode: 'C',
       grossFloorArea: '836.00',
       storeys: 2,
-      buildingFootprintJson: { value: 418, confirmed: true, source: 'live-test' },
+      buildingFootprintJson: null,
     });
     const projectId = Number(inserted.insertId);
     try {
       const ctx = { user: { id: userId }, req: {}, res: {} } as any;
       const caller = appRouter.createCaller(ctx);
+      await caller.projects.update({ id: projectId, buildingFootprintJson: { value: 418, confirmed: true, source: 'user-entered' } });
       const pathway = await caller.compliancePathway.generatePathway({
         complianceResult: {},
         inputs: { projectId, occupancy_major: 'C', area_m2: 836, storeys: 2 },

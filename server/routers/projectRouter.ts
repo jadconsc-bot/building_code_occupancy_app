@@ -237,6 +237,8 @@ export const projectRouter = router({
           sprinklersRequired: projects.sprinklersRequired,
           constructionType: projects.constructionType,
           userId: projects.userId,
+          status: projects.status,
+          buildingType: projects.buildingType,
         })
         .from(projects)
         .where(and(eq(projects.id, input.projectId), eq(projects.userId, ctx.user.id)));
@@ -457,6 +459,9 @@ export const projectRouter = router({
           province,
           sprinklered: sprinkleredInput,
           totalDwellingUnits: project.totalDwellingUnits,
+          buildingFootprintJson: project.buildingFootprintJson,
+          status: project.status,
+          buildingType: project.buildingType,
         },
         sections: {
           occupantLoad: occupantLoadSection,

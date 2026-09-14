@@ -27,6 +27,9 @@ type BriefInputs = {
   totalDwellingUnits: number | null;
   province: string | null;
   sprinklered: boolean | null;
+  buildingFootprintJson: any;
+  status: string;
+  buildingType: string | null;
 };
 
 function StatusDot({ status }: { status: 'ok' | 'warning' | 'na' }) {
@@ -100,7 +103,9 @@ function InputsPanel({
     totalDwellingUnits: defaultValues.totalDwellingUnits != null ? String(defaultValues.totalDwellingUnits) : '',
     province: defaultValues.province ?? '',
     sprinklersRequired: defaultValues.sprinklered != null ? String(defaultValues.sprinklered) : '',
+    footprint: defaultValues.buildingFootprintJson?.value != null ? String(defaultValues.buildingFootprintJson.value) : '',
   });
+  const [determination, setDetermination] = useState<any>(null);
 
   const handleSave = async () => {
     try {
@@ -114,7 +119,15 @@ function InputsPanel({
         ...(form.sprinklersRequired !== '' && {
           sprinklersRequired: form.sprinklersRequired === 'true',
         }),
+        ...(form.footprint && { buildingFootprintJson: { value: parseFloat(form.footprint), confirmed: true, source: 'user-entered' } }),
       });
+      const result = await utils.occupancyAdvisor.determinePart.fetch({
+        footprintM2: form.footprint ? parseFloat(form.footprint) : null,
+        storeys: form.storeys ? parseInt(form.storeys, 10) : null,
+        occupancyGroup: form.occupancyCode || null,
+      });
+      setDetermination(result);
+      await updateMutation.mutateAsync({ id: projectId, part3Determination: result.determination });
       await utils.projects.generateBrief.invalidate({ projectId });
       toast.success('Project Brief inputs saved');
       onSaved();
@@ -138,6 +151,11 @@ function InputsPanel({
           These project inputs drive all seven compliance sections.
         </p>
       </div>
+      {['completed', 'archived'].includes(defaultValues.status) && form.footprint && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          This project&apos;s status is {defaultValues.status}. Changing the footprint may affect the Part 9/3 determination this status was based on — review prior approvals or permit packages before relying on them.
+        </div>
+      )}
 
       <div className="space-y-1">
         <Label className="text-xs">Occupancy Group</Label>
@@ -159,6 +177,10 @@ function InputsPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Building Footprint at Grade (m²)</Label>
+          <Input type="number" min={0} className="h-8 text-xs" value={form.footprint} onChange={e => setForm(f => ({ ...f, footprint: e.target.value }))} placeholder="e.g. 418" />
+        </div>
         <div className="space-y-1">
           <Label className="text-xs">Gross Floor Area (m²)</Label>
           <Input
@@ -193,6 +215,14 @@ function InputsPanel({
           />
         </div>
       </div>
+      {determination && (
+        <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+          <strong>{determination.determination === 'needs_review' ? 'Needs Review' : determination.determination}</strong>
+          <div>{determination.reasoning}</div>
+          {determination.failedCriteria?.length > 0 && <div>Failed criteria: {determination.failedCriteria.join(', ')}</div>}
+          {defaultValues.buildingType && ((determination.determination === 'Part 9' && defaultValues.buildingType.startsWith('part3_')) || (determination.determination === 'Part 3' && defaultValues.buildingType.startsWith('part9_'))) && <div className="font-semibold text-amber-700">Review: stored Building Type conflicts with this determination.</div>}
+        </div>
+      )}
 
       <div className="space-y-1">
         <Label className="text-xs">Province / Jurisdiction</Label>
