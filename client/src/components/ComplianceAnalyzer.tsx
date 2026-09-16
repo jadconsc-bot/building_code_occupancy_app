@@ -96,6 +96,26 @@ export function ComplianceAnalyzer({
     }
   }, [initialOccupancy, initialProvince, initialBuildingType]);
 
+  // Re-apply the authoritative project value whenever this page becomes active.
+  // This closes stale-tab drift while preserving the normal flow's editable
+  // what-if capability; any deliberate divergence is shown below.
+  useEffect(() => {
+    const syncFromProject = () => {
+      if (!document.hidden && initialOccupancy) {
+        setInputs(prev => ({
+          ...prev,
+          occupancy_major: initialOccupancy.charAt(0),
+        }));
+      }
+    };
+    document.addEventListener("visibilitychange", syncFromProject);
+    window.addEventListener("focus", syncFromProject);
+    return () => {
+      document.removeEventListener("visibilitychange", syncFromProject);
+      window.removeEventListener("focus", syncFromProject);
+    };
+  }, [initialOccupancy]);
+
   // Auto-populate province/municipality from geocoded jurisdiction
   useEffect(() => {
     if (!jurisdiction?.province || userHasManuallyOverridden) return;
@@ -357,6 +377,11 @@ export function ComplianceAnalyzer({
                   <SelectItem value="F">Industrial (F)</SelectItem>
                 </SelectContent>
               </Select>
+              {initialOccupancy && inputs.occupancy_major !== initialOccupancy.charAt(0) && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                  Analyzing as Occupancy {inputs.occupancy_major} (project is saved as Occupancy {initialOccupancy.charAt(0)})
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
