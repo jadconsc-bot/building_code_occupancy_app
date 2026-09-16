@@ -543,7 +543,7 @@ export function ComplianceAnalyzer({
 
               <TabsContent value="rules" className="space-y-3 mt-4">
                 <div className="max-h-96 overflow-y-auto space-y-2">
-                  {result.rule_trace.map((rule: any, idx: number) => (
+                  {(result.rule_trace ?? result.traces ?? []).map((rule: any, idx: number) => (
                     <div
                       key={idx}
                       className={`p-3 rounded-lg border ${rule.fired ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}
