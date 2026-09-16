@@ -110,13 +110,13 @@ export class ComplianceEvaluator {
     // ── Derived outputs ──────────────────────────────────────────────────
 
     // Occupant load
-    const { occupantLoad, trace: occupantLoadTrace } = evaluateOccupantLoad(inputs);
+    const { occupantLoad, needsReview: occupantLoadNeedsReview, trace: occupantLoadTrace } = evaluateOccupantLoad(inputs);
     if (inputs.area_m2 && inputs.occupancy_major) {
       outputs.occupant_load = occupantLoad;
     }
 
     // Exit count
-    const exitCountTrace = evaluateExitCount(inputs, occupantLoad);
+    const exitCountTrace = evaluateExitCount(inputs, occupantLoad, occupantLoadNeedsReview);
     outputs.exits_required = exitCountTrace.evaluatedInputs.required;
 
     // Travel distance max (for backward-compat consumers of outputs)
@@ -214,6 +214,8 @@ export class ComplianceEvaluator {
       traces,
       outputs: {
         occupant_load:           (outputs.occupant_load          as number)  ?? 0,
+        occupant_load_needs_review: occupantLoadNeedsReview,
+        occupant_load_reasoning: occupantLoadTrace.reasoning,
         exits_required:          (outputs.exits_required         as number)  ?? 0,
         travel_distance_max:     (outputs.travel_distance_max    as number)  ?? 0,
         fire_resistance_rating:  (outputs.fire_resistance_rating as string)  ?? '',

@@ -7,6 +7,8 @@ export interface EvaluationResult {
   traces: ComplianceTrace[];   // one per rule evaluated
   outputs: {
     occupant_load: number;
+    occupant_load_needs_review?: boolean;
+    occupant_load_reasoning?: string;
     exits_required: number;
     travel_distance_max: number;
     fire_resistance_rating: string;

@@ -1,30 +1,32 @@
 import { ComplianceTrace, buildFederalTrace } from '../types/trace';
 import type { ComplianceInput } from '../types/context';
-import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { determineOccupantLoad } from '../occupantLoadDetermination';
 
 export function evaluateOccupantLoad(inputs: ComplianceInput): {
   occupantLoad: number;
+  needsReview: boolean;
+  reasoning: string;
   trace: ComplianceTrace;
 } {
-  const group = inputs.occupancy_major?.charAt(0).toUpperCase() ?? 'D';
-  const spec = getDefaultLoadFactor(group);
-  const area = inputs.area_m2 ?? 0;
-  const occupantLoad = area > 0 ? Math.ceil(area / spec.areaPerPerson) : 0;
+  const result = determineOccupantLoad({
+    occupancyGroup: inputs.occupancy_major,
+    areaM2: inputs.area_m2,
+    bedroomCount: inputs.bedroom_count,
+    rooms: inputs.rooms,
+  });
 
   return {
-    occupantLoad,
+    occupantLoad: result.occupantLoad,
+    needsReview: result.needsReview,
+    reasoning: result.reasoning,
     trace: buildFederalTrace({
-      result: 'pass',
-      rule: spec.citation,
-      reasoning: `Occupant load calculated as ${occupantLoad} persons (${area}m² ÷ ${spec.areaPerPerson}m²/person for Group ${group})`,
-      evaluatedInputs: {
-        actual: occupantLoad,
-        required: 0,
-        unit: 'persons',
-      },
-      severity: 'info',
-      constraintId: `occupancy.load_factors.${group}`,
-      recommendations: [],
+      result: result.needsReview ? 'not_applicable' : 'pass',
+      rule: result.citation,
+      reasoning: result.reasoning,
+      evaluatedInputs: { actual: result.occupantLoad, required: 0, unit: 'persons' },
+      severity: result.needsReview ? 'high' : 'info',
+      constraintId: `occupancy.load_factors.${(inputs.occupancy_major ?? 'D').charAt(0).toUpperCase()}`,
+      recommendations: result.needsReview ? ['Enter the total bedroom count across all dwelling units and suites.'] : [],
     }),
   };
 }

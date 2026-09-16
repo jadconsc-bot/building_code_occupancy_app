@@ -14,6 +14,9 @@ export interface ComplianceInput {
   municipality?: string;
   codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default
   projectId?: number;
+  bedroom_count?: number;
+  totalDwellingUnits?: number;
+  rooms?: Array<{ occupancyGroup?: string | null; label?: string | null; roomLabel?: string | null; areaM2?: number | null; areaSqm?: number | null; }>;
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
   [key: string]: any;
 }

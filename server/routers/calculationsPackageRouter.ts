@@ -18,12 +18,14 @@ import type { DetectedRoomInput } from "../services/travelDistanceService";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 
 interface OccupantGroupRow {
   group: string;
   areaSqm: number;
   persons: number;
   factor: number;
+  needsReview?: boolean;
 }
 
 interface CalculationsSummary {
@@ -173,24 +175,25 @@ export const calculationsPackageRouter = router({
       for (const room of allRooms) {
         const area = room.areaSqm ? Number(room.areaSqm) : 0;
         if (area <= 0) continue;
-
         totalArea += area;
         const floor = room.floorLevel ?? "Unknown";
         areaByFloor[floor] = (areaByFloor[floor] ?? 0) + area;
-
-        const group  = room.occupancyGroup ?? "Unknown";
-        const spec   = getDefaultLoadFactor(group);
+        const group = room.occupancyGroup ?? "Unknown";
+        const spec = getDefaultLoadFactor(group);
         if (!occupantByGroup[group]) occupantByGroup[group] = { area: 0, persons: 0, factor: spec.areaPerPerson };
-        occupantByGroup[group].area    += area;
-        occupantByGroup[group].persons += area / spec.areaPerPerson;
+        occupantByGroup[group].area += area;
       }
 
-      const occupantRows: OccupantGroupRow[] = Object.entries(occupantByGroup).map(([group, v]) => ({
-        group,
-        areaSqm:  Math.round(v.area * 100) / 100,
-        persons:  Math.ceil(v.persons),
-        factor:   v.factor,
-      }));
+      const occupantRows: OccupantGroupRow[] = Object.entries(occupantByGroup).map(([group, v]) => {
+        const groupRooms = allRooms.filter(r => (r.occupancyGroup ?? "Unknown") === group);
+        const determination = determineOccupantLoad({
+          occupancyGroup: group,
+          areaM2: v.area,
+          rooms: groupRooms.map(r => ({ occupancyGroup: r.occupancyGroup, roomLabel: r.roomLabel, areaSqm: r.areaSqm ? Number(r.areaSqm) : null })),
+        });
+        v.persons = determination.occupantLoad;
+        return { group, areaSqm: Math.round(v.area * 100) / 100, persons: determination.occupantLoad, factor: determination.areaPerPerson ?? v.factor, needsReview: determination.needsReview };
+      });
 
       const totalOccupants     = occupantRows.reduce((s, r) => s + r.persons, 0);
       // NBC 3.4.3.2.(1): Group B (care/treatment/detention) uses 18.4 mm/person; all others

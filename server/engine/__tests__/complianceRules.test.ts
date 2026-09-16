@@ -201,9 +201,16 @@ describe('Occupant load calculation by occupancy group', () => {
     expect(occupantLoad).toBe(250);
   });
 
-  it('Group C: 186m² / 4.60 = 41 persons (dormitory conservative default, NBC 2020 Table 3.1.17.1)', () => {
+  it('does not apply single-exit exception when occupant load needs review', () => {
+    const result = evaluateExitCount({ occupancy_major: 'C', exits: 1 }, 0, true);
+    expect(result.result).toBe('not_applicable');
+    expect(result.reasoning).toContain('needs review');
+  });
+
+  it('Group C without bedroom data requires review instead of area-factor fallback', () => {
     const { occupantLoad } = evaluateOccupantLoad({ occupancy_major: 'C', area_m2: 186 });
-    expect(occupantLoad).toBe(41);
+    expect(occupantLoad).toBe(0);
+    expect(evaluateOccupantLoad({ occupancy_major: 'C', area_m2: 186 }).needsReview).toBe(true);
   });
 
   it('trace result is always pass (informational)', () => {

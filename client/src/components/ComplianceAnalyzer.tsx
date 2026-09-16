@@ -25,6 +25,8 @@ interface ComplianceInput {
   storeys?: number;
   sprinklers?: boolean;
   fire_alarm?: boolean;
+  bedroom_count?: number;
+  totalDwellingUnits?: number;
   exits?: number;
   travel_distance_m?: number;
   construction_type?: string;
@@ -60,7 +62,7 @@ export function ComplianceAnalyzer({
 }) {
   const { user } = useAuth();
   const { jurisdiction } = useJurisdiction(projectId);
-  const { complianceInputSlice, isGeocoded } = useProjectContext(projectId);
+  const { complianceInputSlice, isGeocoded, project } = useProjectContext(projectId);
   const [userHasManuallyOverridden, setUserHasManuallyOverridden] = useState(false);
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
@@ -72,6 +74,7 @@ export function ComplianceAnalyzer({
         ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
         : undefined,
       area_m2: initialArea && initialArea > 0 ? initialArea : undefined,
+      totalDwellingUnits: project?.totalDwellingUnits ?? undefined,
     }
   );
   const [result, setResult] = useState<any>(null);
@@ -81,6 +84,13 @@ export function ComplianceAnalyzer({
   useEffect(() => {
     onInputsChange?.(inputs);
   }, [inputs]);
+
+  useEffect(() => {
+    if (project?.totalDwellingUnits == null) return;
+    setInputs(prev => prev.totalDwellingUnits === project.totalDwellingUnits
+      ? prev
+      : { ...prev, totalDwellingUnits: project.totalDwellingUnits ?? undefined });
+  }, [project?.totalDwellingUnits]);
 
   useEffect(() => {
     if (initialOccupancy || initialProvince || initialBuildingType) {
@@ -408,6 +418,22 @@ export function ComplianceAnalyzer({
               )}
             </div>
 
+            {inputs.occupancy_major === "C" && !inputs.bedroom_count && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded md:col-span-2">
+                Group C dwelling-unit occupant load needs the total bedroom count across all dwelling units and suites.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Bedroom Count (all dwelling units/suites)</label>
+              <input type="number" min="0" value={inputs.bedroom_count ?? ""} onChange={(e) => handleInputChange("bedroom_count", e.target.value === "" ? undefined : parseInt(e.target.value, 10))} placeholder="Total bedrooms..." className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Number of Dwelling Units</label>
+              <input type="number" min="0" value={inputs.totalDwellingUnits ?? ""} onChange={(e) => handleInputChange("totalDwellingUnits", e.target.value === "" ? undefined : parseInt(e.target.value, 10))} placeholder="Total units..." className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Storeys</label>
               <input
@@ -520,6 +546,11 @@ export function ComplianceAnalyzer({
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="compliance" className="w-full">
+              {result.outputs?.occupant_load_needs_review && (
+                <p className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded">
+                  Occupant load needs review: {result.outputs.occupant_load_reasoning ?? "Enter the total bedroom count across all dwelling units and suites."}
+                </p>
+              )}
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="compliance">Compliance Status</TabsTrigger>
                 <TabsTrigger value="rules">Rule Trace</TabsTrigger>

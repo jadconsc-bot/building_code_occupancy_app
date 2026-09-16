@@ -1368,8 +1368,10 @@ export const permitPackageRouter = router({
       if (olD) {
         const occ = Number(olD.occupantLoad ?? olD.totalOccupantLoad ?? 0);
         const numExits = Number(calcExitReqs?.numExits ?? 0);
-        if (occ > 0) {
-          compRows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.5.3" });
+        if (olD.needsReview) {
+          compRows.push({ category: "Life Safety", label: "Occupant Load (Needs Review)", provided: "Not determined", required: "Verify bedroom count", margin: "—", status: "not_calculated", nbcRef: "NBC 3.1.17.1 Note (2)" });
+        } else if (occ > 0) {
+          compRows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 3.1.17.1" });
         }
       }
       const tdD = getCalc("travelDistance");

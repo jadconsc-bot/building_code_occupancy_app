@@ -24,6 +24,7 @@ import {
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import {
   ACCESSORY_SPACE_TYPES,
   reclassifyAccessoryOccupancy,
@@ -103,6 +104,7 @@ export interface OrchestratorInput {
     frr: string;
     hours: number;
     nbcRef: string;
+    needsReview?: boolean;
   }>;
 }
 
@@ -114,6 +116,7 @@ export interface OrchestratorResult {
     areaM2PerPerson: number;
     maxOccupants: number;
     nbcRef: string;
+    needsReview?: boolean;
   }>;
   egressWindows: Array<{
     windowIdx: number;
@@ -289,8 +292,8 @@ export function runCalculatorOrchestrator(
 
   if (groupCRooms.length > 0) {
     const totalGroupCArea = groupCRooms.reduce((sum, r) => sum + (r.areaM2 ?? 0), 0);
-    const bedroomRooms = groupCRooms.filter(r => /bed|sleep|master|bedroom|bdrm|mstr/i.test(r.label));
-    const bedroomCount = bedroomRooms.length;
+    const determination = determineOccupantLoad({ occupancyGroup: 'C', areaM2: totalGroupCArea, rooms: groupCRooms.map(r => ({ occupancyGroup: r.occupancyGroup, label: r.label, areaM2: r.areaM2 })) });
+    const bedroomCount = determination.bedroomCount ?? 0;
     const issueId = 'OCC-UNIT-001';
 
     occupantLoad.push({
@@ -298,12 +301,13 @@ export function runCalculatorOrchestrator(
       occupancyGroup: 'C',
       areaM2: totalGroupCArea,
       areaM2PerPerson: 0,
-      maxOccupants: bedroomCount > 0 ? bedroomCount * 2 : 0,
-      nbcRef: 'NBC 3.1.17.1 Note (2)',
+      maxOccupants: determination.occupantLoad,
+      nbcRef: determination.citation,
+      needsReview: determination.needsReview,
     });
 
-    if (bedroomCount > 0) {
-      const unitOccupants = bedroomCount * 2;
+    if (!determination.needsReview) {
+      const unitOccupants = determination.occupantLoad;
       totalOccupants += unitOccupants;
       findings.push({
         issueId,
@@ -368,6 +372,7 @@ export function runCalculatorOrchestrator(
   const groupsSeen = new Set<string>();
 
   for (const ol of occupantLoad) {
+    if (ol.needsReview) continue;
     const normalizedGroup = ol.occupancyGroup.replace('-', '');
     if (groupsSeen.has(normalizedGroup)) continue;
     groupsSeen.add(normalizedGroup);

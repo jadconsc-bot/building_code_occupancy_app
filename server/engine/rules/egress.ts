@@ -115,9 +115,21 @@ export function evaluateTravelDistance(
 export function evaluateExitCount(
   inputs: ComplianceInput,
   occupantLoad: number,
+  occupantLoadNeedsReview = false,
 ): ComplianceTrace {
   const provided = inputs.exits ?? 0;
   const caveats: string[] = [];
+  if (occupantLoadNeedsReview) {
+    return buildFederalTrace({
+      result: 'not_applicable',
+      rule: 'NBC 3.4.2.1',
+      reasoning: 'Exit-count exception not evaluated because occupant load needs review.',
+      evaluatedInputs: { actual: 'not available', required: 'verify occupant load', unit: 'exits' },
+      severity: 'high',
+      constraintId: 'egress.exit_count',
+      recommendations: ['Enter the total bedroom count across all dwelling units and suites before relying on exit-count results.'],
+    });
+  }
 
   // NBC 3.4.2.1(1): every occupied floor area requires at least 2 exits by default
   let exitsRequired = 2;
