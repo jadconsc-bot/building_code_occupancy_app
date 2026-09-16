@@ -405,12 +405,16 @@ interface OccupancyAdvisorProps {
     }
   ) => void;
   initialArea?: number;
+  initialFootprint?: number;
   initialStoreys?: number;
+  initialOccupancy?: string;
   projectId?: number;
   projectName?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
+
 
 export function OccupancyAdvisor({
   open,
@@ -418,7 +422,9 @@ export function OccupancyAdvisor({
   province = "",
   onConfirm,
   initialArea,
+  initialFootprint,
   initialStoreys,
+  initialOccupancy,
   projectId,
   projectName,
 }: OccupancyAdvisorProps) {
@@ -431,7 +437,7 @@ export function OccupancyAdvisor({
   const [occupantBehavior, setOccupantBehavior] = useState("");
   const [hazardLevel, setHazardLevel] = useState("");
   const [estimatedArea, setEstimatedArea] = useState(initialArea?.toString() ?? "");
-  const [estimatedFootprint, setEstimatedFootprint] = useState(initialArea?.toString() ?? "");
+  const [estimatedFootprint, setEstimatedFootprint] = useState(initialFootprint?.toString() ?? initialArea?.toString() ?? "");
   const [storeysStr, setStoreysStr] = useState(initialStoreys?.toString() ?? "");
   const [isMixedUse, setIsMixedUse] = useState(false);
   const [mixedUseZones, setMixedUseZones] = useState<{ use: string; area: string }[]>([]);
@@ -464,11 +470,11 @@ export function OccupancyAdvisor({
   useEffect(() => {
     if (open) {
       setEstimatedArea(initialArea?.toString() ?? "");
-      setEstimatedFootprint(initialArea?.toString() ?? "");
+      setEstimatedFootprint(initialFootprint?.toString() ?? initialArea?.toString() ?? "");
       setStoreysStr(initialStoreys?.toString() ?? "");
       setSelectedProvince(province ?? "");
     }
-  }, [open, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, projectId, initialArea, initialFootprint, initialStoreys, province]);
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
@@ -761,6 +767,7 @@ export function OccupancyAdvisor({
         {screen === 1 && (
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
+              {initialOccupancy && <p className="text-xs text-muted-foreground mb-2">Existing project occupancy: {initialOccupancy}. You can explore a different classification.</p>}
               <Label htmlFor="oa-desc">Building Description *</Label>
               <Textarea
                 id="oa-desc"

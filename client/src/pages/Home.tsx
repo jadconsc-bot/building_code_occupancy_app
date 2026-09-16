@@ -89,6 +89,7 @@ import { DrawingAnalysis } from "@/components/DrawingAnalysis";
 import { SetbackDiagramGenerator } from "@/components/SetbackDiagramGenerator";
 import Projects from "@/pages/Projects";
 import { OccupancyAdvisor } from "@/components/OccupancyAdvisor";
+import { getOccupancyAdvisorProjectDefaults } from "@shared/occupancyAdvisorDefaults";
 
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -260,6 +261,9 @@ export default function Home() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [showOccupancyAdvisor, setShowOccupancyAdvisor] = useState(false);
+  const [advisorProjectId, setAdvisorProjectId] = useState<number | null>(activeProjectId ?? null);
+  const { data: advisorProjects = [] } = trpc.projects.list.useQuery();
+  const { data: advisorProject } = trpc.projects.get.useQuery({ id: advisorProjectId! }, { enabled: !!advisorProjectId });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>(() => {
     const saved = localStorage.getItem("selected_region");
@@ -3190,6 +3194,15 @@ export default function Home() {
 
             {/* Occupancy Advisor teaser */}
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+              <div className="w-full space-y-2">
+                <label className="text-xs font-medium">Project context (optional)</label>
+                <Select value={advisorProjectId ? String(advisorProjectId) : "standalone"} onValueChange={(value) => setAdvisorProjectId(value === "standalone" ? null : Number(value))}>
+                  <SelectTrigger className="h-8 bg-background"><SelectValue placeholder="No project / standalone" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standalone">No project / standalone</SelectItem>
+                    {advisorProjects.map((p: any) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-semibold text-sm mb-1">Not sure which occupancy applies?</p>
@@ -3200,13 +3213,15 @@ export default function Home() {
                   Launch Advisor
                 </Button>
               </div>
+              </div>
             </div>
 
             {/* Occupancy Advisor modal */}
             <OccupancyAdvisor
               open={showOccupancyAdvisor}
               onOpenChange={setShowOccupancyAdvisor}
-              projectId={activeProjectId ?? undefined}
+              {...getOccupancyAdvisorProjectDefaults(advisorProject)}
+              projectName={advisorProject?.name}
               onConfirm={() => setShowOccupancyAdvisor(false)}
             />
           </div>
