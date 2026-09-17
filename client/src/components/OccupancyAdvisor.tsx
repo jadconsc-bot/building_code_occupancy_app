@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2, X, Layers, Flame, Circle, PenLine } from "lucide-react";
+import { updateStackZoneArea, stackAreaMatchesTarget } from "@shared/stackPlanner";
+export { updateStackZoneArea, stackAreaMatchesTarget } from "@shared/stackPlanner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,7 @@ interface Wing {
   id: string;
   label: string;
   floors: FloorLevel[];
+  source?: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -399,7 +402,7 @@ interface OccupancyAdvisorProps {
         frr: string; hours: number; nbcRef: string;
       }>;
       wings: Array<{
-        id: string; label: string;
+        id: string; label: string; source?: string;
         floors: Array<{ zones: Array<{ code: string; area_m2: number }> }>;
       }>;
     }
@@ -459,6 +462,12 @@ export function OccupancyAdvisor({
   const [hallwayToolActive, setHallwayToolActive] = useState(false);
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
   const [splitFloorIndex, setSplitFloorIndex] = useState<number | null>(null);
+  const [stackValidationError, setStackValidationError] = useState("");
+
+  const projectQuery = trpc.projects.get.useQuery(
+    { id: projectId! },
+    { enabled: !!projectId && open }
+  );
 
   // Screen 3 confirmation
   const [checked1, setChecked1] = useState(false);
@@ -587,11 +596,13 @@ export function OccupancyAdvisor({
   }
 
   function updateZoneArea(floorIdx: number, zoneIdx: number, area: number) {
-    updateActiveWingFloors(prev => prev.map((f, fi) =>
-      fi === floorIdx
-        ? { ...f, zones: f.zones.map((z, zi) => zi === zoneIdx ? { ...z, area_m2: Math.max(10, area) } : z) }
-        : f
-    ));
+    updateActiveWingFloors(prev => updateStackZoneArea(
+      [{ id: activeWingId, label: activeWing?.label ?? 'Wing', floors: prev }],
+      activeWingId,
+      floorIdx,
+      zoneIdx,
+      area,
+    )[0].floors);
   }
 
   function addHallway() {
@@ -609,16 +620,7 @@ export function OccupancyAdvisor({
   }
 
   function handleGoToStackPlanner() {
-    if (floors.length === 0 && candidatesWithScores.length >= 2) {
-      const c0 = candidatesWithScores[0];
-      const c1 = candidatesWithScores[1];
-      const v0 = OCCUPANCY_VISUAL_DATA[c0.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
-      const v1 = OCCUPANCY_VISUAL_DATA[c1.code] ?? { color: '#6B7280', textColor: '#fff', sprinklersRequired: false, part3Required: false };
-      updateActiveWingFloors(() => [
-        { id: '1', zones: [{ code: c0.code, name: c0.name, ...v0, area_m2: 100 }] },
-        { id: '2', zones: [{ code: c1.code, name: c1.name, ...v1, area_m2: 100 }] },
-      ]);
-    }
+    setStackValidationError("");
     setScreen('stackPlanner');
   }
 
@@ -641,6 +643,16 @@ export function OccupancyAdvisor({
   }
 
   function handleConfirm() {
+    if (projectId && allStackZones.length > 0) {
+      const projectData = projectQuery.data as any;
+      const targetArea = projectData?.buildingFootprintJson?.value
+        ?? (projectData?.grossFloorArea ? Number(projectData.grossFloorArea) : null);
+      if (targetArea != null && !stackAreaMatchesTarget(allStackZones.reduce((sum, zone) => sum + zone.area_m2, 0), Number(targetArea))) {
+        setStackValidationError(`Stack total (${allStackZones.reduce((sum, zone) => sum + zone.area_m2, 0)} m²) does not reasonably match this project's ${projectData?.buildingFootprintJson?.value != null ? 'building footprint' : 'gross floor area'} (${Number(targetArea)} m²). Adjust the zones before confirming.`);
+        setScreen('stackPlanner');
+        return;
+      }
+    }
     if (projectId) {
       updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
     }
@@ -659,7 +671,7 @@ export function OccupancyAdvisor({
           from: s.from, to: s.to, frr: s.frr, hours: s.hours, nbcRef: s.nbcRef,
         })),
         wings: wings.map((w: any) => ({
-          id: w.id, label: w.label,
+          id: w.id, label: w.label, source: 'user-configured',
           floors: (w.floors ?? []).map((f: any) => ({
             zones: (f.zones ?? []).map((z: any) => ({ code: z.code, area_m2: z.area_m2 ?? 0 })),
           })),
@@ -1891,6 +1903,13 @@ export function OccupancyAdvisor({
                       {constructionRec}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {stackValidationError && (
+                <div className="flex items-start gap-2 p-3 rounded bg-red-50 border border-red-200 text-red-800 text-xs">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{stackValidationError}</span>
                 </div>
               )}
 

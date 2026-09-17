@@ -70,7 +70,7 @@ export interface UpdateProjectInput {
     frr: string; hours: number; nbcRef: string;
   }> | null;
   stackWingsJson?: Array<{
-    id: string; label: string;
+    id: string; label: string; source?: string;
     floors: Array<{ zones: Array<{ code: string; area_m2: number }> }>;
   }> | null;
   stackConfirmedAt?: Date | null;

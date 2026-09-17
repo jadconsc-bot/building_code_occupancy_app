@@ -111,6 +111,7 @@ export const projectRouter = router({
         stackWingsJson: z.array(z.object({
           id: z.string(),
           label: z.string(),
+          source: z.string().max(100).optional(),
           floors: z.array(z.object({
             zones: z.array(z.object({
               code: z.string(),
