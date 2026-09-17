@@ -644,6 +644,11 @@ export function OccupancyAdvisor({
 
   function handleConfirm() {
     if (projectId && allStackZones.length > 0) {
+      if (allStackZones.some(zone => !Number.isFinite(zone.area_m2) || zone.area_m2 <= 0)) {
+        setStackValidationError("Every stack zone must have an area greater than 0 m² before confirming.");
+        setScreen('stackPlanner');
+        return;
+      }
       const projectData = projectQuery.data as any;
       const targetArea = projectData?.buildingFootprintJson?.value
         ?? (projectData?.grossFloorArea ? Number(projectData.grossFloorArea) : null);

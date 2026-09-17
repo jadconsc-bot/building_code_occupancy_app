@@ -3,7 +3,9 @@ export function updateStackZoneArea<T extends { id: string; floors: Array<{ zone
     ...wing,
     floors: wing.floors.map((floor, fi) => fi !== floorIdx ? floor : {
       ...floor,
-      zones: floor.zones.map((zone, zi) => zi !== zoneIdx ? zone : { ...zone, area_m2: Math.max(10, area) }),
+      // Permit transient values while a user replaces a controlled number input;
+      // confirmation validation rejects empty/zero-area zones.
+      zones: floor.zones.map((zone, zi) => zi !== zoneIdx ? zone : { ...zone, area_m2: Math.max(0, area) }),
     }),
   });
 }
