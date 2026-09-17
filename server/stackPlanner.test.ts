@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stackAreaMatchesTarget, updateStackZoneArea } from '../shared/stackPlanner';
+import { getStackFloorCount, stackAreaMatchesTarget, updateStackZoneArea } from '../shared/stackPlanner';
 
 describe('Stack Planner area handling', () => {
   it('allows an existing zone area to be changed to an arbitrary value', () => {
@@ -13,7 +13,9 @@ describe('Stack Planner area handling', () => {
   });
 
   it('rejects a mismatched total at confirmation time', () => {
-    expect(stackAreaMatchesTarget(200, 418)).toBe(false);
-    expect(stackAreaMatchesTarget(408, 418)).toBe(true);
+    expect(getStackFloorCount([{ floors: [{}, {}] }])).toBe(2);
+    expect(stackAreaMatchesTarget(839.25, 408 * 2)).toBe(true);
+    expect(stackAreaMatchesTarget(408, 408)).toBe(true);
+    expect(stackAreaMatchesTarget(408 * 3, 408 * 2)).toBe(false);
   });
 });

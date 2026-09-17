@@ -16,8 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle, CheckCircle2, AlertTriangle, Info, Bot, Plus, Trash2, Building2, X, Layers, Flame, Circle, PenLine } from "lucide-react";
-import { updateStackZoneArea, stackAreaMatchesTarget } from "@shared/stackPlanner";
-export { updateStackZoneArea, stackAreaMatchesTarget } from "@shared/stackPlanner";
+import { updateStackZoneArea, stackAreaMatchesTarget, getStackFloorCount } from "@shared/stackPlanner";
+export { updateStackZoneArea, stackAreaMatchesTarget, getStackFloorCount } from "@shared/stackPlanner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -652,8 +652,11 @@ export function OccupancyAdvisor({
       const projectData = projectQuery.data as any;
       const targetArea = projectData?.buildingFootprintJson?.value
         ?? (projectData?.grossFloorArea ? Number(projectData.grossFloorArea) : null);
-      if (targetArea != null && !stackAreaMatchesTarget(allStackZones.reduce((sum, zone) => sum + zone.area_m2, 0), Number(targetArea))) {
-        setStackValidationError(`Stack total (${allStackZones.reduce((sum, zone) => sum + zone.area_m2, 0)} m²) does not reasonably match this project's ${projectData?.buildingFootprintJson?.value != null ? 'building footprint' : 'gross floor area'} (${Number(targetArea)} m²). Adjust the zones before confirming.`);
+      const stackTotal = allStackZones.reduce((sum, zone) => sum + zone.area_m2, 0);
+      const floorCount = getStackFloorCount(wings);
+      const expectedArea = Number(targetArea) * floorCount;
+      if (targetArea != null && floorCount > 0 && !stackAreaMatchesTarget(stackTotal, expectedArea)) {
+        setStackValidationError(`Stack total (${stackTotal} m²) does not reasonably match this project's ${projectData?.buildingFootprintJson?.value != null ? 'building footprint' : 'gross floor area'} (${Number(targetArea)} m² × ${floorCount} floor${floorCount === 1 ? '' : 's'} = ${expectedArea} m²). Adjust the zones before confirming.`);
         setScreen('stackPlanner');
         return;
       }

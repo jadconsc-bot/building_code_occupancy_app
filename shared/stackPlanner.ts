@@ -14,3 +14,8 @@ export function stackAreaMatchesTarget(totalArea: number, targetArea: number, to
   const tolerance = Math.max(1, targetArea * toleranceRatio);
   return Math.abs(totalArea - targetArea) <= tolerance;
 }
+
+/** Number of occupied levels in the arrangement (wings share floor levels). */
+export function getStackFloorCount(wings: Array<{ floors: unknown[] }>): number {
+  return wings.reduce((max, wing) => Math.max(max, wing.floors.length), 0);
+}
