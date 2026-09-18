@@ -568,7 +568,7 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
         <div className="space-y-5">
           {/* Occupant Load */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Occupant Load — NBC Table 4.1.5.3</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Occupant Load — NBC 2020 Table 3.1.17.1</h4>
             {occupantRows.length > 0 ? (
               <div className="overflow-x-auto rounded border border-gray-200">
                 <table className="w-full text-xs">
@@ -576,7 +576,7 @@ function CalculationsTab({ projectId, userRole }: { projectId: number; userRole:
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">Group</th>
                       <th className="px-3 py-2 text-right font-medium">Area (m²)</th>
-                      <th className="px-3 py-2 text-right font-medium">Factor (p/m²)</th>
+                      <th className="px-3 py-2 text-right font-medium">Factor (m²/person)</th>
                       <th className="px-3 py-2 text-right font-medium">Persons</th>
                     </tr>
                   </thead>
