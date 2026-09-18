@@ -269,7 +269,6 @@ export const permitPackageRouter = router({
         .from(fireAssemblies)
         .where(eq(fireAssemblies.projectId, input.projectId));
 
-      const calcOccupantLoad  = getCalc("occupantLoad");
       const calcExitReqs      = getCalc("exitRequirements");
       const calcTravelDist    = getCalc("travelDistance");
       const calcStairDesign   = getCalc("stairDesign");
@@ -397,7 +396,7 @@ export const permitPackageRouter = router({
         ["Building Height — NBC 3.2.2.2",         resultLabel(compliance.heightResult)],
         ["Building Area — NBC 3.2.2.2",            resultLabel(compliance.areaResult)],
         ["Building Storeys — NBC 3.2.2.2",         resultLabel(compliance.storeysResult)],
-        ["Occupant Load — NBC 4.1.5.3",            calcPkg ? "CALCULATED" : "—"],
+        ["Occupant Load — NBC 2020 Table 3.1.17.1", calcPkg ? "CALCULATED" : "—"],
         ["Exit Width — NBC 3.4.3.2",               calcPkg ? `${Number(calcPkg.exitWidthRequiredMm ?? 0)} mm required` : "—"],
         ["Travel Distance — NBC 3.4.2.5",
           calcSummary.travelDistanceFail !== undefined
@@ -512,11 +511,11 @@ export const permitPackageRouter = router({
       if (calcPkg) {
         // Occupant Load
         doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-        doc.text("Occupant Load — NBC Table 4.1.5.3", M, y); y += 3;
+        doc.text("Occupant Load — NBC 2020 Table 3.1.17.1", M, y); y += 3;
 
         autoTable(doc, {
           startY: y,
-          head: [["Occupancy Group", "Area (m²)", "Factor (p/m²)", "Persons"]],
+          head: [["Occupancy Group", "Area (m²)", "Factor (m²/person)", "Persons"]],
           body: [
             ...occupantRows.map(r => [r.group, Number(r.areaSqm).toFixed(2), r.factor.toString(), r.persons.toString()]),
             [
@@ -599,14 +598,14 @@ export const permitPackageRouter = router({
       doc.setTextColor(0, 0, 0);
       y = 28;
 
-      y = addSectionHeader(doc, "Occupant Load — NBC Table 4.1.5.3", y, W, M);
-      if (calcOccupantLoad) {
+      y = addSectionHeader(doc, "Occupant Load — NBC 2020 Table 3.1.17.1", y, W, M);
+      if (calcPkg) {
         autoTable(doc, {
           startY: y,
           head: [["Parameter", "Value"]],
           body: [
-            ["Occupant Load", String(calcOccupantLoad.occupantLoad ?? "—")],
-            ["Area per Person (m²/person)", String(calcOccupantLoad.areaPerPerson ?? "—")],
+            ["Occupant Load", String(calcPkg.totalOccupantLoad ?? "—")],
+            ["NBC Reference", String(calcPkg.nbcTableRef ?? "NBC 2020 Table 3.1.17.1")],
           ],
           theme: "grid",
           headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
@@ -1364,14 +1363,14 @@ export const permitPackageRouter = router({
         return { m, status: "deficient" };
       }
 
-      const olD = getCalc("occupantLoad");
-      if (olD) {
-        const occ = Number(olD.occupantLoad ?? olD.totalOccupantLoad ?? 0);
+      const packageNeedsReview = occupantRows.some((row) => (row as OccupantGroupRow & { needsReview?: boolean }).needsReview === true);
+      if (calcPkg) {
+        const occ = Number(calcPkg.totalOccupantLoad ?? 0);
         const numExits = Number(calcExitReqs?.numExits ?? 0);
-        if (olD.needsReview) {
+        if (packageNeedsReview) {
           compRows.push({ category: "Life Safety", label: "Occupant Load (Needs Review)", provided: "Not determined", required: "Verify bedroom count", margin: "—", status: "not_calculated", nbcRef: "NBC 3.1.17.1 Note (2)" });
-        } else if (occ > 0) {
-          compRows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 3.1.17.1" });
+        } else {
+          compRows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: String(calcPkg.nbcTableRef ?? "NBC 2020 Table 3.1.17.1") });
         }
       }
       const tdD = getCalc("travelDistance");
@@ -1843,6 +1842,13 @@ export const permitPackageRouter = router({
         .where(eq(projectCalculatorResults.projectId, input.projectId))
         .orderBy(desc(projectCalculatorResults.updatedAt));
 
+      const [calcPkg] = await db
+        .select()
+        .from(calculationsPackages)
+        .where(eq(calculationsPackages.projectId, input.projectId))
+        .orderBy(desc(calculationsPackages.createdAt))
+        .limit(1);
+
       const allAssemblies = await db
         .select()
         .from(fireAssemblies)
@@ -1879,14 +1885,11 @@ export const permitPackageRouter = router({
       }
 
       // Occupant Load
-      const ol = getCalc("occupantLoad");
-      if (ol) {
-        const occ = Number(ol.occupantLoad ?? ol.totalOccupantLoad ?? 0);
+      if (calcPkg) {
+        const occ = Number(calcPkg.totalOccupantLoad ?? 0);
         const exitReqs = getCalc("exitRequirements");
         const numExits = Number(exitReqs?.numExits ?? 0);
-        if (occ > 0) {
-          rows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: "NBC 4.1.5.3" });
-        }
+        rows.push({ category: "Life Safety", label: "Occupant Load", provided: `${occ} persons`, required: numExits > 0 ? `${numExits} exit${numExits > 1 ? "s" : ""} required` : "—", margin: "—", status: "not_calculated", nbcRef: String(calcPkg.nbcTableRef ?? "NBC 2020 Table 3.1.17.1") });
       }
 
       // Travel Distance

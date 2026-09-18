@@ -265,7 +265,7 @@ export class ReportGenerator {
     let analysis = `The following analysis has been performed:\n\n`;
     analysis += `1. **Occupancy Classification:** The building has been classified in accordance with NBC Table 1.1.1\n`;
     analysis += `2. **Fire-Resistance Requirements:** Building elements meet the FRR requirements of NBC Table 3.1.8.1\n`;
-    analysis += `3. **Occupant Load:** Occupant load has been calculated using NBC Table 4.1.5.3\n`;
+    analysis += `3. **Occupant Load:** Occupant load has been calculated using NBC 2020 Table 3.1.17.1\n`;
     analysis += `4. **Means of Egress:** Adequate egress has been provided per NBC Section 3.4\n`;
     analysis += `5. **Fire Separations:** Fire separations comply with NBC Section 3.2.3\n`;
 
@@ -279,7 +279,7 @@ export class ReportGenerator {
     clauses += `- **NBC 3.1.8** - Fire-Resistance Ratings\n`;
     clauses += `- **NBC 3.2.3** - Fire Separations\n`;
     clauses += `- **NBC 3.4** - Means of Egress\n`;
-    clauses += `- **NBC 4.1.5.3** - Occupant Load\n`;
+    clauses += `- **NBC 2020 Table 3.1.17.1** - Occupant Load\n`;
 
     return clauses;
   }
@@ -299,7 +299,7 @@ export class ReportGenerator {
     references += `- National Building Code of Canada (NBC) 2023\n`;
     references += `- NBC Table 1.1.1 - Occupancy Classification\n`;
     references += `- NBC Table 3.1.8.1 - Fire-Resistance Ratings\n`;
-    references += `- NBC Table 4.1.5.3 - Occupant Load Factors\n`;
+    references += `- NBC 2020 Table 3.1.17.1 - Occupant Load\n`;
 
     return references;
   }
@@ -339,7 +339,7 @@ export class ReportGenerator {
     return [
       'NBC Table 1.1.1 - Occupancy Classification',
       'NBC Table 3.1.8.1 - Fire-Resistance Ratings',
-      'NBC Table 4.1.5.3 - Occupant Load Factors',
+      'NBC 2020 Table 3.1.17.1 - Occupant Load',
       'NBC Section 3.1 - General Requirements',
       'NBC Section 3.2 - Fire Separations',
       'NBC Section 3.4 - Means of Egress',

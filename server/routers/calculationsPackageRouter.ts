@@ -394,7 +394,7 @@ export const calculationsPackageRouter = router({
 
       autoTable(doc, {
         startY: y,
-        head: [["Occupancy Group", "Area (m²)", "Factor (p/m²)", "Persons"]],
+        head: [["Occupancy Group", "Area (m²)", "Factor (m²/person)", "Persons"]],
         body: [
           ...occupantRows.map(r => [r.group, r.areaSqm.toFixed(2), r.factor.toString(), r.persons.toString()]),
           [{ content: "TOTAL", styles: { fontStyle: "bold" } }, { content: (summary?.totalAreaM2 ?? 0).toFixed(2), styles: { fontStyle: "bold" } }, "", { content: (pkg.totalOccupantLoad ?? 0).toString(), styles: { fontStyle: "bold", fillColor: [220, 252, 231] } }],

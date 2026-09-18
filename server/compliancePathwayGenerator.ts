@@ -174,12 +174,12 @@ export class CompliancePathwayGenerator {
 
     // Occupant load requirements
     clauses.push({
-      clauseNumber: '4.1.5.3',
+      clauseNumber: '3.1.17.1',
       title: 'Occupant Load',
-      description: 'Occupant load shall be determined from NBC Table 4.1.5.3',
+      description: 'Occupant load shall be determined from NBC 2020 Table 3.1.17.1',
       applicability: 'All buildings',
-      requirement: `Calculate occupant load using NBC Table 4.1.5.3 load factors for Occupancy ${occupancy}`,
-      reference: 'NBC 4.1.5.3',
+      requirement: `Calculate occupant load using NBC 2020 Table 3.1.17.1 for Occupancy ${occupancy}`,
+      reference: 'NBC 2020 Table 3.1.17.1',
     });
 
     // Egress requirements
@@ -382,7 +382,7 @@ export class CompliancePathwayGenerator {
     narrative += `## Compliance Approach\n`;
     narrative += `This design achieves compliance through the following measures:\n\n`;
     narrative += `1. **Fire-Resistance Rating:** Building elements are designed to meet the FRR requirements specified in NBC Table 3.1.8.1 for Occupancy ${occupancy} buildings.\n\n`;
-    narrative += `2. **Occupant Load:** The occupant load is calculated using NBC Table 4.1.5.3 load factors.\n\n`;
+    narrative += `2. **Occupant Load:** The occupant load is calculated using NBC 2020 Table 3.1.17.1.\n\n`;
     narrative += `3. **Means of Egress:** Adequate exits and emergency egress routes are provided in accordance with NBC Section 3.4.\n\n`;
 
     if (sprinklers) {
