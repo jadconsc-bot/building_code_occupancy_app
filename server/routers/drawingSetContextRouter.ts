@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { drawingSetContexts } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { extractDrawingSetContext } from "../services/drawingSetContextService";
+import { assertProjectMemberAccess, assertProjectRoleManager } from "../services/projectAuthorization";
 
 export const drawingSetContextRouter = router({
   extractContext: protectedProcedure
@@ -16,6 +18,7 @@ export const drawingSetContextRouter = router({
       })).min(1).max(20),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       const result = await extractDrawingSetContext(
         input.pages,
         input.projectId,
@@ -27,7 +30,8 @@ export const drawingSetContextRouter = router({
 
   getContext: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await assertProjectMemberAccess(ctx.user, input.projectId);
       const db = await getDb();
       if (!db) return null;
       const rows = await db
@@ -47,9 +51,16 @@ export const drawingSetContextRouter = router({
       sprinklered:   z.boolean().optional(),
       abbreviations: z.record(z.string(), z.string()).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { success: false };
+      const [context] = await db
+        .select({ projectId: drawingSetContexts.projectId })
+        .from(drawingSetContexts)
+        .where(eq(drawingSetContexts.id, input.contextId))
+        .limit(1);
+      if (!context) throw new TRPCError({ code: "NOT_FOUND", message: "Drawing set context not found" });
+      await assertProjectRoleManager(ctx.user, context.projectId);
       const { contextId, ...updates } = input;
       const dbUpdates: Record<string, unknown> = {};
       if (updates.municipality !== undefined) dbUpdates.municipality = updates.municipality;

@@ -16,8 +16,13 @@
  */
 
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { getDb } from "../db";
+import { eq } from "drizzle-orm";
+import { shareLinks } from "../../drizzle/schema";
+import { assertProjectMemberAccess, assertProjectRoleManager } from "../services/projectAuthorization";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 
@@ -137,6 +142,7 @@ export const projectMembersRouter = router({
       role: z.enum(["owner", "editor", "reviewer", "viewer"]),
     }))
     .mutation(async ({ ctx, input }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       return await db.addProjectMember({
         projectId: input.projectId,
         userId: input.userId,
@@ -150,7 +156,8 @@ export const projectMembersRouter = router({
    */
   list: protectedProcedure
     .input(z.object({ projectId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await assertProjectMemberAccess(ctx.user, input.projectId);
       return await db.getProjectMembers(input.projectId);
     }),
 
@@ -163,7 +170,8 @@ export const projectMembersRouter = router({
       userId: z.number(),
       role: z.enum(["owner", "editor", "reviewer", "viewer"]),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       await db.updateProjectMemberRole(input.projectId, input.userId, input.role);
       return { success: true };
     }),
@@ -176,7 +184,8 @@ export const projectMembersRouter = router({
       projectId: z.number(),
       userId: z.number(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       await db.removeProjectMember(input.projectId, input.userId);
       return { success: true };
     }),
@@ -306,6 +315,7 @@ export const sharingRouter = router({
       maxAccessCount: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       const token = crypto.randomBytes(32).toString("hex");
       return await db.createShareLink({
         id: uuidv4(),
@@ -324,7 +334,8 @@ export const sharingRouter = router({
    */
   listShareLinks: protectedProcedure
     .input(z.object({ projectId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await assertProjectMemberAccess(ctx.user, input.projectId);
       return await db.getProjectShareLinks(input.projectId);
     }),
 
@@ -351,7 +362,16 @@ export const sharingRouter = router({
    */
   deactivateShareLink: protectedProcedure
     .input(z.object({ linkId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const database = await getDb();
+      if (!database) throw new Error("Database not available");
+      const [link] = await database
+        .select({ projectId: shareLinks.projectId })
+        .from(shareLinks)
+        .where(eq(shareLinks.id, input.linkId))
+        .limit(1);
+      if (!link) throw new TRPCError({ code: "NOT_FOUND", message: "Share link not found" });
+      await assertProjectRoleManager(ctx.user, link.projectId);
       await db.deactivateShareLink(input.linkId);
       return { success: true };
     }),

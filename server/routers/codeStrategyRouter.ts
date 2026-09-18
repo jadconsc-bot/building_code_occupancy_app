@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, desc } from "drizzle-orm";
+import { assertProjectMemberAccess, assertProjectRoleManager } from "../services/projectAuthorization";
 import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { codeStrategies, projects } from "../../drizzle/schema";
@@ -142,6 +143,7 @@ export const codeStrategyRouter = router({
   save: protectedProcedure
     .input(codeStrategyInput)
     .mutation(async ({ input, ctx }) => {
+      await assertProjectRoleManager(ctx.user, input.projectId);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
@@ -191,7 +193,8 @@ export const codeStrategyRouter = router({
 
   get: protectedProcedure
     .input(z.object({ projectId: z.number().int().positive() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await assertProjectMemberAccess(ctx.user, input.projectId);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
