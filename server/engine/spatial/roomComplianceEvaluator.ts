@@ -267,13 +267,25 @@ export async function evaluateRoomCompliance(
   let group = room.occupancyGroup;
   const roomSpaceType = (room as DetectedRoom & { spaceType?: string }).spaceType ?? 'room';
   const roomManualOverride = Boolean((room as DetectedRoom & { manualOverride?: boolean | number }).manualOverride);
+  let projectRow: any = null;
+  let buildingPartDetermination: ReturnType<typeof determineBuildingPart> = {
+    determination: 'needs_review',
+    failedCriterion: 'missing-footprint',
+    failedCriteria: ['missing-footprint'],
+    reasoning: 'Part 9/Part 3 determination requires storeys, verified building footprint, and major occupancy group.',
+  };
 
   if (!roomManualOverride) {
     try {
       const dbAccessory = await getDb();
       if (dbAccessory) {
-        const [projectRow] = await dbAccessory
-          .select({ totalDwellingUnits: projects.totalDwellingUnits })
+        [projectRow] = await dbAccessory
+          .select({
+            totalDwellingUnits: projects.totalDwellingUnits,
+            buildingFootprintJson: projects.buildingFootprintJson,
+            storeys: projects.storeys,
+            occupancyCode: projects.occupancyCode,
+          })
           .from(projects)
           .where(eq(projects.id, projectId))
           .limit(1);
@@ -630,31 +642,35 @@ export async function evaluateRoomCompliance(
     let footprintM2: number | null = null;
     let storeys: number | null = null;
     let occupancyGroup: string | null = group;
-    if (db10) {
-      const [proj] = await db10
-        .select({ buildingFootprintJson: projects.buildingFootprintJson, storeys: projects.storeys, occupancyCode: projects.occupancyCode })
+    let proj = projectRow;
+    if (!proj && db10) {
+      [proj] = await db10
+        .select({ totalDwellingUnits: projects.totalDwellingUnits, buildingFootprintJson: projects.buildingFootprintJson, storeys: projects.storeys, occupancyCode: projects.occupancyCode })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
+      projectRow = proj;
+    }
+    if (proj) {
       const fact = proj?.buildingFootprintJson as { value?: number } | null | undefined;
       footprintM2 = typeof fact?.value === 'number' ? fact.value : null;
       storeys = proj?.storeys ?? null;
       occupancyGroup = proj?.occupancyCode ?? group;
     }
-    const determination = determineBuildingPart({ footprintM2, storeys, occupancyGroup });
+    buildingPartDetermination = determineBuildingPart({ footprintM2, storeys, occupancyGroup });
 
     traces.push(buildFederalTrace({
-      result: determination.determination === 'needs_review' ? 'not_applicable' : determination.determination === 'Part 3' ? 'warning' : 'pass',
+      result: buildingPartDetermination.determination === 'needs_review' ? 'not_applicable' : buildingPartDetermination.determination === 'Part 3' ? 'warning' : 'pass',
       rule: 'NBC 9.10.1',
-      reasoning: determination.reasoning,
+      reasoning: buildingPartDetermination.reasoning,
       evaluatedInputs: {
         actual: JSON.stringify({ footprintM2, storeys, occupancyGroup }),
         required: 'footprint ≤600 m²; storeys ≤3; occupancy B-4/C/D/E/F-2/F-3',
         unit: 'm²',
       },
-      severity: determination.determination === 'Part 3' ? 'high' : 'info',
+      severity: buildingPartDetermination.determination === 'Part 3' ? 'high' : 'info',
       constraintId: 'building_limits.part3_determination',
-      recommendations: determination.determination === 'Part 3' ? ['Part 3 (NBC Division B) provisions apply; engage a licensed architect/engineer for review'] : determination.determination === 'needs_review' ? ['Enter and verify building footprint, storeys, and major occupancy'] : []
+      recommendations: buildingPartDetermination.determination === 'Part 3' ? ['Part 3 (NBC Division B) provisions apply; engage a licensed architect/engineer for review'] : buildingPartDetermination.determination === 'needs_review' ? ['Enter and verify building footprint, storeys, and major occupancy'] : []
     }));
   } catch (err) {
     console.error('[RoomCompliance] Rule 10 Part 3 determination failed:', err);
@@ -710,29 +726,66 @@ export async function evaluateRoomCompliance(
     }));
   }
 
-  // 13. Exit stair enclosure check (NBC 3.4.3.1)
+  // 13. Exit stair enclosure check, scoped to the building determination.
   const isStair = /stair|stairwell|stairway/i.test(room.label);
-  if (isStair) {
+  if (isStair && buildingPartDetermination.determination === 'needs_review') {
+    traces.push(buildFederalTrace({
+      result: 'not_applicable',
+      rule: 'NBC 9.9.4.1.(1) / NBC 3.4.4.1.(1)',
+      reasoning: 'Needs review: the Part 9/Part 3 scope could not be determined, so stair fire-separation applicability cannot be established.',
+      evaluatedInputs: { actual: 'building scope undetermined', required: 'verified footprint, storeys, and occupancy', unit: 'scope' },
+      severity: 'medium',
+      constraintId: 'egress.stair_enclosure',
+      recommendations: ['Verify the project footprint, storeys, occupancy, and dwelling-unit count before relying on stair fire-separation results'],
+    }));
+  } else if (isStair && buildingPartDetermination.determination === 'Part 3') {
     const hasFireRatedDoor = room.features.some(f => f.type === 'door_fire_rated');
     traces.push(buildFederalTrace({
       result: hasFireRatedDoor ? 'pass' : 'warning',
-      rule: 'NBC 3.4.3.1.(1)',
+      rule: 'NBC 3.4.4.1.(1)',
       reasoning: hasFireRatedDoor
-        ? `Fire-rated door detected at stair enclosure — exit stair shaft fire separation indicated`
-        : `Exit stair "${room.label}" must be enclosed in a fire-rated shaft. Verify fire-rated walls (min 45 min for ≤3 storeys, 1 hr for >3 storeys) and self-closing fire doors at every floor opening`,
+        ? `Fire-rated door detected at the exit stair opening — verify fire separation rated to the floor assembly above (or below where there is no floor assembly above), with a minimum 45 min rating where applicable, per NBC 3.4.4.1.(1)`
+        : `Exit stair "${room.label}" requires fire separation rated to the floor assembly above (or below where there is no floor assembly above), with a minimum 45 min rating where applicable, per NBC 3.4.4.1.(1)`,
       evaluatedInputs: {
         actual: hasFireRatedDoor ? 'fire-rated door detected' : 'fire separation not confirmed',
-        required: 'fire-rated enclosure required',
+        required: 'fire separation rated to the adjacent floor assembly',
         unit: 'boolean'
       },
       severity: hasFireRatedDoor ? 'info' : 'high',
       constraintId: 'egress.stair_enclosure',
       recommendations: hasFireRatedDoor ? [] : [
-        'Enclose exit stair in fire-rated shaft — min 45 min FRR (≤3 storeys) or 1 hr FRR (>3 storeys)',
-        'Provide self-closing fire doors at every floor-level opening into the stair shaft',
-        'Verify continuity of fire separation from floor slab to underside of floor above'
+        'Verify the exit stair fire separation rating against the adjacent floor assembly',
+        'Verify protected openings and continuity of the fire separation at every floor level'
       ]
     }));
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && (projectRow?.totalDwellingUnits == null || Number(projectRow.totalDwellingUnits) <= 0)) {
+    traces.push(buildFederalTrace({
+      result: 'not_applicable',
+      rule: 'NBC 9.9.4.1.(1)',
+      reasoning: 'Needs review: dwelling-unit count is required to determine whether the NBC 9.9.4.1.(1) single-dwelling-unit exemption applies to this stair.',
+      evaluatedInputs: { actual: 'dwelling-unit count missing', required: 'confirmed total dwelling units', unit: 'dwelling units' },
+      severity: 'medium',
+      constraintId: 'egress.stair_enclosure',
+      recommendations: ['Confirm whether this stair serves more than one dwelling unit before applying NBC 9.9.4 exit-separation requirements'],
+    }));
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(projectRow?.totalDwellingUnits) > 1) {
+    const hasFireRatedDoor = room.features.some(f => f.type === 'door_fire_rated');
+    traces.push(buildFederalTrace({
+      result: hasFireRatedDoor ? 'pass' : 'warning',
+      rule: 'NBC 9.9.4.2.(1)',
+      reasoning: hasFireRatedDoor
+        ? 'Fire-rated door detected at the multi-unit exit stair opening — verify the exit fire separation rating is not less than that required for the floor assembly above, per NBC 9.9.4.2.(1)'
+        : 'Exit stair fire separation required — fire-resistance rating not less than that required for the floor assembly above (min 45 min where none above), per NBC 9.9.4.2.(1).',
+      evaluatedInputs: { actual: hasFireRatedDoor ? 'fire-rated door detected' : 'fire separation not confirmed', required: 'fire separation rated to the adjacent floor assembly', unit: 'boolean' },
+      severity: hasFireRatedDoor ? 'info' : 'high',
+      constraintId: 'egress.stair_enclosure',
+      recommendations: hasFireRatedDoor ? [] : [
+        'Verify the exit stair fire separation rating against the adjacent floor assembly',
+        'Verify protected openings and continuity of the fire separation at every floor level',
+      ],
+    }));
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(projectRow?.totalDwellingUnits) === 1) {
+    // Deliberately suppressed: NBC 9.9.4.1.(1) exempts an exit serving not more than one dwelling unit.
   }
 
   // 14. Minimum bedroom area (NBC 9.5.2.3)
