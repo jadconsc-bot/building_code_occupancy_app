@@ -80,7 +80,16 @@ async function applyCorrection(db: any, payload: CorrectionPayload): Promise<voi
 
     case "occupancy_change":
       assertRoomUpdated(await db.update(detectedRooms)
-        .set({ occupancyGroup: payload.correctedValue.occupancyGroup as string, manualOverride: 1, lastCorrectedAt: new Date() })
+        .set({
+          occupancyGroup: payload.correctedValue.occupancyGroup as string,
+          occupancyGroupJson: {
+            value: payload.correctedValue.occupancyGroup as string,
+            confirmed: true,
+            source: 'user-confirmed',
+          },
+          manualOverride: 1,
+          lastCorrectedAt: new Date(),
+        })
         .where(eq(detectedRooms.id, payload.roomId)));
       break;
 
@@ -118,7 +127,15 @@ async function applyCorrection(db: any, payload: CorrectionPayload): Promise<voi
         areaSqm: payload.correctedValue.areaSqm != null
           ? String(payload.correctedValue.areaSqm)
           : "0.00",
+        areaSqmJson: payload.correctedValue.areaSqm != null
+          ? { value: payload.correctedValue.areaSqm as number, confirmed: true, source: 'user-confirmed' }
+          : null,
         occupancyGroup: payload.correctedValue.occupancyGroup as string,
+        occupancyGroupJson: {
+          value: payload.correctedValue.occupancyGroup as string,
+          confirmed: true,
+          source: 'user-confirmed',
+        },
         confidence: "1.000",
         flaggedForReview: 0,
         manualOverride: 1,
