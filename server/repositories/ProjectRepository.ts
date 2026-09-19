@@ -181,6 +181,7 @@ export class ProjectRepository {
         projectCode: input.projectCode || null,
         grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
         buildingFootprintJson: input.buildingFootprintJson ?? null,
+        bedroomCount: input.bedroomCount !== undefined ? input.bedroomCount : null,
         bedroomCountJson: input.bedroomCount !== undefined
           ? { value: input.bedroomCount, confirmed: true, source: 'user-confirmed' }
           : null,
