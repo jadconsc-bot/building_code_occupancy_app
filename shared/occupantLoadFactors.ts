@@ -412,6 +412,34 @@ export function getDefaultLoadFactor(occupancyGroup: string): DefaultLoadFactor 
 }
 
 /**
+ * Return the conservative factor for an accessory space. These spaces are
+ * reported separately from the primary building occupant total, but retain
+ * an informational per-space calculation for review.
+ */
+export function getAccessoryLoadFactor(spaceType: string, occupancyGroup: string): DefaultLoadFactor & { citation: string } {
+  const normalized = spaceType.trim().toLowerCase();
+  if (normalized === 'garage') {
+    return {
+      areaPerPerson: 46.00,
+      useType: 'Storage garages and aircraft hangars',
+      federalRow: 'NBC 2020 Table 3.1.17.1 — Industrial uses, storage garages and aircraft hangars',
+      note: 'Informational accessory-space factor; excluded from the dwelling-unit headline total',
+      citation: 'NBC 2020 Table 3.1.17.1 (storage garages and aircraft hangars)',
+    };
+  }
+  if (normalized === 'storage') {
+    return {
+      areaPerPerson: 28.00,
+      useType: 'Storage warehouse',
+      federalRow: 'NBC 2020 Table 3.1.17.1 — Industrial uses, storage warehouse',
+      note: 'Informational accessory-space factor; excluded from the dwelling-unit headline total',
+      citation: 'NBC 2020 Table 3.1.17.1 (storage warehouse)',
+    };
+  }
+  return getDefaultLoadFactor(occupancyGroup);
+}
+
+/**
  * Return all load factor rows applicable to an occupancy code.
  * Normalises the code and matches by prefix as well as exact group.
  */

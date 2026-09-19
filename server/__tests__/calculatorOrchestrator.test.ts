@@ -34,7 +34,7 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.occupantLoad[0]).toMatchObject({
       roomLabel: 'Dwelling Unit',
       occupancyGroup: 'C',
-      areaM2: 36,
+      areaM2: 22,
       maxOccupants: 4,
       nbcRef: 'NBC 3.1.17.1 Note (2)',
     });
@@ -42,7 +42,7 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
       severity: 'pass',
       description: 'Occupant load — Dwelling unit',
-      actual: 'Total area: 36.0 m² — 2 bedrooms identified × 2 persons/bedroom = 4 persons',
+      actual: 'Total area: 22.0 m² — 2 bedrooms identified × 2 persons/bedroom = 4 persons',
       required: '2 persons per bedroom (dwelling units)',
       citation: 'NBC 3.1.17.1 Note (2)',
     });
@@ -62,7 +62,7 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     });
 
     const groupCConstructionType = result.constructionTypes.find(ct => ct.occupancyGroup === 'C');
-    expect(groupCConstructionType?.actualAreaM2).toBe(36);
+    expect(groupCConstructionType?.actualAreaM2).toBe(22);
     expect(result.summary.totalOccupants).toBe(25);
   });
 
@@ -77,25 +77,13 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
       'AB',
     );
 
-    expect(result.occupantLoad).toHaveLength(1);
-    expect(result.occupantLoad[0]).toMatchObject({
-      roomLabel: 'Dwelling Unit',
-      occupancyGroup: 'C',
-      areaM2: 14,
-      maxOccupants: 0,
-      nbcRef: 'NBC 3.1.17.1 Note (2)',
-    });
+    expect(result.occupantLoad).toHaveLength(0);
+    expect(result.accessoryOccupantLoad).toHaveLength(2);
 
-    expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
-      severity: 'advisory',
-      description: 'Occupant load — Dwelling unit',
-      actual: 'Total area: 14.0 m² — no bedroom-labeled rooms detected among Group C spaces; occupant count could not be determined',
-      required: 'Verify bedroom count and occupancy classification — NBC 3.1.17.1 Note (2) requires 2 persons/bedroom for dwelling units',
-      citation: 'NBC 3.1.17.1 Note (2)',
-    });
+    expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toBeUndefined();
 
     expect(result.summary.totalOccupants).toBe(0);
-    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(14);
+    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBeUndefined();
   });
 
   it('reclassifies accessory garage space into the dwelling-unit total when the project is clearly single-unit', () => {
@@ -115,13 +103,39 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.occupantLoad[0]).toMatchObject({
       roomLabel: 'Dwelling Unit',
       occupancyGroup: 'C',
-      areaM2: 50,
+      areaM2: 20,
       maxOccupants: 2,
     });
     expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
-      actual: 'Total area: 50.0 m² — 1 bedroom identified × 2 persons/bedroom = 2 persons',
+      actual: 'Total area: 20.0 m² — 1 bedroom identified × 2 persons/bedroom = 2 persons',
     });
-    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(50);
+    expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(20);
+  });
+
+  it('excludes a garage identified only by its label and uses the storage-garage factor', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        rooms: [
+          { label: 'Bedroom 1', occupancyGroup: 'C', areaM2: 20 },
+          { label: 'DOUBLE GARAGE', occupancyGroup: 'F-3', areaM2: 41.4 },
+        ],
+        totalDwellingUnits: 1,
+      }),
+      'AB',
+    );
+
+    expect(result.summary.totalOccupants).toBe(2);
+    expect(result.occupantLoad.find(row => row.roomLabel === 'DOUBLE GARAGE')).toBeUndefined();
+    expect(result.accessoryOccupantLoad).toMatchObject([{
+      roomLabel: 'DOUBLE GARAGE',
+      occupancyGroup: 'Accessory (garage)',
+      areaM2PerPerson: 46,
+      maxOccupants: 1,
+    }]);
+    expect(result.findings.find(f => f.description === 'Accessory occupant load — DOUBLE GARAGE')).toMatchObject({
+      severity: 'advisory',
+      citation: 'NBC 2020 Table 3.1.17.1 (storage garages and aircraft hangars)',
+    });
   });
 
   it('flags accessory garage space for verification when dwelling-unit count is missing', () => {
@@ -142,6 +156,11 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     });
     expect(result.occupantLoad).toHaveLength(1);
     expect(result.occupantLoad[0].areaM2).toBe(20);
+    expect(result.accessoryOccupantLoad[0]).toMatchObject({
+      roomLabel: 'DOUBLE GARAGE',
+      occupancyGroup: 'Accessory (garage)',
+      areaM2PerPerson: 46,
+    });
     expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(20);
   });
 
@@ -163,6 +182,7 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     });
     expect(result.occupantLoad).toHaveLength(1);
     expect(result.occupantLoad[0].areaM2).toBe(20);
+    expect(result.accessoryOccupantLoad[0].areaM2PerPerson).toBe(46);
   });
 
   it('skips accessory reclassification when a room has been manually overridden', () => {

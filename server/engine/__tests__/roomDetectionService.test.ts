@@ -23,6 +23,7 @@ beforeEach(async () => {
   lifecycleEvents = [];
 
   mockDb = {
+    transaction: vi.fn(async (callback: (tx: any) => Promise<unknown>) => callback(mockDb)),
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
     where: vi.fn()

@@ -23,10 +23,11 @@ import {
 } from './barrierFreeCalculator';
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
-import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import {
   ACCESSORY_SPACE_TYPES,
+  inferAccessorySpaceType,
   reclassifyAccessoryOccupancy,
   type ReclassificationResult,
 } from '../engine/spatial/accessoryOccupancyReclassifier';
@@ -117,6 +118,16 @@ export interface OrchestratorResult {
     maxOccupants: number;
     nbcRef: string;
     needsReview?: boolean;
+    isAccessory?: boolean;
+  }>;
+  accessoryOccupantLoad: Array<{
+    roomLabel: string;
+    occupancyGroup: string;
+    areaM2: number;
+    areaM2PerPerson: number;
+    maxOccupants: number;
+    nbcRef: string;
+    isAccessory: true;
   }>;
   egressWindows: Array<{
     windowIdx: number;
@@ -235,6 +246,7 @@ export function runCalculatorOrchestrator(
   })();
 
   const effectiveRooms: Array<OrchestratorInput['rooms'][number]> = [];
+  const accessoryRoomLabels = new Set<string>();
   const accessoryAssessments: Array<{
     room: OrchestratorInput['rooms'][number];
     decision: ReclassificationResult;
@@ -242,6 +254,9 @@ export function runCalculatorOrchestrator(
   let accessoryAdvisoryIndex = 1;
 
   for (const room of input.rooms) {
+    const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);
+    if (accessorySpaceType && !room.manualOverride) accessoryRoomLabels.add(room.label);
+
     if (room.manualOverride) {
       effectiveRooms.push(room);
       accessoryAssessments.push({ room, decision: { action: 'unchanged' } });
@@ -251,6 +266,7 @@ export function runCalculatorOrchestrator(
     const decision = reclassifyAccessoryOccupancy({
       occupancyGroup: room.occupancyGroup,
       spaceType: room.spaceType,
+      label: room.label,
       dominantOccupancyGroup,
       totalDwellingUnits: input.totalDwellingUnits,
     });
@@ -284,10 +300,11 @@ export function runCalculatorOrchestrator(
 
   // ── Occupant Load ──────────────────────────────────────────────────────────
   const occupantLoad: OrchestratorResult['occupantLoad'] = [];
+  const accessoryOccupantLoad: OrchestratorResult['accessoryOccupantLoad'] = [];
   let totalOccupants = 0;
 
   const groupCRooms = effectiveRooms.filter(
-    r => r.occupancyGroup.trim().toUpperCase() === 'C' && r.areaM2 !== null && r.areaM2 > 0
+    r => r.occupancyGroup.trim().toUpperCase() === 'C' && !accessoryRoomLabels.has(r.label) && r.areaM2 !== null && r.areaM2 > 0
   );
 
   if (groupCRooms.length > 0) {
@@ -335,6 +352,11 @@ export function runCalculatorOrchestrator(
     const room = effectiveRooms[i];
     if (room.areaM2 === null || room.areaM2 <= 0) continue;
 
+    const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);
+    if (accessorySpaceType && !room.manualOverride) {
+      continue;
+    }
+
     // Normalize group: "B-1" → "B-1", "B" → "B"
     const group = room.occupancyGroup.trim().toUpperCase();
     if (group === 'C') continue;
@@ -361,6 +383,31 @@ export function runCalculatorOrchestrator(
       citation: spec.citation,
     });
     passCount++;
+  }
+
+  for (const room of input.rooms) {
+    if (room.manualOverride || room.areaM2 === null || room.areaM2 <= 0) continue;
+    const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);
+    if (!accessorySpaceType) continue;
+    const accessoryFactor = getAccessoryLoadFactor(accessorySpaceType, room.occupancyGroup);
+    accessoryOccupantLoad.push({
+      roomLabel: room.label,
+      occupancyGroup: `Accessory (${accessorySpaceType})`,
+      areaM2: room.areaM2,
+      areaM2PerPerson: accessoryFactor.areaPerPerson,
+      maxOccupants: Math.ceil(room.areaM2 / accessoryFactor.areaPerPerson),
+      nbcRef: accessoryFactor.citation,
+      isAccessory: true,
+    });
+    findings.push({
+      issueId: `OCC-ACCESSORY-${accessoryOccupantLoad.length.toString().padStart(3, '0')}`,
+      severity: 'advisory',
+      description: `Accessory occupant load — ${room.label}`,
+      actual: `${room.areaM2.toFixed(1)} m² ÷ ${accessoryFactor.areaPerPerson} m²/p = ${Math.ceil(room.areaM2 / accessoryFactor.areaPerPerson)} persons (informational)`,
+      required: 'Accessory/non-dwelling space is excluded from the primary building occupant total; verify its classification separately',
+      citation: accessoryFactor.citation,
+    });
+    advisoryCount++;
   }
 
   // ── Washroom counts (NBC 3.7.2.1) ────────────────────────────────────────
@@ -577,7 +624,7 @@ export function runCalculatorOrchestrator(
   let garageAdvisoryIndex = 1;
   for (const item of accessoryAssessments) {
     if (item.decision.action !== 'reclassified') continue;
-    if ((item.room.spaceType ?? '').trim().toLowerCase() !== 'garage') continue;
+    if (inferAccessorySpaceType(item.room.spaceType, item.room.label) !== 'garage') continue;
 
     findings.push({
       issueId: `FRR-GARAGE-${garageAdvisoryIndex++}`,
@@ -645,6 +692,7 @@ export function runCalculatorOrchestrator(
   const carlReport = scoreCARLItems({
     orchestratorResult: {
       occupantLoad,
+      accessoryOccupantLoad,
       egressWindows,
       travelDistance,
       fireSeparation,
@@ -671,6 +719,7 @@ export function runCalculatorOrchestrator(
 
   return {
     occupantLoad,
+    accessoryOccupantLoad,
     egressWindows,
     travelDistance,
     fireSeparation,

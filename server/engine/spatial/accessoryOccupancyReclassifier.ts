@@ -9,9 +9,32 @@ export const ACCESSORY_SPACE_TYPES = [
   'lobby',
 ] as const;
 
+export function inferAccessorySpaceType(spaceType?: string | null, label?: string | null): string | undefined {
+  const normalized = spaceType?.trim().toLowerCase();
+  if (normalized && ACCESSORY_SPACE_TYPES.includes(normalized as (typeof ACCESSORY_SPACE_TYPES)[number])) {
+    return normalized;
+  }
+
+  const text = label?.trim().toLowerCase() ?? '';
+  if (/garage|carport|parking/.test(text)) return 'garage';
+  if (/mechanical|utility|boiler|hvac|electrical|janitor/.test(text)) return 'mechanical';
+  if (/storage|closet|locker|bicycle/.test(text)) return text.includes('closet') ? 'closet' : 'storage';
+  if (/stair|corridor|hallway|lobby|vestibule/.test(text)) {
+    if (/stair/.test(text)) return 'stairwell';
+    if (/corridor|hallway/.test(text)) return 'corridor';
+    return text.includes('lobby') ? 'lobby' : 'vestibule';
+  }
+  return undefined;
+}
+
+export function isAccessorySpace(spaceType?: string | null, label?: string | null): boolean {
+  return Boolean(inferAccessorySpaceType(spaceType, label));
+}
+
 export interface ReclassificationInput {
   occupancyGroup: string;
   spaceType?: string;
+  label?: string;
   dominantOccupancyGroup: string | null;
   totalDwellingUnits?: number | null;
 }
@@ -23,7 +46,7 @@ export type ReclassificationResult =
 
 export function reclassifyAccessoryOccupancy(input: ReclassificationInput): ReclassificationResult {
   const normalizedGroup = input.occupancyGroup?.trim().toUpperCase() ?? '';
-  const spaceType = input.spaceType?.trim().toLowerCase();
+  const spaceType = inferAccessorySpaceType(input.spaceType, input.label);
 
   if (input.dominantOccupancyGroup !== 'C') {
     return { action: 'unchanged' };

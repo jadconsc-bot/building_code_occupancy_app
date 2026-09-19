@@ -38,56 +38,54 @@ export async function saveCorrection(payload: CorrectionPayload): Promise<number
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
 
-  const result = await db.insert(roomCorrections).values({
-    roomId: payload.roomId,
-    pageId: payload.pageId,
-    correctedBy: payload.correctedBy,
-    orgId: payload.orgId ?? null,
-    correctedAt: new Date(),
-    correctionType: payload.correctionType,
-    previousValueJson: payload.previousValue,
-    correctedValueJson: payload.correctedValue,
-    planType: payload.planType,
-    addedToTraining: 1,
-    trainingWeight: "1.00",
-    notes: payload.notes ?? null,
+  const correctionId = await db.transaction(async (tx) => {
+    const result = await tx.insert(roomCorrections).values({
+      roomId: payload.roomId,
+      pageId: payload.pageId,
+      correctedBy: payload.correctedBy,
+      orgId: payload.orgId ?? null,
+      correctedAt: new Date(),
+      correctionType: payload.correctionType,
+      previousValueJson: payload.previousValue,
+      correctedValueJson: payload.correctedValue,
+      planType: payload.planType,
+      addedToTraining: 1,
+      trainingWeight: "1.00",
+      notes: payload.notes ?? null,
+    });
+
+    const id = result[0].insertId;
+    await applyCorrection(tx, payload);
+    return id;
   });
 
-  const correctionId = result[0].insertId;
-
-  await applyCorrection(payload);
   await generateTrainingExample(correctionId, payload);
 
   return correctionId;
 }
 
-async function applyCorrection(payload: CorrectionPayload): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
+async function applyCorrection(db: any, payload: CorrectionPayload): Promise<void> {
+  const assertRoomUpdated = (result: any) => {
+    if (Number(result?.[0]?.affectedRows ?? 0) === 0) {
+      throw new Error('Room changed while detection was running; retry the correction.');
+    }
+  };
 
   switch (payload.correctionType) {
     case "label_rename":
-      await db.update(detectedRooms)
-        .set({
-          roomLabel: payload.correctedValue.label as string,
-          correctionCount: db.$count(detectedRooms, eq(detectedRooms.id, payload.roomId)) as any,
-          lastCorrectedAt: new Date(),
-        })
-        .where(eq(detectedRooms.id, payload.roomId));
-      // Simpler update without the subquery count:
-      await db.update(detectedRooms)
+      assertRoomUpdated(await db.update(detectedRooms)
         .set({ roomLabel: payload.correctedValue.label as string, manualOverride: 1, lastCorrectedAt: new Date() })
-        .where(eq(detectedRooms.id, payload.roomId));
+        .where(eq(detectedRooms.id, payload.roomId)));
       break;
 
     case "occupancy_change":
-      await db.update(detectedRooms)
+      assertRoomUpdated(await db.update(detectedRooms)
         .set({ occupancyGroup: payload.correctedValue.occupancyGroup as string, manualOverride: 1, lastCorrectedAt: new Date() })
-        .where(eq(detectedRooms.id, payload.roomId));
+        .where(eq(detectedRooms.id, payload.roomId)));
       break;
 
     case "boundary_redraw":
-      await db.update(detectedRooms)
+      assertRoomUpdated(await db.update(detectedRooms)
         .set({
           boundingBoxJson: JSON.stringify(payload.correctedValue.boundingBox),
           polygonJson: payload.correctedValue.polygon
@@ -98,13 +96,13 @@ async function applyCorrection(payload: CorrectionPayload): Promise<void> {
           manualOverride: 1,
           lastCorrectedAt: new Date(),
         })
-        .where(eq(detectedRooms.id, payload.roomId));
+        .where(eq(detectedRooms.id, payload.roomId)));
       break;
 
     case "false_positive_delete":
-      await db.update(detectedRooms)
+      assertRoomUpdated(await db.update(detectedRooms)
         .set({ flaggedForReview: 1, manualOverride: 1, lastCorrectedAt: new Date() })
-        .where(eq(detectedRooms.id, payload.roomId));
+        .where(eq(detectedRooms.id, payload.roomId)));
       break;
 
     case "missing_room_add":
@@ -136,9 +134,9 @@ async function applyCorrection(payload: CorrectionPayload): Promise<void> {
     .where(eq(detectedRooms.id, payload.roomId))
     .limit(1);
   if (existing) {
-    await db.update(detectedRooms)
+    assertRoomUpdated(await db.update(detectedRooms)
       .set({ correctionCount: (existing.correctionCount ?? 0) + 1, lastCorrectedAt: new Date() })
-      .where(eq(detectedRooms.id, payload.roomId));
+      .where(eq(detectedRooms.id, payload.roomId)));
   }
 }
 

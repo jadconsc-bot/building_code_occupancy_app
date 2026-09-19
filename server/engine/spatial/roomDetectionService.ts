@@ -612,76 +612,107 @@ export async function saveRoomsToDb(
   const db = await getDb();
   if (!db) throw new Error('Database unavailable');
 
-  // ── Path C: Save confirmed rooms before clearing page ─────────────────
-  // Rooms with manualOverride = 1 have been corrected by the user.
-  // Preserved across re-runs — fixes the "correct again" problem.
-  const confirmedRooms = await db
-    .select()
-    .from(detectedRooms)
-    .where(
-      and(
-        eq(detectedRooms.pageId, pageId),
-        eq(detectedRooms.manualOverride, 1)
-      )
+  const confirmedRooms: typeof detectedRooms.$inferSelect[] = [];
+  const insertedRooms: Array<{ room: DetectedRoom; roomId: number }> = [];
+
+  await db.transaction(async (tx) => {
+    // Lock the corrected rows while taking the preservation snapshot. Keeping
+    // their original IDs lets a correction waiting on this transaction apply
+    // to the replacement row after commit instead of a deleted ID.
+    const lockedRoomQuery = tx
+      .select()
+      .from(detectedRooms)
+      .where(eq(detectedRooms.pageId, pageId));
+    const lockedRooms = typeof (lockedRoomQuery as any).for === 'function'
+      ? await (lockedRoomQuery as any).for('update')
+      : await lockedRoomQuery;
+    const lockedConfirmedRooms = lockedRooms.filter((room: typeof detectedRooms.$inferSelect) => room.manualOverride === 1);
+    confirmedRooms.push(...lockedConfirmedRooms);
+    const confirmedLabels = new Set(
+      confirmedRooms.map(r => r.roomLabel?.toLowerCase().trim() ?? '').filter(Boolean),
     );
-  const confirmedLabels = new Set(
-    confirmedRooms
-      .map(r => r.roomLabel?.toLowerCase().trim() ?? '')
-      .filter(Boolean)
-  );
-  console.log('[RoomDetection] Preserving', confirmedRooms.length,
-    'confirmed room(s) for page', pageId);
-  // ── End Path C save ────────────────────────────────────────────────────
+    console.log('[RoomDetection] Preserving', confirmedRooms.length, 'confirmed room(s) for page', pageId);
 
-  // Delete stale results for this page before inserting fresh ones.
-  // Features must go first (FK constraint), then rooms, then compliance rows.
-  const existingRooms = await db
-    .select({ id: detectedRooms.id })
-    .from(detectedRooms)
-    .where(eq(detectedRooms.pageId, pageId));
-
-  if (existingRooms.length > 0) {
-    const roomIds = existingRooms.map(r => r.id);
-    for (const roomId of roomIds) {
-      await db.delete(detectedFeatures).where(eq(detectedFeatures.roomId, roomId));
+    const existingRooms = await tx
+      .select({ id: detectedRooms.id })
+      .from(detectedRooms)
+      .where(eq(detectedRooms.pageId, pageId));
+    if (existingRooms.length > 0) {
+      for (const room of existingRooms) {
+        await tx.delete(detectedFeatures).where(eq(detectedFeatures.roomId, room.id));
+      }
+      await tx.delete(detectedRooms).where(eq(detectedRooms.pageId, pageId));
+      console.log('[RoomDetection] Cleared', existingRooms.length, 'stale room(s) for page', pageId);
     }
-    await db.delete(detectedRooms).where(eq(detectedRooms.pageId, pageId));
-    console.log('[RoomDetection] Cleared', existingRooms.length, 'stale room(s) for page', pageId);
-  }
 
-  // ── Path C: Re-insert confirmed rooms after clearing ──────────────────
     for (const confirmed of confirmedRooms) {
-      await db.insert(detectedRooms).values({
-        pageId:            confirmed.pageId,
-        projectId:         confirmed.projectId,
-        roomLabel:         confirmed.roomLabel,
-        boundingBoxJson:   confirmed.boundingBoxJson,
-        polygonJson:       confirmed.polygonJson,
-        polygonSource:     confirmed.polygonSource,
-        areaSqm:           confirmed.areaSqm,
-        floorLevel:        confirmed.floorLevel,
-        occupancyGroup:    confirmed.occupancyGroup,
-        spaceType:         confirmed.spaceType ?? 'room',
+      await tx.insert(detectedRooms).values({
+        id: confirmed.id,
+        pageId: confirmed.pageId,
+        projectId: confirmed.projectId,
+        roomLabel: confirmed.roomLabel,
+        boundingBoxJson: confirmed.boundingBoxJson,
+        polygonJson: confirmed.polygonJson,
+        polygonSource: confirmed.polygonSource,
+        polygonExtractedAt: confirmed.polygonExtractedAt,
+        areaSqm: confirmed.areaSqm,
+        floorLevel: confirmed.floorLevel,
+        occupancyGroup: confirmed.occupancyGroup,
+        spaceType: confirmed.spaceType ?? 'room',
         occupancyDivision: confirmed.occupancyDivision,
-        confidence:        confirmed.confidence,
-        flagsJson:         confirmed.flagsJson,
-        flaggedForReview:  0,
-      manualOverride:    1,
-      correctionCount:   confirmed.correctionCount,
-      lastCorrectedAt:   confirmed.lastCorrectedAt,
-      detectionMethod:   confirmed.detectionMethod ?? 'manual',
-      seedX:             confirmed.seedX,
-      seedY:             confirmed.seedY,
-    });
-  }
-  // ── End Path C re-insert ───────────────────────────────────────────────
+        confidence: confirmed.confidence,
+        flagsJson: confirmed.flagsJson,
+        flaggedForReview: 0,
+        manualOverride: 1,
+        correctionCount: confirmed.correctionCount,
+        lastCorrectedAt: confirmed.lastCorrectedAt,
+        detectionMethod: confirmed.detectionMethod ?? 'manual',
+        seedX: confirmed.seedX,
+        seedY: confirmed.seedY,
+      });
+    }
 
-  // Backfill the page dimensions so the client can compute a scale factor
-  if (imgW > 0 && imgH > 0) {
-    await db.update(drawingPages)
-      .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ? detectedScale.substring(0, 100) : null })
-      .where(eq(drawingPages.id, pageId));
-  }
+    for (const room of rooms) {
+      if (confirmedLabels.has(room.label?.toLowerCase().trim() ?? '')) {
+        console.log('[RoomDetection] Skipping — confirmed correction exists:', room.label);
+        continue;
+      }
+      const result = await tx.insert(detectedRooms).values({
+        pageId,
+        projectId,
+        roomLabel: room.label,
+        boundingBoxJson: JSON.stringify(room.boundingBox),
+        areaSqm: room.areaSqm.toFixed(2),
+        floorLevel: room.floorLevel,
+        occupancyGroup: room.occupancyGroup,
+        spaceType: (room as any).spaceType ?? 'room',
+        occupancyDivision: room.occupancyDivision ?? null,
+        confidence: room.confidence.toFixed(3),
+        flagsJson: room.flags.length > 0 ? JSON.stringify(room.flags) : null,
+        flaggedForReview: room.confidence < CONFIDENCE_THRESHOLD ? 1 : 0,
+        manualOverride: 0,
+      });
+      const roomId = Number(result[0].insertId);
+      insertedRooms.push({ room, roomId });
+      for (const feature of room.features) {
+        await tx.insert(detectedFeatures).values({
+          roomId,
+          featureType: feature.type,
+          positionJson: JSON.stringify(feature.position),
+          confidence: feature.confidence.toFixed(3),
+          metadataJson: (feature.count !== undefined || feature.metadata)
+            ? JSON.stringify({ count: feature.count, ...feature.metadata })
+            : null,
+        });
+      }
+    }
+
+    if (imgW > 0 && imgH > 0) {
+      await tx.update(drawingPages)
+        .set({ widthPx: imgW, heightPx: imgH, detectedScale: detectedScale ? detectedScale.substring(0, 100) : null })
+        .where(eq(drawingPages.id, pageId));
+    }
+  });
 
   // Track which Roboflow polygons are claimed by a Claude room (for post-loop unmatched insert).
   const matchedRfPolygons = new Set<typeof rfPolygons[number]>();
@@ -690,30 +721,7 @@ export async function saveRoomsToDb(
   const polygonPromises: Promise<void>[] = [];
   const complianceJobs: Array<{ room: DetectedRoom; roomId: number }> = [];
 
-  for (const room of rooms) {
-    // Path C: skip AI room if a confirmed correction exists for this label
-    if (confirmedLabels.has(room.label?.toLowerCase().trim() ?? '')) {
-      console.log('[RoomDetection] Skipping — confirmed correction exists:', room.label);
-      continue;
-    }
-
-    const result = await db.insert(detectedRooms).values({
-      pageId,
-      projectId,
-      roomLabel: room.label,
-      boundingBoxJson: JSON.stringify(room.boundingBox),
-      areaSqm: room.areaSqm.toFixed(2),
-      floorLevel: room.floorLevel,
-      occupancyGroup: room.occupancyGroup,
-      spaceType: (room as any).spaceType ?? 'room',
-      occupancyDivision: room.occupancyDivision ?? null,
-      confidence: room.confidence.toFixed(3),
-      flagsJson: room.flags.length > 0 ? JSON.stringify(room.flags) : null,
-      flaggedForReview: room.confidence < CONFIDENCE_THRESHOLD ? 1 : 0,
-      manualOverride: 0,
-    });
-
-    const roomId = result[0].insertId;
+  for (const { room, roomId } of insertedRooms) {
 
     // Defer compliance until all rooms on the page have been persisted and
     // adjacency has been computed for the final geometry set.
@@ -807,17 +815,6 @@ export async function saveRoomsToDb(
       }
     }
 
-    for (const feature of room.features) {
-      await db.insert(detectedFeatures).values({
-        roomId,
-        featureType: feature.type,
-        positionJson: JSON.stringify(feature.position),
-        confidence: feature.confidence.toFixed(3),
-        metadataJson: (feature.count !== undefined || feature.metadata)
-          ? JSON.stringify({ count: feature.count, ...feature.metadata })
-          : null,
-      });
-    }
   }
 
   // Wait only for polygon jobs created by this page analysis, then compute

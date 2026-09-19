@@ -17,8 +17,9 @@ import { calculateTravelDistances } from "../services/travelDistanceService";
 import type { DetectedRoomInput } from "../services/travelDistanceService";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
+import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 
 interface OccupantGroupRow {
   group: string;
@@ -28,10 +29,21 @@ interface OccupantGroupRow {
   needsReview?: boolean;
 }
 
+interface AccessoryOccupantRow {
+  roomLabel: string;
+  spaceType: string;
+  occupancyGroup: string;
+  areaSqm: number;
+  persons: number;
+  factor: number;
+  nbcRef: string;
+}
+
 interface CalculationsSummary {
   totalOccupantLoad: number;
   exitWidthRequiredMm: number;
   occupantLoadByGroup: OccupantGroupRow[];
+  accessoryOccupantLoadByRoom: AccessoryOccupantRow[];
   travelDistancePass: number;
   travelDistanceFail: number;
   travelDistanceUnable: number;
@@ -43,6 +55,7 @@ interface CalculationsSummary {
 
 function buildSummary(
   occupantRows: OccupantGroupRow[],
+  accessoryRows: AccessoryOccupantRow[],
   totalOccupants: number,
   exitWidthMm: number,
   travelResults: ReturnType<typeof calculateTravelDistances>,
@@ -57,6 +70,7 @@ function buildSummary(
     totalOccupantLoad: totalOccupants,
     exitWidthRequiredMm: exitWidthMm,
     occupantLoadByGroup: occupantRows,
+    accessoryOccupantLoadByRoom: accessoryRows,
     travelDistancePass: pass,
     travelDistanceFail: fail,
     travelDistanceUnable: unable,
@@ -160,8 +174,10 @@ export const calculationsPackageRouter = router({
       const codeStrategyId    = latestStrategy?.id;
       const codeStrategyStatus = (latestStrategy?.strategySummaryJson as any)?.overallCompliance ?? null;
 
-      // Occupant load calculation from detected rooms
+      // Occupant load calculation from detected rooms. Accessory spaces are
+      // retained as informational rows but excluded from the primary total.
       const occupantByGroup: Record<string, { area: number; persons: number; factor: number }> = {};
+      const accessoryOccupantLoadByRoom: AccessoryOccupantRow[] = [];
       let totalArea    = 0;
       const areaByFloor: Record<string, number> = {};
 
@@ -172,12 +188,49 @@ export const calculationsPackageRouter = router({
             .where(inArray(detectedRooms.pageId, pages.map(p => p.id)))
         : [];
 
-      for (const room of allRooms) {
-        const area = room.areaSqm ? Number(room.areaSqm) : 0;
-        if (area <= 0) continue;
+      const positiveAreaRooms = allRooms.filter(room => Number(room.areaSqm ?? 0) > 0);
+      for (const room of positiveAreaRooms) {
+        const area = Number(room.areaSqm);
         totalArea += area;
         const floor = room.floorLevel ?? "Unknown";
         areaByFloor[floor] = (areaByFloor[floor] ?? 0) + area;
+      }
+      const dominantCounts = new Map<string, number>();
+      for (const room of positiveAreaRooms) {
+        if (inferAccessorySpaceType(room.spaceType, room.roomLabel)) continue;
+        const group = (room.occupancyGroup ?? 'Unknown').trim().toUpperCase();
+        dominantCounts.set(group, (dominantCounts.get(group) ?? 0) + 1);
+      }
+      const dominantOccupancyGroup = [...dominantCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const primaryRooms = positiveAreaRooms.filter(room => {
+        const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.roomLabel);
+        if (!accessorySpaceType) return true;
+        // Run the same project-aware reclassifier used by the orchestrator;
+        // accessories remain separate from the headline regardless of whether
+        // they are reclassified for other rule evaluation.
+        reclassifyAccessoryOccupancy({
+          occupancyGroup: room.occupancyGroup ?? 'Unknown',
+          spaceType: room.spaceType ?? undefined,
+          label: room.roomLabel ?? '',
+          dominantOccupancyGroup,
+          totalDwellingUnits: project[0].totalDwellingUnits,
+        });
+        const factor = getAccessoryLoadFactor(accessorySpaceType, room.occupancyGroup ?? 'Unknown');
+        const area = Number(room.areaSqm);
+        accessoryOccupantLoadByRoom.push({
+          roomLabel: room.roomLabel ?? '',
+          spaceType: accessorySpaceType,
+          occupancyGroup: `Accessory (${accessorySpaceType})`,
+          areaSqm: Math.round(area * 100) / 100,
+          persons: Math.ceil(area / factor.areaPerPerson),
+          factor: factor.areaPerPerson,
+          nbcRef: factor.citation,
+        });
+        return false;
+      });
+
+      for (const room of primaryRooms) {
+        const area = room.areaSqm ? Number(room.areaSqm) : 0;
         const group = room.occupancyGroup ?? "Unknown";
         const spec = getDefaultLoadFactor(group);
         if (!occupantByGroup[group]) occupantByGroup[group] = { area: 0, persons: 0, factor: spec.areaPerPerson };
@@ -185,7 +238,7 @@ export const calculationsPackageRouter = router({
       }
 
       const occupantRows: OccupantGroupRow[] = Object.entries(occupantByGroup).map(([group, v]) => {
-        const groupRooms = allRooms.filter(r => (r.occupancyGroup ?? "Unknown") === group);
+        const groupRooms = primaryRooms.filter(r => (r.occupancyGroup ?? "Unknown") === group);
         const determination = determineOccupantLoad({
           occupancyGroup: group,
           areaM2: v.area,
@@ -205,6 +258,7 @@ export const calculationsPackageRouter = router({
 
       const summary = buildSummary(
         occupantRows,
+        accessoryOccupantLoadByRoom,
         totalOccupants,
         exitWidthRequiredMm,
         travelResults,
