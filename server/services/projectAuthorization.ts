@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { projects } from "../../drizzle/schema";
+import { projects, users } from "../../drizzle/schema";
 import { getDb, getProjectMember } from "../db";
 
 type AuthorizationUser = { id: number; role: string };
@@ -46,4 +46,33 @@ export async function assertProjectMemberAccess(user: AuthorizationUser, project
   if (membership) return;
 
   throw new TRPCError({ code: "FORBIDDEN", message: "Project membership required" });
+}
+
+type OrgAuthorizationUser = { id: number; role: string };
+
+async function getAuthoritativeOrgUser(userId: number) {
+  const database = await getDb();
+  if (!database) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+  }
+  const [row] = await database
+    .select({ orgId: users.orgId, orgRole: users.orgRole, role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function assertOrgAdmin(user: OrgAuthorizationUser, orgId: number) {
+  const row = await getAuthoritativeOrgUser(user.id);
+  if (row?.role === "admin") return;
+  if (row?.orgId === orgId && row.orgRole === "org_admin") return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "Organization admin access required" });
+}
+
+export async function assertOrgMember(user: OrgAuthorizationUser, orgId: number) {
+  const row = await getAuthoritativeOrgUser(user.id);
+  if (row?.role === "admin") return;
+  if (row?.orgId === orgId && (row.orgRole === "org_admin" || row.orgRole === "member")) return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "Organization membership required" });
 }

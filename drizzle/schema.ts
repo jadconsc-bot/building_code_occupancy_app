@@ -20,6 +20,7 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["free", "home_user", "basic", "professional", "rule_editor", "admin", "org_admin"]).notNull().default("free"),
   areaUnit: mysqlEnum("areaUnit", ["m2", "ft2"]).notNull().default("m2"),
   orgId: int("orgId"),
+  orgRole: mysqlEnum("orgRole", ["org_admin", "member"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -86,6 +87,7 @@ export type InsertFeedback = typeof feedbacks.$inferInsert;
 export const projects = mysqlTable("projects", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  orgId: int("orgId"),
   name: varchar("name", { length: 255 }).notNull(),
   address: varchar("address", { length: 500 }),
   occupancyCode: varchar("occupancyCode", { length: 10 }).notNull(),
@@ -1502,6 +1504,25 @@ export const organizations = mysqlTable("organizations", {
 
 export type Organization = typeof organizations.$inferSelect;
 export type InsertOrganization = typeof organizations.$inferInsert;
+
+export const organizationInvitations = mysqlTable("organizationInvitations", {
+  id: int("id").autoincrement().primaryKey(),
+  organizationId: int("organizationId").notNull(),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  invitedUserId: int("invitedUserId"),
+  tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
+  invitedBy: int("invitedBy").notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "declined", "expired"]).notNull().default("pending"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  organizationIdx: index("organizationInvitations_org_idx").on(table.organizationId),
+  invitedEmailIdx: index("organizationInvitations_email_idx").on(table.invitedEmail),
+}));
+
+export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
+export type InsertOrganizationInvitation = typeof organizationInvitations.$inferInsert;
 
 /**
  * Room Corrections — Phase 5B admin correction records.

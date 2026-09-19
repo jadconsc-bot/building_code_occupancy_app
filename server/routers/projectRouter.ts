@@ -9,13 +9,14 @@ import { protectedProcedure, router } from '../_core/trpc';
 import { projectRepository } from '../repositories/ProjectRepository';
 import { geocodeAddress as geocodeAddressService } from '../services/geocodingService';
 import { getDb } from '../db';
-import { projects, drawingAnalyses, complianceSnapshots } from '../../drizzle/schema';
+import { projects, drawingAnalyses, complianceSnapshots, users } from '../../drizzle/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { editionForProvince } from '../rules/overlays/index';
 import { getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { getLimits } from '../services/travelDistanceService';
 import { Constraints } from '../engine/constraints/index';
 import { determineBuildingPart } from '../engine/buildingPartDetermination';
+import { assertProjectMemberAccess } from '../services/projectAuthorization';
 
 export const projectRouter = router({
   /**
@@ -31,7 +32,8 @@ export const projectRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      return projectRepository.getProject(input.id, ctx.user.id);
+      await assertProjectMemberAccess(ctx.user, input.id);
+      return projectRepository.getProjectById(input.id);
     }),
 
   /**
@@ -64,8 +66,12 @@ export const projectRouter = router({
       codeEdition: z.string().max(20).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+      const [userRow] = await db.select({ orgId: users.orgId }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
       return projectRepository.createProject({
         userId: ctx.user.id,
+        orgId: userRow?.orgId ?? null,
         ...input,
       });
     }),

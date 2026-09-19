@@ -12,6 +12,7 @@ import { TRPCError } from '@trpc/server';
 
 export interface CreateProjectInput {
   userId: number;
+  orgId?: number | null;
   name: string;
   description?: string;
   occupancyCode?: string;
@@ -136,6 +137,14 @@ export class ProjectRepository {
     }
   }
 
+  async getProjectById(id: number) {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database unavailable' });
+    const [project] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    if (!project) throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' });
+    return project;
+  }
+
   /**
    * Create a new project
    */
@@ -157,6 +166,7 @@ export class ProjectRepository {
 
       await db.insert(projects).values({
         userId: input.userId,
+        orgId: input.orgId ?? null,
         name: input.name,
         occupancyCode: input.occupancyCode || 'A-1',
         notes: input.description || null,
