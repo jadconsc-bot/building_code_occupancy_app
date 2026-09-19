@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime, index } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, mediumtext, timestamp, varchar, boolean, date, decimal, tinyint, float, datetime, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1452,6 +1452,57 @@ export const complianceResults = mysqlTable('complianceResults', {
 
 export type ComplianceResult = typeof complianceResults.$inferSelect;
 export type InsertComplianceResult = typeof complianceResults.$inferInsert;
+
+export const complianceRequirementSnapshots = mysqlTable("complianceRequirementSnapshots", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  projectId: int("projectId").notNull(),
+  snapshotVersion: int("snapshotVersion").notNull(),
+  scope: varchar("scope", { length: 50 }).notNull(),
+  contentHash: varchar("contentHash", { length: 64 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  projectSnapshot: uniqueIndex("uq_compliance_snapshot").on(table.projectId, table.scope, table.snapshotVersion),
+  contentHash: index("idx_compliance_snapshot_hash").on(table.projectId, table.scope, table.contentHash),
+}));
+
+export type ComplianceRequirementSnapshot = typeof complianceRequirementSnapshots.$inferSelect;
+export type InsertComplianceRequirementSnapshot = typeof complianceRequirementSnapshots.$inferInsert;
+
+export const complianceRequirements = mysqlTable("complianceRequirements", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  projectId: int("projectId").notNull(),
+  snapshotVersion: int("snapshotVersion").notNull(),
+  provisionRef: varchar("provisionRef", { length: 255 }).notNull(),
+  requirementType: varchar("requirementType", { length: 100 }).notNull(),
+  appliesTo: json("appliesTo").notNull(),
+  requiredValue: json("requiredValue").notNull(),
+  actualValue: json("actualValue"),
+  status: mysqlEnum("status", ["compliant", "violation", "insufficient-evidence", "stale"]).notNull(),
+  triggeredBy: json("triggeredBy").notNull(),
+  supersedes: varchar("supersedes", { length: 36 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  projectSnapshot: index("idx_complianceRequirements_project_snapshot").on(table.projectId, table.snapshotVersion),
+  status: index("idx_complianceRequirements_status").on(table.projectId, table.status),
+}));
+
+export type ComplianceRequirement = typeof complianceRequirements.$inferSelect;
+export type InsertComplianceRequirement = typeof complianceRequirements.$inferInsert;
+
+export const requirementDependencies = mysqlTable("requirementDependencies", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  projectId: int("projectId").notNull(),
+  requirementId: varchar("requirementId", { length: 36 }).notNull(),
+  dependsOnRequirementId: varchar("dependsOnRequirementId", { length: 36 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  uniquePair: uniqueIndex("uq_requirement_dependency").on(table.requirementId, table.dependsOnRequirementId),
+  project: index("idx_requirementDependencies_project").on(table.projectId),
+  dependsOn: index("idx_requirementDependencies_depends_on").on(table.dependsOnRequirementId),
+}));
+
+export type RequirementDependency = typeof requirementDependencies.$inferSelect;
+export type InsertRequirementDependency = typeof requirementDependencies.$inferInsert;
 
 export const complianceMonitorSnapshots = mysqlTable("complianceMonitorSnapshots", {
   id: int("id").autoincrement().primaryKey(),

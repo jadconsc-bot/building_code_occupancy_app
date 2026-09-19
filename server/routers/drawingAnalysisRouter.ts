@@ -48,6 +48,7 @@ import { extractIpAddress } from "../utils/extractIpAddress";
 import { runWallEngine } from "../services/wallEngineOrchestrator";
 import { wallEngineQueue } from "../services/wallEngineQueue";
 import { runCalculatorOrchestrator } from "../services/calculatorOrchestrator";
+import { persistRequirementGraph } from "../services/complianceRequirementGraph";
 import { callAnthropicVision } from "../services/anthropicVisionService";
 import {
   buildSitePlanPrompts,
@@ -1741,11 +1742,13 @@ export const drawingAnalysisRouter = router({
       if (!page) throw new TRPCError({ code: 'NOT_FOUND', message: 'Page not found' });
 
       const [analysisRow] = await db
-        .select({ id: drawingAnalyses.id })
+        .select({ id: drawingAnalyses.id, projectId: drawingAnalyses.projectId })
         .from(drawingAnalyses)
         .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
       if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
 
-      return runCalculatorOrchestrator(input, input.province);
+      const result = runCalculatorOrchestrator({ ...input, projectId: analysisRow.projectId }, input.province);
+      const complianceGraph = await persistRequirementGraph(analysisRow.projectId, result.complianceRequirements);
+      return { ...result, complianceGraph };
     }),
 });

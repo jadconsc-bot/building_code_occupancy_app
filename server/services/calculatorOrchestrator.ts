@@ -31,6 +31,7 @@ import {
   reclassifyAccessoryOccupancy,
   type ReclassificationResult,
 } from '../engine/spatial/accessoryOccupancyReclassifier';
+import type { RequirementCandidate } from './complianceRequirementGraph';
 
 // FRR requirements by occupancy group for single-occupancy floors (minutes)
 // NOTE: These are conservative single-occupancy
@@ -152,6 +153,7 @@ export interface OrchestratorResult {
     requiredFRR: number;
     citation: string;
   }>;
+  complianceRequirements: RequirementCandidate[];
   summary: {
     totalRooms: number;
     totalOccupants: number;
@@ -587,6 +589,7 @@ export function runCalculatorOrchestrator(
 
   // ── Fire Separation ────────────────────────────────────────────────────────
   const fireSeparation: OrchestratorResult['fireSeparation'] = [];
+  const complianceRequirements: RequirementCandidate[] = [];
   const seenGroups = new Set<string>();
 
   for (let i = 0; i < input.rooms.length; i++) {
@@ -604,6 +607,31 @@ export function runCalculatorOrchestrator(
       description: `Group ${group} fire separation`,
       requiredFRR: spec.frr,
       citation: spec.citation,
+    });
+
+    const occupancyAppliesTo = { kind: 'DwellingUnit' as const, id: `project:${input.projectId ?? 'drawing'}:group:${group}` };
+    const occupancyKey = `orchestrator-frr.occupancy-fact:NBC 3.1.3.1:DwellingUnit:${occupancyAppliesTo.id}`;
+    complianceRequirements.push({
+      provisionRef: 'NBC 3.1.3.1',
+      requirementType: 'orchestrator-frr.occupancy-fact',
+      appliesTo: occupancyAppliesTo,
+      requiredValue: { value: group, unit: 'occupancy-group' },
+      actualValue: { value: group, confirmed: false, source: 'derived' },
+      status: 'insufficient-evidence',
+      triggeredBy: [{ fact: 'room.occupancyGroup', value: group }],
+    });
+    complianceRequirements.push({
+      provisionRef: spec.citation,
+      requirementType: 'orchestrator-frr.fire-separation',
+      appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:group:${group}` },
+      requiredValue: { value: spec.frr, unit: 'min' },
+      actualValue: null,
+      status: 'insufficient-evidence',
+      triggeredBy: [
+        { fact: 'room.occupancyGroup', value: group },
+        { fact: 'frr.lookup', value: spec.frr, factRefId: spec.citation },
+      ],
+      dependsOnKeys: [occupancyKey],
     });
 
     findings.push({
@@ -649,6 +677,35 @@ export function runCalculatorOrchestrator(
         description: `Floor separation: ${sep.from} above ${sep.to}`,
         requiredFRR: sep.hours * 60,
         citation: sep.nbcRef,
+      });
+
+      const stackFactAppliesTo = { kind: 'Wall' as const, id: `stack-fact:${sep.from}->${sep.to}` };
+      const stackKey = `orchestrator-frr.stack-fact:${sep.nbcRef}:Wall:${stackFactAppliesTo.id}`;
+      complianceRequirements.push({
+        provisionRef: sep.nbcRef,
+        requirementType: 'orchestrator-frr.stack-fact',
+        appliesTo: stackFactAppliesTo,
+        requiredValue: { value: sep.frr, unit: 'declared-rating' },
+        actualValue: { value: sep.frr, confirmed: false, source: 'user-confirmed' },
+        status: sep.needsReview ? 'insufficient-evidence' : 'compliant',
+        triggeredBy: [
+          { fact: 'stack.from', value: sep.from },
+          { fact: 'stack.to', value: sep.to },
+        ],
+      });
+      complianceRequirements.push({
+        provisionRef: sep.nbcRef,
+        requirementType: 'orchestrator-frr.stack-separation',
+        appliesTo: { kind: 'Wall', id: `stack:${sep.from}->${sep.to}` },
+        requiredValue: { value: sep.hours * 60, unit: 'min' },
+        actualValue: null,
+        status: sep.needsReview ? 'insufficient-evidence' : 'insufficient-evidence',
+        triggeredBy: [
+          { fact: 'stack.from', value: sep.from },
+          { fact: 'stack.to', value: sep.to },
+          { fact: 'stack.frr', value: sep.frr, factRefId: sep.nbcRef },
+        ],
+        dependsOnKeys: [stackKey],
       });
     }
   }
@@ -696,6 +753,7 @@ export function runCalculatorOrchestrator(
       egressWindows,
       travelDistance,
       fireSeparation,
+      complianceRequirements,
       summary,
       findings,
       washroomCounts,
@@ -723,6 +781,7 @@ export function runCalculatorOrchestrator(
     egressWindows,
     travelDistance,
     fireSeparation,
+    complianceRequirements,
     summary,
     findings,
     washroomCounts,
