@@ -97,6 +97,10 @@ describe('saveRoomsToDb', () => {
     expect(mockDb.insert.mock.results[0].value.values).toHaveBeenCalledWith(
       expect.objectContaining({ pageId: 7, projectId: 42 }),
     );
-    expect(evaluateRoomCompliance).toHaveBeenCalledWith(room, 101, 42, 'AB');
+    expect(evaluateRoomCompliance).toHaveBeenCalledWith(expect.objectContaining({
+      ...room,
+      areaSqmJson: { value: 18, confirmed: false, source: 'ai-extracted' },
+      occupancyGroupJson: { value: 'D', confirmed: false, source: 'ai-extracted' },
+    }), 101, 42, 'AB');
   });
 });

@@ -834,7 +834,11 @@ export async function saveRoomsToDb(
 
   await Promise.allSettled(
     complianceJobs.map(({ room, roomId }) =>
-      evaluateRoomCompliance(room, roomId, projectId, province)
+      evaluateRoomCompliance({
+        ...room,
+        areaSqmJson: { value: room.areaSqm, confirmed: false, source: 'ai-extracted' },
+        occupancyGroupJson: { value: room.occupancyGroup, confirmed: false, source: 'ai-extracted' },
+      } as DetectedRoom & { areaSqmJson: unknown; occupancyGroupJson: unknown }, roomId, projectId, province)
         .catch(err => console.error('[RoomCompliance] Evaluation failed:', err))
     )
   );
