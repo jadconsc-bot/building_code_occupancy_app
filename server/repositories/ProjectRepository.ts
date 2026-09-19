@@ -181,13 +181,22 @@ export class ProjectRepository {
         projectCode: input.projectCode || null,
         grossFloorArea: input.grossFloorArea ? String(input.grossFloorArea) : null,
         buildingFootprintJson: input.buildingFootprintJson ?? null,
+        bedroomCountJson: input.bedroomCount !== undefined
+          ? { value: input.bedroomCount, confirmed: true, source: 'user-confirmed' }
+          : null,
         projectNumber,
         zoningCategory: input.zoningCategory || null,
         storeys: input.storeys || null,
         totalDwellingUnits: input.totalDwellingUnits || null,
+        totalDwellingUnitsJson: input.totalDwellingUnits !== undefined
+          ? { value: input.totalDwellingUnits, confirmed: true, source: 'user-confirmed' }
+          : null,
         buildingHeight: input.buildingHeight ? String(input.buildingHeight) : null,
         constructionType: (input.constructionType || null) as "combustible" | "non_combustible" | "mixed" | null,
         sprinklersRequired: input.sprinklersRequired !== undefined ? (input.sprinklersRequired ? 1 : 0) : null,
+        sprinklersRequiredJson: input.sprinklersRequired !== undefined
+          ? { value: input.sprinklersRequired, confirmed: true, source: 'user-confirmed' }
+          : null,
         part3Determination: input.part3Determination || null,
         codeEdition: input.codeEdition || null,
         createdAt: new Date(),
@@ -239,14 +248,23 @@ export class ProjectRepository {
       if (input.projectCode !== undefined) updateData.projectCode = input.projectCode;
       if (input.grossFloorArea !== undefined) updateData.grossFloorArea = String(input.grossFloorArea);
       if (input.buildingFootprintJson !== undefined) updateData.buildingFootprintJson = input.buildingFootprintJson;
-      if (input.bedroomCount !== undefined) updateData.bedroomCount = input.bedroomCount;
-      if (input.totalDwellingUnits !== undefined) updateData.totalDwellingUnits = input.totalDwellingUnits;
+      if (input.bedroomCount !== undefined) {
+        updateData.bedroomCount = input.bedroomCount;
+        updateData.bedroomCountJson = { value: input.bedroomCount, confirmed: true, source: 'user-confirmed' };
+      }
+      if (input.totalDwellingUnits !== undefined) {
+        updateData.totalDwellingUnits = input.totalDwellingUnits;
+        updateData.totalDwellingUnitsJson = { value: input.totalDwellingUnits, confirmed: true, source: 'user-confirmed' };
+      }
       if (input.zoningCategory !== undefined) updateData.zoningCategory = input.zoningCategory;
       if (input.siteConstraints !== undefined) updateData.siteConstraints = input.siteConstraints;
       if (input.storeys !== undefined) updateData.storeys = input.storeys;
       if (input.buildingHeight !== undefined) updateData.buildingHeight = String(input.buildingHeight);
       if (input.constructionType !== undefined) updateData.constructionType = input.constructionType;
-      if (input.sprinklersRequired !== undefined) updateData.sprinklersRequired = input.sprinklersRequired ? 1 : 0;
+      if (input.sprinklersRequired !== undefined) {
+        updateData.sprinklersRequired = input.sprinklersRequired ? 1 : 0;
+        updateData.sprinklersRequiredJson = { value: input.sprinklersRequired, confirmed: true, source: 'user-confirmed' };
+      }
       if (input.part3Determination !== undefined) updateData.part3Determination = input.part3Determination;
       if (input.codeEdition !== undefined) updateData.codeEdition = input.codeEdition;
 
