@@ -147,11 +147,14 @@ export const calculationsPackageRouter = router({
               bbox = room.boundingBoxJson ? JSON.parse(room.boundingBoxJson as string) : null;
             } catch { bbox = null; }
 
+            const normalizedRoom = {
+              occupancyGroup: readProvenancedFact({ wrapper: room.occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: room.id, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value,
+            };
             allRoomInputs.push({
               id: room.id,
               roomLabel: room.roomLabel ?? "",
               boundingBox: bbox,
-              occupancyGroup: room.occupancyGroup ?? null,
+              occupancyGroup: normalizedRoom.occupancyGroup ?? null,
               features,
             });
           }
@@ -189,8 +192,14 @@ export const calculationsPackageRouter = router({
             .where(inArray(detectedRooms.pageId, pages.map(p => p.id)))
         : [];
 
+      const normalizedRooms = allRooms.map(room => ({
+        ...room,
+        areaSqm: readProvenancedFact({ wrapper: room.areaSqmJson, scalar: room.areaSqm == null ? null : Number(room.areaSqm), field: 'areaSqm', entityType: 'room', entityId: room.id, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value,
+        occupancyGroup: readProvenancedFact({ wrapper: room.occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: room.id, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value,
+      }));
+
       const totalDwellingUnits = readProvenancedFact({ wrapper: project[0].totalDwellingUnitsJson, scalar: project[0].totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: input.projectId, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
-      const positiveAreaRooms = allRooms.filter(room => Number(room.areaSqm ?? 0) > 0);
+      const positiveAreaRooms = normalizedRooms.filter(room => Number(room.areaSqm ?? 0) > 0);
       for (const room of positiveAreaRooms) {
         const area = Number(room.areaSqm);
         totalArea += area;

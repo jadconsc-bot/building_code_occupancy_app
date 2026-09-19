@@ -264,6 +264,10 @@ export async function evaluateRoomCompliance(
   province: string = 'AB'
 ): Promise<RoomComplianceResult> {
 
+  const normalizedArea = readProvenancedFact({ wrapper: (room as any).areaSqmJson, scalar: room.areaSqm, field: 'areaSqm', entityType: 'room', entityId: roomDbId, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
+  const normalizedOccupancy = readProvenancedFact({ wrapper: (room as any).occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: roomDbId, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value;
+  room = { ...room, areaSqm: normalizedArea ?? room.areaSqm, occupancyGroup: normalizedOccupancy ?? room.occupancyGroup };
+
   const traces: ComplianceTrace[] = [];
   let group = room.occupancyGroup;
   const roomSpaceType = (room as DetectedRoom & { spaceType?: string }).spaceType ?? 'room';

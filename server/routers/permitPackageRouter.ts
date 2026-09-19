@@ -15,6 +15,7 @@ import {
   detectedRooms,
 } from "../../drizzle/schema";
 import { getRequiredFRR } from "../services/fireSeparationService";
+import { readProvenancedFact } from "../services/factProvenance";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -2001,7 +2002,7 @@ export const permitPackageRouter = router({
       }
 
       const rooms = await db
-        .select({ occupancyGroup: detectedRooms.occupancyGroup, roomLabel: detectedRooms.roomLabel })
+        .select({ id: detectedRooms.id, occupancyGroup: detectedRooms.occupancyGroup, occupancyGroupJson: detectedRooms.occupancyGroupJson, roomLabel: detectedRooms.roomLabel })
         .from(detectedRooms)
         .where(eq(detectedRooms.projectId, input.projectId));
 
@@ -2010,7 +2011,7 @@ export const permitPackageRouter = router({
         .from(fireAssemblies)
         .where(eq(fireAssemblies.projectId, input.projectId));
 
-      const groups = [...new Set(rooms.map(r => r.occupancyGroup).filter(Boolean))] as string[];
+      const groups = [...new Set(rooms.map(r => readProvenancedFact({ wrapper: r.occupancyGroupJson, scalar: r.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: r.id, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value).filter(Boolean))] as string[];
 
       type PairStatus = "compliant" | "non_compliant" | "missing";
       const pairs: Array<{

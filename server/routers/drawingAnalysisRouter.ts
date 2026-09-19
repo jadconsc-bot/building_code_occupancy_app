@@ -72,6 +72,12 @@ function safeJsonParse(value: unknown): unknown {
   return null;
 }
 
+function normalizeRoomFacts(room: any) {
+  const area = readProvenancedFact({ wrapper: room.areaSqmJson, scalar: room.areaSqm == null ? null : Number(room.areaSqm), field: 'areaSqm', entityType: 'room', entityId: room.id, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
+  const occupancy = readProvenancedFact({ wrapper: room.occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: room.id, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value;
+  return { ...room, areaSqm: area == null ? room.areaSqm : area.toFixed(2), occupancyGroup: occupancy ?? room.occupancyGroup };
+}
+
 /** Feature flag: enables multi-page PDF preprocessing. Off by default to protect prod. */
 const MULTI_PAGE_ENABLED = process.env.MULTI_PAGE_PDF === 'true';
 
@@ -1254,7 +1260,7 @@ export const drawingAnalysisRouter = router({
             .where(eq(complianceResults.roomId, room.id));
 
           rooms.push({
-            ...room,
+            ...normalizeRoomFacts(room),
             boundingBox: safeJsonParse(room.boundingBoxJson),
             polygonJson: room.polygonJson ? (typeof room.polygonJson === 'string' ? safeJsonParse(room.polygonJson) : room.polygonJson) : null,
             flags: (safeJsonParse(room.flagsJson) as any[]) ?? [],
@@ -1296,7 +1302,7 @@ export const drawingAnalysisRouter = router({
           .from(detectedRooms)
           .where(eq(detectedRooms.pageId, page.id))
           .limit(100);
-        rooms.push(...pageRooms);
+        rooms.push(...pageRooms.map(normalizeRoomFacts));
       }
 
       const results = [];
@@ -1374,7 +1380,7 @@ export const drawingAnalysisRouter = router({
             id: room.id,
             roomLabel: room.roomLabel ?? '',
             boundingBox: safeJsonParse(room.boundingBoxJson) as { x: number; y: number; width: number; height: number } | null,
-            occupancyGroup: room.occupancyGroup ?? null,
+            occupancyGroup: normalizeRoomFacts(room).occupancyGroup ?? null,
             features,
           });
         }
@@ -1686,7 +1692,7 @@ export const drawingAnalysisRouter = router({
         polygon: (safeJsonParse(r.polygonJson) as Array<{ x: number; y: number }> | null) ?? [],
         seedX: r.seedX ?? 0,
         seedY: r.seedY ?? 0,
-        areaM2: r.areaSqm ? parseFloat(r.areaSqm as unknown as string) : null,
+        areaM2: readProvenancedFact({ wrapper: r.areaSqmJson, scalar: r.areaSqm ? parseFloat(r.areaSqm as unknown as string) : null, field: 'areaSqm', entityType: 'room', entityId: r.id, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value,
       }));
     }),
 
@@ -1704,6 +1710,8 @@ export const drawingAnalysisRouter = router({
         spaceType: z.string().optional(),
         manualOverride: z.boolean().optional(),
         areaM2: z.number().nullable(),
+        areaSqmJson: z.unknown().optional(),
+        occupancyGroupJson: z.unknown().optional(),
       })),
       windows: z.array(z.object({
         widthMm: z.number(),

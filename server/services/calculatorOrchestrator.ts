@@ -32,6 +32,7 @@ import {
   type ReclassificationResult,
 } from '../engine/spatial/accessoryOccupancyReclassifier';
 import type { RequirementCandidate } from './complianceRequirementGraph';
+import { readProvenancedFact } from './factProvenance';
 
 // FRR requirements by occupancy group for single-occupancy floors (minutes)
 // NOTE: These are conservative single-occupancy
@@ -72,6 +73,8 @@ export interface OrchestratorInput {
     spaceType?: string;
     manualOverride?: boolean;
     areaM2: number | null;
+    areaSqmJson?: unknown;
+    occupancyGroupJson?: unknown;
   }>;
   windows: Array<{ widthMm: number; heightMm: number; areaM2: number }>;
   travelDistanceResults: Array<{
@@ -210,6 +213,11 @@ export function runCalculatorOrchestrator(
   input: OrchestratorInput,
   province: string,
 ): OrchestratorResult {
+  const normalizedRooms = input.rooms.map(room => ({
+    ...room,
+    areaM2: readProvenancedFact({ wrapper: room.areaSqmJson, scalar: room.areaM2, field: 'areaSqm', entityType: 'room', entityId: 0, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value,
+    occupancyGroup: readProvenancedFact({ wrapper: room.occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: 0, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value ?? room.occupancyGroup,
+  }));
   const isAB = province === 'AB';
   const egressCitation = isAB
     ? 'NBC(AE) 2023 s.9.9.10.1'
@@ -224,7 +232,7 @@ export function runCalculatorOrchestrator(
   const normalizeGroup = (value: string) => value.trim().toUpperCase();
   const dominantOccupancyGroup = (() => {
     const counts = new Map<string, number>();
-    for (const room of input.rooms) {
+    for (const room of normalizedRooms) {
       const spaceType = room.spaceType?.trim().toLowerCase();
       if (spaceType && ACCESSORY_SPACE_TYPES.includes(spaceType as (typeof ACCESSORY_SPACE_TYPES)[number])) {
         continue;
@@ -255,7 +263,7 @@ export function runCalculatorOrchestrator(
   }> = [];
   let accessoryAdvisoryIndex = 1;
 
-  for (const room of input.rooms) {
+  for (const room of normalizedRooms) {
     const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);
     if (accessorySpaceType && !room.manualOverride) accessoryRoomLabels.add(room.label);
 
@@ -387,7 +395,7 @@ export function runCalculatorOrchestrator(
     passCount++;
   }
 
-  for (const room of input.rooms) {
+  for (const room of normalizedRooms) {
     if (room.manualOverride || room.areaM2 === null || room.areaM2 <= 0) continue;
     const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);
     if (!accessorySpaceType) continue;
@@ -592,8 +600,8 @@ export function runCalculatorOrchestrator(
   const complianceRequirements: RequirementCandidate[] = [];
   const seenGroups = new Set<string>();
 
-  for (let i = 0; i < input.rooms.length; i++) {
-    const room = input.rooms[i];
+  for (let i = 0; i < normalizedRooms.length; i++) {
+    const room = normalizedRooms[i];
     const group = room.occupancyGroup.trim().toUpperCase();
     if (seenGroups.has(group)) continue;
     seenGroups.add(group);
@@ -737,7 +745,7 @@ export function runCalculatorOrchestrator(
   // ── CARL permit completeness scoring ─────────────────────────────────────
   // Runs last — requires all other outputs to be complete.
   const summary = {
-    totalRooms: input.rooms.length,
+    totalRooms: normalizedRooms.length,
     totalOccupants,
     passCount,
     failCount,
