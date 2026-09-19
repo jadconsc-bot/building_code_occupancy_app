@@ -17,6 +17,7 @@ import { getLimits } from '../services/travelDistanceService';
 import { Constraints } from '../engine/constraints/index';
 import { determineBuildingPart } from '../engine/buildingPartDetermination';
 import { assertProjectMemberAccess } from '../services/projectAuthorization';
+import { readProvenancedFact } from '../services/factProvenance';
 
 export const projectRouter = router({
   /**
@@ -237,10 +238,13 @@ export const projectRouter = router({
           occupancyCode: projects.occupancyCode,
           grossFloorArea: projects.grossFloorArea,
           buildingFootprintJson: projects.buildingFootprintJson,
+          bedroomCountJson: projects.bedroomCountJson,
           bedroomCount: projects.bedroomCount,
+          totalDwellingUnitsJson: projects.totalDwellingUnitsJson,
           totalDwellingUnits: projects.totalDwellingUnits,
           storeys: projects.storeys,
           province: projects.province,
+          sprinklersRequiredJson: projects.sprinklersRequiredJson,
           sprinklersRequired: projects.sprinklersRequired,
           constructionType: projects.constructionType,
           userId: projects.userId,
@@ -267,13 +271,13 @@ export const projectRouter = router({
       const occupancyGroup = project.occupancyCode ?? null;
       const grossFloorAreaM2 = project.grossFloorArea ? parseFloat(project.grossFloorArea) : null;
       const storeys = project.storeys ?? null;
-      const footprintFact = project.buildingFootprintJson as { value?: number } | null;
-      const footprintM2 = typeof footprintFact?.value === 'number' ? footprintFact.value : null;
+      const footprintM2 = readProvenancedFact({ wrapper: project.buildingFootprintJson, scalar: null, field: 'buildingFootprintJson', entityType: 'project', entityId: project.id, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
+      const bedroomCount = readProvenancedFact({ wrapper: project.bedroomCountJson, scalar: project.bedroomCount, field: 'bedroomCount', entityType: 'project', entityId: project.id, isValue: (v): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 }).value;
+      const totalDwellingUnits = readProvenancedFact({ wrapper: project.totalDwellingUnitsJson, scalar: project.totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: project.id, isValue: (v): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 }).value;
       const determination = determineBuildingPart({ footprintM2, storeys, occupancyGroup });
       const province = project.province ?? null;
-      const sprinkleredInput = project.sprinklersRequired != null
-        ? project.sprinklersRequired === 1
-        : null;
+      const sprinklerFact = readProvenancedFact({ wrapper: project.sprinklersRequiredJson, scalar: project.sprinklersRequired == null ? null : project.sprinklersRequired === 1, field: 'sprinklersRequired', entityType: 'project', entityId: project.id, isValue: (v): v is boolean => typeof v === 'boolean' });
+      const sprinkleredInput = sprinklerFact.value;
 
       // Completeness: count how many of the 5 key inputs are set
       const inputsSet = [occupancyGroup, grossFloorAreaM2, storeys, province, sprinkleredInput]
@@ -295,8 +299,8 @@ export const projectRouter = router({
       // Group C: dwelling units use 2 persons/bedroom
       // (NBC 3.1.17.1 Note 2), not area-based factor
       if (occupancyGroup?.startsWith('C')) {
-        if (project.bedroomCount != null && project.bedroomCount > 0) {
-          occupantLoad = project.bedroomCount * 2;
+        if (bedroomCount != null && bedroomCount > 0) {
+          occupantLoad = bedroomCount * 2;
           occupantLoadSection = {
             value: occupantLoad,
             factor: '2 persons/bedroom',
@@ -477,7 +481,7 @@ export const projectRouter = router({
           storeys,
           province,
           sprinklered: sprinkleredInput,
-          totalDwellingUnits: project.totalDwellingUnits,
+          totalDwellingUnits,
           buildingFootprintJson: project.buildingFootprintJson,
           status: project.status,
           buildingType: project.buildingType,

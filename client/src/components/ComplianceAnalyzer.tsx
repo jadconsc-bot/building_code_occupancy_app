@@ -17,6 +17,7 @@ import { useProjectContext } from "@/_core/hooks/useProjectContext";
 import { MapPin } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { readProvenancedFact } from "@shared/factProvenance";
 
 interface ComplianceInput {
   occupancy_major: string;
@@ -63,6 +64,11 @@ export function ComplianceAnalyzer({
   const { user } = useAuth();
   const { jurisdiction } = useJurisdiction(projectId);
   const { complianceInputSlice, isGeocoded, project } = useProjectContext(projectId);
+  const projectUnits = readProvenancedFact({
+    wrapper: project?.totalDwellingUnitsJson,
+    scalar: project?.totalDwellingUnits,
+    isValue: (value): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0,
+  }).value ?? undefined;
   const [userHasManuallyOverridden, setUserHasManuallyOverridden] = useState(false);
   const [selectedRulesetId, setSelectedRulesetId] = useState<string>("");
   const [mode, setMode] = useState<"strict" | "soft">("soft");
@@ -74,7 +80,7 @@ export function ComplianceAnalyzer({
         ? (BUILDING_TYPE_TO_CONSTRUCTION[initialBuildingType] ?? undefined)
         : undefined,
       area_m2: initialArea && initialArea > 0 ? initialArea : undefined,
-      totalDwellingUnits: project?.totalDwellingUnits ?? undefined,
+      totalDwellingUnits: projectUnits,
     }
   );
   const [result, setResult] = useState<any>(null);
@@ -86,11 +92,11 @@ export function ComplianceAnalyzer({
   }, [inputs]);
 
   useEffect(() => {
-    if (project?.totalDwellingUnits == null) return;
-    setInputs(prev => prev.totalDwellingUnits === project.totalDwellingUnits
+    if (projectUnits == null) return;
+    setInputs(prev => prev.totalDwellingUnits === projectUnits
       ? prev
-      : { ...prev, totalDwellingUnits: project.totalDwellingUnits ?? undefined });
-  }, [project?.totalDwellingUnits]);
+      : { ...prev, totalDwellingUnits: projectUnits });
+  }, [projectUnits]);
 
   useEffect(() => {
     if (initialOccupancy || initialProvince || initialBuildingType) {

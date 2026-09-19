@@ -20,6 +20,7 @@ import autoTable from "jspdf-autotable";
 import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
+import { readProvenancedFact } from '../services/factProvenance';
 
 interface OccupantGroupRow {
   group: string;
@@ -188,6 +189,7 @@ export const calculationsPackageRouter = router({
             .where(inArray(detectedRooms.pageId, pages.map(p => p.id)))
         : [];
 
+      const totalDwellingUnits = readProvenancedFact({ wrapper: project[0].totalDwellingUnitsJson, scalar: project[0].totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: input.projectId, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
       const positiveAreaRooms = allRooms.filter(room => Number(room.areaSqm ?? 0) > 0);
       for (const room of positiveAreaRooms) {
         const area = Number(room.areaSqm);
@@ -213,7 +215,7 @@ export const calculationsPackageRouter = router({
           spaceType: room.spaceType ?? undefined,
           label: room.roomLabel ?? '',
           dominantOccupancyGroup,
-          totalDwellingUnits: project[0].totalDwellingUnits,
+          totalDwellingUnits: totalDwellingUnits ?? undefined,
         });
         const factor = getAccessoryLoadFactor(accessorySpaceType, room.occupancyGroup ?? 'Unknown');
         const area = Number(room.areaSqm);

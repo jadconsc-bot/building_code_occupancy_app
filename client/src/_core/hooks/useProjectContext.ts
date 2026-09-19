@@ -22,6 +22,7 @@ export interface ProjectContext {
   grossFloorArea: string | null;
   storeys: number | null;
   totalDwellingUnits: number | null;
+  totalDwellingUnitsJson?: unknown;
   occupancyCode: string | null;
   codeEdition: string | null;
   jurisdictionSource: 'geocoded' | 'manual' | 'device' | 'fallback' | null;

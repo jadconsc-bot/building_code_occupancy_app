@@ -11,6 +11,7 @@ import { getDb } from '../../db';
 import { complianceResults, detectedRooms, projects } from '../../../drizzle/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { determineBuildingPart } from '../buildingPartDetermination';
+import { readProvenancedFact } from '../../services/factProvenance';
 
 // Feature-to-occupancy scoring rules from the detection spec
 const FEATURE_OCCUPANCY_RULES = [
@@ -282,6 +283,7 @@ export async function evaluateRoomCompliance(
         [projectRow] = await dbAccessory
           .select({
             totalDwellingUnits: projects.totalDwellingUnits,
+            totalDwellingUnitsJson: projects.totalDwellingUnitsJson,
             buildingFootprintJson: projects.buildingFootprintJson,
             storeys: projects.storeys,
             occupancyCode: projects.occupancyCode,
@@ -298,11 +300,12 @@ export async function evaluateRoomCompliance(
           .from(detectedRooms)
           .where(eq(detectedRooms.projectId, projectId));
 
+        const projectUnits = readProvenancedFact({ wrapper: projectRow?.totalDwellingUnitsJson, scalar: projectRow?.totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: projectId, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
         const accessoryDecision = reclassifyAccessoryOccupancy({
           occupancyGroup: group,
           spaceType: roomSpaceType,
           dominantOccupancyGroup: determineDominantOccupancyGroup(projectRooms),
-          totalDwellingUnits: projectRow?.totalDwellingUnits ?? undefined,
+          totalDwellingUnits: projectUnits ?? undefined,
         });
 
         if (accessoryDecision.action === 'reclassified') {
@@ -645,15 +648,14 @@ export async function evaluateRoomCompliance(
     let proj = projectRow;
     if (!proj && db10) {
       [proj] = await db10
-        .select({ totalDwellingUnits: projects.totalDwellingUnits, buildingFootprintJson: projects.buildingFootprintJson, storeys: projects.storeys, occupancyCode: projects.occupancyCode })
+        .select({ totalDwellingUnits: projects.totalDwellingUnits, totalDwellingUnitsJson: projects.totalDwellingUnitsJson, buildingFootprintJson: projects.buildingFootprintJson, storeys: projects.storeys, occupancyCode: projects.occupancyCode })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
       projectRow = proj;
     }
     if (proj) {
-      const fact = proj?.buildingFootprintJson as { value?: number } | null | undefined;
-      footprintM2 = typeof fact?.value === 'number' ? fact.value : null;
+      footprintM2 = readProvenancedFact({ wrapper: proj?.buildingFootprintJson, scalar: null, field: 'buildingFootprintJson', entityType: 'project', entityId: projectId, isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 }).value;
       storeys = proj?.storeys ?? null;
       occupancyGroup = proj?.occupancyCode ?? group;
     }
@@ -728,6 +730,14 @@ export async function evaluateRoomCompliance(
 
   // 13. Exit stair enclosure check, scoped to the building determination.
   const isStair = /stair|stairwell|stairway/i.test(room.label);
+  const dwellingUnitCount = readProvenancedFact({
+    wrapper: projectRow?.totalDwellingUnitsJson,
+    scalar: projectRow?.totalDwellingUnits,
+    field: 'totalDwellingUnits',
+    entityType: 'project',
+    entityId: projectId,
+    isValue: (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0,
+  }).value;
   if (isStair && buildingPartDetermination.determination === 'needs_review') {
     traces.push(buildFederalTrace({
       result: 'not_applicable',
@@ -758,7 +768,7 @@ export async function evaluateRoomCompliance(
         'Verify protected openings and continuity of the fire separation at every floor level'
       ]
     }));
-  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && (projectRow?.totalDwellingUnits == null || Number(projectRow.totalDwellingUnits) <= 0)) {
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && (dwellingUnitCount == null || dwellingUnitCount <= 0)) {
     traces.push(buildFederalTrace({
       result: 'not_applicable',
       rule: 'NBC 9.9.4.1.(1)',
@@ -768,7 +778,7 @@ export async function evaluateRoomCompliance(
       constraintId: 'egress.stair_enclosure',
       recommendations: ['Confirm whether this stair serves more than one dwelling unit before applying NBC 9.9.4 exit-separation requirements'],
     }));
-  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(projectRow?.totalDwellingUnits) > 1) {
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(dwellingUnitCount ?? 0) > 1) {
     const hasFireRatedDoor = room.features.some(f => f.type === 'door_fire_rated');
     traces.push(buildFederalTrace({
       result: hasFireRatedDoor ? 'pass' : 'warning',
@@ -784,7 +794,7 @@ export async function evaluateRoomCompliance(
         'Verify protected openings and continuity of the fire separation at every floor level',
       ],
     }));
-  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(projectRow?.totalDwellingUnits) === 1) {
+  } else if (isStair && buildingPartDetermination.determination === 'Part 9' && Number(dwellingUnitCount ?? 0) === 1) {
     // Deliberately suppressed: NBC 9.9.4.1.(1) exempts an exit serving not more than one dwelling unit.
   }
 
