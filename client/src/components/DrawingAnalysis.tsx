@@ -733,6 +733,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
+  const windowMeasurePreviousToolRef = useRef<"select" | "dimension" | "label" | "area" | "pan" | "fire_assembly" | "door_barrier" | "select_room" | null>(null);
   const [windowHeightInput, setWindowHeightInput] = useState<string>('1200');
   const [pendingWindowMeasure, setPendingWindowMeasure] = useState<{
     widthMm: number;
@@ -2030,6 +2031,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       const activeTag = (document.activeElement?.tagName ?? '').toUpperCase();
       const isTypingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag);
 
+      if (e.key === 'Escape' && windowMeasureMode) {
+        e.preventDefault();
+        setWindowMeasureMode(false);
+        setActiveTool(windowMeasurePreviousToolRef.current ?? 'select');
+        windowMeasurePreviousToolRef.current = null;
+        return;
+      }
+
       if (boundaryRedrawMode !== 'new_room' && boundaryRedrawMode !== 'new_door') return;
       const isNewRoomMode = boundaryRedrawMode === 'new_room';
 
@@ -2063,7 +2072,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [arcAnchorPoints.length, boundaryRedrawMode, doorAnnotationPhase, handleCancelNewDoor, handleCancelNewRoom, showAddDoorForm, showAddRoomForm]);
+  }, [arcAnchorPoints.length, boundaryRedrawMode, doorAnnotationPhase, handleCancelNewDoor, handleCancelNewRoom, showAddDoorForm, showAddRoomForm, windowMeasureMode]);
+
+  // Selecting another canvas tool exits window-measure mode cleanly.
+  useEffect(() => {
+    if (windowMeasureMode && activeTool !== 'dimension') {
+      setWindowMeasureMode(false);
+      windowMeasurePreviousToolRef.current = null;
+    }
+  }, [activeTool, windowMeasureMode]);
 
   // Read URL params on mount to pre-configure fire assembly tool
   useEffect(() => {
@@ -5179,6 +5196,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           pixelWidth: pixelDistance,
         });
         setWindowMeasureMode(false);
+        setActiveTool(windowMeasurePreviousToolRef.current ?? 'select');
+        windowMeasurePreviousToolRef.current = null;
       }
       setIsDraggingDimension(false);
       setDragStartPoint(null);
@@ -6808,7 +6827,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         toast.warning('Please calibrate the drawing scale first before measuring windows.');
                         return;
                       }
-                      setWindowMeasureMode(!windowMeasureMode);
+                      if (windowMeasureMode) {
+                        setWindowMeasureMode(false);
+                        setActiveTool(windowMeasurePreviousToolRef.current ?? 'select');
+                        windowMeasurePreviousToolRef.current = null;
+                      } else {
+                        windowMeasurePreviousToolRef.current = activeTool;
+                        setActiveTool('dimension');
+                        setWindowMeasureMode(true);
+                      }
                       setIsCalibrating(false);
                     }}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
