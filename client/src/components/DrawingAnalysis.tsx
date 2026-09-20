@@ -728,15 +728,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
-  const [measuredWindows, setMeasuredWindows] = useState<Array<{
-    id: string;
-    face: 'N' | 'S' | 'E' | 'W' | 'unknown';
-    widthMm: number;
-    heightMm: number;
-    areaM2: number;
-    position: { x: number; y: number };
-    pixelWidth: number;
-  }>>([]);
   const [windowHeightInput, setWindowHeightInput] = useState<string>('1200');
   const [pendingWindowMeasure, setPendingWindowMeasure] = useState<{
     widthMm: number;
@@ -1038,6 +1029,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const extractContextMutation = trpc.drawingSetContext.extractContext.useMutation();
   const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
   const saveZoneMutation = trpc.zoneLookup.saveToProject.useMutation();
+  const saveMeasuredWindowMutation = trpc.drawingAnalysis.saveMeasuredWindow.useMutation();
+  const deleteMeasuredWindowMutation = trpc.drawingAnalysis.deleteMeasuredWindow.useMutation();
 
   const pdAnalyzeMutation = trpc.drawingAnalysis.analyze.useMutation({
     onSuccess: async (data) => {
@@ -1115,6 +1108,15 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     [projectListQuery.data, selectedProjectId],
   );
   const activeProjectAddress = activeProjectRecord?.address ?? project?.address ?? '';
+
+  const { data: measuredWindowsData } = trpc.drawingAnalysis.getMeasuredWindows.useQuery(
+    { projectId: activeProjectId ?? 0, pageId: currentPageId ?? 0 },
+    {
+      enabled: !!activeProjectId && !!currentPageId,
+      refetchOnWindowFocus: false,
+    },
+  );
+  const measuredWindows = measuredWindowsData ?? [];
 
   const { data: recentAnalyses } = trpc.drawingAnalysis.listByProject.useQuery(
     { projectId: activeProjectId! },
@@ -1515,8 +1517,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       for (const r of savedDdaPolygons) {
         if (!r.polygon || r.polygon.length < 3) continue;
         const key = `${r.seedX},${r.seedY}`;
-        if (!next.has(key)) {
-          next.set(key, calculateRoomCompliance(
+        next.set(key, calculateRoomCompliance(
             key,
             r.roomLabel,
             r.polygon,
@@ -1538,11 +1539,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               return td?.limit;
             })(),
           ));
-        }
       }
       return next;
     });
-  }, [savedDdaPolygons]);
+  }, [savedDdaPolygons, measuredWindows]);
 
   // Phase C Step 6 — recompute shared walls whenever polygon or compliance maps change
   useEffect(() => {
@@ -7312,7 +7312,6 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       setIsCalibrating(false);
                       setCalibrationLine(null);
                       setReferenceValue("");
-                      setMeasuredWindows([]);
                       setWindowMeasureMode(false);
                     }}
                   >
@@ -7488,22 +7487,31 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   </select>
                   <Button
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const heightMm = parseFloat(windowHeightInput);
-                      if (heightMm > 0 && pendingWindowMeasure) {
+                      if (heightMm > 0 && pendingWindowMeasure && activeProjectId && currentPageId) {
                         const areaM2 = Math.round(
                           (pendingWindowMeasure.widthMm / 1000) * (heightMm / 1000) * 100
                         ) / 100;
-                        setMeasuredWindows(prev => [...prev, {
-                          id: `win-${Date.now()}`,
-                          face: windowFaceInput,
-                          widthMm: pendingWindowMeasure.widthMm,
-                          heightMm: Math.round(heightMm),
-                          areaM2,
-                          position: pendingWindowMeasure.position,
-                          pixelWidth: pendingWindowMeasure.pixelWidth,
-                        }]);
-                        setPendingWindowMeasure(null);
+                        try {
+                          await saveMeasuredWindowMutation.mutateAsync({
+                            projectId: activeProjectId,
+                            pageId: currentPageId,
+                            face: windowFaceInput,
+                            widthMm: pendingWindowMeasure.widthMm,
+                            heightMm: Math.round(heightMm),
+                            areaM2,
+                            position: pendingWindowMeasure.position,
+                            pixelWidth: pendingWindowMeasure.pixelWidth,
+                          });
+                          await utils.drawingAnalysis.getMeasuredWindows.invalidate({
+                            projectId: activeProjectId,
+                            pageId: currentPageId,
+                          });
+                          setPendingWindowMeasure(null);
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Unable to save measured window.');
+                        }
                       }
                     }}
                     className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -7529,11 +7537,26 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <p className="text-sm font-semibold text-slate-700">
                           Window Inventory ({measuredWindows.length} window{measuredWindows.length !== 1 ? 's' : ''})
                         </p>
-                        <Button
+                          <Button
                           size="sm"
                           variant="ghost"
                           className="text-xs h-6"
-                          onClick={() => { setMeasuredWindows([]); setWallLengthInputs({}); setWallAreaInputs({}); }}
+                          onClick={async () => {
+                            if (!activeProjectId || !currentPageId) return;
+                            try {
+                              await Promise.all(measuredWindows.map(w =>
+                                deleteMeasuredWindowMutation.mutateAsync({ windowId: Number(w.id) })
+                              ));
+                              await utils.drawingAnalysis.getMeasuredWindows.invalidate({
+                                projectId: activeProjectId,
+                                pageId: currentPageId,
+                              });
+                              setWallLengthInputs({});
+                              setWallAreaInputs({});
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Unable to clear measured windows.');
+                            }
+                          }}
                         >
                           Clear all
                         </Button>
@@ -7567,7 +7590,25 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                               <td className="text-right py-1 font-medium">{w.areaM2}m²</td>
                               <td className="text-right py-1">
                                 <button
-                                  onClick={() => setMeasuredWindows(prev => prev.filter(x => x.id !== w.id))}
+                                  onClick={async () => {
+                                    const windowId = Number(w.id);
+                                    if (!Number.isSafeInteger(windowId) || windowId <= 0) {
+                                      await utils.drawingAnalysis.getMeasuredWindows.invalidate({
+                                        projectId: activeProjectId!,
+                                        pageId: currentPageId!,
+                                      });
+                                      return;
+                                    }
+                                    try {
+                                      await deleteMeasuredWindowMutation.mutateAsync({ windowId });
+                                      await utils.drawingAnalysis.getMeasuredWindows.invalidate({
+                                        projectId: activeProjectId!,
+                                        pageId: currentPageId!,
+                                      });
+                                    } catch (error) {
+                                      toast.error(error instanceof Error ? error.message : 'Unable to delete measured window.');
+                                    }
+                                  }}
                                   className="text-red-400 hover:text-red-600 text-xs"
                                 >✕</button>
                               </td>

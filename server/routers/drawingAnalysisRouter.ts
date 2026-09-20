@@ -27,6 +27,7 @@ import {
   disclaimerAcknowledgments,
   projects,
   drawingPages,
+  measuredWindows,
   sitePlanExtractions,
   detectedRooms,
   detectedFeatures,
@@ -49,7 +50,7 @@ import { runWallEngine } from "../services/wallEngineOrchestrator";
 import { wallEngineQueue } from "../services/wallEngineQueue";
 import { runCalculatorOrchestrator } from "../services/calculatorOrchestrator";
 import { persistRequirementGraph } from "../services/complianceRequirementGraph";
-import { readProvenancedFact } from "../services/factProvenance";
+import { readProvenancedFact, userConfirmedFact } from "../services/factProvenance";
 import { callAnthropicVision } from "../services/anthropicVisionService";
 import {
   buildSitePlanPrompts,
@@ -1607,6 +1608,113 @@ export const drawingAnalysisRouter = router({
       );
 
       return { roomId: result[0].insertId };
+    }),
+
+  /** Load persisted measured windows for a drawing page. */
+  getMeasuredWindows: protectedProcedure
+    .input(z.object({
+      projectId: z.number().int().positive(),
+      pageId: z.number().int().positive(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [page] = await db
+        .select({ pageId: drawingPages.id })
+        .from(drawingPages)
+        .innerJoin(drawingAnalyses, eq(drawingAnalyses.id, drawingPages.drawingId))
+        .where(and(
+          eq(drawingPages.id, input.pageId),
+          eq(drawingAnalyses.projectId, input.projectId),
+          eq(drawingAnalyses.userId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!page) throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have access to this drawing page.' });
+
+      const rows = await db
+        .select()
+        .from(measuredWindows)
+        .where(and(
+          eq(measuredWindows.projectId, input.projectId),
+          eq(measuredWindows.pageId, input.pageId),
+        ));
+
+      return rows.map(row => ({
+        id: String(row.id),
+        face: row.face,
+        widthMm: Number(row.widthMm),
+        heightMm: Number(row.heightMm),
+        areaM2: Number(row.areaM2),
+        position: safeJsonParse(row.positionJson) as { x: number; y: number },
+        pixelWidth: Number(row.pixelWidth),
+      }));
+    }),
+
+  /** Persist an explicitly measured window for a drawing page. */
+  saveMeasuredWindow: protectedProcedure
+    .input(z.object({
+      projectId: z.number().int().positive(),
+      pageId: z.number().int().positive(),
+      face: z.enum(['N', 'S', 'E', 'W', 'unknown']),
+      widthMm: z.number().positive(),
+      heightMm: z.number().positive(),
+      areaM2: z.number().positive(),
+      position: z.object({ x: z.number(), y: z.number() }),
+      pixelWidth: z.number().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [page] = await db
+        .select({ pageId: drawingPages.id })
+        .from(drawingPages)
+        .innerJoin(drawingAnalyses, eq(drawingAnalyses.id, drawingPages.drawingId))
+        .where(and(
+          eq(drawingPages.id, input.pageId),
+          eq(drawingAnalyses.projectId, input.projectId),
+          eq(drawingAnalyses.userId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!page) throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have access to this drawing page.' });
+
+      const result = await db.insert(measuredWindows).values({
+        projectId: input.projectId,
+        pageId: input.pageId,
+        face: input.face,
+        widthMm: input.widthMm.toFixed(2),
+        heightMm: input.heightMm.toFixed(2),
+        areaM2: input.areaM2.toFixed(2),
+        positionJson: input.position,
+        pixelWidth: input.pixelWidth.toFixed(2),
+        provenanceJson: userConfirmedFact(true),
+      });
+
+      return { windowId: result[0].insertId };
+    }),
+
+  /** Delete one measured window owned through its drawing page. */
+  deleteMeasuredWindow: protectedProcedure
+    .input(z.object({ windowId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [windowRow] = await db
+        .select({ id: measuredWindows.id })
+        .from(measuredWindows)
+        .innerJoin(drawingPages, eq(drawingPages.id, measuredWindows.pageId))
+        .innerJoin(drawingAnalyses, eq(drawingAnalyses.id, drawingPages.drawingId))
+        .where(and(
+          eq(measuredWindows.id, input.windowId),
+          eq(drawingAnalyses.userId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!windowRow) throw new TRPCError({ code: 'NOT_FOUND', message: 'Measured window not found.' });
+
+      await db.delete(measuredWindows).where(eq(measuredWindows.id, input.windowId));
+      return { success: true };
     }),
 
   /**

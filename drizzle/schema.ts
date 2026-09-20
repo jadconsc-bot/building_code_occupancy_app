@@ -1402,6 +1402,29 @@ export const detectedRooms = mysqlTable("detectedRooms", {
 export type DetectedRoom = typeof detectedRooms.$inferSelect;
 export type InsertDetectedRoom = typeof detectedRooms.$inferInsert;
 
+/**
+ * User-measured windows from Drawing Analysis.
+ * Scope follows detectedRooms: project + drawing page. There is deliberately
+ * no roomId; room proximity is resolved at read time from positionJson.
+ */
+export const measuredWindows = mysqlTable("measuredWindows", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull().references(() => projects.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  pageId: int("pageId").notNull().references(() => drawingPages.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  face: mysqlEnum("face", ["N", "S", "E", "W", "unknown"]).notNull().default("unknown"),
+  widthMm: decimal("widthMm", { precision: 10, scale: 2 }).notNull(),
+  heightMm: decimal("heightMm", { precision: 10, scale: 2 }).notNull(),
+  areaM2: decimal("areaM2", { precision: 10, scale: 2 }).notNull(),
+  positionJson: json("positionJson").notNull(),
+  pixelWidth: decimal("pixelWidth", { precision: 12, scale: 2 }).notNull(),
+  provenanceJson: json("provenanceJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MeasuredWindow = typeof measuredWindows.$inferSelect;
+export type InsertMeasuredWindow = typeof measuredWindows.$inferInsert;
+
 export const roboflowUnmatchedDetections = mysqlTable("roboflowUnmatchedDetections", {
   id: int("id").autoincrement().primaryKey(),
   pageId: int("pageId").notNull(),

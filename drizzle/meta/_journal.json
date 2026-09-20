@@ -183,6 +183,13 @@
       "when": 1790208000000,
       "tag": "0040_field_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1790211600000,
+      "tag": "0041_measured_windows",
+      "breakpoints": true
     }
   ]
 }
