@@ -1610,6 +1610,60 @@ export const drawingAnalysisRouter = router({
       return { roomId: result[0].insertId };
     }),
 
+  /** Confirm the occupancy and area facts for a newly saved DDA room. */
+  confirmDdaRoomDetails: protectedProcedure
+    .input(z.object({
+      roomId: z.number().int().positive(),
+      occupancyGroup: z.string().trim().min(1).max(10),
+      areaM2: z.number().finite().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'DB unavailable' });
+
+      const [room] = await db
+        .select({
+          roomId: detectedRooms.id,
+          drawingId: drawingPages.drawingId,
+          projectId: drawingAnalyses.projectId,
+        })
+        .from(detectedRooms)
+        .innerJoin(drawingPages, eq(drawingPages.id, detectedRooms.pageId))
+        .innerJoin(drawingAnalyses, eq(drawingAnalyses.id, drawingPages.drawingId))
+        .where(and(
+          eq(detectedRooms.id, input.roomId),
+          eq(drawingAnalyses.userId, ctx.user.id),
+          eq(detectedRooms.detectionMethod, 'dda_ray_cast'),
+        ))
+        .limit(1);
+
+      if (!room) throw new TRPCError({ code: 'FORBIDDEN', message: 'Room not found or access denied.' });
+      if (room.projectId == null || !Number.isSafeInteger(room.projectId) || room.projectId <= 0) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This room is not associated with a valid project.' });
+      }
+
+      const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, room.projectId), eq(projects.userId, ctx.user.id)))
+        .limit(1);
+      if (!project) throw new TRPCError({ code: 'FORBIDDEN', message: 'The room project is unavailable or does not belong to you.' });
+
+      await db
+        .update(detectedRooms)
+        .set({
+          occupancyGroup: input.occupancyGroup,
+          occupancyGroupJson: userConfirmedFact(input.occupancyGroup),
+          areaSqm: input.areaM2.toFixed(2),
+          areaSqmJson: userConfirmedFact(input.areaM2),
+          manualOverride: 1,
+          lastCorrectedAt: new Date(),
+        })
+        .where(eq(detectedRooms.id, input.roomId));
+
+      return { roomId: input.roomId, confirmed: true };
+    }),
+
   /** Load persisted measured windows for a drawing page. */
   getMeasuredWindows: protectedProcedure
     .input(z.object({

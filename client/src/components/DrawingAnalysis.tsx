@@ -725,6 +725,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [isRayCasting, setIsRayCasting] = useState(false);
   const [ddaRoomCompliance, setDdaRoomCompliance] = useState<Map<string, RoomComplianceResult>>(new Map());
   const [sharedWalls, setSharedWalls] = useState<SharedWall[]>([]);
+  const [pendingDdaRoomConfirmation, setPendingDdaRoomConfirmation] = useState<{
+    roomId: number;
+    occupancyGroup: string;
+    areaM2: string;
+  } | null>(null);
 
   // State for window measurement tool (BC Step Code WWR)
   const [windowMeasureMode, setWindowMeasureMode] = useState(false);
@@ -1188,6 +1193,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   const saveCalibrationMutation = trpc.drawingAnalysis.saveCalibration.useMutation();
   const saveRoomPolygonMutation = trpc.drawingAnalysis.saveRoomPolygon.useMutation();
+  const confirmDdaRoomDetailsMutation = trpc.drawingAnalysis.confirmDdaRoomDetails.useMutation();
   const saveDoorFeatureMutation = trpc.drawingAnalysis.saveDoorFeature.useMutation();
   const runOrchestratorMutation = trpc.drawingAnalysis.runCalculatorOrchestrator.useMutation({
     onSuccess: (result) => {
@@ -1281,7 +1287,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const polygonPoints = polygon.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
 
     try {
-      await saveRoomPolygonMutation.mutateAsync({
+      const result = await saveRoomPolygonMutation.mutateAsync({
         drawingPageId: pageContext.pageId,
         roomLabel,
         polygonPoints,
@@ -1294,6 +1300,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
       await refetchRoomsForDrawing();
       toast.success(`Area saved — ${roomLabel}`);
       handleCancelDdaRoom();
+      setPendingDdaRoomConfirmation({
+        roomId: Number(result.roomId),
+        occupancyGroup: ddaRoomOccupancy,
+        areaM2: compliance?.areaM2 && compliance.areaM2 > 0 ? compliance.areaM2.toFixed(2) : '',
+      });
     } catch (err) {
       console.error('[DrawingAnalysis] Failed to save DDA room:', err);
       toast.error('Failed to save room.');
@@ -1312,6 +1323,34 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
   ]);
+
+  const handleConfirmDdaRoomDetails = useCallback(async () => {
+    const pending = pendingDdaRoomConfirmation;
+    if (!pending) return;
+    const areaM2 = Number(pending.areaM2);
+    if (!pending.occupancyGroup.trim() || !Number.isFinite(areaM2) || areaM2 <= 0) {
+      toast.error('Enter a valid occupancy group and area before confirming the room details.');
+      return;
+    }
+
+    try {
+      await confirmDdaRoomDetailsMutation.mutateAsync({
+        roomId: pending.roomId,
+        occupancyGroup: pending.occupancyGroup.trim(),
+        areaM2,
+      });
+      await refetchRoomsForDrawing();
+      toast.success('Room details confirmed.');
+      setPendingDdaRoomConfirmation(null);
+    } catch (err) {
+      console.error('[DrawingAnalysis] Failed to confirm DDA room details:', err);
+      toast.error('Failed to confirm room details.');
+    }
+  }, [confirmDdaRoomDetailsMutation, pendingDdaRoomConfirmation, refetchRoomsForDrawing]);
+
+  const handleDismissDdaRoomConfirmation = useCallback(() => {
+    setPendingDdaRoomConfirmation(null);
+  }, []);
 
   const ddaRoomContextIsStale =
     !!pendingDdaRoomContext &&
@@ -1351,18 +1390,28 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     const polygonPoints = newRoomVertices.map(v => ({ x: Math.round(v.x), y: Math.round(v.y) }));
 
     try {
-      await saveRoomPolygonMutation.mutateAsync({
+      const result = await saveRoomPolygonMutation.mutateAsync({
         drawingPageId: currentPageId,
         roomLabel,
         polygonPoints,
         occupancyGroup: newRoomOccupancy,
         spaceType: newSpaceType,
+        areaM2: (() => {
+          const area = calculatePolygonArea(polygonPoints);
+          return area > 0 ? area : undefined;
+        })(),
         seedX: polygonPoints[0].x,
         seedY: polygonPoints[0].y,
       });
       await refetchRoomsForDrawing();
       toast.success(`Area saved — ${roomLabel}`);
       handleCancelNewRoom();
+      const areaM2 = calculatePolygonArea(polygonPoints);
+      setPendingDdaRoomConfirmation({
+        roomId: Number(result.roomId),
+        occupancyGroup: newRoomOccupancy,
+        areaM2: areaM2 > 0 ? areaM2.toFixed(2) : '',
+      });
     } catch (err) {
       console.error('[DrawingAnalysis] Failed to save new room:', err);
       toast.error('Failed to save new area.');
@@ -1377,6 +1426,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     newSpaceType,
     refetchRoomsForDrawing,
     saveRoomPolygonMutation,
+    selectedScale,
+    scaleSystem,
+    pixelsPerDrawingUnit,
   ]);
 
   const handleFinishNewDoor = useCallback(() => {
@@ -7143,6 +7195,49 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       className="h-8 px-3 text-xs text-red-600 border-red-200"
                     >
                       Cancel
+                    </Button>
+                  </div>
+                )}
+
+                {pendingDdaRoomConfirmation && (
+                  <div className="flex items-center gap-2 border-r border-border pr-2 ml-2 bg-amber-50 dark:bg-amber-950 px-2 py-1 rounded">
+                    <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                      Room saved — confirm details
+                    </span>
+                    <Input
+                      aria-label="Confirmed occupancy group"
+                      value={pendingDdaRoomConfirmation.occupancyGroup}
+                      onChange={(e) => setPendingDdaRoomConfirmation(prev => prev ? { ...prev, occupancyGroup: e.target.value } : prev)}
+                      placeholder="Occupancy"
+                      className="h-8 w-24 text-xs"
+                    />
+                    <Input
+                      aria-label="Confirmed room area in square metres"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pendingDdaRoomConfirmation.areaM2}
+                      onChange={(e) => setPendingDdaRoomConfirmation(prev => prev ? { ...prev, areaM2: e.target.value } : prev)}
+                      placeholder="Area m²"
+                      className="h-8 w-24 text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">m²</span>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={handleConfirmDdaRoomDetails}
+                      disabled={confirmDdaRoomDetailsMutation.isPending}
+                    >
+                      Confirm
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
+                      onClick={handleDismissDdaRoomConfirmation}
+                      disabled={confirmDdaRoomDetailsMutation.isPending}
+                    >
+                      Skip
                     </Button>
                   </div>
                 )}
