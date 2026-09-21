@@ -1920,10 +1920,19 @@ export const drawingAnalysisRouter = router({
         .where(and(eq(drawingAnalyses.id, page.drawingId), eq(drawingAnalyses.userId, ctx.user.id)));
       if (!analysisRow) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
 
-      const [projectRow] = await db.select({ totalDwellingUnits: projects.totalDwellingUnits, totalDwellingUnitsJson: projects.totalDwellingUnitsJson })
+      const [projectRow] = await db.select({
+        totalDwellingUnits: projects.totalDwellingUnits,
+        totalDwellingUnitsJson: projects.totalDwellingUnitsJson,
+        stackConfirmedAt: projects.stackConfirmedAt,
+      })
         .from(projects).where(eq(projects.id, analysisRow.projectId)).limit(1);
       const projectUnits = readProvenancedFact({ wrapper: projectRow?.totalDwellingUnitsJson, scalar: projectRow?.totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: analysisRow.projectId, isValue: (v): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 }).value ?? undefined;
-      const result = runCalculatorOrchestrator({ ...input, projectId: analysisRow.projectId, totalDwellingUnits: projectUnits }, input.province);
+      const result = runCalculatorOrchestrator({
+        ...input,
+        projectId: analysisRow.projectId,
+        totalDwellingUnits: projectUnits,
+        stackConfirmedAt: projectRow?.stackConfirmedAt ?? null,
+      }, input.province);
       const complianceGraph = await persistRequirementGraph(analysisRow.projectId, result.complianceRequirements);
       return { ...result, complianceGraph };
     }),

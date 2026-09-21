@@ -111,6 +111,8 @@ export interface OrchestratorInput {
     nbcRef: string;
     needsReview?: boolean;
   }>;
+  /** Persisted Stack Planner confirmation marker, when the project has one. */
+  stackConfirmedAt?: Date | null;
 }
 
 export interface OrchestratorResult {
@@ -694,7 +696,11 @@ export function runCalculatorOrchestrator(
         requirementType: 'orchestrator-frr.stack-fact',
         appliesTo: stackFactAppliesTo,
         requiredValue: { value: sep.frr, unit: 'declared-rating' },
-        actualValue: { value: sep.frr, confirmed: false, source: 'user-confirmed' },
+        actualValue: {
+          value: sep.frr,
+          confirmed: Boolean(input.stackConfirmedAt),
+          source: input.stackConfirmedAt ? 'user-confirmed' : 'derived',
+        },
         status: sep.needsReview ? 'insufficient-evidence' : 'compliant',
         triggeredBy: [
           { fact: 'stack.from', value: sep.from },
@@ -707,7 +713,9 @@ export function runCalculatorOrchestrator(
         appliesTo: { kind: 'Wall', id: `stack:${sep.from}->${sep.to}` },
         requiredValue: { value: sep.hours * 60, unit: 'min' },
         actualValue: null,
-        status: sep.needsReview ? 'insufficient-evidence' : 'insufficient-evidence',
+        // No actual/verified FRR value exists yet to compare against requiredValue.
+        // Keep this insufficient-evidence until a real actual-FRR input is wired in.
+        status: 'insufficient-evidence',
         triggeredBy: [
           { fact: 'stack.from', value: sep.from },
           { fact: 'stack.to', value: sep.to },
