@@ -524,15 +524,45 @@ export function runCalculatorOrchestrator(
       .filter(r => r.occupancyGroup === ol.occupancyGroup)
       .reduce((sum, r) => sum + r.maxOccupants, 0);
 
-    washroomCounts.push(
-      calculateWashroomRequirements({
-        occupancyGroup: normalizedGroup,   // 'A-1' → 'A1', 'B-2' → 'B2'
-        occupantLoad: groupTotalPersons,
-        sprinklered: input.sprinklered,
-        province: input.province ?? 'CA',
-        jurisdictionSource: input.jurisdictionSource,
-      })
-    );
+    const washroomResult = calculateWashroomRequirements({
+      occupancyGroup: normalizedGroup,   // 'A-1' → 'A1', 'B-2' → 'B2'
+      occupantLoad: groupTotalPersons,
+      sprinklered: input.sprinklered,
+      province: input.province ?? 'CA',
+      jurisdictionSource: input.jurisdictionSource,
+    });
+    washroomCounts.push(washroomResult);
+
+    // orchestrator-washroom-count.determination — the FRR fire-separation
+    // shape, not the occupancy-fact shape: this IS a code-minimum
+    // (NBC 3.7.2.2 fixture count), not just an echoed input fact, so
+    // requiredValue carries the computed minimum. actualValue stays null
+    // until an as-built fixture count is confirmed from drawings — there
+    // is no mechanism for that yet, matching fire-separation's actualValue:
+    // null. dependsOnKeys ties this to the occupant-load determination
+    // this group total was derived from, using the same nbcRef/appliesTo.id
+    // construction the occupant-load candidates used when they were built,
+    // so the key matches exactly without re-deriving citation logic here.
+    const occupantLoadAppliesToId = ol.occupancyGroup === 'C'
+      ? `project:${input.projectId ?? 'drawing'}:occupant-load`
+      : `project:${input.projectId ?? 'drawing'}:occupant-load:${ol.occupancyGroup}`;
+    const occupantLoadKey = `orchestrator-occupant-load.determination:${ol.nbcRef}:DwellingUnit:${occupantLoadAppliesToId}`;
+
+    complianceRequirements.push({
+      provisionRef: washroomResult.nbcRef,
+      requirementType: 'orchestrator-washroom-count.determination',
+      appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:washroom:${normalizedGroup}` },
+      requiredValue: { value: washroomResult.required, unit: 'fixture-requirement' },
+      actualValue: null,
+      status: 'insufficient-evidence',
+      triggeredBy: [
+        { fact: 'occupancyGroup', value: normalizedGroup },
+        { fact: 'occupantLoad', value: groupTotalPersons },
+        { fact: 'sprinklered', value: input.sprinklered },
+        { fact: 'province', value: input.province ?? 'CA' },
+      ],
+      dependsOnKeys: [occupantLoadKey],
+    });
   }
   // ── End washroom counts ───────────────────────────────────────────────────
 

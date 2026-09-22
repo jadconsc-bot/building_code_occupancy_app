@@ -42,7 +42,7 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
       });
       pageId = Number(pageInsert.insertId);
       const [roomInsert] = await db.insert(detectedRooms).values({
-        pageId, projectId, roomLabel: "Living Room", boundingBoxJson: { x: 0, y: 0, width: 100, height: 100 },
+        pageId, projectId, roomLabel: "Bedroom 1", boundingBoxJson: { x: 0, y: 0, width: 100, height: 100 },
         areaSqm: "100.00", occupancyGroup: "C", spaceType: "room", detectionMethod: "flood_fill",
       } as any);
       roomId = Number(roomInsert.insertId);
@@ -55,7 +55,7 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
       const caller = appRouter.createCaller({ user: { id: userId }, req: {}, res: {} } as any);
       const input = {
         drawingPageId: pageId,
-        rooms: [{ label: "Living Room", occupancyGroup: "C", areaM2: 100 }],
+        rooms: [{ label: "Bedroom 1", occupancyGroup: "C", areaM2: 100 }],
         windows: [], travelDistanceResults: [], storeys: 2, sprinklered: false,
         province: "AB", calibrationConfidence: "high" as const,
       };
@@ -73,11 +73,29 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
         eq(complianceRequirementSnapshots.projectId, projectId),
         eq(complianceRequirementSnapshots.scope, "occupant-load"),
       ));
+      const washroomSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "washroom-count"),
+      ));
+      const washroomRequirement = firstRequirements.find(r => r.requirementType === "orchestrator-washroom-count.determination");
+      const washroomDependencies = washroomRequirement
+        ? await db.select().from(requirementDependencies).where(and(
+            eq(requirementDependencies.projectId, projectId),
+            eq(requirementDependencies.requirementId, washroomRequirement.id),
+          ))
+        : [];
+      const dependedOn = washroomDependencies.length > 0
+        ? await db.select().from(complianceRequirements).where(eq(complianceRequirements.id, washroomDependencies[0].dependsOnRequirementId))
+        : [];
       expect(first.complianceGraph.created).toBe(true);
       expect(firstSnapshots).toHaveLength(1);
       expect(firstRequirements.some(r => r.requirementType === "orchestrator-frr.fire-separation")).toBe(true);
       expect(occupantLoadSnapshots).toHaveLength(1);
       expect(firstRequirements.some(r => r.requirementType === "orchestrator-occupant-load.determination")).toBe(true);
+      expect(washroomSnapshots).toHaveLength(1);
+      expect(washroomRequirement).toBeDefined();
+      expect(washroomDependencies.length).toBeGreaterThan(0);
+      expect(dependedOn[0]?.requirementType).toBe("orchestrator-occupant-load.determination");
       expect(firstDependencies.length).toBeGreaterThan(0);
       expect(firstProjection.length).toBeGreaterThan(0);
 

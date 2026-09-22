@@ -237,10 +237,28 @@ export async function persistRequirementGraph(
       supersedes: row.supersedes ?? null,
     })) as any);
 
+    // Dependency keys may point at a requirement emitted by an earlier,
+    // separately persisted scope (for example washroom-count depends on
+    // occupant-load). Resolve the most recent existing logical key across
+    // scopes, while preferring IDs created in this snapshot for same-scope
+    // dependencies.
+    const existingRequirements = await tx.select().from(complianceRequirements)
+      .where(eq(complianceRequirements.projectId, projectId))
+      .orderBy(desc(complianceRequirements.createdAt));
+    const existingIdsByKey = new Map<string, string>();
+    for (const existing of existingRequirements) {
+      const key = requirementLogicalKey({
+        requirementType: existing.requirementType,
+        provisionRef: existing.provisionRef,
+        appliesTo: existing.appliesTo as RequirementCandidate["appliesTo"],
+      });
+      if (!existingIdsByKey.has(key)) existingIdsByKey.set(key, existing.id);
+    }
+
     const dependencies: Array<{ requirementId: string; dependsOnRequirementId: string }> = [];
     for (const row of persisted) {
       for (const key of row.dependsOnKeys ?? []) {
-        const dependsOnRequirementId = idsByKey.get(key);
+        const dependsOnRequirementId = idsByKey.get(key) ?? existingIdsByKey.get(key);
         if (dependsOnRequirementId) dependencies.push({ requirementId: row.id, dependsOnRequirementId });
       }
     }
