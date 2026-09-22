@@ -16,6 +16,7 @@ import {
 } from "../../drizzle/schema";
 import { getRequiredFRR } from "../services/fireSeparationService";
 import { readProvenancedFact } from "../services/factProvenance";
+import { getRequirementGraph, type RequirementGraphSnapshot } from "../services/complianceRequirementGraph";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -73,6 +74,32 @@ function addSectionHeader(doc: jsPDF, text: string, y: number, pageW: number, M:
   doc.text(text, M + 3, y + 5.5);
   doc.setTextColor(0, 0, 0);
   return y + 12;
+}
+
+function stackRequirementTrace(graph: RequirementGraphSnapshot | null, generatedAt: string) {
+  if (!graph) return null;
+  const requirements = graph.requirements
+    .filter(requirement => requirement.requirementType === "orchestrator-frr.stack-separation")
+    .map(requirement => ({
+      id: requirement.id,
+      fromTo: requirement.appliesTo.id.replace(/^stack:/, ""),
+      provisionRef: requirement.provisionRef,
+      requiredValue: requirement.requiredValue,
+      actualValue: requirement.actualValue,
+      status: requirement.status,
+      label: "FRR requirement identified — verification pending",
+      triggeredBy: requirement.triggeredBy,
+      dependsOn: requirement.dependsOn,
+      dependents: requirement.dependents,
+    }));
+  if (requirements.length === 0) return null;
+  return {
+    snapshotVersion: graph.snapshotVersion,
+    contentHash: graph.contentHash,
+    snapshotCreatedAt: graph.createdAt.toISOString(),
+    generatedAt,
+    requirements,
+  };
 }
 
 async function fetchPackageData(projectId: number, db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
@@ -252,6 +279,10 @@ export const permitPackageRouter = router({
 
       const { project, strategy, calcPkg, pkgReview } = await fetchPackageData(input.projectId, db);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      const requirementTrace = stackRequirementTrace(
+        await getRequirementGraph(input.projectId),
+        new Date().toISOString(),
+      );
 
       const allCalcResults = await db
         .select()
@@ -1015,6 +1046,38 @@ export const permitPackageRouter = router({
         doc.setTextColor(0, 0, 0);
       }
 
+      // ── Supplementary CIM trace — stack-separation FRR only ────────────────
+      if (requirementTrace) {
+        doc.addPage();
+        doc.setFillColor(31, 41, 55);
+        doc.rect(0, 0, W, 18, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+        doc.text("Compliance Requirement Trace (Fire Separation)", M, 13);
+        doc.setTextColor(0, 0, 0);
+        y = 28;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+        doc.text(`Snapshot v${requirementTrace.snapshotVersion} | Hash ${requirementTrace.contentHash}`, M, y);
+        y += 5;
+        doc.text("FRR requirement identified — verification pending", M, y);
+        y += 8;
+        autoTable(doc, {
+          startY: y,
+          head: [["From / To", "Provision", "Required", "Triggering facts", "Status"]],
+          body: requirementTrace.requirements.map(requirement => [
+            requirement.fromTo,
+            requirement.provisionRef,
+            `${String(requirement.requiredValue.value)}${requirement.requiredValue.unit ? ` ${requirement.requiredValue.unit}` : ""}`,
+            requirement.triggeredBy.map(fact => `${fact.fact}=${typeof fact.value === "string" ? fact.value : JSON.stringify(fact.value)}`).join("; "),
+            "FRR requirement identified — verification pending",
+          ]),
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 7.5 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: M, right: M },
+        });
+      }
+
       // ── Page 9/10 — Accessibility & Plumbing ───────────────────────────────
       doc.addPage();
       doc.setFillColor(31, 41, 55);
@@ -1643,6 +1706,10 @@ export const permitPackageRouter = router({
 
       const { project, strategy, calcPkg, latestDrawing, pkgReview } = await fetchPackageData(input.projectId, db);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
+      const requirementTrace = stackRequirementTrace(
+        await getRequirementGraph(input.projectId),
+        new Date().toISOString(),
+      );
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
       const calcSummary = (calcPkg?.calculationsSummaryJson ?? {}) as Partial<CalcSummary>;
@@ -1689,6 +1756,7 @@ export const permitPackageRouter = router({
           drawingComplianceScore: latestDrawing?.complianceScore ?? null,
           drawingComplianceLevel: latestDrawing?.complianceLevel ?? null,
         },
+        requirementGraphTrace: requirementTrace,
         permitPackage: {
           generated:    !!pkgReview,
           approvedAt:   pkgReview?.reviewedAt ?? null,

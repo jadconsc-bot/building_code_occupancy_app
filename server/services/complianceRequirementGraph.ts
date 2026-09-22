@@ -29,6 +29,87 @@ export interface PersistedRequirementGraph {
   dependencies: Array<{ requirementId: string; dependsOnRequirementId: string }>;
 }
 
+export interface RequirementGraphSnapshot {
+  snapshotVersion: number;
+  contentHash: string;
+  createdAt: Date;
+  requirements: Array<RequirementCandidate & {
+    id: string;
+    supersedes?: string;
+    dependsOn: string[];
+    dependents: string[];
+  }>;
+  dependencies: Array<{ requirementId: string; dependsOnRequirementId: string }>;
+}
+
+/** Load one consistent, latest FRR graph snapshot for document/report generation. */
+export async function getRequirementGraph(projectId: number): Promise<RequirementGraphSnapshot | null> {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+
+  const [snapshot] = await db
+    .select()
+    .from(complianceRequirementSnapshots)
+    .where(and(
+      eq(complianceRequirementSnapshots.projectId, projectId),
+      eq(complianceRequirementSnapshots.scope, "frr"),
+    ))
+    .orderBy(desc(complianceRequirementSnapshots.snapshotVersion))
+    .limit(1);
+  if (!snapshot) return null;
+
+  const rows = await db
+    .select()
+    .from(complianceRequirements)
+    .where(and(
+      eq(complianceRequirements.projectId, projectId),
+      eq(complianceRequirements.snapshotVersion, snapshot.snapshotVersion),
+    ));
+  if (rows.length === 0) return null;
+
+  const ids = rows.map(row => row.id);
+  const allDependencies = await db
+    .select()
+    .from(requirementDependencies)
+    .where(eq(requirementDependencies.projectId, projectId));
+  const dependencies = allDependencies
+    .filter(dep => ids.includes(dep.requirementId) && ids.includes(dep.dependsOnRequirementId))
+    .map(dep => ({ requirementId: dep.requirementId, dependsOnRequirementId: dep.dependsOnRequirementId }));
+
+  const dependencyMap = new Map<string, string[]>();
+  const dependentMap = new Map<string, string[]>();
+  for (const dependency of dependencies) {
+    dependencyMap.set(dependency.requirementId, [
+      ...(dependencyMap.get(dependency.requirementId) ?? []),
+      dependency.dependsOnRequirementId,
+    ]);
+    dependentMap.set(dependency.dependsOnRequirementId, [
+      ...(dependentMap.get(dependency.dependsOnRequirementId) ?? []),
+      dependency.requirementId,
+    ]);
+  }
+
+  return {
+    snapshotVersion: snapshot.snapshotVersion,
+    contentHash: snapshot.contentHash,
+    createdAt: snapshot.createdAt,
+    requirements: rows.map(row => ({
+      provisionRef: row.provisionRef,
+      requirementType: row.requirementType,
+      appliesTo: row.appliesTo as RequirementCandidate["appliesTo"],
+      requiredValue: row.requiredValue as RequirementCandidate["requiredValue"],
+      actualValue: row.actualValue as RequirementCandidate["actualValue"],
+      status: row.status as RequirementStatus,
+      triggeredBy: row.triggeredBy as RequirementCandidate["triggeredBy"],
+      id: row.id,
+      dependsOn: dependencyMap.get(row.id) ?? [],
+      dependents: dependentMap.get(row.id) ?? [],
+      ...(row.supersedes ? { supersedes: row.supersedes } : {}),
+    })),
+    dependencies,
+  };
+}
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === "object") {
