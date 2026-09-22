@@ -61,19 +61,31 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
       };
 
       const first = await caller.drawingAnalysis.runCalculatorOrchestrator(input);
-      const firstSnapshots = await db.select().from(complianceRequirementSnapshots).where(eq(complianceRequirementSnapshots.projectId, projectId));
+      const firstSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "frr"),
+      ));
       const firstRequirements = await db.select().from(complianceRequirements).where(eq(complianceRequirements.projectId, projectId));
       const firstDependencies = await db.select().from(requirementDependencies).where(eq(requirementDependencies.projectId, projectId));
       const firstProjection = await db.select().from(complianceResults).where(and(eq(complianceResults.projectId, projectId), eq(complianceResults.ruleCategory, "orchestrator-frr")));
       const adjacencyRows = await db.select().from(complianceResults).where(and(eq(complianceResults.projectId, projectId), eq(complianceResults.roomId, roomId)));
+      const occupantLoadSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "occupant-load"),
+      ));
       expect(first.complianceGraph.created).toBe(true);
       expect(firstSnapshots).toHaveLength(1);
       expect(firstRequirements.some(r => r.requirementType === "orchestrator-frr.fire-separation")).toBe(true);
+      expect(occupantLoadSnapshots).toHaveLength(1);
+      expect(firstRequirements.some(r => r.requirementType === "orchestrator-occupant-load.determination")).toBe(true);
       expect(firstDependencies.length).toBeGreaterThan(0);
       expect(firstProjection.length).toBeGreaterThan(0);
 
       const second = await caller.drawingAnalysis.runCalculatorOrchestrator(input);
-      const secondSnapshots = await db.select().from(complianceRequirementSnapshots).where(eq(complianceRequirementSnapshots.projectId, projectId));
+      const secondSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "frr"),
+      ));
       const secondRequirements = await db.select().from(complianceRequirements).where(eq(complianceRequirements.projectId, projectId));
       expect(second.complianceGraph.created).toBe(false);
       expect(secondSnapshots).toHaveLength(firstSnapshots.length);
@@ -83,7 +95,10 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
         ...input,
         stackSeparations: [{ from: "C", to: "B-3", frr: "1 hr", hours: 1, nbcRef: "NBC 3.1.3.1" }],
       });
-      const finalSnapshots = await db.select().from(complianceRequirementSnapshots).where(eq(complianceRequirementSnapshots.projectId, projectId)).orderBy(desc(complianceRequirementSnapshots.snapshotVersion));
+      const finalSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "frr"),
+      )).orderBy(desc(complianceRequirementSnapshots.snapshotVersion));
       const finalRequirements = await db.select().from(complianceRequirements).where(eq(complianceRequirements.projectId, projectId));
       const finalDependencies = await db.select().from(requirementDependencies).where(eq(requirementDependencies.projectId, projectId));
       const finalProjection = await db.select().from(complianceResults).where(and(eq(complianceResults.projectId, projectId), eq(complianceResults.ruleCategory, "orchestrator-frr")));
