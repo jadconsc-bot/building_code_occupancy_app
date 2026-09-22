@@ -102,7 +102,7 @@ export function BatchStairCalculator() {
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`National Building Code of Canada 2025 - Alberta Edition`, pageWidth / 2, 28, { align: "center" });
+    doc.text(`National Building Code of Canada 2025`, pageWidth / 2, 28, { align: "center" });
     doc.text(`NBC Article 3.4.6 - Stairs, Ramps and Landings`, pageWidth / 2, 34, { align: "center" });
     doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth / 2, 40, { align: "center" });
     

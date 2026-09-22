@@ -1,5 +1,5 @@
 // NBC Minimum Ceiling Height Requirements by Occupancy
-// Based on National Building Code of Canada 2023
+// Based on National Building Code of Canada 2020, with a confirmed NBC(AE) 2023 override for Alberta secondary suites (see "C (Secondary Suite)" entry)
 
 export interface CeilingHeightRequirement {
   occupancy: string;
@@ -154,6 +154,7 @@ export const ceilingHeightData: Record<string, CeilingHeightRequirement> = {
       "Living spaces: minimum 2.3m (7'6\")",
       "Basements: minimum 2.1m (6'11\")",
       "Service rooms: 2.0m (6'7\")",
+      "ALBERTA OVERRIDE (NBC(AE) 2023 s.9.5.3.1(2)/(3)): minimum ceiling 1.95m (6'5\"), beam/duct clearance 1.85m (6'1\") — lower than the 2.3m base figure above. Confirm project jurisdiction before relying on the base value.",
     ],
     exceptions: [
       "Sloped ceilings: minimum 50% of floor area at full height",

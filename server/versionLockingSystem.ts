@@ -7,7 +7,7 @@
  * becomes impossible to reproduce. This destroys legal defensibility.
  * 
  * The solution: Lock the EXACT versions of:
- * - NBC ruleset version (e.g., NBC-2023-v1.0)
+ * - NBC ruleset version (e.g., NBC-2020-v1.0)
  * - Calculator code version (e.g., occupantLoadCalculator@2.1.3)
  * - Engine version (e.g., engine@1.4.0)
  * 
@@ -22,7 +22,7 @@ import crypto from 'crypto';
  * Version information for a calculation
  */
 export interface VersionLock {
-  nbcVersion: string; // e.g., 'NBC-2023-v1.0'
+  nbcVersion: string; // e.g., 'NBC-2020-v1.0'
   nbcVersionHash: string; // SHA-256 of ruleset
   calculatorVersion: string; // e.g., 'occupantLoadCalculator@2.1.3'
   calculatorCodeHash: string; // SHA-256 of calculator code

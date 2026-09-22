@@ -73,9 +73,9 @@ export function CodeAmendmentTracker({ occupancyCode }: CodeAmendmentTrackerProp
         <Button
           onClick={() => {
             const data: any[][] = [];
-            data.push(['Code Amendment Tracker (NBC 2019 → 2023)']);
+            data.push(['Code Amendment Tracker (NBC 2020 → 2025)']);
             data.push([]);
-            data.push(['Category', 'Section', 'Title', 'Impact', 'NBC 2019', 'NBC 2023', 'Affected Occupancies']);
+            data.push(['Category', 'Section', 'Title', 'Impact', 'NBC 2020', 'NBC 2025', 'Affected Occupancies']);
             filteredAmendments.forEach(amendment => {
               data.push([
                 amendment.category,
@@ -223,7 +223,7 @@ export function CodeAmendmentTracker({ occupancyCode }: CodeAmendmentTrackerProp
                   </div>
                   <div className="p-3 bg-green-50 border border-green-200 rounded">
                     <p className="text-xs font-bold text-green-900 mb-1 uppercase tracking-wider">
-                      NBC 2023
+                      NBC 2025
                     </p>
                     <p className="text-sm text-green-800">{amendment.nbc2023}</p>
                   </div>

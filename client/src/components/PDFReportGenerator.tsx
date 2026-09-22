@@ -140,7 +140,7 @@ export function PDFReportGenerator({
         doc.setFont("helvetica", "normal");
         doc.text(`Classification: ${occupancyCode} - ${occupancyName}`, margin, yPosition);
         yPosition += 7;
-        doc.text("Reference: National Building Code of Canada 2023", margin, yPosition);
+        doc.text("Reference: National Building Code of Canada 2020", margin, yPosition);
         yPosition += 10;
       }
 
@@ -211,7 +211,7 @@ export function PDFReportGenerator({
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "italic");
-      const disclaimer = "This report is generated based on the National Building Code of Canada 2023 - Alberta Edition. All calculations and classifications should be verified by a qualified professional engineer or architect. Local building authority approval is required for all construction projects. This report is for preliminary assessment purposes only and does not constitute professional engineering advice.";
+      const disclaimer = "This report is generated based on the National Building Code of Canada, NBC(AE) 2023. All calculations and classifications should be verified by a qualified professional engineer or architect. Local building authority approval is required for all construction projects. This report is for preliminary assessment purposes only and does not constitute professional engineering advice.";
       addWrappedText(disclaimer, 9, contentWidth);
 
       // Footer on every page
@@ -359,7 +359,7 @@ export function PDFReportGenerator({
               )}
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
-                <span>NBC 2023 references and compliance notes</span>
+                <span>NBC 2020 references and compliance notes</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>

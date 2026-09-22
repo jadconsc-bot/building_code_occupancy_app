@@ -1,7 +1,7 @@
 /**
  * Electrical Service Load Calculator - Server-Side Implementation
  * 
- * Calculates electrical service load requirements based on NBC 2023 Part 2
+ * Calculates electrical service load requirements based on NBC 2020 Part 2
  * Provides step-by-step trace for legal defensibility
  */
 
@@ -20,7 +20,7 @@ export class ElectricalServiceLoadCalculator extends BaseCalculator {
   }
 
   get description(): string {
-    return 'Calculates electrical service load requirements based on NBC 2023 Part 2';
+    return 'Calculates electrical service load requirements based on NBC 2020 Part 2';
   }
 
   async execute(

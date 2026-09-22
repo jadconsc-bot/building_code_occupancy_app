@@ -77,7 +77,7 @@ describe("Rule Management System", () => {
     });
 
     it("should require approval notes for admin decision", () => {
-      const approvalNotes = "Approved after review. Complies with NBC 2023.";
+      const approvalNotes = "Approved after review. Complies with NBC 2020.";
       expect(approvalNotes.length).toBeGreaterThan(0);
       expect(approvalNotes).toContain("Approved");
     });

@@ -20,7 +20,7 @@ export function CeilingHeightTable({ occupancy }: CeilingHeightTableProps) {
           <Ruler className="w-4 h-4 text-primary" /> Minimum Ceiling Heights
         </CardTitle>
         <CardDescription className="text-xs mt-1">
-          NBC 2023 minimum ceiling height requirements for {requirements.occupancy}
+          NBC 2020 minimum ceiling height requirements for {requirements.occupancy}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
@@ -120,7 +120,7 @@ export function CeilingHeightTable({ occupancy }: CeilingHeightTableProps) {
         {/* Reference */}
         <div className="mt-6 pt-4 border-t border-border text-xs text-muted-foreground">
           <p>
-            <strong>Reference:</strong> National Building Code of Canada 2023
+            <strong>Reference:</strong> National Building Code of Canada 2020
             <br />
             Part 9 (Housing and Small Buildings) and Part 3 (Fire Protection, Occupant Safety and Accessibility)
           </p>

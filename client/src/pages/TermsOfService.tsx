@@ -131,7 +131,7 @@ export default function TermsOfService() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <p>
-              This application is based on the <strong>National Building Code 2023 Alberta Edition (NBC 2023 AE)</strong>. 
+              This application is based on the <strong>National Building Code (Alberta Edition) 2023 (NBC(AE) 2023)</strong>.
               Building codes are updated periodically, and local amendments may supersede or modify national code requirements.
             </p>
             <p>

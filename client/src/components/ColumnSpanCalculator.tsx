@@ -254,7 +254,7 @@ export function ColumnSpanCalculator() {
             <strong>Important Notes:</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Based on NBC 2023 Table 9.23.4.4</li>
+            <li>Based on NBC 2020 Table 9.23.4.4</li>
             <li>Assumes axial compression loading only</li>
             <li>Unsupported length is the distance between lateral supports</li>
             <li>Load capacity decreases with increasing unsupported length</li>
@@ -283,7 +283,7 @@ export function ColumnSpanCalculator() {
             </ul>
           </div>
           <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
-            <strong>Reference:</strong> National Building Code of Canada 2023, Table 9.23.4.4
+            <strong>Reference:</strong> National Building Code of Canada 2020, Table 9.23.4.4
             <br />
             Maximum Axial Loads for Wood Columns
           </p>

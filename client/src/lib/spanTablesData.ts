@@ -1,4 +1,4 @@
-// Span Tables for Structural Lumber (Based on NBC 2023 Part 9, Span Tables)
+// Span Tables for Structural Lumber (Based on NBC 2020 Part 9, Span Tables)
 // Maximum spans for floor joists, ceiling joists, and rafters
 
 export interface SpanData {
@@ -107,7 +107,7 @@ export const spanTables: SpanTable[] = [
 ];
 
 export const spanTableNotes = [
-  'Spans are based on NBC 2023 Part 9 Span Tables',
+  'Spans are based on NBC 2020 Part 9 Span Tables',
   'Floor joists assume 1.9 kPa live load + 0.5 kPa dead load',
   'Ceiling joists assume no attic storage (0.5 kPa)',
   'Roof rafters assume 2.0 kPa snow load (typical for Calgary/Edmonton)',

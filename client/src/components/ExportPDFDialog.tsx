@@ -136,7 +136,7 @@ export function ExportPDFDialog({
       `Project: ${projectName || 'Not specified'}\n` +
       `Address: ${projectAddress || 'Not specified'}\n\n` +
       `View online: ${window.location.href}\n\n` +
-      `Based on National Building Code - 2023 Alberta Edition`
+      `Based on National Building Code of Canada, NBC(AE) 2023`
     );
 
     window.open(`mailto:?subject=${subject}&body=${body}`);

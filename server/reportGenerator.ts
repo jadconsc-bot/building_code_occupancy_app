@@ -213,7 +213,7 @@ export class ReportGenerator {
   private static generateAssumptions(result: Record<string, any>): string {
     let assumptions = `The following assumptions were made in this calculation:\n\n`;
     assumptions += `1. All input data is accurate and complete\n`;
-    assumptions += `2. The calculation follows NBC 2023 standards\n`;
+    assumptions += `2. The calculation follows NBC 2020 standards\n`;
     assumptions += `3. No amendments or local variations have been applied\n`;
     assumptions += `4. The results are valid at the time of calculation\n`;
 
@@ -228,7 +228,7 @@ export class ReportGenerator {
         references += `- ${ref}\n`;
       });
     } else {
-      references += `- National Building Code of Canada (NBC) 2023\n`;
+      references += `- National Building Code of Canada (NBC) 2020\n`;
     }
 
     return references;
@@ -296,7 +296,7 @@ export class ReportGenerator {
 
   private static generateComplianceReferences(result: Record<string, any>): string {
     let references = `This analysis references the following:\n\n`;
-    references += `- National Building Code of Canada (NBC) 2023\n`;
+    references += `- National Building Code of Canada (NBC) 2020\n`;
     references += `- NBC Table 1.1.1 - Occupancy Classification\n`;
     references += `- NBC Table 3.1.8.1 - Fire-Resistance Ratings\n`;
     references += `- NBC 2020 Table 3.1.17.1 - Occupant Load\n`;
@@ -313,7 +313,7 @@ export class ReportGenerator {
   private static extractAssumptions(result: Record<string, any>): string[] {
     return [
       'All input data is accurate and complete',
-      'The calculation follows NBC 2023 standards',
+      'The calculation follows NBC 2020 standards',
       'No amendments or local variations have been applied',
       'The results are valid at the time of calculation',
     ];
@@ -323,7 +323,7 @@ export class ReportGenerator {
     if (result.results && result.results.nbcReferences) {
       return result.results.nbcReferences;
     }
-    return ['National Building Code of Canada (NBC) 2023'];
+    return ['National Building Code of Canada (NBC) 2020'];
   }
 
   private static extractComplianceAssumptions(inputs: Record<string, any>): string[] {

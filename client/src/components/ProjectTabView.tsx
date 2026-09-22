@@ -1093,7 +1093,7 @@ export function ProjectTabView({ projectId, onNavigate, onBack }: ProjectTabView
             <h2 className="text-lg font-semibold leading-tight">{project.name}</h2>
             <p className="text-sm text-muted-foreground">{project.address ?? "No address on file"}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {project.occupancyCode} · {project.template ?? "NBC 2023"}
+              {project.occupancyCode} · {project.template ?? "NBC 2020"}
             </p>
           </div>
           <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded border ${badge.className}`}>

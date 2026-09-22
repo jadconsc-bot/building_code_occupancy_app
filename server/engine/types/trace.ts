@@ -8,7 +8,7 @@ export interface EvaluatedInputs {
 
 export interface OverrideChainEntry {
   layer: 'federal' | 'provincial' | 'municipal' | 'project';
-  source: string | null;  // e.g. "NBC 2023", "City of Calgary Bylaw 123"
+  source: string | null;  // e.g. "NBC 2020", "City of Calgary Bylaw 123"
   value: number | string | boolean | null;
   applied: boolean;       // was this layer's value the one used?
 }

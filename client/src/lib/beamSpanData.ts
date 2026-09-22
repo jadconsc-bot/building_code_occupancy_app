@@ -1,5 +1,5 @@
 /**
- * Beam Span Data based on NBC 2023 Table 9.23.4.3
+ * Beam Span Data based on NBC 2020 Table 9.23.4.3
  * Maximum Spans for Steel Beams Supporting Floors in Dwelling Units
  * Assumes laterally supported top flanges and residential loading (1.9 kPa live + 0.5 kPa dead)
  */

@@ -1,7 +1,7 @@
 /**
  * NBC(AE) 2023 Alberta Overlay
  *
- * Source: National Building Code – 2023 Alberta Edition, NR24-28/7-2023E
+ * Source: NBC(AE) 2023, NR24-28/7-2023E
  * Applied when province === 'AB'. Replaces NBC 2020 base values where noted.
  *
  * STANDATA: Alberta Municipal Affairs bulletins may further amend these values.
@@ -50,7 +50,7 @@ export const ALBERTA_OVERRIDES: ProvincialOverride[] = [
 
   // Fire separation entries (9.10.9.4, 9.10.9.15, 9.10.9.16)
   // were removed 2026-06-22 — unverified against primary source.
-  // NBC_AE_2023_CODECOMPLY_EXTRACTION.md PART H notes these
+  // The Alberta primary-source extraction notes these
   // articles as "TODO: full text extraction needed". Until
   // that extraction is complete and values are verified,
   // no Alberta override applies for fire separation.

@@ -1,7 +1,7 @@
 /**
  * Fire-Resistance Rating Calculator - Server-Side Implementation
  * 
- * Calculates required fire-resistance ratings based on NBC 2023 Table 3.1.8.1
+ * Calculates required fire-resistance ratings based on NBC 2020 Table 3.1.8.1
  * Provides step-by-step trace for legal defensibility
  */
 
@@ -20,11 +20,11 @@ export class FireResistanceRatingCalculator extends BaseCalculator {
   }
 
   get description(): string {
-    return 'Calculates required fire-resistance ratings based on NBC 2023 Table 3.1.8.1';
+    return 'Calculates required fire-resistance ratings based on NBC 2020 Table 3.1.8.1';
   }
 
   /**
-   * NBC 2023 Table 3.1.8.1 - Fire-Resistance Ratings
+   * NBC 2020 Table 3.1.8.1 - Fire-Resistance Ratings
    * Maps occupancy + construction type + area to required FRR
    */
   private readonly frrTable: Record<string, Record<string, Record<string, number>>> = {

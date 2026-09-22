@@ -172,7 +172,7 @@ export async function generatePDFChecklist(options: PDFChecklistOptions): Promis
         { align: 'center' }
       );
       doc.text(
-        'Based on National Building Code - 2023 Alberta Edition',
+        'Based on National Building Code of Canada, NBC(AE) 2023',
         pageWidth / 2,
         pageHeight - 6,
         { align: 'center' }
@@ -330,7 +330,7 @@ export async function generateBatchPDFChecklists(
         { align: 'center' }
       );
       doc.text(
-        'Based on National Building Code - 2023 Alberta Edition',
+        'Based on National Building Code of Canada, NBC(AE) 2023',
         pageWidth / 2,
         pageHeight - 6,
         { align: 'center' }

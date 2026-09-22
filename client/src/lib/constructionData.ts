@@ -9,7 +9,7 @@ export interface ConstructionLimit {
   constructionType: ConstructionType[];
 }
 
-// Data derived from NBC 2023 Alberta Edition Part 3.2.2
+// Data derived from NBC(AE) 2023 Part 3.2.2
 export const constructionLimits: Record<string, ConstructionLimit[]> = {
   'A-1': [
     { article: '3.2.2.20', maxHeight: 'Any', maxArea: 'Any', sprinklered: true, constructionType: ['Noncombustible'] },

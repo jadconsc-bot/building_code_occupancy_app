@@ -158,7 +158,7 @@ export function FloorJoistSpanCalculator() {
                   <p><strong>Important Notes:</strong></p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
                     <li>Spans assume 1.9 kPa live load + 0.5 kPa dead load</li>
-                    <li>Based on NBC 2023 Table 9.23.4.2-A</li>
+                    <li>Based on NBC 2020 Table 9.23.4.2-A</li>
                     <li>Consult a structural engineer for complex applications</li>
                     <li>Local building authority approval may be required</li>
                   </ul>
@@ -189,7 +189,7 @@ export function FloorJoistSpanCalculator() {
 
         {/* Reference */}
         <div className="text-xs text-muted-foreground border-t pt-4">
-          <p><strong>Reference:</strong> National Building Code of Canada 2023, Table 9.23.4.2-A</p>
+          <p><strong>Reference:</strong> National Building Code of Canada 2020, Table 9.23.4.2-A</p>
           <p className="mt-1">Maximum Spans for Floor Joists - General Capacity</p>
         </div>
       </CardContent>

@@ -53,7 +53,6 @@ import { BarrierFreeCalculator } from "@/components/BarrierFreeCalculator";
 import { FireAlarmCalculator } from "@/components/FireAlarmCalculator";
 import { EmergencyLightingCalculator } from '@/components/EmergencyLightingCalculator';
 import { SpanTables } from '@/components/SpanTables';
-import { CodeAmendmentTracker } from '@/components/CodeAmendmentTracker';
 import { InspectorChecklistGeneratorEnhanced } from '@/components/InspectorChecklistGeneratorEnhanced';
 import { OccupancyComparison } from '@/components/OccupancyComparison';
 import { OnboardingDialog } from '@/components/OnboardingTutorial';
@@ -559,7 +558,7 @@ export default function Home() {
           </div>
           
           <div class="section">
-            <h2>📊 Load Calculation Factors (NBC 2023 Table 4.1.5.3)</h2>
+            <h2>📊 Load Calculation Factors (NBC 2020 Table 4.1.5.3)</h2>
             <table>
               <thead>
                 <tr>
@@ -651,7 +650,7 @@ export default function Home() {
           </div>
           
           <div class="footer">
-            <p>Generated from Building Code Occupancy Classifier | Based on National Building Code of Canada 2023 (Alberta Edition)</p>
+            <p>Generated from Building Code Occupancy Classifier | Based on National Building Code of Canada, NBC(AE) 2023</p>
             <p>Generated on: ${new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
             <p><em>This document is for reference only. Always verify requirements with the current building code and local authority having jurisdiction.</em></p>
           </div>
@@ -1419,7 +1418,7 @@ export default function Home() {
         </div>
         
         <div className="p-4 border-t border-border text-[10px] text-muted-foreground bg-sidebar">
-          Based on National Building Code - 2023 {selectedRegion === "AB" ? "Alberta" : selectedRegion === "BC" ? "British Columbia" : selectedRegion === "ON" ? "Ontario" : "Saskatchewan"} Edition
+          Based on {selectedRegion === "AB" ? "National Building Code of Canada, NBC(AE) 2023" : "the applicable provincial building code"}
         </div>
       </div>
 
@@ -1796,12 +1795,6 @@ export default function Home() {
                       Span Tables
                     </button>
                     <button
-                      onClick={() => document.getElementById('code-amendments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      Code Amendments
-                    </button>
-                    <button
                       onClick={() => document.getElementById('inspector-checklist')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                       className="text-xs px-2 py-1 rounded border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
                     >
@@ -1911,7 +1904,7 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="pt-2 border-t border-orange-200">
-                              <p className="text-xs font-bold text-orange-900 mb-2 uppercase tracking-wider">Notes (NBC 2023 Table 4.1.5.3)</p>
+                              <p className="text-xs font-bold text-orange-900 mb-2 uppercase tracking-wider">Notes (NBC 2020 Table 4.1.5.3)</p>
                               <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
                                 {loadFactors.notes.map((note: string, i: number) => (
                                   <li key={i}>{note}</li>
@@ -2011,7 +2004,7 @@ export default function Home() {
                       <Building2 className="w-4 h-4" /> Construction Limits (Part 3.2.2)
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-muted-foreground/20 pl-3">
-                      Maximum building area and height permitted for <strong>{selectedGroup.code}</strong> based on NBC 2023 Article 3.2.2.
+                      Maximum building area and height permitted for <strong>{selectedGroup.code}</strong> based on NBC(AE) 2023 Article 3.2.2.
                     </p>
                     
                     {/* Interactive Construction Limits Calculator */}
@@ -2223,20 +2216,9 @@ export default function Home() {
                       <Ruler className="w-4 h-4" /> Structural Span Tables
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 border-primary/20 pl-3">
-                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2023 Part 9 Span Tables.
+                      Maximum spans for floor joists, ceiling joists, and roof rafters based on NBC 2020 Part 9 Span Tables.
                     </p>
                     <SpanTables />
-                  </section>
-
-                  {/* Code Amendment Tracker */}
-                  <section id="code-amendments" className="scroll-mt-20">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-purple-600 mb-4 flex items-center gap-2">
-                      <FileText className="w-4 h-4" /> Code Amendment Tracker (NBC 2019 → 2023)
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 border-l-2 border-purple-600/20 pl-3">
-                      Key changes between NBC 2019 and NBC 2023 affecting <strong>{selectedGroup.code}</strong> occupancy.
-                    </p>
-                    <CodeAmendmentTracker occupancyCode={selectedGroup.code} />
                   </section>
 
                   {/* Inspector Checklist Generator */}

@@ -474,7 +474,7 @@ const CALGARY_SMOKE_ALARM_RULE: Part9Rule = {
           "Calgary requires hardwired, interconnected smoke and CO alarms in every bedroom, common space, and mechanical room.",
         whatToDo:
           "Install hardwired smoke/CO alarms wired to the electrical panel. Battery-only alarms do not meet Calgary requirements.",
-        codeReference: "Calgary 1P2007 + NBC 2023 Alberta Edition",
+        codeReference: "Calgary 1P2007 + NBC(AE) 2023",
       };
     }
     return {

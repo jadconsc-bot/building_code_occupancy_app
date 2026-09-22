@@ -288,7 +288,7 @@ export function BeamSpanCalculator() {
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Spans assume 1.9 kPa live load + 0.5 kPa dead load</li>
-            <li>Based on NBC 2023 Table 9.23.4.3</li>
+            <li>Based on NBC 2020 Table 9.23.4.3</li>
             <li>"One Floor" = beam supporting one floor above</li>
             <li>"Two Floors" = beam supporting two floors above</li>
             <li>Consult a structural engineer for complex applications</li>
@@ -311,7 +311,7 @@ export function BeamSpanCalculator() {
             </p>
           </div>
           <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
-            <strong>Reference:</strong> National Building Code of Canada 2023, Table 9.23.4.3
+            <strong>Reference:</strong> National Building Code of Canada 2020, Table 9.23.4.3
             <br />
             Maximum Spans for Beams Supporting Floors
           </p>

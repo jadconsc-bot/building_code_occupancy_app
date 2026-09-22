@@ -1,5 +1,5 @@
 // Load Calculation Factors by Occupancy Type
-// Based on NBC 2023 Table 4.1.5.3 - Minimum Live Loads
+// Based on NBC 2020 Table 4.1.5.3 - Minimum Live Loads
 
 export interface LoadFactor {
   occupancyCode: string;

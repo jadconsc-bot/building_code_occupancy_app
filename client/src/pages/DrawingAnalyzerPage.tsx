@@ -47,7 +47,7 @@ export default function DrawingAnalyzerPage() {
             <span className="font-semibold">PD2.0 Notice:</span>
             <span>
               This tool uses AI to <strong>extract and interpret</strong> drawing data only. All compliance
-              determinations are made by a deterministic rule engine referencing NBC 2023 Alberta Edition.
+              determinations are made by a deterministic rule engine referencing NBC(AE) 2023.
               Results require professional review before use in any regulatory context.
             </span>
           </div>

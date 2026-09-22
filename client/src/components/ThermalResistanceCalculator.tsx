@@ -427,6 +427,15 @@ export function ThermalResistanceCalculator() {
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
+        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>
+            <strong>Unverified:</strong> RSI/insulation targets and climate-zone assignments in this
+            calculator have not been confirmed against a primary NBC 9.36 source and may not match
+            the figures shown in other CodeComply tools. Do not rely on this for permit submission
+            until verified.
+          </span>
+        </div>
         {/* Code standard toggle */}
         <div className="flex gap-2">
           <Button

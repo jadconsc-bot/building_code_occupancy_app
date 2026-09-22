@@ -1,7 +1,7 @@
 /**
  * Fire Exit Calculator - Server-Side Implementation
  * 
- * Calculates fire exit requirements based on NBC 2023 Part 3.4
+ * Calculates fire exit requirements based on NBC 2020 Part 3.4
  * Provides step-by-step trace for legal defensibility
  */
 
@@ -20,7 +20,7 @@ export class FireExitCalculator extends BaseCalculator {
   }
 
   get description(): string {
-    return 'Calculates fire exit requirements based on NBC 2023 Part 3.4';
+    return 'Calculates fire exit requirements based on NBC 2020 Part 3.4';
   }
 
   async execute(

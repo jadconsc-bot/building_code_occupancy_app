@@ -324,7 +324,7 @@ export function RoofRafterSpanCalculator() {
             <strong>Important Notes:</strong>
           </p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Spans based on NBC 2023 Part 9 Span Tables</li>
+            <li>Spans based on NBC 2020 Part 9 Span Tables</li>
             <li>Base calculations assume 2.0 kPa snow load (Calgary/Edmonton typical)</li>
             <li>Pitch factor adjusts for improved load distribution at steeper pitches</li>
             <li>Snow load factor adjusts span capacity based on regional requirements</li>
@@ -349,7 +349,7 @@ export function RoofRafterSpanCalculator() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
-            <strong>Reference:</strong> National Building Code of Canada 2023, Part 9 Span Tables
+            <strong>Reference:</strong> National Building Code of Canada 2020, Part 9 Span Tables
             <br />
             Maximum Spans for Roof Rafters
           </p>

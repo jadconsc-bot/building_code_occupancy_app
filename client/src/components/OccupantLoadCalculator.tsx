@@ -33,7 +33,7 @@ interface OccupantLoadData {
 const occupantLoadTable: Record<string, OccupantLoadData[]> = {
   "Assembly": [
     { area: 0.75, description: "Assembly areas with fixed seats" },
-    { area: 1.2, description: "Standing space, waiting areas" },
+    { area: 0.40, description: "Standing space, waiting areas" },
     { area: 1.4, description: "Assembly areas without fixed seats, stages" },
     { area: 4.6, description: "Exhibit halls, museums, libraries" },
     { area: 9.3, description: "Skating rinks, swimming pools (deck area)" }
@@ -68,25 +68,76 @@ export function OccupantLoadCalculator() {
   const [category, setCategory] = useState<string>("");
   const [spaceType, setSpaceType] = useState<string>("");
   const [floorArea, setFloorArea] = useState<string>("");
+  const [seatCount, setSeatCount] = useState<string>("");
+  const [bedroomCount, setBedroomCount] = useState<string>("");
 
   const getSpaceTypes = (): OccupantLoadData[] => {
     return occupantLoadTable[category] || [];
   };
 
-  const calculateOccupantLoad = (): { occupantLoad: number; areaPerPerson: number } => {
+  const calculateOccupantLoad = (): {
+    occupantLoad: number;
+    areaPerPerson: number;
+    method: "area_factor" | "fixed_seats" | "bedroom_count";
+    needsMethodWarning: boolean;
+  } => {
+    const isFixedSeatSpace = category === "Assembly" && spaceType === "Assembly areas with fixed seats";
+    const isResidential = category === "Residential";
+    const hasSeatCount = seatCount.trim() !== "";
+    const hasBedroomCount = bedroomCount.trim() !== "";
+
+    if (isFixedSeatSpace && hasSeatCount) {
+      const seats = parseFloat(seatCount);
+      if (Number.isFinite(seats) && seats >= 0) {
+        return {
+          occupantLoad: Math.ceil(seats),
+          areaPerPerson: 0,
+          method: "fixed_seats",
+          needsMethodWarning: false,
+        };
+      }
+    }
+
+    if (isResidential && hasBedroomCount) {
+      const bedrooms = parseFloat(bedroomCount);
+      if (Number.isFinite(bedrooms) && bedrooms >= 0) {
+        return {
+          occupantLoad: Math.max(2, Math.ceil(bedrooms) * 2),
+          areaPerPerson: 0,
+          method: "bedroom_count",
+          needsMethodWarning: false,
+        };
+      }
+    }
+
     if (!floorArea || !spaceType) {
-      return { occupantLoad: 0, areaPerPerson: 0 };
+      return {
+        occupantLoad: 0,
+        areaPerPerson: 0,
+        method: "area_factor",
+        needsMethodWarning: isFixedSeatSpace || isResidential,
+      };
     }
 
     const area = parseFloat(floorArea);
     const spaceData = getSpaceTypes().find(s => s.description === spaceType);
-    
+
     if (!spaceData || isNaN(area)) {
-      return { occupantLoad: 0, areaPerPerson: 0 };
+      return {
+        occupantLoad: 0,
+        areaPerPerson: 0,
+        method: "area_factor",
+        needsMethodWarning: isFixedSeatSpace || isResidential,
+      };
     }
 
     const occupantLoad = Math.ceil(area / spaceData.area);
-    return { occupantLoad, areaPerPerson: spaceData.area };
+    return {
+      occupantLoad,
+      areaPerPerson: spaceData.area,
+      method: "area_factor",
+      needsMethodWarning: isFixedSeatSpace || isResidential,
+    };
   };
 
   const result = calculateOccupantLoad();
@@ -133,6 +184,34 @@ export function OccupantLoadCalculator() {
           </CalculatorInputRow>
         )}
 
+        {category === "Assembly" && spaceType === "Assembly areas with fixed seats" && (
+          <CalculatorInputRow label="Number of Seats">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={seatCount}
+              onChange={(e) => setSeatCount(e.target.value)}
+              placeholder="Enter seat count"
+              className="w-32 h-8 px-2 text-right text-accent font-semibold bg-transparent border-b border-border focus:border-accent focus:outline-none"
+            />
+          </CalculatorInputRow>
+        )}
+
+        {category === "Residential" && (
+          <CalculatorInputRow label="Bedroom Count">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={bedroomCount}
+              onChange={(e) => setBedroomCount(e.target.value)}
+              placeholder="Total bedrooms"
+              className="w-32 h-8 px-2 text-right text-accent font-semibold bg-transparent border-b border-border focus:border-accent focus:outline-none"
+            />
+          </CalculatorInputRow>
+        )}
+
         <CalculatorInputRow label="Floor Area">
           <div className="flex items-center gap-2">
             <input
@@ -145,23 +224,45 @@ export function OccupantLoadCalculator() {
             <span className="text-xs text-muted-foreground">m²</span>
           </div>
         </CalculatorInputRow>
+
+        {result.needsMethodWarning && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              {category === "Residential"
+                ? "Enter the total bedroom count to use the NBC dwelling-unit method (2 persons per bedroom, minimum 2). The area-based result below is unverified without it."
+                : "Enter the actual seat count to use the NBC fixed-seating method. The area-based result below is unverified without it."}
+            </span>
+          </div>
+        )}
       </CalculatorSection>
 
       {/* CALCULATION SECTION */}
       {result.occupantLoad > 0 && (
         <>
           <CalculatorSection title="Calculation">
-            <CalculatorRow 
-              label="Load Factor" 
-              value={result.areaPerPerson} 
-              unit="m²/person" 
-              highlight 
-            />
-            <CalculatorRow 
-              label="Load Factor (Imperial)" 
-              value={areaInFeet.toFixed(1)} 
-              unit="ft²/person" 
-            />
+            {result.method === "area_factor" ? (
+              <>
+                <CalculatorRow
+                  label="Load Factor"
+                  value={result.areaPerPerson}
+                  unit="m²/person"
+                  highlight
+                />
+                <CalculatorRow
+                  label="Load Factor (Imperial)"
+                  value={areaInFeet.toFixed(1)}
+                  unit="ft²/person"
+                />
+              </>
+            ) : (
+              <CalculatorRow
+                label={result.method === "fixed_seats" ? "Seats Counted" : "Bedrooms × 2"}
+                value={result.method === "fixed_seats" ? Math.ceil(parseFloat(seatCount)) : `${Math.ceil(parseFloat(bedroomCount))} × 2`}
+                unit={result.method === "fixed_seats" ? "persons" : "persons"}
+                highlight
+              />
+            )}
             <CalculatorRow 
               label="Floor Area" 
               value={floorArea} 
@@ -176,7 +277,11 @@ export function OccupantLoadCalculator() {
               status={result.occupantLoad > 300 ? "warning" : "compliant"}
             />
             <div className="px-4 py-2 bg-muted/30 text-xs text-muted-foreground">
-              Formula: {floorArea} m² ÷ {result.areaPerPerson} m²/person = {result.occupantLoad} persons (rounded up)
+              {result.method === "fixed_seats"
+                ? `Formula: ${Math.ceil(parseFloat(seatCount))} fixed seats = ${result.occupantLoad} persons`
+                : result.method === "bedroom_count"
+                  ? `Formula: ${Math.ceil(parseFloat(bedroomCount))} bedrooms × 2 persons = ${result.occupantLoad} persons (minimum 2)`
+                  : `Formula: ${floorArea} m² ÷ ${result.areaPerPerson} m²/person = ${result.occupantLoad} persons (rounded up)`}
             </div>
           </CalculatorSection>
 
@@ -271,8 +376,8 @@ export function OccupantLoadCalculator() {
         <div className="flex justify-end gap-2 p-4 border-t border-border bg-muted/20">
           <SaveButton
             calculatorType="occupantLoad"
-            inputs={{ category, spaceType, floorArea }}
-            results={{ occupantLoad: result.occupantLoad, areaPerPerson: result.areaPerPerson }}
+            inputs={{ category, spaceType, floorArea, seatCount, bedroomCount }}
+            results={{ occupantLoad: result.occupantLoad, areaPerPerson: result.areaPerPerson, method: result.method }}
           />
           <Button
             variant="outline"

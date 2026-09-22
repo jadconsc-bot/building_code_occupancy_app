@@ -112,7 +112,7 @@ describe('Phase 2: Button Connections Integration Tests', () => {
     });
 
     it('should show building code version disclaimer', () => {
-      const codeVersion = 'NBC 2023 AE';
+      const codeVersion = 'NBC(AE) 2023';
       expect(codeVersion).toBeTruthy();
     });
 

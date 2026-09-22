@@ -46,7 +46,7 @@ export interface SignedCalculationBundle {
   outputs: Record<string, unknown>;
 
   // Version information (CRITICAL for reproducibility)
-  nbcVersion: string; // e.g., 'NBC-2023-v1.0'
+  nbcVersion: string; // e.g., 'NBC-2020-v1.0'
   calculatorVersion: string; // e.g., 'occupantLoadCalculator@2.1.3'
   engineVersion: string; // e.g., 'engine@1.4.0'
 

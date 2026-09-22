@@ -1,7 +1,7 @@
 /**
  * Plumbing Fixture Units Calculator - Server-Side Implementation
  * 
- * Calculates drainage fixture units (DFU) based on NBC 2023 Part 7
+ * Calculates drainage fixture units (DFU) based on NBC 2020 Part 7
  * Provides step-by-step trace for legal defensibility
  */
 
@@ -28,11 +28,11 @@ export class PlumbingFixtureUnitsCalculator extends BaseCalculator {
   }
 
   get description(): string {
-    return 'Calculates drainage fixture units based on NBC 2023 Part 7';
+    return 'Calculates drainage fixture units based on NBC 2020 Part 7';
   }
 
   /**
-   * NBC 2023 Part 7 - Fixture Unit Values
+   * NBC 2020 Part 7 - Fixture Unit Values
    */
   private readonly fixtures: Record<string, Fixture> = {
     toilet: { name: 'Water Closet (Toilet)', dfu: 4 },
