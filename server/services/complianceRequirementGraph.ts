@@ -43,7 +43,7 @@ export interface RequirementGraphSnapshot {
 }
 
 /** Load one consistent, latest FRR graph snapshot for document/report generation. */
-export async function getRequirementGraph(projectId: number): Promise<RequirementGraphSnapshot | null> {
+export async function getRequirementGraph(projectId: number, scope: string): Promise<RequirementGraphSnapshot | null> {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
 
@@ -52,7 +52,7 @@ export async function getRequirementGraph(projectId: number): Promise<Requiremen
     .from(complianceRequirementSnapshots)
     .where(and(
       eq(complianceRequirementSnapshots.projectId, projectId),
-      eq(complianceRequirementSnapshots.scope, "frr"),
+      eq(complianceRequirementSnapshots.scope, scope),
     ))
     .orderBy(desc(complianceRequirementSnapshots.snapshotVersion))
     .limit(1);
@@ -150,13 +150,13 @@ function legacyValue(value: unknown): string {
 export async function persistRequirementGraph(
   projectId: number,
   candidates: RequirementCandidate[],
+  scope: string,
 ): Promise<PersistedRequirementGraph> {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   if (candidates.length === 0) return { created: false, snapshotVersion: 0, requirements: [], dependencies: [] };
 
   return db.transaction(async (tx) => {
-    const scope = "frr";
     const hash = contentHash(candidates);
     const [latest] = await tx
       .select()
@@ -248,25 +248,33 @@ export async function persistRequirementGraph(
       await tx.insert(requirementDependencies).values(dependencies.map(dep => ({ id: randomUUID(), projectId, ...dep })));
     }
 
+    const legacyCategory = `orchestrator-${scope}`;
+    const projectionRemediation = scope === "frr"
+      ? "Confirm the fire-resistance rating from the drawings."
+      : "Review the requirement evidence and applicable code provisions.";
     await tx.delete(complianceResults).where(and(
       eq(complianceResults.projectId, projectId),
-      eq(complianceResults.ruleCategory, "orchestrator-frr"),
+      eq(complianceResults.ruleCategory, legacyCategory),
     ));
-    const projectionRows = persisted.filter(row => row.requirementType.startsWith("orchestrator-frr.fire-separation") || row.requirementType.startsWith("orchestrator-frr.stack-separation"));
+    const projectionPrefix = `${legacyCategory}.`;
+    const projectionRows = persisted.filter(row =>
+      row.requirementType.startsWith(`${projectionPrefix}fire-separation`) ||
+      row.requirementType.startsWith(`${projectionPrefix}stack-separation`)
+    );
     if (projectionRows.length > 0) {
       await tx.insert(complianceResults).values(projectionRows.map(row => ({
         projectId,
         roomId: row.appliesTo.kind === "Room" && /^\d+$/.test(row.appliesTo.id) ? Number(row.appliesTo.id) : null,
         ruleReference: row.provisionRef,
-        ruleCategory: "orchestrator-frr",
+        ruleCategory: legacyCategory,
         ruleText: `FRR requirement for ${row.appliesTo.id}`,
         status: legacyStatus(row.status),
         actualValue: row.actualValue ? legacyValue(row.actualValue.value) : null,
         requiredValue: legacyValue(row.requiredValue.value),
-        remediationSuggestion: row.status === "insufficient-evidence" ? "Confirm the fire-resistance rating from the drawings." : null,
+        remediationSuggestion: row.status === "insufficient-evidence" ? projectionRemediation : null,
         confidence: null,
         severity: row.status === "violation" ? "high" : row.status === "insufficient-evidence" ? "medium" : "info",
-        constraintId: `orchestrator-frr:${createHash("sha256").update(requirementLogicalKey(row)).digest("hex").slice(0, 32)}`,
+        constraintId: `${legacyCategory}:${createHash("sha256").update(requirementLogicalKey(row)).digest("hex").slice(0, 32)}`,
         overrideChain: null,
       })) as any);
     }

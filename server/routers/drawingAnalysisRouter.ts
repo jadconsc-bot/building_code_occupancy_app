@@ -1933,7 +1933,7 @@ export const drawingAnalysisRouter = router({
         totalDwellingUnits: projectUnits,
         stackConfirmedAt: projectRow?.stackConfirmedAt ?? null,
       }, input.province);
-      const complianceGraph = await persistRequirementGraph(analysisRow.projectId, result.complianceRequirements);
+      const complianceGraph = await persistRequirementGraph(analysisRow.projectId, result.complianceRequirements, "frr");
       return { ...result, complianceGraph };
     }),
 });

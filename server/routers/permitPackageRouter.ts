@@ -280,7 +280,7 @@ export const permitPackageRouter = router({
       const { project, strategy, calcPkg, pkgReview } = await fetchPackageData(input.projectId, db);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       const requirementTrace = stackRequirementTrace(
-        await getRequirementGraph(input.projectId),
+        await getRequirementGraph(input.projectId, "frr"),
         new Date().toISOString(),
       );
 
@@ -1707,7 +1707,7 @@ export const permitPackageRouter = router({
       const { project, strategy, calcPkg, latestDrawing, pkgReview } = await fetchPackageData(input.projectId, db);
       if (!project) throw new TRPCError({ code: "NOT_FOUND" });
       const requirementTrace = stackRequirementTrace(
-        await getRequirementGraph(input.projectId),
+        await getRequirementGraph(input.projectId, "frr"),
         new Date().toISOString(),
       );
 
