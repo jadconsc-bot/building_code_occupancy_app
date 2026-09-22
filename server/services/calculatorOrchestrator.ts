@@ -313,6 +313,7 @@ export function runCalculatorOrchestrator(
   // ── Occupant Load ──────────────────────────────────────────────────────────
   const occupantLoad: OrchestratorResult['occupantLoad'] = [];
   const accessoryOccupantLoad: OrchestratorResult['accessoryOccupantLoad'] = [];
+  const complianceRequirements: RequirementCandidate[] = [];
   let totalOccupants = 0;
 
   const groupCRooms = effectiveRooms.filter(
@@ -333,6 +334,35 @@ export function runCalculatorOrchestrator(
       maxOccupants: determination.occupantLoad,
       nbcRef: determination.citation,
       needsReview: determination.needsReview,
+    });
+
+    // orchestrator-occupant-load.determination — Group C dwelling-unit fact.
+    // Always insufficient-evidence, matching the FRR occupancy-fact/stack-fact
+    // precedent: this is a determination/fact node, not a code-minimum
+    // requirement, so requiredValue.value stays null. needsReview is visible
+    // in triggeredBy but must not drive graph status.
+    complianceRequirements.push({
+      provisionRef: determination.citation,
+      requirementType: 'orchestrator-occupant-load.determination',
+      appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:occupant-load` },
+      requiredValue: { value: null, unit: 'persons' },
+      actualValue: determination.needsReview
+        ? null
+        : {
+            value: determination.occupantLoad,
+            unit: 'persons',
+            confirmed: false,
+            source: 'derived',
+          },
+      status: 'insufficient-evidence',
+      triggeredBy: [
+        { fact: 'occupancyGroup', value: 'C' },
+        { fact: 'areaM2', value: totalGroupCArea },
+        { fact: 'bedroomCount', value: determination.bedroomCount },
+        { fact: 'method', value: determination.method },
+        { fact: 'needsReview', value: determination.needsReview },
+        { fact: 'reasoning', value: determination.reasoning },
+      ],
     });
 
     if (!determination.needsReview) {
@@ -360,6 +390,18 @@ export function runCalculatorOrchestrator(
     }
   }
 
+  // Aggregated by occupancy group (not per-room): the input carries labels
+  // but no stable room identifiers, so room-level graph keys would be
+  // fragile and could collide when labels repeat. Matches the grouping
+  // already used by the washroom-count calculation below.
+  const nonGroupCTotals = new Map<string, {
+    areaM2: number;
+    occupants: number;
+    areaPerPerson: number;
+    citation: string;
+    rooms: Array<{ label: string; areaM2: number }>;
+  }>();
+
   for (let i = 0; i < effectiveRooms.length; i++) {
     const room = effectiveRooms[i];
     if (room.areaM2 === null || room.areaM2 <= 0) continue;
@@ -386,6 +428,18 @@ export function runCalculatorOrchestrator(
       nbcRef: spec.citation,
     });
 
+    const groupTotals = nonGroupCTotals.get(group) ?? {
+      areaM2: 0,
+      occupants: 0,
+      areaPerPerson: spec.areaPerPerson,
+      citation: spec.citation,
+      rooms: [],
+    };
+    groupTotals.areaM2 += room.areaM2;
+    groupTotals.occupants += maxOccupants;
+    groupTotals.rooms.push({ label: room.label, areaM2: room.areaM2 });
+    nonGroupCTotals.set(group, groupTotals);
+
     findings.push({
       issueId,
       severity: 'pass',
@@ -395,6 +449,34 @@ export function runCalculatorOrchestrator(
       citation: spec.citation,
     });
     passCount++;
+  }
+
+  // orchestrator-occupant-load.determination — one candidate per non-Group-C
+  // occupancy group present, aggregated (not per-room — see comment above).
+  // Accessory rooms excluded by accessoryOccupancyReclassifier never reach
+  // nonGroupCTotals, matching the current headline-total behavior.
+  for (const [group, totals] of nonGroupCTotals) {
+    complianceRequirements.push({
+      provisionRef: totals.citation,
+      requirementType: 'orchestrator-occupant-load.determination',
+      appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:occupant-load:${group}` },
+      requiredValue: { value: null, unit: 'persons' },
+      actualValue: {
+        value: totals.occupants,
+        unit: 'persons',
+        confirmed: false,
+        source: 'derived',
+      },
+      status: 'insufficient-evidence',
+      triggeredBy: [
+        { fact: 'occupancyGroup', value: group },
+        { fact: 'areaM2', value: totals.areaM2 },
+        { fact: 'areaPerPerson', value: totals.areaPerPerson },
+        { fact: 'method', value: 'area_factor' },
+        { fact: 'needsReview', value: false },
+        { fact: 'rooms', value: totals.rooms },
+      ],
+    });
   }
 
   for (const room of normalizedRooms) {
@@ -599,7 +681,6 @@ export function runCalculatorOrchestrator(
 
   // ── Fire Separation ────────────────────────────────────────────────────────
   const fireSeparation: OrchestratorResult['fireSeparation'] = [];
-  const complianceRequirements: RequirementCandidate[] = [];
   const seenGroups = new Set<string>();
 
   for (let i = 0; i < normalizedRooms.length; i++) {

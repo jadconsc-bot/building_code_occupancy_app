@@ -1933,7 +1933,10 @@ export const drawingAnalysisRouter = router({
         totalDwellingUnits: projectUnits,
         stackConfirmedAt: projectRow?.stackConfirmedAt ?? null,
       }, input.province);
-      const complianceGraph = await persistRequirementGraph(analysisRow.projectId, result.complianceRequirements, "frr");
-      return { ...result, complianceGraph };
+      const frrCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-frr.'));
+      const occupantLoadCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-occupant-load.'));
+      const complianceGraph = await persistRequirementGraph(analysisRow.projectId, frrCandidates, "frr");
+      const occupantLoadGraph = await persistRequirementGraph(analysisRow.projectId, occupantLoadCandidates, "occupant-load");
+      return { ...result, complianceGraph, occupantLoadGraph };
     }),
 });
