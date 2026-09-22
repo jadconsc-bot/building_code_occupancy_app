@@ -1936,9 +1936,11 @@ export const drawingAnalysisRouter = router({
       const frrCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-frr.'));
       const occupantLoadCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-occupant-load.'));
       const washroomCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-washroom-count.'));
+      const barrierFreeCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-barrier-free.'));
       const complianceGraph = await persistRequirementGraph(analysisRow.projectId, frrCandidates, "frr");
       const occupantLoadGraph = await persistRequirementGraph(analysisRow.projectId, occupantLoadCandidates, "occupant-load");
       const washroomGraph = await persistRequirementGraph(analysisRow.projectId, washroomCandidates, "washroom-count");
-      return { ...result, complianceGraph, occupantLoadGraph, washroomGraph };
+      const barrierFreeGraph = await persistRequirementGraph(analysisRow.projectId, barrierFreeCandidates, "barrier-free");
+      return { ...result, complianceGraph, occupantLoadGraph, washroomGraph, barrierFreeGraph };
     }),
 });

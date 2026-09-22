@@ -87,6 +87,20 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
       const dependedOn = washroomDependencies.length > 0
         ? await db.select().from(complianceRequirements).where(eq(complianceRequirements.id, washroomDependencies[0].dependsOnRequirementId))
         : [];
+      const barrierFreeSnapshots = await db.select().from(complianceRequirementSnapshots).where(and(
+        eq(complianceRequirementSnapshots.projectId, projectId),
+        eq(complianceRequirementSnapshots.scope, "barrier-free"),
+      ));
+      const barrierFreeRequirementRows = firstRequirements.filter(r => r.requirementType === "orchestrator-barrier-free.determination");
+      const barrierFreeDependencies = barrierFreeRequirementRows.length > 0
+        ? await db.select().from(requirementDependencies).where(and(
+            eq(requirementDependencies.projectId, projectId),
+            eq(requirementDependencies.requirementId, barrierFreeRequirementRows[0].id),
+          ))
+        : [];
+      const bfDependedOn = barrierFreeDependencies.length > 0
+        ? await db.select().from(complianceRequirements).where(eq(complianceRequirements.id, barrierFreeDependencies[0].dependsOnRequirementId))
+        : [];
       expect(first.complianceGraph.created).toBe(true);
       expect(firstSnapshots).toHaveLength(1);
       expect(firstRequirements.some(r => r.requirementType === "orchestrator-frr.fire-separation")).toBe(true);
@@ -96,6 +110,10 @@ describe.skipIf(!live)("CIM FRR graph live router round-trip", () => {
       expect(washroomRequirement).toBeDefined();
       expect(washroomDependencies.length).toBeGreaterThan(0);
       expect(dependedOn[0]?.requirementType).toBe("orchestrator-occupant-load.determination");
+      expect(barrierFreeSnapshots).toHaveLength(1);
+      expect(barrierFreeRequirementRows.length).toBeGreaterThan(0);
+      expect(barrierFreeDependencies.length).toBeGreaterThan(0);
+      expect(bfDependedOn[0]?.requirementType).toBe("orchestrator-occupant-load.determination");
       expect(firstDependencies.length).toBeGreaterThan(0);
       expect(firstProjection.length).toBeGreaterThan(0);
 

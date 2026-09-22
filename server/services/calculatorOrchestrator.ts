@@ -567,6 +567,23 @@ export function runCalculatorOrchestrator(
   // ── End washroom counts ───────────────────────────────────────────────────
 
   // ── Barrier-free requirements (NBC Part 3.8) ─────────────────────────────
+  // Build the occupant-load dependency keys once — barrier-free's
+  // applicability (isSmallResidential, elevatorRequired) and its
+  // totalOccupants input derive from every occupancy group present, so
+  // every barrier-free candidate depends on all of them, not just one.
+  const occupantLoadKeysByGroup = new Map<string, string>();
+  for (const ol of occupantLoad) {
+    if (occupantLoadKeysByGroup.has(ol.occupancyGroup)) continue;
+    const appliesToId = ol.occupancyGroup === 'C'
+      ? `project:${input.projectId ?? 'drawing'}:occupant-load`
+      : `project:${input.projectId ?? 'drawing'}:occupant-load:${ol.occupancyGroup}`;
+    occupantLoadKeysByGroup.set(
+      ol.occupancyGroup,
+      `orchestrator-occupant-load.determination:${ol.nbcRef}:DwellingUnit:${appliesToId}`
+    );
+  }
+  const allOccupantLoadKeys = [...occupantLoadKeysByGroup.values()];
+
   const barrierFreeRequirements = calculateBarrierFreeRequirements({
     occupancyGroups: [...new Set(occupantLoad.map(ol => ol.occupancyGroup))],
     storeys: input.storeys,
@@ -577,6 +594,73 @@ export function runCalculatorOrchestrator(
     province: input.province ?? 'CA',
     jurisdictionSource: input.jurisdictionSource,
   });
+
+  // Only the accessible-washroom requirement (BF-WC-3.8.3.8) additionally
+  // depends on washroom-count — specifically whichever groups actually
+  // require an accessible stall.
+  const washroomKeysForAccessible = washroomCounts
+    .filter(wc => wc.required.accessibleStallsRequired)
+    .map(wc => `orchestrator-washroom-count.determination:${wc.nbcRef}:DwellingUnit:project:${input.projectId ?? 'drawing'}:washroom:${wc.occupancyGroup}`);
+
+  // orchestrator-barrier-free.determination — one candidate per
+  // BarrierFreeRequirement, keyed by its own stable requirementId (no
+  // aggregation needed, unlike occupant-load/washroom). Status maps:
+  // 'pass' -> compliant (the one case today is elevator-not-required,
+  // a fact confidently derived from occupancy group + storeys alone, not
+  // something needing drawing verification); 'advisory' -> insufficient-
+  // evidence (needs drawing verification, actual is null); 'fail' ->
+  // violation and 'not_applicable' -> compliant are handled defensively
+  // even though the calculator never emits them today.
+  const barrierFreeGraphStatus = (status: typeof barrierFreeRequirements.requirements[number]['status']): RequirementCandidate['status'] => {
+    switch (status) {
+      case 'pass': return 'compliant';
+      case 'fail': return 'violation';
+      case 'not_applicable': return 'compliant';
+      case 'advisory':
+      default: return 'insufficient-evidence';
+    }
+  };
+
+  if (!barrierFreeRequirements.isBarrierFreeRequired) {
+    // Exemption case (small residential, <=2 storeys, <=2 units): the
+    // calculator returns zero requirements and a confirmed exempt result.
+    // Emit a single fact node recording that determination.
+    complianceRequirements.push({
+      provisionRef: barrierFreeRequirements.nbcRef,
+      requirementType: 'orchestrator-barrier-free.determination',
+      appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:barrier-free:${barrierFreeRequirements.ruleId}` },
+      requiredValue: { value: null, unit: 'requirement' },
+      actualValue: { value: 'exempt', confirmed: false, source: 'derived' },
+      status: 'compliant',
+      triggeredBy: [
+        { fact: 'occupancyGroups', value: barrierFreeRequirements.occupancyGroups },
+        { fact: 'storeys', value: barrierFreeRequirements.storeys },
+        { fact: 'totalDwellingUnits', value: input.totalDwellingUnits ?? null },
+      ],
+      dependsOnKeys: allOccupantLoadKeys,
+    });
+  } else {
+    for (const req of barrierFreeRequirements.requirements) {
+      const dependsOnKeys = req.requirementId === 'BF-WC-3.8.3.8'
+        ? [...allOccupantLoadKeys, ...washroomKeysForAccessible]
+        : [...allOccupantLoadKeys];
+      complianceRequirements.push({
+        provisionRef: req.nbcRef,
+        requirementType: 'orchestrator-barrier-free.determination',
+        appliesTo: { kind: 'DwellingUnit', id: `project:${input.projectId ?? 'drawing'}:barrier-free:${req.requirementId}` },
+        requiredValue: { value: req.value, unit: 'requirement' },
+        actualValue: req.actual !== null ? { value: req.actual, confirmed: false, source: 'derived' } : null,
+        status: barrierFreeGraphStatus(req.status),
+        triggeredBy: [
+          { fact: 'requirementId', value: req.requirementId },
+          { fact: 'description', value: req.description },
+          { fact: 'required', value: req.required },
+          { fact: 'severity', value: req.severity },
+        ],
+        dependsOnKeys,
+      });
+    }
+  }
   // ── End barrier-free ──────────────────────────────────────────────────────
 
   // ── Construction Type (NBC Table 3.2.2.20) ────────────────────────────────
