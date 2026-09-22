@@ -242,17 +242,34 @@ export async function persistRequirementGraph(
     // occupant-load). Resolve the most recent existing logical key across
     // scopes, while preferring IDs created in this snapshot for same-scope
     // dependencies.
-    const existingRequirements = await tx.select().from(complianceRequirements)
-      .where(eq(complianceRequirements.projectId, projectId))
-      .orderBy(desc(complianceRequirements.createdAt));
+    //
+    // Only run this when something actually has a cross-batch dependency
+    // to resolve — most persist calls (e.g. every "frr" call today) have
+    // none, and this query otherwise scans every requirement ever created
+    // for the project on every single write, unbounded as history grows.
+    //
+    // Order by snapshotVersion, not createdAt: createdAt is a 1-second-
+    // resolution TIMESTAMP column (see drizzle/schema.ts), and two persist
+    // calls for the same logical key landing in the same wall-clock second
+    // make createdAt ties nondeterministic. snapshotVersion is a strictly
+    // increasing counter per (projectId, scope); since a logical key's
+    // requirementType always encodes its own scope, every row sharing a
+    // key comes from that one scope's version sequence, so ordering by
+    // snapshotVersion desc deterministically picks the true latest row.
+    const hasCrossBatchDependencies = candidates.some(c => (c.dependsOnKeys ?? []).length > 0);
     const existingIdsByKey = new Map<string, string>();
-    for (const existing of existingRequirements) {
-      const key = requirementLogicalKey({
-        requirementType: existing.requirementType,
-        provisionRef: existing.provisionRef,
-        appliesTo: existing.appliesTo as RequirementCandidate["appliesTo"],
-      });
-      if (!existingIdsByKey.has(key)) existingIdsByKey.set(key, existing.id);
+    if (hasCrossBatchDependencies) {
+      const existingRequirements = await tx.select().from(complianceRequirements)
+        .where(eq(complianceRequirements.projectId, projectId))
+        .orderBy(desc(complianceRequirements.snapshotVersion));
+      for (const existing of existingRequirements) {
+        const key = requirementLogicalKey({
+          requirementType: existing.requirementType,
+          provisionRef: existing.provisionRef,
+          appliesTo: existing.appliesTo as RequirementCandidate["appliesTo"],
+        });
+        if (!existingIdsByKey.has(key)) existingIdsByKey.set(key, existing.id);
+      }
     }
 
     const dependencies: Array<{ requirementId: string; dependsOnRequirementId: string }> = [];
