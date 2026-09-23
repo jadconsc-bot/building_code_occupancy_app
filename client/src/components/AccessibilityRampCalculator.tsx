@@ -20,8 +20,11 @@ export function AccessibilityRampCalculator() {
     const maxSlope = 1 / 12;
     const minRun = riseVal / maxSlope;
 
-    // NBC 3.8.3.4 - Maximum rise per run is 9000mm (9m)
-    const maxRisePerRun = 9000;
+    // NBC 3.8.3.4 - Maximum horizontal run between landings is 9000mm (9m).
+    // This is a limit on run length, not rise; derive the corresponding rise
+    // limit from the run limit and maximum slope so the constraints stay in sync.
+    const maxRunLengthPerSection = 9000;
+    const maxRisePerRun = maxRunLengthPerSection * maxSlope;
     const numRuns = Math.ceil(riseVal / maxRisePerRun);
     const actualRisePerRun = riseVal / numRuns;
     const runLengthPerSection = actualRisePerRun / maxSlope;
@@ -190,7 +193,7 @@ export function AccessibilityRampCalculator() {
               <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
                 <li>• Minimum size: 1500mm x 1500mm</li>
                 <li>• Required at top and bottom of each run</li>
-                <li>• Maximum rise between landings: 9000mm (9m)</li>
+                <li>• Maximum run length between landings: 9000mm (9m) — limits rise per run to {(9000 * (1/12)).toFixed(0)}mm at 1:12 slope</li>
                 <li>• Level surface (max slope 1:50)</li>
                 <li>• Clear of door swing if adjacent to doorway</li>
               </ul>

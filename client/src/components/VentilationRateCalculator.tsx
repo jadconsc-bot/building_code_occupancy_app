@@ -23,7 +23,7 @@ export function VentilationRateCalculator() {
 
     if (isNaN(area) || area <= 0) return;
 
-    // NBC 6.2.2.1 - Ventilation rates
+    // ASHRAE 62.1 (incorporated by reference under NBC Part 6) - Ventilation rates — UNVERIFIED values, see warning banner
     let ventilationRate = 0; // L/s
     let perPersonRate = 0;
     let perAreaRate = 0;
@@ -39,7 +39,7 @@ export function VentilationRateCalculator() {
         break;
       
       case "office":
-        // NBC 6.2.2.1 - Office spaces
+        // ASHRAE 62.1 - Office spaces (via NBC Part 6 reference)
         // 10 L/s per person + 0.3 L/s per m²
         perPersonRate = 10;
         perAreaRate = 0.3;
@@ -48,7 +48,7 @@ export function VentilationRateCalculator() {
         break;
       
       case "classroom":
-        // NBC 6.2.2.1 - Educational spaces
+        // ASHRAE 62.1 - Educational spaces (via NBC Part 6 reference)
         // 8 L/s per person
         perPersonRate = 8;
         ventilationRate = occupants * perPersonRate;
@@ -56,7 +56,7 @@ export function VentilationRateCalculator() {
         break;
       
       case "retail":
-        // NBC 6.2.2.1 - Retail spaces
+        // ASHRAE 62.1 - Retail spaces (via NBC Part 6 reference)
         // 10 L/s per person
         perPersonRate = 10;
         ventilationRate = occupants * perPersonRate;
@@ -64,7 +64,7 @@ export function VentilationRateCalculator() {
         break;
       
       case "restaurant":
-        // NBC 6.2.2.1 - Dining spaces
+        // ASHRAE 62.1 - Dining spaces (via NBC Part 6 reference)
         // 10 L/s per person + 0.9 L/s per m²
         perPersonRate = 10;
         perAreaRate = 0.9;
@@ -73,7 +73,7 @@ export function VentilationRateCalculator() {
         break;
       
       case "gym":
-        // NBC 6.2.2.1 - Exercise spaces
+        // ASHRAE 62.1 - Exercise spaces (via NBC Part 6 reference)
         // 20 L/s per person
         perPersonRate = 20;
         ventilationRate = occupants * perPersonRate;
@@ -139,7 +139,7 @@ export function VentilationRateCalculator() {
                 ["Per Person Rate", `${results.perPersonRate} L/s/person`],
                 ["Per Area Rate", `${results.perAreaRate} L/s/m²`],
                 ["", ""],
-                ["NBC Reference", "6.2.2.1 - Ventilation Requirements"],
+                ["Reference", "ASHRAE 62.1, incorporated by reference under NBC Part 6 — values unverified"],
               ] : []
             })}
             currentState={{ occupancyType, floorArea, ceilingHeight }}
@@ -154,6 +154,15 @@ export function VentilationRateCalculator() {
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>
+            <strong>Unverified:</strong> the per-person/per-area ventilation rates shown here are
+            drawn from ASHRAE 62.1 (incorporated by reference under NBC Part 6) but have not been
+            confirmed against the primary ASHRAE 62.1 table. Do not rely on this for permit
+            submission until verified.
+          </span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="occupancy-type" className="text-sm font-medium">
@@ -278,7 +287,7 @@ export function VentilationRateCalculator() {
             </div>
 
             <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
-              <p><strong>NBC Reference:</strong> 6.2.2.1 - Ventilation Requirements</p>
+              <p><strong>Reference:</strong> ASHRAE 62.1, incorporated by reference under NBC Part 6</p>
               <p><strong>Note:</strong> Higher rates may be required for special occupancies or contamination sources</p>
               <p><strong>Energy Code:</strong> NBC Part 10 requires energy recovery for systems &gt; 1500 L/s</p>
             </div>
