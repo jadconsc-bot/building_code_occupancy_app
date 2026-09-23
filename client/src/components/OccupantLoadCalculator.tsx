@@ -81,7 +81,7 @@ export function OccupantLoadCalculator() {
     areaPerPerson: 0,
     seatCount: null,
     bedroomCount: null,
-    needsReview: !!category && !!loadFactorId,
+    needsReview: !!category && !!loadFactorId && isClauseBased,
     reasoning: "",
     citation: "",
   };
