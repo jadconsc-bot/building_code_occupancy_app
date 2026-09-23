@@ -88,6 +88,18 @@ function buildSummary(
 
 export const calculationsPackageRouter = router({
 
+  determineOccupantLoad: protectedProcedure
+    .input(z.object({
+      occupancyGroup: z.string().min(1),
+      areaM2: z.number().nonnegative().nullable().optional(),
+      bedroomCount: z.number().nonnegative().nullable().optional(),
+      seatCount: z.number().nonnegative().nullable().optional(),
+      loadFactorId: z.string().nullable().optional(),
+    }))
+    .query(({ input }) => {
+      return determineOccupantLoad(input);
+    }),
+
   // ── generate ────────────────────────────────────────────────────────────────
   generate: protectedProcedure
     .input(z.object({
