@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,52 +8,48 @@ import { Badge } from "@/components/ui/badge";
 import { ShieldAlert, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
 import { SaveButton } from "@/components/CalculatorWithSave";
+import { trpc } from "@/lib/trpc";
 
 export function GuardHandrailCalculator() {
   const [occupancyType, setOccupancyType] = useState<string>("residential");
   const [location, setLocation] = useState<string>("deck");
   const [height, setHeight] = useState<string>("");
+  const [buildingPart, setBuildingPart] = useState<string>("");
+  const [exteriorHeight, setExteriorHeight] = useState<string>("");
+  const [stairWidth, setStairWidth] = useState<string>("");
+  const [riserCount, setRiserCount] = useState<string>("");
+  const [dwellingUnit, setDwellingUnit] = useState<string>("");
+  const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const elevationNum = parseFloat(height);
+  const exteriorNum = parseFloat(exteriorHeight);
+  const widthNum = parseFloat(stairWidth);
+  const riserNum = parseFloat(riserCount);
+  const { data: determination } = trpc.calculationsPackage.determineGuardHandrail.useQuery({
+    occupancyGroup: occupancyType === "residential" ? "C" : occupancyType === "assembly" ? "A-2" : "D",
+    buildingPart: buildingPart ? buildingPart as "Part 9" | "Part 3" : null,
+    guardLocationType: location === "stair" || location === "ramp" ? "exit_stair_ramp" : location === "deck" ? "mezzanine_balcony_ramp" : "other_elevation_change",
+    guardElevationDifferenceMm: Number.isFinite(elevationNum) ? elevationNum : null,
+    guardExteriorHeightAboveGradeM: Number.isFinite(exteriorNum) ? exteriorNum : null,
+    isWithinDwellingUnitOrSecondarySuite: occupancyType === "residential" ? true : null,
+    guardServesMaxTwoDwellingUnits: occupancyType === "residential" ? true : null,
+    isIndustrialOccupancy: occupancyType === "commercial" ? true : false,
+    stairOrRampWidthMm: Number.isFinite(widthNum) ? widthNum : null,
+    isCurvedFlight: false,
+    riserCount: Number.isFinite(riserNum) ? riserNum : null,
+    rampRiseMm: null,
+    servesSingleDwellingUnit: dwellingUnit === "yes" ? true : dwellingUnit === "no" ? false : null,
+    guardUseCategory: "other",
+    proposedGuardHeightMm: Number.isFinite(elevationNum) ? elevationNum : null,
+  }, { enabled: submitted });
+
+  useEffect(() => {
+    if (determination) setResults({ ...determination, heightVal: elevationNum });
+  }, [determination, elevationNum]);
 
   const calculateRequirements = () => {
-    const heightVal = parseFloat(height);
-    if (isNaN(heightVal) || heightVal < 0) return;
-
-    // NBC 3.4.6.5 - Guard height requirements
-    let minGuardHeight = 0;
-    let maxOpeningSize = 100; // 100mm sphere rule (NBC 3.4.6.6)
-    let loadRequirement = "0.5 kN/m";
-
-    if (occupancyType === "residential") {
-      minGuardHeight = 900; // 900mm for residential
-      if (location === "deck" && heightVal < 600) {
-        minGuardHeight = 0; // No guard required if less than 600mm
-      }
-    } else if (occupancyType === "assembly") {
-      minGuardHeight = 1070; // 1070mm for assembly
-      loadRequirement = "1.0 kN/m";
-    } else {
-      minGuardHeight = 1070; // 1070mm for commercial/industrial
-      loadRequirement = "1.0 kN/m";
-    }
-
-    const guardRequired = heightVal >= 600;
-    const compliant = !guardRequired || heightVal >= minGuardHeight;
-
-    // Handrail requirements (NBC 3.4.6.7)
-    const handrailRequired = location === "stair";
-    const handrailHeight = occupancyType === "residential" ? "865-965mm" : "865-920mm";
-
-    setResults({
-      guardRequired,
-      minGuardHeight,
-      maxOpeningSize,
-      loadRequirement,
-      handrailRequired,
-      handrailHeight,
-      compliant,
-      heightVal
-    });
+    if (!Number.isFinite(elevationNum) || elevationNum < 0) return;
+    setSubmitted(true);
   };
 
   return (
@@ -65,14 +61,14 @@ export function GuardHandrailCalculator() {
               <ShieldAlert className="w-4 h-4 text-primary" /> Guard & Handrail Calculator
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              NBC 3.4.6.5-3.4.6.8 - Determine guard and handrail requirements
+              NBC 3.3.1.18, 3.4.6.5, 3.4.6.6, 9.8.7 and 9.8.8 - Determine guard and handrail requirements
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
             {results !== null && (
               <SaveButton
                 calculatorType="guardHandrail"
-                inputs={{ occupancyType, location, height }}
+                inputs={{ occupancyType, location, height, buildingPart, exteriorHeight, stairWidth, riserCount, dwellingUnit }}
                 results={results}
               />
             )}
@@ -155,6 +151,41 @@ export function GuardHandrailCalculator() {
               value={height}
               onChange={(e) => setHeight(e.target.value)}
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Building Part</Label>
+            <Select value={buildingPart} onValueChange={setBuildingPart}>
+              <SelectTrigger><SelectValue placeholder="Select Part 9 or Part 3" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Part 9">Part 9</SelectItem>
+                <SelectItem value="Part 3">Part 3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Exterior height above grade (m)</Label>
+            <Input type="number" min="0" value={exteriorHeight} onChange={(e) => setExteriorHeight(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-2">
+            <Label>Stair/ramp width (mm)</Label>
+            <Input type="number" min="0" value={stairWidth} onChange={(e) => setStairWidth(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-2">
+            <Label>Riser count</Label>
+            <Input type="number" min="0" value={riserCount} onChange={(e) => setRiserCount(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-2">
+            <Label>Serves one dwelling unit?</Label>
+            <Select value={dwellingUnit} onValueChange={setDwellingUnit}>
+              <SelectTrigger><SelectValue placeholder="Unknown" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

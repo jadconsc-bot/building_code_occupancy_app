@@ -35,6 +35,20 @@ export interface ComplianceInput {
   has_service_space_3_2_1_1_8?: boolean;
   is_within_high_building_scope?: boolean;
   is_3_2_2_51_or_60_construction?: boolean;
+  building_part?: 'Part 9' | 'Part 3';
+  guard_location_type?: 'roof_access' | 'mezzanine_balcony_ramp' | 'exit_stair_ramp' | 'other_elevation_change';
+  guard_elevation_difference_mm?: number;
+  guard_exterior_height_above_grade_m?: number;
+  is_within_dwelling_unit_or_secondary_suite?: boolean;
+  guard_serves_max_two_dwelling_units?: boolean;
+  is_industrial_occupancy?: boolean;
+  stair_or_ramp_width_mm?: number;
+  is_curved_flight?: boolean;
+  riser_count?: number;
+  ramp_rise_mm?: number;
+  serves_single_dwelling_unit?: boolean;
+  guard_use_category?: 'grandstand_egress' | 'equipment_access' | 'other';
+  proposed_guard_height_mm?: number;
   province?: string;
   municipality?: string;
   codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default

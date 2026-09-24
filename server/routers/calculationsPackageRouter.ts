@@ -22,6 +22,7 @@ import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import { evaluateExitCount } from '../engine/rules/egress';
 import { evaluateFireAlarm } from '../engine/rules/fire';
 import { evaluateEmergencyLighting } from '../engine/rules/emergencyLighting';
+import { evaluateGuardHandrail } from '../engine/rules/guardHandrail';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 import { readProvenancedFact } from '../services/factProvenance';
 
@@ -90,6 +91,43 @@ function buildSummary(
 }
 
 export const calculationsPackageRouter = router({
+
+  determineGuardHandrail: protectedProcedure
+    .input(z.object({
+      occupancyGroup: z.string().min(1),
+      buildingPart: z.enum(['Part 9', 'Part 3']).nullable().optional(),
+      guardLocationType: z.enum(['roof_access', 'mezzanine_balcony_ramp', 'exit_stair_ramp', 'other_elevation_change']).nullable().optional(),
+      guardElevationDifferenceMm: z.number().nonnegative().nullable().optional(),
+      guardExteriorHeightAboveGradeM: z.number().nonnegative().nullable().optional(),
+      isWithinDwellingUnitOrSecondarySuite: z.boolean().nullable().optional(),
+      guardServesMaxTwoDwellingUnits: z.boolean().nullable().optional(),
+      isIndustrialOccupancy: z.boolean().nullable().optional(),
+      stairOrRampWidthMm: z.number().nonnegative().nullable().optional(),
+      isCurvedFlight: z.boolean().nullable().optional(),
+      riserCount: z.number().nonnegative().nullable().optional(),
+      rampRiseMm: z.number().nonnegative().nullable().optional(),
+      servesSingleDwellingUnit: z.boolean().nullable().optional(),
+      guardUseCategory: z.enum(['grandstand_egress', 'equipment_access', 'other']).nullable().optional(),
+      proposedGuardHeightMm: z.number().nonnegative().nullable().optional(),
+    }))
+    .query(({ input }) => evaluateGuardHandrail({
+      occupancy_major: input.occupancyGroup.startsWith('F') ? 'F' : input.occupancyGroup,
+      occupancy_division: input.occupancyGroup.startsWith('F-') ? input.occupancyGroup.slice(2) : undefined,
+      building_part: input.buildingPart ?? undefined,
+      guard_location_type: input.guardLocationType ?? undefined,
+      guard_elevation_difference_mm: input.guardElevationDifferenceMm ?? undefined,
+      guard_exterior_height_above_grade_m: input.guardExteriorHeightAboveGradeM ?? undefined,
+      is_within_dwelling_unit_or_secondary_suite: input.isWithinDwellingUnitOrSecondarySuite ?? undefined,
+      guard_serves_max_two_dwelling_units: input.guardServesMaxTwoDwellingUnits ?? undefined,
+      is_industrial_occupancy: input.isIndustrialOccupancy ?? undefined,
+      stair_or_ramp_width_mm: input.stairOrRampWidthMm ?? undefined,
+      is_curved_flight: input.isCurvedFlight ?? undefined,
+      riser_count: input.riserCount ?? undefined,
+      ramp_rise_mm: input.rampRiseMm ?? undefined,
+      serves_single_dwelling_unit: input.servesSingleDwellingUnit ?? undefined,
+      guard_use_category: input.guardUseCategory ?? undefined,
+      proposed_guard_height_mm: input.proposedGuardHeightMm ?? undefined,
+    })),
 
   determineEmergencyLighting: protectedProcedure
     .input(z.object({

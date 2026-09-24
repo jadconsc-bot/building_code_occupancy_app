@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { evaluateGuardHandrail } from '../../../server/engine/rules/guardHandrail';
 
 describe('Design Tools Calculator Formulas', () => {
   
@@ -219,28 +220,20 @@ describe('Design Tools Calculator Formulas', () => {
   });
 
   describe('Guard and Handrail Calculator (NBC 3.4.6)', () => {
-    it('should require 1070mm guard for residential deck', () => {
-      const occupancy = "residential";
-      const location = "deck";
-      const minHeight = 1070; // mm
-      
-      expect(minHeight).toBe(1070);
+    it('uses the Part 9 dwelling-unit guard height', () => {
+      const result = evaluateGuardHandrail({ occupancy_major: 'C', building_part: 'Part 9', is_within_dwelling_unit_or_secondary_suite: true, guard_elevation_difference_mm: 900 });
+      expect(result.minGuardHeight).toBe(900);
     });
 
-    it('should require 920mm handrail height', () => {
-      const minHandrailHeight = 865; // mm
-      const maxHandrailHeight = 965; // mm
-      const typicalHeight = 920; // mm
-      
-      expect(typicalHeight).toBeGreaterThanOrEqual(minHandrailHeight);
-      expect(typicalHeight).toBeLessThanOrEqual(maxHandrailHeight);
+    it('uses the NBC handrail range for an exit stair', () => {
+      const result = evaluateGuardHandrail({ occupancy_major: 'D', guard_location_type: 'exit_stair_ramp', guard_elevation_difference_mm: 900 });
+      expect(result.handrailRequired).toBe(true);
+      expect(result.handrailHeight).toBe('865-1070mm');
     });
 
     it('should limit guard opening to 100mm', () => {
-      const maxOpening = 100; // mm
-      const sphereDiameter = 100; // mm test sphere
-      
-      expect(maxOpening).toBeLessThanOrEqual(sphereDiameter);
+      const result = evaluateGuardHandrail({ occupancy_major: 'D', guard_elevation_difference_mm: 900 });
+      expect(result.maxOpeningSize).toBe(100);
     });
   });
 

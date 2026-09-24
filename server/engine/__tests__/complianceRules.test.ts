@@ -3,7 +3,36 @@ import { evaluateExitWidth, evaluateExitCount, evaluateTravelDistance } from '..
 import { evaluateOccupantLoad } from '../rules/occupancy';
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from '../rules/fire';
 import { evaluateEmergencyLighting } from '../rules/emergencyLighting';
+import { evaluateGuardHandrail } from '../rules/guardHandrail';
 import { Constraints } from '../constraints';
+
+describe('NBC guard and handrail requirements', () => {
+  it('does not require a guard below the 600 mm elevation trigger', () => {
+    expect(evaluateGuardHandrail({ occupancy_major: 'C', guard_elevation_difference_mm: 500 }).guardRequired).toBe(false);
+  });
+  it('fails safe when elevation is missing', () => {
+    const result = evaluateGuardHandrail({ occupancy_major: 'C' });
+    expect(result.guardRequired).toBe(true);
+    expect(result.additionalRequirements.join(' ')).toContain('cannot be confirmed');
+  });
+  it('uses Part 9 dwelling and Part 3 exit-stair heights', () => {
+    expect(evaluateGuardHandrail({ occupancy_major: 'C', building_part: 'Part 9', is_within_dwelling_unit_or_secondary_suite: true }).minGuardHeight).toBe(900);
+    expect(evaluateGuardHandrail({ occupancy_major: 'D', building_part: 'Part 9', is_within_dwelling_unit_or_secondary_suite: false }).minGuardHeight).toBe(1070);
+    expect(evaluateGuardHandrail({ occupancy_major: 'D', building_part: 'Part 3', guard_location_type: 'exit_stair_ramp', guard_exterior_height_above_grade_m: 12 }).minGuardHeight).toBe(1500);
+    expect(evaluateGuardHandrail({ occupancy_major: 'D' }).minGuardHeight).toBe(1070);
+  });
+  it('returns the corrected handrail range and two-handrail note', () => {
+    const result = evaluateGuardHandrail({ occupancy_major: 'D', guard_location_type: 'exit_stair_ramp', stair_or_ramp_width_mm: 1200 });
+    expect(result.handrailRequired).toBe(true);
+    expect(result.handrailHeight).toBe('865-1070mm');
+    expect(result.additionalRequirements.join(' ')).toContain('3.4.6.5(2)(a)');
+  });
+  it('applies the small interior dwelling-unit stair exemption', () => {
+    const result = evaluateGuardHandrail({ occupancy_major: 'C', building_part: 'Part 9', guard_location_type: 'exit_stair_ramp', riser_count: 2, serves_single_dwelling_unit: true });
+    expect(result.handrailRequired).toBe(false);
+    expect(result.additionalRequirements.join(' ')).toContain('9.8.7.1(3)(a)');
+  });
+});
 
 // ── NBC 3.3.1.13.(1)(a) Exit door width ─────────────────────────────────────
 describe('NBC 3.3.1.13.(1)(a) — Exit door minimum clear width 850mm', () => {
