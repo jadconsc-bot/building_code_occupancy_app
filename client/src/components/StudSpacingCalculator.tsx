@@ -20,7 +20,7 @@ export function StudSpacingCalculator() {
     const height = parseFloat(wallHeight);
     if (isNaN(height) || height <= 0) return;
 
-    // NBC Part 9 - Table 9.23.4.1 (Stud Spacing)
+    // NBC 9.23.10.1 / Table 9.23.10.1 (Size and Spacing of Studs)
     // Simplified lookup based on stud size, height, and wall type
     
     const spacingData: Record<string, Record<string, number>> = {
@@ -74,7 +74,7 @@ export function StudSpacingCalculator() {
               <Columns className="w-4 h-4 text-primary" /> Stud Spacing Calculator
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              NBC Part 9 Table 9.23.4.1 - Determine maximum stud spacing for wood-frame walls
+              NBC 9.23.10.1 / Table 9.23.10.1 - Determine maximum stud spacing for wood-frame walls
             </CardDescription>
           </div>
           <CalculatorActions
@@ -93,7 +93,7 @@ export function StudSpacingCalculator() {
                 ["Number of Studs", results.numStuds],
                 ["Compliant", results.compliant ? "Yes" : "No"],
                 ["", ""],
-                ["NBC Reference", "Part 9 Table 9.23.4.1 - Stud Spacing"],
+                ["NBC Reference", "NBC 9.23.10.1 / Table 9.23.10.1 - Size and Spacing of Studs"],
               ] : []
             })}
             currentState={{ studSize, wallHeight }}
@@ -239,6 +239,11 @@ export function StudSpacingCalculator() {
                 </div>
 
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded">
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mb-2">Simplified sizing estimate</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-200">This is a simplified sizing estimate for early planning purposes only. It does not implement the complete NBC prescriptive tables, and the selected species and grade are not currently factored into the computed spacing. Final sizing must be confirmed by a qualified designer or, where required by the applicable authority, a professional engineer.</p>
+                </div>
+
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded">
                   <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mb-2">Additional Requirements (NBC Part 9)</p>
                   <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
                     <li>• Double studs required at openings and corners</li>
@@ -266,7 +271,7 @@ export function StudSpacingCalculator() {
             )}
 
             <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
-              <p><strong>NBC Reference:</strong> Table 9.23.4.1 - Stud Spacing for Wood-Frame Walls</p>
+              <p><strong>NBC Reference:</strong> NBC 9.23.10.1 / Table 9.23.10.1 - Size and Spacing of Studs</p>
               <p><strong>Note:</strong> Values assume standard residential loading. Higher loads may require closer spacing.</p>
             </div>
           </div>

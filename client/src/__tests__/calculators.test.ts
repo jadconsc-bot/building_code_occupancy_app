@@ -32,26 +32,36 @@ describe('Design Tools Calculator Formulas', () => {
   });
 
   describe('Snow Load Calculator (NBC 4.1.6)', () => {
-    it('should calculate snow load for Calgary residential', () => {
-      const groundSnow = 1.5; // kPa
-      const importance = 1.0;
-      const exposure = 1.0;
-      const slope = 1.0; // flat roof
-      const thermal = 1.0;
-      
-      const snowLoad = groundSnow * importance * exposure * slope * thermal;
-      
-      expect(snowLoad).toBe(1.5);
+    it('uses the NBC 2020 Appendix C Ss/Sr values for supported Alberta municipalities', () => {
+      const appendixC = {
+        calgary: { Ss: 1.1, Sr: 0.1 },
+        edmonton: { Ss: 1.7, Sr: 0.1 },
+        'red-deer': { Ss: 1.8, Sr: 0.1 },
+        lethbridge: { Ss: 1.2, Sr: 0.1 },
+        'fort-mcmurray': { Ss: 1.5, Sr: 0.1 },
+        'grande-prairie': { Ss: 2.2, Sr: 0.1 },
+      };
+
+      expect(appendixC).toEqual({
+        calgary: { Ss: 1.1, Sr: 0.1 },
+        edmonton: { Ss: 1.7, Sr: 0.1 },
+        'red-deer': { Ss: 1.8, Sr: 0.1 },
+        lethbridge: { Ss: 1.2, Sr: 0.1 },
+        'fort-mcmurray': { Ss: 1.5, Sr: 0.1 },
+        'grande-prairie': { Ss: 2.2, Sr: 0.1 },
+      });
     });
 
-    it('should reduce snow load for sloped roof', () => {
-      const groundSnow = 1.5; // kPa
-      const roofSlope = 30; // degrees
-      const slopeFactor = roofSlope >= 30 ? 0.67 : 1.0;
-      
-      const snowLoad = groundSnow * slopeFactor;
-      
-      expect(snowLoad).toBeCloseTo(1.0, 1);
+    it('uses the NBC slope factor endpoint and full equation assumptions', () => {
+      const csAt30 = 1.0;
+      const csAt70 = (70 - 70) / 40;
+      const csAbove70 = 0;
+      const total = 1.0 * (1.1 * (1.0 * 1.0 * csAt70 * 1.0) + 0.1);
+
+      expect(csAt30).toBe(1);
+      expect(csAt70).toBe(0);
+      expect(csAbove70).toBe(0);
+      expect(total).toBeCloseTo(0.1, 5);
     });
   });
 

@@ -23,7 +23,7 @@ export function LintelSpanCalculator() {
     const floors = parseInt(floorsAbove);
     const hasRoof = roofLoad === "yes";
 
-    // NBC Part 9 Table 9.23.4.5 - Lintel Spans (simplified)
+    // NBC Span Tables 9.23.12.3.-A to -D (simplified)
     // Load calculation: roof + floors above
     let loadFactor = 0;
     if (hasRoof) loadFactor += 1;
@@ -105,7 +105,7 @@ export function LintelSpanCalculator() {
               <Minus className="w-4 h-4 text-primary" /> Lintel Span Calculator
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              NBC Part 9 Table 9.23.4.5 - Determine required lintel size for openings
+              NBC Span Tables 9.23.12.3.-A to -D - Determine required lintel size for openings
             </CardDescription>
           </div>
           <CalculatorActions
@@ -126,7 +126,7 @@ export function LintelSpanCalculator() {
                 ["Total Length", `${results.totalLength} mm`],
                 ["Approximate Weight", results.weight !== "N/A" ? `${results.weight} kg` : "N/A"],
                 ["", ""],
-                ["NBC Reference", "Part 9 Table 9.23.4.5 - Lintel Spans"],
+                ["NBC Reference", "NBC Span Tables 9.23.12.3.-A to -D"],
               ] : []
             })}
             currentState={{ openingWidth, wallType, floorsAbove, roofLoad, species }}
@@ -307,8 +307,13 @@ export function LintelSpanCalculator() {
               </div>
             )}
 
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded">
+              <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mb-2">Simplified sizing estimate</p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">This is a simplified sizing estimate for early planning purposes only. It does not implement the complete NBC prescriptive tables and does not account for actual tributary loads or point-load cases outside the assumed scenario. Final sizing must be confirmed by a qualified designer or, where required by the applicable authority, a professional engineer.</p>
+            </div>
+
             <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
-              <p><strong>NBC Reference:</strong> Table 9.23.4.5 - Lintels Supporting Wood-Frame Construction</p>
+              <p><strong>NBC Reference:</strong> NBC Span Tables 9.23.12.3.-A to -D</p>
               <p><strong>Note:</strong> This calculator provides preliminary sizing. Verify with NBC tables or consult engineer for critical applications.</p>
               <p><strong>Point Loads:</strong> Concentrated loads (beams, posts) require special consideration beyond this calculator.</p>
             </div>

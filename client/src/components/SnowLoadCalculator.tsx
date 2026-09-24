@@ -20,17 +20,26 @@ export function SnowLoadCalculator() {
   const calculateSnowLoad = () => {
     // Ground snow load Ss (kPa) - NBC 4.1.6.2
     const groundSnowLoads: Record<string, number> = {
-      calgary: 1.5,
-      edmonton: 1.8,
-      "red-deer": 2.0,
+      calgary: 1.1,
+      edmonton: 1.7,
+      "red-deer": 1.8,
       lethbridge: 1.2,
-      "fort-mcmurray": 2.2,
-      "grande-prairie": 2.5
+      "fort-mcmurray": 1.5,
+      "grande-prairie": 2.2
+    };
+
+    const associatedRainLoads: Record<string, number> = {
+      calgary: 0.1,
+      edmonton: 0.1,
+      "red-deer": 0.1,
+      lethbridge: 0.1,
+      "fort-mcmurray": 0.1,
+      "grande-prairie": 0.1,
     };
 
     const Ss = groundSnowLoads[location] || 1.5;
 
-    // Importance factor Is (NBC 4.1.2.1)
+    // Importance factor Is (NBC 4.1.6.2.(1), Table 4.1.6.2.-A)
     const importanceFactors: Record<string, number> = {
       low: 0.8,
       normal: 1.0,
@@ -47,38 +56,48 @@ export function SnowLoadCalculator() {
         if (slope <= 30) {
           Cs = 1.0;
         } else if (slope <= 70) {
-          Cs = 1.0 - ((slope - 30) / 40) * 0.5; // Linear interpolation
+          Cs = (70 - slope) / 40;
         } else {
-          Cs = 0.5;
+          Cs = 0;
         }
       }
     }
 
     // Wind exposure factor Cw (NBC 4.1.6.2)
-    const exposureFactors: Record<string, number> = {
-      sheltered: 1.0,
-      normal: 1.0,
-      exposed: 0.75
-    };
-    const Cw = exposureFactors[exposure];
+    const Cw = importance === "low" || importance === "normal"
+      ? (exposure === "exposed" ? 0.75 : 1.0)
+      : 1.0;
 
-    // Basic roof snow load Sr (NBC 4.1.6.2)
-    const Sr = Is * Ss * Cs * Cw;
+    // Associated rain load Sr (NBC 4.1.6.2.(1), Appendix C Table C-2)
+    const Sr = associatedRainLoads[location] ?? 0.1;
 
-    // Rain load (NBC 4.1.6.7) - typically 0.4 kPa for Alberta
-    const rainLoad = 0.4;
+    const Cb = 1.0;
+    const Ca = 1.0;
 
     // Total specified load
-    const totalLoad = Sr + rainLoad;
+    const roofSnowLoad = Is * Ss * (Cb * Cw * Cs * Ca);
+    const totalLoad = roofSnowLoad + Is * Sr;
+    const additionalRequirements = [
+      "Cb = 1.0 is assumed (NBC 4.1.6.2.(2)(c), low-profile-roof case). For roofs that do not meet this height condition, Cb must be determined from Table 4.1.6.2.-B; this calculator does not implement that table.",
+      "Ca = 1.0 (uniform snow load) is assumed. This does not account for drifting, roof projections, valleys, gable/curved/dome roof shapes, sliding, or meltwater accumulation (NBC 4.1.6.2.(8)/(9), Articles 4.1.6.5-4.1.6.12).",
+      "The steeper Sentence 4.1.6.2.(6) reduction for qualifying unobstructed slippery roofs is not modeled.",
+    ];
+    if (Cw === 0.75) additionalRequirements.push(
+      "The 0.75 wind-exposure reduction (NBC 4.1.6.2.(4)) requires full exposure on all sides, no significant roof obstructions, and no drifting accumulation from adjacent surfaces — confirm these conditions apply before relying on this reduction."
+    );
 
     setResults({
       Ss: Ss.toFixed(2),
       Is: Is.toFixed(2),
       Cs: Cs.toFixed(2),
       Cw: Cw.toFixed(2),
+      Cb: Cb.toFixed(2),
+      Ca: Ca.toFixed(2),
       Sr: Sr.toFixed(2),
-      rainLoad: rainLoad.toFixed(2),
+      rainLoad: Sr.toFixed(2),
+      roofSnowLoad: roofSnowLoad.toFixed(2),
       totalLoad: totalLoad.toFixed(2),
+      additionalRequirements,
       location: location.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())
     });
   };
@@ -121,11 +140,12 @@ export function SnowLoadCalculator() {
                 ["Importance Factor (Is)", results.Is],
                 ["Slope Factor (Cs)", results.Cs],
                 ["Wind Exposure Factor (Cw)", results.Cw],
-                ["Basic Snow Load (Sr)", `${results.Sr} kPa`],
+                ["Calculated Roof Snow Load", `${results.roofSnowLoad} kPa`],
+                ["Associated Rain Load (Sr)", `${results.Sr} kPa`],
                 ["Rain Load", `${results.rainLoad} kPa`],
                 ["Total Design Load", `${results.totalLoad} kPa`],
                 ["", ""],
-                ["NBC Reference", "4.1.6.2 - Snow Load"],
+                ["NBC Reference", "NBC 4.1.6.2.(1)-(8), Appendix C Table C-2"],
               ] : []
             })}
             currentState={{ location, roofType, roofSlope, importance, exposure }}
@@ -259,8 +279,16 @@ export function SnowLoadCalculator() {
                 <p className="text-lg font-bold text-primary">{results.Cw}</p>
               </div>
               <div className="p-3 bg-muted/50 rounded border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Roof Snow (Sr)</p>
-                <p className="text-lg font-bold text-primary">{results.Sr} kPa</p>
+                <p className="text-xs text-muted-foreground mb-1">Roof Factor (Cb)</p>
+                <p className="text-lg font-bold text-primary">{results.Cb}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Accumulation (Ca)</p>
+                <p className="text-lg font-bold text-primary">{results.Ca}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Calculated Roof Snow</p>
+                <p className="text-lg font-bold text-primary">{results.roofSnowLoad} kPa</p>
               </div>
               <div className="p-3 bg-muted/50 rounded border border-border">
                 <p className="text-xs text-muted-foreground mb-1">Rain Load</p>
@@ -271,19 +299,26 @@ export function SnowLoadCalculator() {
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded">
               <p className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Calculation Formula (NBC 4.1.6.2)</p>
               <p className="text-xs text-blue-800 dark:text-blue-200 font-mono">
-                S = Is × Ss × Cs × Cw + Rain Load
+                S = Is × [Ss × (Cb × Cw × Cs × Ca) + Sr]
               </p>
               <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 mt-2">
-                <li>• <strong>Is:</strong> Importance factor (Table 4.1.2.1)</li>
+                <li>• <strong>Is:</strong> Importance factor (Table 4.1.6.2.-A)</li>
                 <li>• <strong>Ss:</strong> Ground snow load for {results.location}</li>
                 <li>• <strong>Cs:</strong> Roof slope factor (1.0 for slopes ≤30°)</li>
-                <li>• <strong>Cw:</strong> Wind exposure factor</li>
+                <li>• <strong>Cw:</strong> Conditional wind exposure factor (Sentence 4.1.6.2.(3)/(4))</li>
+                <li>• <strong>Cb/Ca:</strong> Assumed 1.0 for this simplified estimate</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded">
+              <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mb-2">Additional NBC checks required</p>
+              <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                {results.additionalRequirements.map((requirement: string) => <li key={requirement}>• {requirement}</li>)}
               </ul>
             </div>
 
             <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
-              <p><strong>NBC Reference:</strong> 4.1.6.2 - Specified Snow and Rain Loads</p>
-              <p><strong>Note:</strong> Drifting, sliding, and unbalanced loads may require additional analysis (NBC 4.1.6.3-4.1.6.6)</p>
+              <p><strong>NBC Reference:</strong> 4.1.6.2.(1)-(8), Appendix C Table C-2</p>
             </div>
           </div>
         )}

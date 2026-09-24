@@ -25,7 +25,7 @@ export function FoundationDesignCalculator() {
       return;
     }
 
-    // Soil bearing capacities (kPa) - NBC 9.15.3.2
+    // Generic soil-category estimate; NBC 9.15.3.2 addresses footing substrate, not a capacity table.
     const soilCapacities: Record<string, number> = {
       rock: 500,
       gravel: 200,
@@ -36,7 +36,7 @@ export function FoundationDesignCalculator() {
 
     const bearingCapacity = soilCapacities[soilType] || 100;
 
-    // Frost depth by region (mm) - NBC 9.12.2.1
+    // Regional estimate; minimum foundation depth is governed by NBC 9.12.2.2 / Table 9.12.2.2.
     const frostDepths: Record<string, number> = {
       calgary: 1800,
       edmonton: 1800,
@@ -53,13 +53,13 @@ export function FoundationDesignCalculator() {
     const requiredArea = (linearLoad / bearingCapacity) * 1000; // m² per meter of wall
     const footingWidth = Math.ceil(requiredArea / 100) * 100; // Round up to nearest 100mm
 
-    // Minimum footing dimensions - NBC 9.15.4.2
+    // Footing width/area: NBC 9.15.3.3-9.15.3.7, especially Table 9.15.3.4.
     const minWidth = foundationType === "strip" ? 400 : 600;
     const minThickness = 150;
     const actualWidth = Math.max(footingWidth, minWidth);
     const footingThickness = Math.max(Math.ceil(actualWidth / 3), minThickness);
 
-    // Wall thickness - NBC 9.15.3.3
+    // Foundation wall thickness: NBC 9.15.4.2 / Table 9.15.4.2-A.
     const wallThickness = actualWidth <= 600 ? 200 : 250;
 
     // Reinforcement requirements
@@ -67,12 +67,12 @@ export function FoundationDesignCalculator() {
     const rebarSize = requiresRebar ? "15M" : "None";
     const rebarSpacing = requiresRebar ? 400 : 0;
 
-    // Drainage requirements - NBC 9.14
+    // Drainage requirements: NBC 9.14.2.1 and 9.14.3.2.
     const drainageRequired = frostDepth > 1200;
     const drainPipeSize = 100; // mm diameter
 
-    // Waterproofing - NBC 9.13.2
-    const waterproofing = "Damp-proofing compound or membrane required";
+    // Dampproofing: NBC 9.13.2.1.
+    const dampproofing = "Dampproofing compound or membrane required";
 
     // Compliance check
     const compliant = actualWidth >= minWidth && 
@@ -90,7 +90,7 @@ export function FoundationDesignCalculator() {
       rebarSpacing,
       drainageRequired,
       drainPipeSize,
-      waterproofing,
+      dampproofing,
       compliant,
       minDepth: frostDepth + 150, // Add 150mm below frost line
       concreteVolume: ((actualWidth / 1000) * (footingThickness / 1000) * length).toFixed(2)
@@ -135,10 +135,10 @@ export function FoundationDesignCalculator() {
                 ["Rebar Spacing", results.rebarSpacing > 0 ? `${results.rebarSpacing} mm` : "N/A"],
                 ["Drainage Required", results.drainageRequired ? "Yes" : "No"],
                 ["Drain Pipe Size", `${results.drainPipeSize} mm`],
-                ["Waterproofing", results.waterproofing],
+                ["Dampproofing", results.dampproofing],
                 ["Concrete Volume", `${results.concreteVolume} m³`],
                 ["", ""],
-                ["NBC Reference", "9.15 - Foundation Walls and Footings"],
+                ["NBC Reference", "NBC 9.15.3.3-9.15.3.7 / 9.15.4.2; generic soil and frost estimates require site verification"],
               ] : []
             })}
             currentState={{ soilType, wallLoad, wallLength, region, foundationType }}
@@ -302,15 +302,19 @@ export function FoundationDesignCalculator() {
                 </Badge>
               </div>
               <div className="text-sm">
-                <span className="font-medium">Waterproofing:</span>
-                <p className="text-muted-foreground mt-1">{results.waterproofing}</p>
+                <span className="font-medium">Dampproofing:</span>
+                <p className="text-muted-foreground mt-1">{results.dampproofing}</p>
               </div>
             </div>
 
             <div className="pt-4 border-t">
+              <div className="p-4 mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded text-xs text-amber-800 dark:text-amber-200">
+                <p className="font-bold text-amber-900 dark:text-amber-100 mb-2">Simplified sizing estimate</p>
+                <p>This is a simplified sizing estimate for early planning purposes only. It does not implement the complete NBC prescriptive tables and does not account for site-specific geotechnical soil-bearing capacity or full frost-depth table conditions. Final sizing must be confirmed by a qualified designer or, where required by the applicable authority, a professional engineer.</p>
+              </div>
               <p className="text-xs text-muted-foreground">
-                <strong>NBC References:</strong> 9.15.3.2 (Bearing Capacity), 9.15.4.2 (Footing Dimensions), 
-                9.12.2.1 (Frost Depth), 9.14 (Drainage), 9.13.2 (Waterproofing)
+                <strong>NBC References:</strong> 9.15.3.2 (substrate; soil capacity is generic/unverified), 9.15.3.3-9.15.3.7 (footing width/area), 9.15.4.2 (foundation wall thickness),
+                9.12.2.2 / Table 9.12.2.2 (foundation depth), 9.14.2.1 and 9.14.3.2 (drainage), 9.13.2.1 (dampproofing)
               </p>
             </div>
           </div>
