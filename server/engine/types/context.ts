@@ -22,6 +22,19 @@ export interface ComplianceInput {
   residential_sleeping_capacity?: number;
   occupant_load_above_below_first_storey?: number;
   open_air_seating_below_load?: number;
+  has_public_corridors?: boolean;
+  has_treatment_occupancy_sleeping_corridors?: boolean;
+  has_care_occupancy_sleeping_corridors?: boolean;
+  has_classrooms?: boolean;
+  has_underground_walkways?: boolean;
+  has_daycare_areas?: boolean;
+  has_commercial_kitchen?: boolean;
+  has_multi_person_public_washrooms?: boolean;
+  has_electromagnetic_lock_doors?: boolean;
+  has_universal_washroom_or_accessible_change_space?: boolean;
+  has_service_space_3_2_1_1_8?: boolean;
+  is_within_high_building_scope?: boolean;
+  is_3_2_2_51_or_60_construction?: boolean;
   province?: string;
   municipality?: string;
   codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default

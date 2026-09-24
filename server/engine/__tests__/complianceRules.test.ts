@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { evaluateExitWidth, evaluateExitCount, evaluateTravelDistance } from '../rules/egress';
 import { evaluateOccupantLoad } from '../rules/occupancy';
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from '../rules/fire';
+import { evaluateEmergencyLighting } from '../rules/emergencyLighting';
 import { Constraints } from '../constraints';
 
 // ── NBC 3.3.1.13.(1)(a) Exit door width ─────────────────────────────────────
@@ -154,6 +155,62 @@ describe('NBC 3.2.4.1 — Fire alarm system determination', () => {
     expect(result.result).toBe('pass');
     expect(result.evaluatedInputs.required).toBe('not required');
     expect(result.reasoning).toContain('3.2.4.1.(5)');
+  });
+});
+
+describe('NBC 3.2.7.3/3.2.7.4 — Emergency lighting determination', () => {
+  it('requires exits/routes and verifies duration when all scope flags are omitted', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'D' }, 50);
+    expect(result.required).toBe(true);
+    expect(result.areas).toEqual([
+      'Exits',
+      'Principal routes providing access to exit in open floor areas and service rooms',
+    ]);
+    expect(result.duration).toBe('verify');
+    expect(result.additionalRequirements.some(c => c.includes('3.2.7.4.(1)(b)(i)'))).toBe(true);
+    expect(result.additionalRequirements.some(c => c.includes('3.2.7.4.(1)(b)(iii)'))).toBe(true);
+  });
+
+  it('includes both public-corridor clauses when the flag is true', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'D', has_public_corridors: true }, 50);
+    expect(result.areas).toContain('Corridors used by the public');
+    expect(result.areas).toContain('Public corridors');
+    expect(result.nbcReferences).toContain('NBC 3.2.7.3.(1)(c)');
+    expect(result.nbcReferences).toContain('NBC 3.2.7.3.(1)(h)');
+  });
+
+  it('proves Group A Division 1 congregation areas regardless of load', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'A-1' }, 1);
+    expect(result.areas).toContain('Floor areas where the public may congregate in Group A, Division 1');
+    expect(result.nbcReferences).toContain('NBC 3.2.7.3.(1)(i)(i)');
+  });
+
+  it('proves Group A Division 2 congregation false below the threshold', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'A-2' }, 40);
+    expect(result.areas.some(a => a.includes('Group A, Division 2'))).toBe(false);
+    expect(result.nbcReferences).toContain('NBC 3.2.7.3.(1)(a)');
+  });
+
+  it('proves Group A Division 3 congregation true at 60 occupants', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'A-3' }, 75);
+    expect(result.areas).toContain('Floor areas where the public may congregate in Group A, Division 2 or 3');
+  });
+
+  it('uses 120 minutes for a building within Subsection 3.2.6 scope', () => {
+    expect(evaluateEmergencyLighting({ occupancy_major: 'D', is_within_high_building_scope: true }, 50).duration).toBe(120);
+  });
+
+  it('uses 60 minutes for Group B outside the high-building scope', () => {
+    expect(evaluateEmergencyLighting({ occupancy_major: 'B-1', is_within_high_building_scope: false }, 50).duration).toBe(60);
+  });
+
+  it('uses 30 minutes only when all shorter-duration branches are ruled out', () => {
+    expect(evaluateEmergencyLighting({ occupancy_major: 'D', is_within_high_building_scope: false, is_3_2_2_51_or_60_construction: false }, 50).duration).toBe(30);
+  });
+
+  it('adds CSA Z32 for treatment occupancy sleeping corridors', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'B-2', has_treatment_occupancy_sleeping_corridors: true }, 50);
+    expect(result.additionalRequirements.some(c => c.includes('CSA Z32'))).toBe(true);
   });
 });
 

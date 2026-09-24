@@ -21,6 +21,7 @@ import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLo
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import { evaluateExitCount } from '../engine/rules/egress';
 import { evaluateFireAlarm } from '../engine/rules/fire';
+import { evaluateEmergencyLighting } from '../engine/rules/emergencyLighting';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 import { readProvenancedFact } from '../services/factProvenance';
 
@@ -89,6 +90,42 @@ function buildSummary(
 }
 
 export const calculationsPackageRouter = router({
+
+  determineEmergencyLighting: protectedProcedure
+    .input(z.object({
+      occupancyGroup: z.string().min(1),
+      occupantLoad: z.number().nonnegative(),
+      hasPublicCorridors: z.boolean().nullable().optional(),
+      hasTreatmentOccupancySleepingCorridors: z.boolean().nullable().optional(),
+      hasCareOccupancySleepingCorridors: z.boolean().nullable().optional(),
+      hasClassrooms: z.boolean().nullable().optional(),
+      hasUndergroundWalkways: z.boolean().nullable().optional(),
+      hasDaycareAreas: z.boolean().nullable().optional(),
+      hasCommercialKitchen: z.boolean().nullable().optional(),
+      hasMultiPersonPublicWashrooms: z.boolean().nullable().optional(),
+      hasElectromagneticLockDoors: z.boolean().nullable().optional(),
+      hasUniversalWashroomOrAccessibleChangeSpace: z.boolean().nullable().optional(),
+      hasServiceSpace32118: z.boolean().nullable().optional(),
+      isWithinHighBuildingScope: z.boolean().nullable().optional(),
+      is32251Or60Construction: z.boolean().nullable().optional(),
+    }))
+    .query(({ input }) => evaluateEmergencyLighting({
+      occupancy_major: input.occupancyGroup.startsWith('F') ? 'F' : input.occupancyGroup,
+      occupancy_division: input.occupancyGroup.startsWith('F-') ? input.occupancyGroup.slice(2) : undefined,
+      has_public_corridors: input.hasPublicCorridors ?? undefined,
+      has_treatment_occupancy_sleeping_corridors: input.hasTreatmentOccupancySleepingCorridors ?? undefined,
+      has_care_occupancy_sleeping_corridors: input.hasCareOccupancySleepingCorridors ?? undefined,
+      has_classrooms: input.hasClassrooms ?? undefined,
+      has_underground_walkways: input.hasUndergroundWalkways ?? undefined,
+      has_daycare_areas: input.hasDaycareAreas ?? undefined,
+      has_commercial_kitchen: input.hasCommercialKitchen ?? undefined,
+      has_multi_person_public_washrooms: input.hasMultiPersonPublicWashrooms ?? undefined,
+      has_electromagnetic_lock_doors: input.hasElectromagneticLockDoors ?? undefined,
+      has_universal_washroom_or_accessible_change_space: input.hasUniversalWashroomOrAccessibleChangeSpace ?? undefined,
+      has_service_space_3_2_1_1_8: input.hasServiceSpace32118 ?? undefined,
+      is_within_high_building_scope: input.isWithinHighBuildingScope ?? undefined,
+      is_3_2_2_51_or_60_construction: input.is32251Or60Construction ?? undefined,
+    }, input.occupantLoad)),
 
   determineFireAlarm: protectedProcedure
     .input(z.object({
