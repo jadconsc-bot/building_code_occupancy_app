@@ -151,6 +151,7 @@ export function evaluateExitCount(
           `NBC 3.4.2.1.(4): single-exit exception not available — building is ${storeys} storeys (maximum 2 permitted)`,
         );
       } else {
+        let storeysOk = storeys !== null;
         if (storeys === null) {
           caveats.push(
             'NBC 3.4.2.1.(4): storey count not provided — single-exit exception requires ≤2 storeys; verify manually for buildings over 2 storeys',
@@ -160,8 +161,8 @@ export function evaluateExitCount(
         const sprinklered = !!inputs.sprinklers;
         const area = inputs.area_m2 ?? null;
         const travel = inputs.travel_distance_m ?? null;
-        let areaOk = true;
-        let travelOk = true;
+        let areaOk = false;
+        let travelOk = false;
 
         if (sprinklered) {
           const limits = TABLE_3421_B[groupKey];
@@ -171,6 +172,8 @@ export function evaluateExitCount(
             caveats.push(
               `NBC 3.4.2.1.(2)(b): floor area not provided — Table 3.4.2.1-B max for Group ${inputs.occupancy_major} is ${limits.maxArea} m²; verify manually`,
             );
+          } else {
+            areaOk = true;
           }
           if (travel !== null && travel > 25) {
             travelOk = false;
@@ -178,6 +181,8 @@ export function evaluateExitCount(
             caveats.push(
               'NBC 3.4.2.1.(2)(b)(i): travel distance not provided — maximum 25 m required in sprinklered building; verify manually',
             );
+          } else {
+            travelOk = true;
           }
         } else {
           const limits = TABLE_3421_A[groupKey];
@@ -187,6 +192,8 @@ export function evaluateExitCount(
             caveats.push(
               `NBC 3.4.2.1.(2)(a): floor area not provided — Table 3.4.2.1-A max for Group ${inputs.occupancy_major} is ${limits.maxArea} m²; verify manually`,
             );
+          } else {
+            areaOk = true;
           }
           if (travel !== null && travel > limits.maxTravel) {
             travelOk = false;
@@ -194,10 +201,12 @@ export function evaluateExitCount(
             caveats.push(
               `NBC 3.4.2.1.(2)(a): travel distance not provided — Table 3.4.2.1-A max for Group ${inputs.occupancy_major} is ${limits.maxTravel} m; verify manually`,
             );
+          } else {
+            travelOk = true;
           }
         }
 
-        singleExitApplies = areaOk && travelOk;
+        singleExitApplies = storeysOk && areaOk && travelOk;
 
         // Sentence (3): Group B or C single-exit must be an exterior doorway ≤1.5 m above grade
         if (singleExitApplies && (inputs.occupancy_major === 'B' || inputs.occupancy_major === 'C')) {

@@ -92,9 +92,10 @@ describe('NBC 3.2.5.2 — Sprinkler requirement by occupancy', () => {
 
 // ── Exit count ────────────────────────────────────────────────────────────────
 describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exception', () => {
-  it('PASS: 1 exit — Group D, 50 occupants, no area/travel data (exception may apply; caveats added)', () => {
+  it('FAIL: 1 exit — Group D, 50 occupants, no storey/area/travel data (exception cannot be confirmed)', () => {
     const result = evaluateExitCount({ occupancy_major: 'D', exits: 1 }, 50);
-    expect(result.result).toBe('pass');
+    expect(result.result).toBe('fail');
+    expect(result.evaluatedInputs.required).toBe(2);
   });
 
   it('FAIL: 1 exit insufficient for 200 occupants (>60 — exception cannot apply; requires 2)', () => {
@@ -125,7 +126,7 @@ describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exce
   // Spec scenario (b): Group D, OL 40, 150m², 20m travel, unsprinklered — qualifies for 1 exit (Table A: 200m²/25m)
   it('PASS: 1 exit — Group D, 40 persons, 150m², 20m travel, unsprinklered (Table A allows 200m²/25m)', () => {
     const result = evaluateExitCount(
-      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, sprinklers: false, exits: 1 },
+      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, storeys: 2, sprinklers: false, exits: 1 },
       40,
     );
     expect(result.result).toBe('pass');
@@ -135,7 +136,7 @@ describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exce
   // Spec scenario (c): same but sprinklered — qualifies (Table B: Group D 300m², travel ≤25m)
   it('PASS: 1 exit — Group D, 40 persons, 150m², 20m travel, sprinklered (Table B allows 300m²)', () => {
     const result = evaluateExitCount(
-      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, sprinklers: true, exits: 1 },
+      { occupancy_major: 'D', area_m2: 150, travel_distance_m: 20, storeys: 2, sprinklers: true, exits: 1 },
       40,
     );
     expect(result.result).toBe('pass');
