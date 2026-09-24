@@ -18,7 +18,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/__tests__/**/*.test.ts", "tests/**/*.test.ts", "tests/**/*.spec.ts"],
-    exclude: ["node_modules", "dist", "client", "tests/e2e/**"],
+    exclude: ["node_modules", "dist", "tests/e2e/**"],
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     coverage: {
