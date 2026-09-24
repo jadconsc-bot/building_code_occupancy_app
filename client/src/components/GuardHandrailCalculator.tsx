@@ -14,6 +14,7 @@ export function GuardHandrailCalculator() {
   const [occupancyType, setOccupancyType] = useState<string>("residential");
   const [location, setLocation] = useState<string>("deck");
   const [height, setHeight] = useState<string>("");
+  const [proposedGuardHeight, setProposedGuardHeight] = useState<string>("");
   const [buildingPart, setBuildingPart] = useState<string>("");
   const [exteriorHeight, setExteriorHeight] = useState<string>("");
   const [stairWidth, setStairWidth] = useState<string>("");
@@ -25,6 +26,7 @@ export function GuardHandrailCalculator() {
   const exteriorNum = parseFloat(exteriorHeight);
   const widthNum = parseFloat(stairWidth);
   const riserNum = parseFloat(riserCount);
+  const proposedGuardHeightNum = parseFloat(proposedGuardHeight);
   const { data: determination } = trpc.calculationsPackage.determineGuardHandrail.useQuery({
     occupancyGroup: occupancyType === "residential" ? "C" : occupancyType === "assembly" ? "A-2" : "D",
     buildingPart: buildingPart ? buildingPart as "Part 9" | "Part 3" : null,
@@ -40,7 +42,7 @@ export function GuardHandrailCalculator() {
     rampRiseMm: null,
     servesSingleDwellingUnit: dwellingUnit === "yes" ? true : dwellingUnit === "no" ? false : null,
     guardUseCategory: "other",
-    proposedGuardHeightMm: Number.isFinite(elevationNum) ? elevationNum : null,
+    proposedGuardHeightMm: Number.isFinite(proposedGuardHeightNum) ? proposedGuardHeightNum : null,
   }, { enabled: submitted });
 
   useEffect(() => {
@@ -68,7 +70,7 @@ export function GuardHandrailCalculator() {
             {results !== null && (
               <SaveButton
                 calculatorType="guardHandrail"
-                inputs={{ occupancyType, location, height, buildingPart, exteriorHeight, stairWidth, riserCount, dwellingUnit }}
+                inputs={{ occupancyType, location, height, proposedGuardHeight, buildingPart, exteriorHeight, stairWidth, riserCount, dwellingUnit }}
                 results={results}
               />
             )}
@@ -172,6 +174,10 @@ export function GuardHandrailCalculator() {
           <div className="space-y-2">
             <Label>Stair/ramp width (mm)</Label>
             <Input type="number" min="0" value={stairWidth} onChange={(e) => setStairWidth(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-2">
+            <Label>Proposed guard height (mm)</Label>
+            <Input type="number" min="0" value={proposedGuardHeight} onChange={(e) => setProposedGuardHeight(e.target.value)} placeholder="Optional" />
           </div>
           <div className="space-y-2">
             <Label>Riser count</Label>
