@@ -20,6 +20,7 @@ import autoTable from "jspdf-autotable";
 import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import { evaluateExitCount } from '../engine/rules/egress';
+import { evaluateFireAlarm } from '../engine/rules/fire';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 import { readProvenancedFact } from '../services/factProvenance';
 
@@ -88,6 +89,58 @@ function buildSummary(
 }
 
 export const calculationsPackageRouter = router({
+
+  determineFireAlarm: protectedProcedure
+    .input(z.object({
+      occupancyGroup: z.string().min(1),
+      occupantLoad: z.number().nonnegative(),
+      storeys: z.number().int().positive().nullable().optional(),
+      sprinklered: z.boolean().nullable().optional(),
+      containedUseArea: z.boolean().nullable().optional(),
+      impededEgressZone: z.boolean().nullable().optional(),
+      isSchoolCollegeChildcare: z.boolean().nullable().optional(),
+      isLicensedBeverageOrRestaurant: z.boolean().nullable().optional(),
+      isStorageGarageOnly: z.boolean().nullable().optional(),
+      sprinklerSystemType: z.enum(['standard', 'nfpa13d']).nullable().optional(),
+      sprinklerCount: z.number().nonnegative().nullable().optional(),
+      residentialSuiteCount: z.number().int().nonnegative().nullable().optional(),
+      residentialDirectExteriorEgress: z.boolean().nullable().optional(),
+      residentialSleepingCapacity: z.number().nonnegative().nullable().optional(),
+      bedroomCount: z.number().int().nonnegative().nullable().optional(),
+      occupantLoadAboveBelowFirstStorey: z.number().nonnegative().nullable().optional(),
+      openAirSeatingBelowLoad: z.number().nonnegative().nullable().optional(),
+      fireAlarm: z.boolean().optional(),
+    }))
+    .query(({ input }) => {
+      const occupancy_major = input.occupancyGroup.startsWith('F') ? 'F' : input.occupancyGroup;
+      const occupancy_division = input.occupancyGroup.startsWith('F-') ? input.occupancyGroup.slice(2) : undefined;
+      const trace = evaluateFireAlarm({
+        occupancy_major,
+        occupancy_division,
+        storeys: input.storeys ?? undefined,
+        sprinklers: input.sprinklered ?? undefined,
+        contained_use_area: input.containedUseArea ?? undefined,
+        impeded_egress_zone: input.impededEgressZone ?? undefined,
+        is_school_college_childcare: input.isSchoolCollegeChildcare ?? undefined,
+        is_licensed_beverage_or_restaurant: input.isLicensedBeverageOrRestaurant ?? undefined,
+        is_storage_garage_only: input.isStorageGarageOnly ?? undefined,
+        sprinkler_system_type: input.sprinklerSystemType ?? undefined,
+        sprinkler_count: input.sprinklerCount ?? undefined,
+        residential_suite_count: input.residentialSuiteCount ?? undefined,
+        residential_direct_exterior_egress: input.residentialDirectExteriorEgress ?? undefined,
+        residential_sleeping_capacity: input.residentialSleepingCapacity ?? undefined,
+        bedroom_count: input.bedroomCount ?? undefined,
+        occupant_load_above_below_first_storey: input.occupantLoadAboveBelowFirstStorey ?? undefined,
+        open_air_seating_below_load: input.openAirSeatingBelowLoad ?? undefined,
+        fire_alarm: input.fireAlarm,
+      }, input.occupantLoad);
+      return {
+        required: trace.evaluatedInputs.required,
+        reasoning: trace.reasoning,
+        caveats: trace.recommendations ?? [],
+        rule: trace.rule,
+      };
+    }),
 
   determineExitCount: protectedProcedure
     .input(z.object({

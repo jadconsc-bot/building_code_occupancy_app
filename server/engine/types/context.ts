@@ -10,6 +10,18 @@ export interface ComplianceInput {
   construction_type?: string;
   sprinklers?: boolean;
   fire_alarm?: boolean;
+  contained_use_area?: boolean;
+  impeded_egress_zone?: boolean;
+  is_school_college_childcare?: boolean;
+  is_licensed_beverage_or_restaurant?: boolean;
+  is_storage_garage_only?: boolean;
+  sprinkler_system_type?: 'standard' | 'nfpa13d';
+  sprinkler_count?: number;
+  residential_suite_count?: number;
+  residential_direct_exterior_egress?: boolean;
+  residential_sleeping_capacity?: number;
+  occupant_load_above_below_first_storey?: number;
+  open_air_seating_below_load?: number;
   province?: string;
   municipality?: string;
   codeEdition?: string;  // e.g. 'NBC(AE) 2023', 'BCBC 2024' — overrides province-derived default

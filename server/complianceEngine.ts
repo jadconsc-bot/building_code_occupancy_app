@@ -161,7 +161,7 @@ export class ComplianceEvaluator {
     );
     const travelDistanceTrace = evaluateTravelDistance(inputs, travelDistanceRule);
     const sprinklersTrace     = evaluateSprinklerRequirement(inputs);
-    const fireAlarmTrace      = evaluateFireAlarm(inputs);
+    const fireAlarmTrace      = evaluateFireAlarm(inputs, occupantLoad);
     const exitWidthTrace      = evaluateExitWidth(inputs);
 
     // Area check (no dedicated rule file — uses building_limits constraint)

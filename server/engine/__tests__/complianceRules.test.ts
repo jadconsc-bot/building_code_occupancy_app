@@ -90,6 +90,73 @@ describe('NBC 3.2.5.2 — Sprinkler requirement by occupancy', () => {
   });
 });
 
+// ── NBC 3.2.4.1 Fire alarm determination ───────────────────────────────────
+describe('NBC 3.2.4.1 — Fire alarm system determination', () => {
+  it('requires a fire alarm for a sprinklered building when both exceptions are unknown', () => {
+    const result = evaluateFireAlarm({ occupancy_major: 'D', sprinklers: true }, 100);
+    expect(result.result).toBe('fail');
+    expect(result.rule).toBe('NBC 3.2.4.1');
+    expect(result.evaluatedInputs.required).toBe('required');
+    expect(result.recommendations).toHaveLength(2);
+    expect(result.recommendations?.[0]).toContain('3.2.4.1.(2)');
+    expect(result.recommendations?.[1]).toContain('3.2.4.1.(3)');
+  });
+
+  it('does not require an alarm when the NFPA 13D exception is proven', () => {
+    const result = evaluateFireAlarm({ occupancy_major: 'C', sprinklers: true, sprinkler_system_type: 'nfpa13d' }, 4);
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe('not required');
+    expect(result.reasoning).toContain('3.2.4.1.(2)');
+  });
+
+  it('requires an alarm for an unsprinklered building over 3 storeys', () => {
+    const result = evaluateFireAlarm({
+      occupancy_major: 'D', sprinklers: false, storeys: 4,
+      contained_use_area: false, impeded_egress_zone: false,
+      is_school_college_childcare: false, is_licensed_beverage_or_restaurant: false,
+      occupant_load_above_below_first_storey: 0, open_air_seating_below_load: 0,
+      is_storage_garage_only: false,
+    }, 50);
+    expect(result.result).toBe('fail');
+    expect(result.reasoning).toContain('3.2.4.1.(4)(c)');
+  });
+
+  it('returns needs review when an unsprinklered Group D case has unknown conditions', () => {
+    const result = evaluateFireAlarm({ occupancy_major: 'D', sprinklers: false, storeys: 2 }, 250);
+    expect(result.result).toBe('not_applicable');
+    expect(result.evaluatedInputs.required).toBe('verify');
+    for (const sentence of ['(4)(a)', '(4)(b)', '(4)(e)', '(4)(f)', '(4)(g)', '(4)(l)']) {
+      expect(result.recommendations?.some(caveat => caveat.includes(sentence))).toBe(true);
+    }
+  });
+
+  it('requires an alarm for unsprinklered Group F-1 over 25 occupants', () => {
+    const result = evaluateFireAlarm({ occupancy_major: 'F-1', sprinklers: false }, 30);
+    expect(result.result).toBe('fail');
+    expect(result.reasoning).toContain('3.2.4.1.(4)(k)');
+  });
+
+  it('requires an alarm for Group C sleeping accommodation over 10 persons', () => {
+    const result = evaluateFireAlarm({ occupancy_major: 'C', sprinklers: false, residential_sleeping_capacity: 12 }, 12);
+    expect(result.result).toBe('fail');
+    expect(result.reasoning).toContain('3.2.4.1.(4)(j)');
+  });
+
+  it('applies the residential four-suite exemption only with all other conditions resolved', () => {
+    const result = evaluateFireAlarm({
+      occupancy_major: 'C', sprinklers: false, storeys: 2,
+      contained_use_area: false, impeded_egress_zone: false,
+      is_school_college_childcare: false, is_licensed_beverage_or_restaurant: false,
+      occupant_load_above_below_first_storey: 0, open_air_seating_below_load: 0,
+      is_storage_garage_only: false, residential_suite_count: 3,
+      residential_sleeping_capacity: 0,
+    }, 8);
+    expect(result.result).toBe('pass');
+    expect(result.evaluatedInputs.required).toBe('not required');
+    expect(result.reasoning).toContain('3.2.4.1.(5)');
+  });
+});
+
 // ── Exit count ────────────────────────────────────────────────────────────────
 describe('NBC 3.4.2.1 — Exit count: 2 by default, 1 only via Sentence (2) exception', () => {
   it('FAIL: 1 exit — Group D, 50 occupants, no storey/area/travel data (exception cannot be confirmed)', () => {
