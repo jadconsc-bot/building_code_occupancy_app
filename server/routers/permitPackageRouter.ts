@@ -317,6 +317,10 @@ export const permitPackageRouter = router({
       const calcThermal       = getCalc("thermalResistance");
       const calcNECB          = getCalc("necbEnvelope");
       const calcSpatial       = getCalc("spatialSeparation");
+      const calcServiceLoad   = getCalc("service-load");
+      const calcVoltageDrop   = getCalc("voltage-drop");
+      const calcConduitFill   = getCalc("conduit-fill");
+      const calcEmergencyLighting = getCalc("emergencyLighting");
 
       const compliance = (strategy?.strategySummaryJson ?? {}) as Partial<ComplianceOutputs>;
       const occupantRows = (calcPkg?.occupantLoadByGroup ?? []) as OccupantGroupRow[];
@@ -933,6 +937,124 @@ export const permitPackageRouter = router({
         doc.setFontSize(9); doc.setTextColor(107, 114, 128);
         doc.text("No spatial separation calculation saved for this project.", M, y);
         doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      // ── Electrical calculations ────────────────────────────────────────────
+      doc.addPage();
+      doc.setFillColor(31, 41, 55);
+      doc.rect(0, 0, W, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Electrical", M, 13);
+      doc.setTextColor(0, 0, 0);
+      y = 28;
+
+      y = addSectionHeader(doc, "Service Load", y, W, M);
+      if (calcServiceLoad) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Total Watts", String(calcServiceLoad.totalWatts ?? "—")],
+            ["Amps", String(calcServiceLoad.amps ?? "—")],
+            ["Minimum Service Size", String(calcServiceLoad.serviceSize ?? "—")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No service load calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Voltage Drop", y, W, M);
+      if (calcVoltageDrop) {
+        const voltageAcceptable = calcVoltageDrop.acceptable === true;
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Voltage Drop (V)", String(calcVoltageDrop.voltageDrop ?? "—")],
+            ["Percentage Drop (%)", String(calcVoltageDrop.percentageDrop ?? "—")],
+            ["Acceptable", voltageAcceptable ? "PASS" : calcVoltageDrop.acceptable === false ? "FAIL" : "—"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          didParseCell: (data: any) => {
+            if (data.section === "body" && data.row.index === 2) {
+              data.cell.styles.textColor = voltageAcceptable ? [22, 101, 52] : [185, 28, 28];
+              data.cell.styles.fontStyle = "bold";
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No voltage-drop calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Conduit Fill", y, W, M);
+      if (calcConduitFill) {
+        const conduitAcceptable = calcConduitFill.acceptable === true;
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Fill Percentage (%)", String(calcConduitFill.fillPercentage ?? "—")],
+            ["Acceptable", conduitAcceptable ? "PASS" : calcConduitFill.acceptable === false ? "FAIL" : "—"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          didParseCell: (data: any) => {
+            if (data.section === "body" && data.row.index === 1) {
+              data.cell.styles.textColor = conduitAcceptable ? [22, 101, 52] : [185, 28, 28];
+              data.cell.styles.fontStyle = "bold";
+            }
+          },
+          margin: { left: M, right: M },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No conduit-fill calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0); y += 8;
+      }
+
+      y = addSectionHeader(doc, "Emergency Lighting — NBC 3.2.7", y, W, M);
+      if (calcEmergencyLighting) {
+        const joinValues = (value: unknown, separator: string) => Array.isArray(value) ? value.join(separator) : String(value ?? "—");
+        autoTable(doc, {
+          startY: y,
+          head: [["Parameter", "Value"]],
+          body: [
+            ["Required", calcEmergencyLighting.required === true ? "Yes" : calcEmergencyLighting.required === false ? "No" : "—"],
+            ["Minimum Illumination (lux)", String(calcEmergencyLighting.minimumIllumination ?? "—")],
+            ["Duration (min)", String(calcEmergencyLighting.duration ?? "—")],
+            ["Areas", joinValues(calcEmergencyLighting.areas, "; ")],
+            ["Additional Requirements", joinValues(calcEmergencyLighting.additionalRequirements, "; ")],
+            ["NBC References", joinValues(calcEmergencyLighting.nbcReferences, ", ")],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [31, 41, 55], textColor: 255, fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 90, fontStyle: "bold" }, 1: { cellWidth: 80 } },
+          margin: { left: M, right: M },
+        });
+      } else {
+        doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text("No emergency-lighting calculation saved for this project.", M, y);
+        doc.setTextColor(0, 0, 0);
       }
 
       // ── Page 8 — Fire Wall Schedule (conditional) ───────────────────────────
@@ -1879,6 +2001,10 @@ export const permitPackageRouter = router({
           thermalResistance: hasCalc('thermalResistance'),
           necbEnvelope:      hasCalc('necbEnvelope'),
           spatialSeparation: hasCalc('spatialSeparation'),
+          serviceLoad:       hasCalc('service-load'),
+          voltageDrop:       hasCalc('voltage-drop'),
+          conduitFill:       hasCalc('conduit-fill'),
+          emergencyLighting: hasCalc('emergencyLighting'),
         },
         fireAssemblies: {
           exists: (await db
@@ -2041,6 +2167,63 @@ export const permitPackageRouter = router({
             nbcRef: "NBC 9.10.14",
           });
         }
+      }
+
+      // Electrical results retain the calculator's client-side acceptability decision.
+      // The 3% voltage-drop and 40% conduit-fill limits are general conventions and
+      // were not verified against a primary CEC source in this sprint.
+      const voltageDrop = getCalc("voltage-drop");
+      if (voltageDrop) {
+        const percentageDrop = Number(voltageDrop.percentageDrop ?? 0);
+        rows.push({
+          category: "Electrical",
+          label: "Voltage Drop",
+          provided: `${percentageDrop}%`,
+          required: "≤ 3% (recommended, CEC 8-102)",
+          margin: "—",
+          status: voltageDrop.acceptable === true ? "meets" : voltageDrop.acceptable === false ? "deficient" : "not_calculated",
+          nbcRef: "CEC 8-102",
+        });
+      }
+
+      const conduitFill = getCalc("conduit-fill");
+      if (conduitFill) {
+        const fillPercentage = Number(conduitFill.fillPercentage ?? 0);
+        rows.push({
+          category: "Electrical",
+          label: "Conduit Fill",
+          provided: `${fillPercentage}%`,
+          required: "≤ 40%",
+          margin: "—",
+          status: conduitFill.acceptable === true ? "meets" : conduitFill.acceptable === false ? "deficient" : "not_calculated",
+          nbcRef: "CEC conduit-fill convention",
+        });
+      }
+
+      const serviceLoad = getCalc("service-load");
+      if (serviceLoad) {
+        rows.push({
+          category: "Electrical",
+          label: "Service Load",
+          provided: `${String(serviceLoad.amps ?? "—")} A / ${String(serviceLoad.serviceSize ?? "—")}`,
+          required: "Sizing lookup",
+          margin: "—",
+          status: "not_calculated",
+          nbcRef: "CEC service calculation",
+        });
+      }
+
+      const emergencyLighting = getCalc("emergencyLighting");
+      if (emergencyLighting) {
+        rows.push({
+          category: "Life Safety",
+          label: "Emergency Lighting",
+          provided: emergencyLighting.required === true ? "Required" : emergencyLighting.required === false ? "Not required" : "—",
+          required: "Per NBC 3.2.7",
+          margin: "—",
+          status: "not_calculated",
+          nbcRef: "NBC 3.2.7",
+        });
       }
 
       const counts = {
