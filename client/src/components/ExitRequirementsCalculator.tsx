@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DoorOpen, AlertCircle, Download } from "lucide-react";
 import { exportExitRequirementsToExcel } from "@/lib/excelExport";
+import { trpc } from "@/lib/trpc";
 import {
   ComplianceBadge,
   CodeReference,
@@ -21,8 +22,26 @@ import {
 export function ExitRequirementsCalculator() {
   const [occupantLoad, setOccupantLoad] = useState<string>("");
   const [occupancyGroup, setOccupancyGroup] = useState<string>("D");
-  const [buildingHeight, setBuildingHeight] = useState<string>("1-3");
+  const [storeys, setStoreys] = useState<string>("");
+  const [floorArea, setFloorArea] = useState<string>("");
+  const [travelDistance, setTravelDistance] = useState<string>("");
   const [sprinklered, setSprinklered] = useState<string>("no");
+
+  const occupantLoadNum = parseInt(occupantLoad) || 0;
+  const storeysNum = parseInt(storeys);
+  const floorAreaNum = parseFloat(floorArea);
+  const travelDistanceNum = parseFloat(travelDistance);
+  const { data: exitDetermination } = trpc.calculationsPackage.determineExitCount.useQuery(
+    {
+      occupancyGroup,
+      occupantLoad: occupantLoadNum,
+      storeys: Number.isFinite(storeysNum) && storeysNum > 0 ? storeysNum : null,
+      areaM2: Number.isFinite(floorAreaNum) ? floorAreaNum : null,
+      travelDistanceM: Number.isFinite(travelDistanceNum) ? travelDistanceNum : null,
+      sprinklered: sprinklered === "yes",
+    },
+    { enabled: occupantLoadNum > 0 && !!occupancyGroup }
+  );
 
   const calculateExitRequirements = (): {
     numExits: number;
@@ -38,19 +57,9 @@ export function ExitRequirementsCalculator() {
       return { numExits: 0, minWidthPerExit: 0, totalExitWidth: 0, widthPerPerson: 0, reasoning: "", singleExitCaveat: "" };
     }
 
-    // NBC 3.4.2.1.(1): default is 2 exits for any occupied floor area.
-    // NBC 3.4.2.1.(2): single-exit exception applies only when occupant load ≤ 60 AND
-    // floor area ≤ table limit AND travel distance ≤ table limit AND storeys ≤ 2.
-    // Floor area and travel distance are not collected here — exception cannot be fully
-    // verified. Conservative default of 2 exits applied whenever OL > 60.
-    let numExits = load > 60 ? 2 : 1;
-    let singleExitCaveat = "";
-    if (load <= 60) {
-      singleExitCaveat =
-        "NBC 3.4.2.1.(2): single exit may be permitted for OL ≤ 60, but requires " +
-        "floor area and travel distance within Table 3.4.2.1-A/B limits and building " +
-        "≤ 2 storeys — verify manually before relying on 1 exit.";
-    }
+    const numExits = exitDetermination?.exitsRequired ?? 0;
+    const reasoning = exitDetermination?.reasoning ?? "";
+    const singleExitCaveat = exitDetermination?.caveats?.join(" ") ?? "";
 
     // NBC 3.4.3.2.(1): exit width per person by occupancy.
     // Group B (care/treatment/detention): 18.4 mm/person.
@@ -72,14 +81,6 @@ export function ExitRequirementsCalculator() {
 
     // Round up to nearest 50mm increment for practical door sizes
     minWidthPerExitM = Math.ceil(minWidthPerExitM * 20) / 20;
-
-    // Generate reasoning
-    let reasoning = "";
-    if (load <= 60) {
-      reasoning = "One exit may be permitted for occupant load ≤ 60 persons (NBC 3.4.2.1.(2) — verify Table conditions manually)";
-    } else {
-      reasoning = "Two exits required for occupant load > 60 persons (NBC 3.4.2.1.(1))";
-    }
 
     return {
       numExits,
@@ -141,7 +142,9 @@ export function ExitRequirementsCalculator() {
                   <SelectItem value="C">Residential (C)</SelectItem>
                   <SelectItem value="D">Business &amp; Personal Services (D)</SelectItem>
                   <SelectItem value="E">Mercantile (E)</SelectItem>
-                  <SelectItem value="F">Industrial (F)</SelectItem>
+                  <SelectItem value="F-1">Industrial — F-1 High Hazard</SelectItem>
+                  <SelectItem value="F-2">Industrial — F-2 Medium Hazard</SelectItem>
+                  <SelectItem value="F-3">Industrial — F-3 Low Hazard</SelectItem>
                 </SelectContent>
               </Select>
               {occupancyGroup === "B" && (
@@ -152,19 +155,52 @@ export function ExitRequirementsCalculator() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="buildingHeight" className="text-xs font-medium">
-                Building Height (Storeys)
+              <Label htmlFor="storeys" className="text-xs font-medium">
+                Number of Storeys (optional)
               </Label>
-              <Select value={buildingHeight} onValueChange={setBuildingHeight}>
-                <SelectTrigger id="buildingHeight" className="rounded-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1-3">1-3 Storeys</SelectItem>
-                  <SelectItem value="4-6">4-6 Storeys</SelectItem>
-                  <SelectItem value="7+">7+ Storeys</SelectItem>
-                </SelectContent>
-              </Select>
+              <NumericInput
+                id="storeys"
+                label=""
+                value={storeys}
+                onChange={(e) => setStoreys(e.target.value)}
+                placeholder="e.g., 2"
+                className="rounded-none"
+                min="1"
+                max="100"
+                unit="storeys"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="floorArea" className="text-xs font-medium">
+                Floor Area (m², optional)
+              </Label>
+              <NumericInput
+                id="floorArea"
+                label=""
+                value={floorArea}
+                onChange={(e) => setFloorArea(e.target.value)}
+                placeholder="e.g., 200"
+                className="rounded-none"
+                min="0"
+                unit="m²"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="travelDistance" className="text-xs font-medium">
+                Maximum Travel Distance (m, optional)
+              </Label>
+              <NumericInput
+                id="travelDistance"
+                label=""
+                value={travelDistance}
+                onChange={(e) => setTravelDistance(e.target.value)}
+                placeholder="e.g., 25"
+                className="rounded-none"
+                min="0"
+                unit="m"
+              />
             </div>
 
             <div className="space-y-2">
@@ -295,7 +331,7 @@ export function ExitRequirementsCalculator() {
             <div className="flex justify-end gap-2">
               <SaveButton
                 calculatorType="exitRequirements"
-                inputs={{ occupantLoad, occupancyGroup, buildingHeight, sprinklered }}
+                inputs={{ occupantLoad, occupancyGroup, storeys, floorArea, travelDistance, sprinklered }}
                 results={{ numExits: result.numExits, minWidthPerExit: result.minWidthPerExit, totalExitWidth: result.totalExitWidth, reasoning: result.reasoning }}
               />
               <Button
@@ -307,7 +343,7 @@ export function ExitRequirementsCalculator() {
                   requiredExits: result.numExits,
                   totalExitWidth: result.totalExitWidth * 1000,
                   widthUnit: "mm",
-                  travelDistance: buildingHeight === "7+" ? 25 : buildingHeight === "4-6" ? 30 : 45,
+                  travelDistance: travelDistanceNum || 0,
                   distanceUnit: "m",
                   nbcReference: "NBC Part 3.4.2, 3.4.3"
                 })}

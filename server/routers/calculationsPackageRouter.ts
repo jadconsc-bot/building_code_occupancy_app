@@ -19,6 +19,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
+import { evaluateExitCount } from '../engine/rules/egress';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 import { readProvenancedFact } from '../services/factProvenance';
 
@@ -87,6 +88,50 @@ function buildSummary(
 }
 
 export const calculationsPackageRouter = router({
+
+  determineExitCount: protectedProcedure
+    .input(z.object({
+      occupancyGroup: z.string().min(1),
+      occupantLoad: z.number().nonnegative(),
+      storeys: z.number().int().positive().nullable().optional(),
+      areaM2: z.number().nonnegative().nullable().optional(),
+      travelDistanceM: z.number().nonnegative().nullable().optional(),
+      sprinklered: z.boolean(),
+    }))
+    .query(({ input }) => {
+      const occupancy_major = input.occupancyGroup.startsWith('F') ? 'F' : input.occupancyGroup;
+      const occupancy_division = input.occupancyGroup.startsWith('F-') ? input.occupancyGroup.slice(2) : undefined;
+      const trace = evaluateExitCount(
+        {
+          occupancy_major,
+          occupancy_division,
+          storeys: input.storeys ?? undefined,
+          area_m2: input.areaM2 ?? undefined,
+          travel_distance_m: input.travelDistanceM ?? undefined,
+          sprinklers: input.sprinklered,
+          exits: 0,
+        },
+        input.occupantLoad,
+      );
+      let exitsRequired = trace.evaluatedInputs.required as number;
+      let caveats = trace.recommendations ?? [];
+      let singleExitApplies = exitsRequired === 1;
+      const missingVerificationInputs = input.storeys == null || input.areaM2 == null || input.travelDistanceM == null;
+      if (singleExitApplies && missingVerificationInputs) {
+        exitsRequired = 2;
+        singleExitApplies = false;
+        caveats = [
+          'Single-exit exception cannot be confirmed with the information provided — defaulting to the standard 2-exit requirement per NBC 3.4.2.1.(1). Provide storey count, floor area, and travel distance to check whether a single exit may be permitted per NBC 3.4.2.1.(2).',
+          ...caveats,
+        ];
+      }
+      return {
+        exitsRequired,
+        reasoning: trace.reasoning,
+        caveats,
+        singleExitApplies,
+      };
+    }),
 
   determineOccupantLoad: protectedProcedure
     .input(z.object({
