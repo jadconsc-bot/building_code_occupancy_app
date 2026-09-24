@@ -33,19 +33,19 @@ describe('Municipal Bylaws Data - Commercial and Industrial Zones', () => {
       expect(industrialZones?.length).toBeGreaterThan(0);
     });
 
-    it('should have correct CB1 zone data', () => {
-      const cb1 = getZoneByCode('edmonton', 'CB1');
-      expect(cb1).toBeDefined();
-      expect(cb1?.zoneName).toBe('Low Intensity Business');
-      expect(cb1?.setbacks.front).toBe(3.0);
-      expect(cb1?.coverage.maxSiteCoverage).toBe(60);
+    it('should have correct CB zone data', () => {
+      const cb = getZoneByCode('edmonton', 'CB');
+      expect(cb).toBeDefined();
+      expect(cb?.zoneName).toBe('Commercial Business');
+      expect(cb?.setbacks.front).toBe(0);
+      expect(cb?.coverage.maxSiteCoverage).toBe(80);
     });
 
     it('should have correct IH zone data', () => {
       const ih = getZoneByCode('edmonton', 'IH');
       expect(ih).toBeDefined();
       expect(ih?.zoneName).toBe('Heavy Industrial');
-      expect(ih?.setbacks.front).toBe(15.0);
+      expect(ih?.setbacks.front).toBe(7.5);
       expect(ih?.height.maxHeight).toBe(30.0);
     });
   });
@@ -156,7 +156,7 @@ describe('Municipal Bylaws Data - Commercial and Industrial Zones', () => {
 
 describe('Setback Compliance Calculator', () => {
   it('should return compliant for valid setbacks', () => {
-    const result = calculateSetbackCompliance('edmonton', 'RF1', {
+    const result = calculateSetbackCompliance('edmonton', 'RS', {
       front: 5.0,
       rear: 8.0,
       sideInterior: 1.5,
@@ -167,7 +167,7 @@ describe('Setback Compliance Calculator', () => {
   });
 
   it('should return non-compliant for insufficient front setback', () => {
-    const result = calculateSetbackCompliance('edmonton', 'RF1', {
+    const result = calculateSetbackCompliance('edmonton', 'RS', {
       front: 2.0,  // Less than required 4.5m
       rear: 8.0,
       sideInterior: 1.5
@@ -204,13 +204,13 @@ describe('Site Coverage Calculator', () => {
 
 describe('Coverage Compliance Check', () => {
   it('should return compliant for acceptable coverage', () => {
-    const result = checkCoverageCompliance('edmonton', 'RF1', 180, 500);
+    const result = checkCoverageCompliance('edmonton', 'RS', 180, 500);
     expect(result.compliant).toBe(true);
     expect(result.actualCoverage).toBe(36);
   });
 
   it('should return non-compliant for excessive coverage', () => {
-    const result = checkCoverageCompliance('edmonton', 'RF1', 300, 500);
+    const result = checkCoverageCompliance('edmonton', 'RS', 300, 500);
     expect(result.compliant).toBe(false);
     expect(result.actualCoverage).toBe(60);
     expect(result.message).toContain('exceeds');
@@ -219,12 +219,12 @@ describe('Coverage Compliance Check', () => {
 
 describe('Height Compliance Check', () => {
   it('should return compliant for acceptable height', () => {
-    const result = checkHeightCompliance('edmonton', 'RF1', 8.0);
+    const result = checkHeightCompliance('edmonton', 'RS', 8.0);
     expect(result.compliant).toBe(true);
   });
 
   it('should return non-compliant for excessive height', () => {
-    const result = checkHeightCompliance('edmonton', 'RF1', 15.0);
+    const result = checkHeightCompliance('edmonton', 'RS', 15.0);
     expect(result.compliant).toBe(false);
     // Message may be undefined if compliant is false, just check compliant status
   });
@@ -232,12 +232,12 @@ describe('Height Compliance Check', () => {
 
 describe('Lot Compliance Check', () => {
   it('should return compliant for acceptable lot dimensions', () => {
-    const result = checkLotCompliance('edmonton', 'RF1', 500, 15);
+    const result = checkLotCompliance('edmonton', 'RS', 500, 15);
     expect(result.compliant).toBe(true);
   });
 
   it('should return non-compliant for undersized lot', () => {
-    const result = checkLotCompliance('edmonton', 'RF1', 200, 8);
+    const result = checkLotCompliance('edmonton', 'RS', 200, 8);
     expect(result.compliant).toBe(false);
   });
 });
