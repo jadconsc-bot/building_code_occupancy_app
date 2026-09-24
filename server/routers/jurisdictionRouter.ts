@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { getDb } from '../db';
 import { jurisdictionProfiles } from '../../drizzle/schema';
 import { eq, and, sql } from 'drizzle-orm';
-import { geocodeAddress } from '../services/googleMapsService';
+import { geocodeAddress } from '../services/geocodingService';
 
 // ============================================================================
 // JURISDICTION DATABASE - Static lookup (no external API)
@@ -218,7 +218,7 @@ export const jurisdictionRouter = router({
         let resolvedMunicipality = input.municipality;
         if (input.address) {
           const geo = await geocodeAddress(input.address);
-          if (geo?.municipality) resolvedMunicipality = geo.municipality;
+          if (geo && !('error' in geo) && geo.municipality) resolvedMunicipality = geo.municipality;
         }
 
         const jurisdiction = await getJurisdictionData(resolvedMunicipality);

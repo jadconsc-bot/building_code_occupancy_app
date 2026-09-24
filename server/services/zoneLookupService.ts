@@ -1,3 +1,5 @@
+import { geocodeAddress } from './geocodingService';
+
 export interface ZoneLookupResult {
   zoneCode: string;
   zoneName: string;
@@ -13,11 +15,12 @@ export async function lookupZone(
   municipality: string,
   province: string,
 ): Promise<ZoneLookupResult | null> {
-  const coords = await geocodeAddress(address, municipality, province);
-  if (!coords) {
-    console.log(`[ZoneLookup] Geocoding failed for: ${address}, ${municipality}`);
+  const geo = await geocodeAddress(`${address}, ${municipality}, ${province}, Canada`);
+  if (!geo || 'error' in geo) {
+    console.log(`[ZoneLookup] Geocoding failed for: ${address}, ${municipality}${geo && 'error' in geo ? ` — ${geo.error}` : ''}`);
     return null;
   }
+  const coords = { lat: geo.latitude, lng: geo.longitude };
 
   console.log(`[ZoneLookup] Geocoded: ${address} → ${coords.lat}, ${coords.lng}`);
 
@@ -58,36 +61,6 @@ export async function lookupZone(
 
   console.log(`[ZoneLookup] No zone API for municipality: ${municipality}`);
   return null;
-}
-
-async function geocodeAddress(
-  address: string,
-  city: string,
-  province: string,
-): Promise<{ lat: number; lng: number } | null> {
-  const q = encodeURIComponent(`${address}, ${city}, ${province}, Canada`);
-  const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=ca`;
-
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'CodeComply/1.0 (jadconsc@gmail.com)',
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.length) return null;
-
-    return {
-      lat: parseFloat(data[0].lat),
-      lng: parseFloat(data[0].lon),
-    };
-  } catch {
-    return null;
-  }
 }
 
 async function lookupCalgary(
