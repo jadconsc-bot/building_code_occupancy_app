@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bell, AlertTriangle, Download } from "lucide-react";
+import { Bell, AlertTriangle, AlertCircle, Download } from "lucide-react";
 import { exportFireAlarmToExcel } from "@/lib/excelExport";
 import { SaveButton } from "@/components/CalculatorWithSave";
 
@@ -138,6 +138,14 @@ export function FireAlarmCalculator() {
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
+        <div className="flex items-center gap-2 px-4 py-3 mb-6 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>
+            <strong>Unverified:</strong> the specific area/height/occupant-load thresholds shown here have
+            not been confirmed against the primary NBC text. Do not rely on this for permit submission
+            until verified.
+          </span>
+        </div>
         <div className="space-y-6">
           {/* Input Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

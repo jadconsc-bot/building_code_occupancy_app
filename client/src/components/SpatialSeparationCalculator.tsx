@@ -29,6 +29,7 @@ interface SpatialResult {
   requiresFireRatedClosures: boolean;
   notes: string[];
   excess: number;
+  notComputable?: boolean;
 }
 
 function computeSpatialSeparation(inp: SpatialInput): SpatialResult {
@@ -65,10 +66,28 @@ function computeSpatialSeparation(inp: SpatialInput): SpatialResult {
     };
   }
 
-  const isHigherHazard = ["E", "F-2", "F-1"].includes(inp.occupancyGroup);
-  const effectiveLdForCalc = isHigherHazard ? ld / 2 : ld;
-  let maxArea = effectiveLdForCalc * effectiveLdForCalc;
+  // F-1 (high-hazard industrial) requires a Table 9.10.14.4.-A lookup, not a formula.
+  if (inp.occupancyGroup === "F-1") {
+    return {
+      maxAllowedOpeningM2: 0,
+      isUnlimited: false,
+      effectiveLd: ld,
+      isCompliant: false,
+      requiresFireRatedClosures: false,
+      notes: [
+        "Group F-1 (high-hazard industrial) does not use the LD² formula method — it requires a table lookup (NBC Table 9.10.14.4.-A or Part 3 equivalent) not implemented in this calculator. This result is not usable for F-1 — consult the code table directly.",
+      ],
+      excess: 0,
+      notComputable: true,
+    };
+  }
+
+  // Mercantile (E) and medium-hazard industrial (F-2): halve the resulting area,
+  // not the limiting distance. The correct formula is LD²/2, not (LD/2)².
+  const isReducedAllowance = inp.occupancyGroup === "E" || inp.occupancyGroup === "F-2";
+  let maxArea = ld * ld;
   if (inp.isSprinklered) maxArea *= 2;
+  if (isReducedAllowance) maxArea /= 2;
   maxArea = Math.min(maxArea, inp.exposingFaceAreaM2);
 
   const isCompliant = inp.totalOpeningAreaM2 <= maxArea;
@@ -76,7 +95,7 @@ function computeSpatialSeparation(inp: SpatialInput): SpatialResult {
 
   const notes: string[] = [
     `Effective LD: ${ld.toFixed(2)}m${rural ? " (halved — rural fire response)" : ""}`,
-    `Formula: ${isHigherHazard ? "(LD/2)²" : "LD²"}${inp.isSprinklered ? " × 2 (sprinklered)" : ""} = ${maxArea.toFixed(2)} m²`,
+    `Formula: LD²${isReducedAllowance ? " ÷ 2 (Group E/F-2)" : ""}${inp.isSprinklered ? " × 2 (sprinklered)" : ""} = ${maxArea.toFixed(2)} m²`,
     `Provided: ${inp.totalOpeningAreaM2.toFixed(2)} m² | Maximum: ${maxArea.toFixed(2)} m²`,
   ];
   if (!isCompliant) {
@@ -140,6 +159,7 @@ export function SpatialSeparationCalculator() {
     effectiveLimitingDistanceM: result.effectiveLd,
     excess: result.excess,
     notes: result.notes,
+    notComputable: result.notComputable,
   };
 
   return (
@@ -240,7 +260,7 @@ export function SpatialSeparationCalculator() {
           <div className="relative h-5 bg-muted rounded overflow-hidden">
             <div
               className={`absolute inset-y-0 left-0 rounded transition-all duration-300 ${
-                result.requiresFireRatedClosures ? "bg-red-500" :
+                result.notComputable ? "bg-amber-500" : result.requiresFireRatedClosures ? "bg-red-500" :
                 result.isCompliant ? "bg-blue-500" : "bg-red-500"
               }`}
               style={{ width: `${providedPct}%` }}
@@ -261,11 +281,15 @@ export function SpatialSeparationCalculator() {
 
         {/* Result notes */}
         <div className={`flex items-start gap-2 p-3 rounded border text-xs ${
-          result.requiresFireRatedClosures || !result.isCompliant
+          result.notComputable
+            ? "bg-amber-50 border-amber-200 text-amber-800"
+            : result.requiresFireRatedClosures || !result.isCompliant
             ? "bg-red-50 border-red-200 text-red-800"
             : "bg-green-50 border-green-200 text-green-800"
         }`}>
-          {result.isCompliant
+          {result.notComputable
+            ? <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            : result.isCompliant
             ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           }
@@ -278,18 +302,26 @@ export function SpatialSeparationCalculator() {
         <div className="flex items-center justify-between">
           <Badge
             className={
-              result.requiresFireRatedClosures || !result.isCompliant
+              result.notComputable
+                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                : result.requiresFireRatedClosures || !result.isCompliant
                 ? "bg-red-100 text-red-800 border border-red-300"
                 : "bg-green-100 text-green-800 border border-green-300"
             }
           >
-            {result.requiresFireRatedClosures
+            {result.notComputable
+              ? "NOT COMPUTABLE — TABLE LOOKUP REQUIRED"
+              : result.requiresFireRatedClosures
               ? "Fire-Rated Closures Required"
               : result.isCompliant
               ? "COMPLIANT"
               : `FAIL — reduce by ${result.excess.toFixed(2)} m²`}
           </Badge>
           <span className="text-xs text-muted-foreground">NBC 9.10.14 — Spatial Separation</span>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Formula corroborated against secondary sources, not the primary NBC 2020 text — reconfirm before relying on this for permit submission.</span>
         </div>
       </CardContent>
     </Card>

@@ -250,7 +250,7 @@ export function ExitRequirementsCalculator() {
                     * Stair-specific rates (8 mm/person standard stairs, 9.2 mm/person steeper) require knowing exit facility type — not collected here. Doorway rate applied as conservative default.
                   </p>
                   <p className="text-xs text-muted-foreground italic">
-                    * Minimum exit facility clear width is 900 mm per NBC 3.4.3.1.
+                    * Minimum exit facility clear width is stated here as 900 mm (NBC 3.4.3.1) — unverified against primary source; a related but distinct value (850 mm) appears elsewhere in this codebase for a door-width check. Confirm the correct clause and value before relying on this for permit submission.
                   </p>
                 </div>
               </div>
