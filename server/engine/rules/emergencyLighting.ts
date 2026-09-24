@@ -100,7 +100,7 @@ export function evaluateEmergencyLighting(
   } else if (inputs.is_within_high_building_scope === false && group === 'B') {
     duration = 60;
     nbcReferences.push('NBC 3.2.7.4.(1)(b)(ii)');
-  } else if (inputs.is_3_2_2_51_or_60_construction === true) {
+  } else if (inputs.is_within_high_building_scope === false && inputs.is_3_2_2_51_or_60_construction === true) {
     duration = 60;
     nbcReferences.push('NBC 3.2.7.4.(1)(b)(iii)');
   } else if (
@@ -116,6 +116,9 @@ export function evaluateEmergencyLighting(
     }
     if (inputs.is_3_2_2_51_or_60_construction === undefined) {
       additionalRequirements.push('NBC 3.2.7.4.(1)(b)(iii) construction under Article 3.2.2.51 or 3.2.2.60 was not provided — duration cannot be confirmed.');
+    }
+    if (inputs.is_within_high_building_scope === undefined && inputs.is_3_2_2_51_or_60_construction === true) {
+      additionalRequirements.push('NBC 3.2.7.4.(1)(b)(i) high-building scope remains unknown; the construction exception alone cannot confirm a 60-minute duration.');
     }
     if (group === null) {
       additionalRequirements.push('NBC 3.2.7.4.(1)(b)(ii) occupancy group was not recognized — Group B duration branch cannot be confirmed.');

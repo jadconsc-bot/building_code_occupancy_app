@@ -208,6 +208,12 @@ describe('NBC 3.2.7.3/3.2.7.4 — Emergency lighting determination', () => {
     expect(evaluateEmergencyLighting({ occupancy_major: 'D', is_within_high_building_scope: false, is_3_2_2_51_or_60_construction: false }, 50).duration).toBe(30);
   });
 
+  it('does not confirm 60 minutes from the construction exception alone when high-building scope is unknown', () => {
+    const result = evaluateEmergencyLighting({ occupancy_major: 'D', is_3_2_2_51_or_60_construction: true }, 50);
+    expect(result.duration).toBe('verify');
+    expect(result.additionalRequirements.some(c => c.includes('construction exception alone'))).toBe(true);
+  });
+
   it('adds CSA Z32 for treatment occupancy sleeping corridors', () => {
     const result = evaluateEmergencyLighting({ occupancy_major: 'B-2', has_treatment_occupancy_sleeping_corridors: true }, 50);
     expect(result.additionalRequirements.some(c => c.includes('CSA Z32'))).toBe(true);
