@@ -14,11 +14,18 @@ Production: complycode.ca (Railway, MySQL 8)
 - client/src/main.tsx
 - client/src/_core/hooks/useAuth.ts
 - server/_core/env.ts
-- server/services/complianceEngine.ts
-- server/services/compliancePathwayGenerator.ts
-- server/routers/complianceRouter.ts
-- client/src/components/AuthHydrationContext.tsx
-- server/_core/middleware/auth.ts
+- server/complianceEngine.ts
+- server/compliancePathwayGenerator.ts
+- server/complianceRouter.ts
+- client/src/contexts/AuthHydrationContext.tsx
+- server/_core/middleware.ts
+
+## Locked-Adjacent — new consumers need Jose's explicit sign-off (not a full lock, but touching
+## these or adding a new caller of them should be flagged in the spec before implementing)
+- server/engine/rules/fire.ts
+- server/engine/rules/egress.ts
+- server/routers/complianceRouter.ts  (thin wrapper — kept separate from the locked engine above
+  since it's lower-stakes, but still worth a heads-up before editing)
 
 ## Standing Disciplines
 - RECON before implementation — always read current state first
