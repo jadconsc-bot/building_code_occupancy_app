@@ -79,7 +79,7 @@ export function evaluateGuardHandrail(inputs: ComplianceInput): GuardHandrailRes
     maxOpeningSize: 100,
     loadRequirement,
     handrailRequired,
-    handrailHeight: handrailRequired ? '865-1070mm' : '865-1070mm',
+    handrailHeight: '865-1070mm',
     compliant,
     additionalRequirements: notes,
   };
