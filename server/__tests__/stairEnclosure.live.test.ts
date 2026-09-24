@@ -45,7 +45,7 @@ describe.skipIf(!live)('stair enclosure scope live round-trip', () => {
       try {
         await caller.projects.update({
           id: projectId,
-          buildingFootprintJson: { value: testCase.footprint, confirmed: true, source: 'user-entered' },
+          buildingFootprintJson: { value: testCase.footprint, confirmed: true, source: 'user-confirmed' },
         });
 
         const [analysisInsert] = await db.insert(drawingAnalyses).values({

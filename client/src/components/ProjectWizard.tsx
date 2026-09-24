@@ -431,7 +431,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       jurisdictionDetected,
       projectCode: projectCode.trim() || undefined,
       grossFloorArea: grossFloorArea || undefined,
-      buildingFootprintJson: buildingFootprintM2 !== undefined ? { value: buildingFootprintM2, confirmed: true, source: "user-entered" } : undefined,
+      buildingFootprintJson: buildingFootprintM2 !== undefined ? { value: buildingFootprintM2, confirmed: true, source: "user-confirmed" } : undefined,
       zoningCategory: zoningCategory || undefined,
       siteConstraints: siteConstraints.length > 0 ? JSON.stringify(siteConstraints) : undefined,
       storeys: storeys || undefined,

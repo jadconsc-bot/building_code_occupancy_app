@@ -32,7 +32,7 @@ describe.skipIf(!live)('area unit preference live persistence', () => {
       userId: 1240,
       name: `Area unit footprint test ${Date.now()}`,
       occupancyCode: 'C',
-      buildingFootprintJson: { value: 418, confirmed: true, source: 'user-entered' },
+      buildingFootprintJson: { value: 418, confirmed: true, source: 'user-confirmed' },
     });
     const projectId = Number(inserted.insertId);
     try {

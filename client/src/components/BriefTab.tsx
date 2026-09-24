@@ -125,7 +125,7 @@ function InputsPanel({
         ...(form.sprinklersRequired !== '' && {
           sprinklersRequired: form.sprinklersRequired === 'true',
         }),
-        ...(footprintM2 != null && { buildingFootprintJson: { value: footprintM2, confirmed: true, source: 'user-entered' } }),
+        ...(footprintM2 != null && { buildingFootprintJson: { value: footprintM2, confirmed: true, source: 'user-confirmed' } }),
       });
       const result = await utils.occupancyAdvisor.determinePart.fetch({
         footprintM2,
