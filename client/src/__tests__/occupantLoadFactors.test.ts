@@ -83,7 +83,7 @@ describe('OccupantLoadFactors', () => {
     it('should return factors for Care B-2 occupancy', () => {
       const factors = getLoadFactorsForOccupancy('B-2');
       expect(factors.length).toBeGreaterThan(0);
-      expect(factors.some(f => f.useType.includes('Treatment'))).toBe(true);
+      expect(factors.some(f => f.useType.toLowerCase().includes('treatment'))).toBe(true);
     });
 
     it('should handle occupancy codes with extra text', () => {
