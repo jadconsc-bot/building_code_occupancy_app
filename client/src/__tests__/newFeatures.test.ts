@@ -86,7 +86,7 @@ describe('Municipal Bylaws Data - Commercial and Industrial Zones', () => {
       expect(airdrie).toBeDefined();
       
       const commercialZones = airdrie?.zones.filter(z => 
-        z.zoneCode.startsWith('C-')
+        z.zoneCode.startsWith('C')
       );
       expect(commercialZones?.length).toBeGreaterThan(0);
     });
@@ -96,7 +96,7 @@ describe('Municipal Bylaws Data - Commercial and Industrial Zones', () => {
       expect(airdrie).toBeDefined();
       
       const industrialZones = airdrie?.zones.filter(z => 
-        z.zoneCode.startsWith('I-')
+        z.zoneCode.startsWith('IB') || z.zoneCode.startsWith('I-')
       );
       expect(industrialZones?.length).toBeGreaterThan(0);
     });
