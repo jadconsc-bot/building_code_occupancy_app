@@ -90,6 +90,14 @@ function buildSummary(
   };
 }
 
+/** Evaluate each drawing sheet in its own pixel coordinate space. */
+export function calculateTravelDistancesByPage(
+  pages: Array<{ rooms: DetectedRoomInput[]; calibrationScale: number | null }>,
+  sprinklered: boolean,
+): ReturnType<typeof calculateTravelDistances> {
+  return pages.flatMap(page => calculateTravelDistances(page.rooms, page.calibrationScale, sprinklered));
+}
+
 export const calculationsPackageRouter = router({
 
   determineGuardHandrail: protectedProcedure
@@ -300,7 +308,7 @@ export const calculationsPackageRouter = router({
         .orderBy(desc(drawingAnalyses.createdAt))
         .limit(1);
 
-      let travelResults: ReturnType<typeof calculateTravelDistances> = [];
+      const travelResults: ReturnType<typeof calculateTravelDistances> = [];
       let drawingAnalysisId: number | undefined;
 
       let pages: (typeof drawingPages.$inferSelect)[] = [];
@@ -313,14 +321,14 @@ export const calculationsPackageRouter = router({
           .from(drawingPages)
           .where(eq(drawingPages.drawingId, latestAnalysis.id));
 
-        // Rooms + features across all pages
-        const allRoomInputs: DetectedRoomInput[] = [];
+        // Evaluate each page independently: each sheet has its own coordinate space and calibration.
         for (const page of pages) {
           const rooms = await db
             .select()
             .from(detectedRooms)
             .where(eq(detectedRooms.pageId, page.id));
 
+          const pageRoomInputs: DetectedRoomInput[] = [];
           for (const room of rooms) {
             const features = await db
               .select({ featureType: detectedFeatures.featureType })
@@ -335,7 +343,7 @@ export const calculationsPackageRouter = router({
             const normalizedRoom = {
               occupancyGroup: readProvenancedFact({ wrapper: room.occupancyGroupJson, scalar: room.occupancyGroup, field: 'occupancyGroup', entityType: 'room', entityId: room.id, isValue: (v): v is string => typeof v === 'string' && v.length > 0 }).value,
             };
-            allRoomInputs.push({
+            pageRoomInputs.push({
               id: room.id,
               roomLabel: room.roomLabel ?? "",
               boundingBox: bbox,
@@ -344,11 +352,8 @@ export const calculationsPackageRouter = router({
             });
           }
 
-          // Use calibration from first page that has it
-          if (pages.indexOf(page) === 0) {
-            const pixelsPerMm = page.calibrationScale ? Number(page.calibrationScale) : null;
-            travelResults = calculateTravelDistances(allRoomInputs, pixelsPerMm, input.sprinklered);
-          }
+          const pixelsPerMm = page.calibrationScale ? Number(page.calibrationScale) : null;
+          travelResults.push(...calculateTravelDistancesByPage([{ rooms: pageRoomInputs, calibrationScale: pixelsPerMm }], input.sprinklered));
         }
       }
 
