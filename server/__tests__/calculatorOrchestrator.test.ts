@@ -15,6 +15,17 @@ function buildInput(overrides: Partial<Parameters<typeof runCalculatorOrchestrat
 }
 
 describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', () => {
+  it('fails when a detected bedroom is below the NBC 9.5.2.3 minimum area', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({ rooms: [{ label: 'Bedroom 1', occupancyGroup: 'C', areaM2: 6.5 }] }),
+      'AB',
+    );
+    expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
+      severity: 'fail',
+      citation: 'NBC 9.5.2.3',
+    });
+  });
+
   it('keeps non-Group-C room findings unchanged while producing one unit-level Group C finding', () => {
     const result = runCalculatorOrchestrator(
       buildInput({
@@ -42,8 +53,8 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
     expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
       severity: 'pass',
       description: 'Occupant load — Dwelling unit',
-      actual: 'Total area: 22.0 m² — 2 bedrooms identified × 2 persons/bedroom = 4 persons',
-      required: '2 persons per bedroom (dwelling units)',
+      actual: '2 bedrooms across all dwelling units/suites × 2 persons per bedroom = 4 persons',
+      required: '2 persons per bedroom (dwelling units), reduced per NBC 9.5.2.3 where room area is below the 2-person minimum',
       citation: 'NBC 3.1.17.1 Note (2)',
     });
 
@@ -107,7 +118,7 @@ describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', ()
       maxOccupants: 2,
     });
     expect(result.findings.find(f => f.issueId === 'OCC-UNIT-001')).toMatchObject({
-      actual: 'Total area: 20.0 m² — 1 bedroom identified × 2 persons/bedroom = 2 persons',
+      actual: '1 bedroom across all dwelling units/suites × 2 persons per bedroom = 2 persons',
     });
     expect(result.constructionTypes.find(ct => ct.occupancyGroup === 'C')?.actualAreaM2).toBe(20);
   });

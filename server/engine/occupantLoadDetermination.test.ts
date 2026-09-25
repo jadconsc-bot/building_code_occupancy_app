@@ -8,4 +8,26 @@ describe('determineOccupantLoad', () => {
   it('needs review when Group C bedroom data is absent', () => expect(determineOccupantLoad({ occupancyGroup: 'C', areaM2: 408 })).toMatchObject({ occupantLoad: 0, method: 'needs_review', needsReview: true }));
   it('uses area factor for non-Group-C', () => expect(determineOccupantLoad({ occupancyGroup: 'D', areaM2: 408 })).toMatchObject({ occupantLoad: 89, method: 'area_factor', needsReview: false }));
   it('does not count non-Group-C bedrooms', () => expect(determineOccupantLoad({ occupancyGroup: 'C', rooms: [{ occupancyGroup: 'D', label: 'Bedroom' }] }).needsReview).toBe(true));
+  it('does not count a bedroom below the 7.0m² minimum', () => {
+    const result = determineOccupantLoad({ occupancyGroup: 'C', rooms: [{ occupancyGroup: 'C', label: 'Bedroom', areaM2: 6.5 }] });
+    expect(result).toMatchObject({ occupantLoad: 0, needsReview: true });
+    expect(result.areaFlags?.[0].personsCounted).toBe(0);
+  });
+  it('counts a 7.0–9.8m² bedroom as one person', () => {
+    const result = determineOccupantLoad({ occupancyGroup: 'C', rooms: [{ occupancyGroup: 'C', label: 'Bedroom', areaM2: 8.5 }] });
+    expect(result).toMatchObject({ occupantLoad: 1, needsReview: false });
+    expect(result.areaFlags?.[0].personsCounted).toBe(1);
+  });
+  it('counts a bedroom at or above 9.8m² as two persons', () => {
+    const result = determineOccupantLoad({ occupancyGroup: 'C', rooms: [{ occupancyGroup: 'C', label: 'Bedroom', areaM2: 11 }] });
+    expect(result).toMatchObject({ occupantLoad: 2, needsReview: false });
+    expect(result.areaFlags).toBeUndefined();
+  });
+  it('cross-checks each bedroom in a dwelling unit', () => {
+    const result = determineOccupantLoad({ occupancyGroup: 'C', rooms: [
+      { occupancyGroup: 'C', label: 'Bedroom 1', areaM2: 6.5 },
+      { occupancyGroup: 'C', label: 'Bedroom 2', areaM2: 11 },
+    ] });
+    expect(result).toMatchObject({ occupantLoad: 2, needsReview: true });
+  });
 });

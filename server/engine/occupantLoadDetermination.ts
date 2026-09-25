@@ -1,4 +1,5 @@
 import { getDefaultLoadFactor, occupantLoadFactors } from '@shared/occupantLoadFactors';
+import { Constraints } from './constraints';
 
 export interface OccupantLoadRoom {
   occupancyGroup?: string | null;
@@ -26,6 +27,7 @@ export interface OccupantLoadDeterminationResult {
   needsReview: boolean;
   reasoning: string;
   citation: string;
+  areaFlags?: { label: string; areaM2: number; personsCounted: number; note: string }[];
 }
 
 const BEDROOM_LABEL = /bed|sleep|master|bedroom|bdrm|mstr/i;
@@ -36,22 +38,50 @@ export function determineOccupantLoad(input: OccupantLoadDeterminationInput): Oc
 
   if (group === 'C') {
     const groupCRooms = (input.rooms ?? []).filter((room) => (room.occupancyGroup ?? '').trim().toUpperCase() === 'C');
-    const labelledBedrooms = groupCRooms.filter((room) => BEDROOM_LABEL.test(room.label ?? room.roomLabel ?? '')).length;
+    const labelledBedroomRooms = groupCRooms.filter((room) => BEDROOM_LABEL.test(room.label ?? room.roomLabel ?? ''));
+    const labelledBedrooms = labelledBedroomRooms.length;
     const inferredBedroomCount = groupCRooms.length > 0 ? labelledBedrooms : null;
     const bedroomCount = input.bedroomCount ?? inferredBedroomCount;
     const inferredButUnconfirmed = input.bedroomCount == null && inferredBedroomCount === 0;
 
     if (bedroomCount != null && !inferredButUnconfirmed && Number.isFinite(bedroomCount) && bedroomCount >= 0) {
-      const occupants = Math.ceil(bedroomCount) * 2;
+      const MIN_1_PERSON = Constraints.residential.bedroom_area.minimum_1_person.value;
+      const MIN_2_PERSON = Constraints.residential.bedroom_area.minimum_2_person.value;
+      const areaFlags: { label: string; areaM2: number; personsCounted: number; note: string }[] = [];
+      let anyBelowMinimum = false;
+      let occupants = Math.ceil(bedroomCount) * 2;
+
+      if (groupCRooms.length > 0) {
+        occupants = 0;
+        for (const room of labelledBedroomRooms) {
+          const area = room.areaM2 ?? room.areaSqm ?? null;
+          const label = room.label ?? room.roomLabel ?? 'Bedroom';
+          if (area == null || area <= 0) {
+            occupants += 2;
+          } else if (area < MIN_1_PERSON) {
+            anyBelowMinimum = true;
+            areaFlags.push({ label, areaM2: area, personsCounted: 0, note: `${area}m² is below the ${MIN_1_PERSON}m² NBC 9.5.2.3 minimum sleeping-room area — cannot be counted as a legal sleeping room` });
+          } else if (area < MIN_2_PERSON) {
+            occupants += 1;
+            areaFlags.push({ label, areaM2: area, personsCounted: 1, note: `${area}m² is below the ${MIN_2_PERSON}m² NBC 9.5.2.3 two-person minimum — counted as 1 person, not 2` });
+          } else {
+            occupants += 2;
+          }
+        }
+      }
+      const reasoning = areaFlags.length > 0
+        ? `${Math.ceil(bedroomCount)} bedroom(s) across all dwelling units/suites — ${occupants} persons after NBC 9.5.2.3 area cross-check (${areaFlags.map((flag) => `${flag.label}: ${flag.note}`).join('; ')})`
+        : `${Math.ceil(bedroomCount)} bedroom${Math.ceil(bedroomCount) === 1 ? '' : 's'} across all dwelling units/suites × 2 persons per bedroom = ${occupants} persons`;
       return {
         occupantLoad: occupants,
         method: 'bedroom_count',
         bedroomCount: Math.ceil(bedroomCount),
         areaPerPerson: null,
         seatCount: null,
-        needsReview: false,
-        reasoning: `${Math.ceil(bedroomCount)} bedroom${Math.ceil(bedroomCount) === 1 ? '' : 's'} across all dwelling units/suites × 2 persons per bedroom = ${occupants} persons`,
+        needsReview: anyBelowMinimum,
+        reasoning,
         citation,
+        areaFlags: areaFlags.length > 0 ? areaFlags : undefined,
       };
     }
 

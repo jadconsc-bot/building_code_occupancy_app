@@ -25,6 +25,7 @@ import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
 import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
+import { Constraints } from '../engine/constraints';
 import {
   ACCESSORY_SPACE_TYPES,
   inferAccessorySpaceType,
@@ -372,11 +373,21 @@ export function runCalculatorOrchestrator(
         issueId,
         severity: 'pass',
         description: 'Occupant load — Dwelling unit',
-        actual: `Total area: ${totalGroupCArea.toFixed(1)} m² — ${bedroomCount} bedroom${bedroomCount !== 1 ? 's' : ''} identified × 2 persons/bedroom = ${unitOccupants} persons`,
-        required: '2 persons per bedroom (dwelling units)',
+        actual: determination.reasoning,
+        required: '2 persons per bedroom (dwelling units), reduced per NBC 9.5.2.3 where room area is below the 2-person minimum',
         citation: 'NBC 3.1.17.1 Note (2)',
       });
       passCount++;
+    } else if (determination.areaFlags && determination.areaFlags.length > 0) {
+      findings.push({
+        issueId,
+        severity: 'fail',
+        description: 'Occupant load — Dwelling unit',
+        actual: determination.reasoning,
+        required: `Every bedroom counted toward occupant load must meet NBC 9.5.2.3's minimum sleeping-room area (${Constraints.residential.bedroom_area.minimum_1_person.value}m² for 1 person)`,
+        citation: 'NBC 9.5.2.3',
+      });
+      failCount++;
     } else {
       findings.push({
         issueId,
