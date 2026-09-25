@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { projects } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { lookupZone } from "../services/zoneLookupService";
+import { lookupParcelArea as lookupParcelAreaService } from "../services/parcelAreaLookupService";
 
 export const zoneLookupRouter = router({
   lookup: protectedProcedure
@@ -20,6 +21,16 @@ export const zoneLookupRouter = router({
         input.province,
       );
       return result ?? { error: 'Zone not found for this address' };
+    }),
+
+  lookupParcelArea: protectedProcedure
+    .input(z.object({
+      address: z.string().min(5),
+      municipality: z.string().min(2),
+    }))
+    .mutation(async ({ input }) => {
+      const result = await lookupParcelAreaService(input.address, input.municipality);
+      return result ?? { error: 'No parcel area data available for this address' };
     }),
 
   saveToProject: protectedProcedure

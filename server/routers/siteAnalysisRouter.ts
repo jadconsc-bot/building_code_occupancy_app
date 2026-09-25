@@ -26,6 +26,7 @@ const siteAnalysisInput = z.object({
   accessoryAreaSqm:     z.number().optional(),
   accessoryIsCompliant: z.boolean().optional(),
   source:               z.enum(['manual', 'drawing_analyzer']).optional(),
+  parcelAreaSource:     z.string().max(50).optional(),
 });
 
 export const siteAnalysisRouter = router({
@@ -67,6 +68,7 @@ export const siteAnalysisRouter = router({
         accessoryAreaSqm:     input.accessoryAreaSqm !== undefined ? toDecimal(input.accessoryAreaSqm) : undefined,
         accessoryIsCompliant: input.accessoryIsCompliant,
         source:               input.source ?? 'manual',
+        parcelAreaSource:     input.parcelAreaSource,
       });
 
       return { success: true };

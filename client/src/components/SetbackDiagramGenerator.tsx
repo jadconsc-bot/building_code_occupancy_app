@@ -32,8 +32,9 @@ interface ProposedSetbacks {
 
 export function SetbackDiagramGenerator() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { activeProjectId } = useProject();
+  const { activeProjectId, getProject } = useProject();
   const saveAnalysisMutation = trpc.siteAnalysis.save.useMutation();
+  const lookupParcelAreaMutation = trpc.zoneLookup.lookupParcelArea.useMutation();
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState<string>("edmonton");
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>("");
   const [selectedZone, setSelectedZone] = useState<ZoneRegulation | null>(null);
@@ -42,6 +43,13 @@ export function SetbackDiagramGenerator() {
     width: 15,
     depth: 35,
   });
+  const [fetchedParcelArea, setFetchedParcelArea] = useState<{
+    lotAreaSqm: number;
+    confirmedAddress: string | null;
+    source: string;
+  } | null>(null);
+  const [lotAreaOverrideSqm, setLotAreaOverrideSqm] = useState<number | null>(null);
+  const [isFetchingParcelArea, setIsFetchingParcelArea] = useState(false);
   
   const [buildingDimensions, setBuildingDimensions] = useState<BuildingDimensions>({
     width: 10,
@@ -141,7 +149,7 @@ export function SetbackDiagramGenerator() {
 
     // Check site coverage
     const buildingArea = buildingDimensions.width * buildingDimensions.depth;
-    const lotArea = lotDimensions.width * lotDimensions.depth;
+    const lotArea = lotAreaOverrideSqm ?? (lotDimensions.width * lotDimensions.depth);
     const coverage = (buildingArea / lotArea) * 100;
     
     if (selectedZone.coverage.maxSiteCoverage && coverage > selectedZone.coverage.maxSiteCoverage) {
@@ -163,7 +171,7 @@ export function SetbackDiagramGenerator() {
       violations,
       warnings,
     });
-  }, [selectedZone, proposedSetbacks, buildingDimensions, lotDimensions, isCornerLot]);
+  }, [selectedZone, proposedSetbacks, buildingDimensions, lotDimensions, isCornerLot, lotAreaOverrideSqm]);
 
   // Draw diagram
   useEffect(() => {
@@ -492,6 +500,7 @@ export function SetbackDiagramGenerator() {
         isCompliant:          complianceResults.compliant,
         zoneCode:             selectedZoneCode || undefined,
         municipality:         selectedMunicipalityId || undefined,
+        parcelAreaSource:     lotAreaOverrideSqm != null ? fetchedParcelArea?.source : undefined,
         ...(showAccessoryBuilding ? {
           accessoryWidthM:      accessoryDimensions.width,
           accessoryDepthM:      accessoryDimensions.depth,
@@ -506,8 +515,33 @@ export function SetbackDiagramGenerator() {
     }
   };
 
+  const handleFetchParcelArea = async () => {
+    const project = activeProjectId ? getProject(activeProjectId) : undefined;
+    if (!project?.address) {
+      toast.error("No project address on file");
+      return;
+    }
+    setIsFetchingParcelArea(true);
+    try {
+      const result = await lookupParcelAreaMutation.mutateAsync({
+        address: project.address,
+        municipality: selectedMunicipalityId,
+      });
+      if ('error' in result) {
+        toast.info("No city lot-area data available for this address — enter dimensions manually");
+        setFetchedParcelArea(null);
+      } else {
+        setFetchedParcelArea(result);
+      }
+    } catch {
+      toast.error("Lot area lookup failed");
+    } finally {
+      setIsFetchingParcelArea(false);
+    }
+  };
+
   // Calculate site statistics
-  const lotArea = lotDimensions.width * lotDimensions.depth;
+  const lotArea = lotAreaOverrideSqm ?? (lotDimensions.width * lotDimensions.depth);
   const buildingArea = buildingDimensions.width * buildingDimensions.depth;
   const siteCoverage = (buildingArea / lotArea) * 100;
   const buildableArea = (lotDimensions.width - proposedSetbacks.left - proposedSetbacks.right) *
@@ -621,6 +655,33 @@ export function SetbackDiagramGenerator() {
                       className="mt-1"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFetchParcelArea}
+                    disabled={isFetchingParcelArea || !activeProjectId || !getProject(activeProjectId)?.address}
+                  >
+                    {isFetchingParcelArea ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Fetch lot area from city records
+                  </Button>
+                  {fetchedParcelArea && (
+                    <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+                      <div>City records ({fetchedParcelArea.source}): {fetchedParcelArea.lotAreaSqm} m² for {fetchedParcelArea.confirmedAddress ?? 'confirmed address'}</div>
+                      <div className="mt-2 flex gap-2">
+                        <Button type="button" size="sm" onClick={() => setLotAreaOverrideSqm(fetchedParcelArea.lotAreaSqm)}>Apply</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setFetchedParcelArea(null)}>Dismiss</Button>
+                      </div>
+                    </div>
+                  )}
+                  {lotAreaOverrideSqm != null && (
+                    <div className="text-xs text-muted-foreground">
+                      Using city-sourced area: {lotAreaOverrideSqm} m² instead of width × depth ({lotDimensions.width * lotDimensions.depth} m²)
+                      <Button type="button" variant="link" size="sm" className="h-auto p-0 pl-1" onClick={() => setLotAreaOverrideSqm(null)}>Use width × depth instead</Button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <input
