@@ -185,6 +185,59 @@ describe('NBC 3.2.4.1 — Fire alarm system determination', () => {
     expect(result.evaluatedInputs.required).toBe('not required');
     expect(result.reasoning).toContain('3.2.4.1.(5)');
   });
+
+  it.each([
+    ['F-3', '(4)(h)'],
+    ['F-2', '(4)(i)'],
+  ] as const)('does not trigger %s industrial threshold from total load alone', (group, sentence) => {
+    const result = evaluateFireAlarm({
+      occupancy_major: group, sprinklers: false,
+      occupant_load_above_below_first_storey: 50,
+    }, 80);
+    expect(result.reasoning).not.toContain(sentence);
+    expect(result.recommendations?.some(caveat => caveat.includes(sentence))).toBe(false);
+  });
+
+  it.each([
+    ['F-3', '(4)(h)'],
+    ['F-2', '(4)(i)'],
+  ] as const)('triggers %s industrial threshold from above/below-first-storey load', (group, sentence) => {
+    const result = evaluateFireAlarm({
+      occupancy_major: group, sprinklers: false,
+      occupant_load_above_below_first_storey: 80,
+    }, 80);
+    expect(result.reasoning).toContain(sentence);
+  });
+
+  it.each(['F-3', 'F-2'] as const)('keeps %s industrial threshold unknown without above/below-first-storey load', (group) => {
+    const result = evaluateFireAlarm({ occupancy_major: group, sprinklers: false }, 80);
+    expect(result.evaluatedInputs.required).toBe('verify');
+    expect(result.recommendations?.some(caveat => caveat.includes('occupant load above or below the first storey'))).toBe(true);
+  });
+
+  it('discloses the open-air seating exclusion when total load is the trigger', () => {
+    const result = evaluateFireAlarm({
+      occupancy_major: 'D', sprinklers: false, storeys: 2,
+      contained_use_area: false, impeded_egress_zone: false,
+      occupant_load_above_below_first_storey: 0,
+      is_school_college_childcare: false, is_licensed_beverage_or_restaurant: false,
+      open_air_seating_below_load: 0, is_storage_garage_only: false,
+    }, 301);
+    expect(result.reasoning).toContain('3.2.4.1.(4)(d)');
+    expect(result.recommendations).toContain('NBC 3.2.4.1.(4)(d)/(e): this occupant load figure has not been reduced by any open-air seating area load, which the Code excludes — verify manually if open-air seating areas are present');
+  });
+
+  it('discloses the unmodeled separated-portion exception for a Sentence (4) trigger', () => {
+    const result = evaluateFireAlarm({
+      occupancy_major: 'D', sprinklers: false, storeys: 4,
+      contained_use_area: false, impeded_egress_zone: false,
+      occupant_load_above_below_first_storey: 0,
+      is_school_college_childcare: false, is_licensed_beverage_or_restaurant: false,
+      open_air_seating_below_load: 0, is_storage_garage_only: false,
+    }, 50);
+    expect(result.reasoning).toContain('3.2.4.1.(4)(c)');
+    expect(result.recommendations?.some(caveat => caveat.includes('3.2.4.2.(4)'))).toBe(true);
+  });
 });
 
 describe('NBC 3.2.7.3/3.2.7.4 — Emergency lighting determination', () => {

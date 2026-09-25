@@ -69,9 +69,11 @@ export function evaluateFireAlarm(inputs: ComplianceInput, occupantLoad: number)
       ? undefined
       : inputs.sprinkler_count < 9;
     if (nfpa13d === true) {
+      caveats.push("NBC 3.2.4.1.(2)/(3)/(6): this exception's conformance to its referenced sub-clause was taken as given from the input, not independently verified");
       required = false;
       basis = 'Fire alarm not required — NBC 3.2.4.1.(2): NFPA 13D sprinkler system exception';
     } else if (fewerThanNine === true) {
+      caveats.push("NBC 3.2.4.1.(2)/(3)/(6): this exception's conformance to its referenced sub-clause was taken as given from the input, not independently verified");
       required = false;
       basis = 'Fire alarm not required — NBC 3.2.4.1.(3): fewer than 9 qualifying sprinklers';
     } else {
@@ -97,8 +99,8 @@ export function evaluateFireAlarm(inputs: ComplianceInput, occupantLoad: number)
       { sentence: '3.2.4.1.(4)(e)', value: inputs.occupant_load_above_below_first_storey === undefined ? (caveats.push('NBC 3.2.4.1.(4)(e): occupant load above or below the first storey not provided — condition remains unknown'), undefined) : inputs.occupant_load_above_below_first_storey > 150, description: 'occupant load more than 150 above or below the first storey' },
       { sentence: '3.2.4.1.(4)(f)', value: inputs.is_school_college_childcare === undefined ? (caveats.push('NBC 3.2.4.1.(4)(f): school, college, or child-care status not provided — condition remains unknown'), undefined) : inputs.is_school_college_childcare && occupantLoad > 40, description: 'school, college, or child-care facility with occupant load more than 40' },
       { sentence: '3.2.4.1.(4)(g)', value: inputs.is_licensed_beverage_or_restaurant === undefined ? (caveats.push('NBC 3.2.4.1.(4)(g): licensed beverage-establishment or restaurant status not provided — condition remains unknown'), undefined) : inputs.is_licensed_beverage_or_restaurant && occupantLoad > 150, description: 'licensed beverage establishment or restaurant with occupant load more than 150' },
-      { sentence: '3.2.4.1.(4)(h)', value: group === null ? (caveats.push('NBC 3.2.4.1.(4)(h): occupancy group not recognized — low-hazard industrial condition remains unknown'), undefined) : group === 'F-3' ? occupantLoad > 75 : false, description: 'low-hazard industrial occupancy with occupant load more than 75 above or below the first storey' },
-      { sentence: '3.2.4.1.(4)(i)', value: group === null ? (caveats.push('NBC 3.2.4.1.(4)(i): occupancy group not recognized — medium-hazard industrial condition remains unknown'), undefined) : group === 'F-2' ? occupantLoad > 75 : false, description: 'medium-hazard industrial occupancy with occupant load more than 75 above or below the first storey' },
+      { sentence: '3.2.4.1.(4)(h)', value: group === null ? (caveats.push('NBC 3.2.4.1.(4)(h): occupancy group not recognized — low-hazard industrial condition remains unknown'), undefined) : group !== 'F-3' ? false : inputs.occupant_load_above_below_first_storey === undefined ? (caveats.push('NBC 3.2.4.1.(4)(h): occupant load above or below the first storey not provided — low-hazard industrial condition remains unknown'), undefined) : inputs.occupant_load_above_below_first_storey > 75, description: 'low-hazard industrial occupancy with occupant load more than 75 above or below the first storey' },
+      { sentence: '3.2.4.1.(4)(i)', value: group === null ? (caveats.push('NBC 3.2.4.1.(4)(i): occupancy group not recognized — medium-hazard industrial condition remains unknown'), undefined) : group !== 'F-2' ? false : inputs.occupant_load_above_below_first_storey === undefined ? (caveats.push('NBC 3.2.4.1.(4)(i): occupant load above or below the first storey not provided — medium-hazard industrial condition remains unknown'), undefined) : inputs.occupant_load_above_below_first_storey > 75, description: 'medium-hazard industrial occupancy with occupant load more than 75 above or below the first storey' },
       { sentence: '3.2.4.1.(4)(j)', value: group !== 'C' ? (group === null ? (caveats.push('NBC 3.2.4.1.(4)(j): occupancy group not recognized — residential sleeping-accommodation condition remains unknown'), undefined) : false) : inputs.residential_sleeping_capacity !== undefined ? inputs.residential_sleeping_capacity > 10 : inputs.bedroom_count !== undefined ? (caveats.push('NBC 3.2.4.1.(4)(j): residential sleeping capacity not provided — bedroom count used as an explicit approximation'), inputs.bedroom_count > 10) : (caveats.push('NBC 3.2.4.1.(4)(j): residential sleeping capacity not provided — condition remains unknown'), undefined), description: 'residential occupancy with sleeping accommodation for more than 10 persons' },
       { sentence: '3.2.4.1.(4)(k)', value: group === null ? (caveats.push('NBC 3.2.4.1.(4)(k): occupancy group not recognized — high-hazard industrial condition remains unknown'), undefined) : group === 'F-1' ? occupantLoad > 25 : false, description: 'high-hazard industrial occupancy with occupant load more than 25' },
       { sentence: '3.2.4.1.(4)(l)', value: inputs.open_air_seating_below_load === undefined ? (caveats.push('NBC 3.2.4.1.(4)(l): occupant load below an open-air seating area not provided — condition remains unknown'), undefined) : inputs.open_air_seating_below_load > 300, description: 'occupant load more than 300 below an open-air seating area' },
@@ -116,12 +118,20 @@ export function evaluateFireAlarm(inputs: ComplianceInput, occupantLoad: number)
       : inputs.is_storage_garage_only;
 
     if (residentialException === true) {
+      if (inputs.residential_suite_count !== undefined && inputs.residential_suite_count <= 4) {
+        caveats.push('NBC 3.2.4.1.(5)(a): using total building suite count as a conservative proxy for suites sharing a common means of egress — may require an alarm in some cases where the Code does not');
+      }
       required = false;
       basis = 'Fire alarm not required — NBC 3.2.4.1.(5): residential exemption is proven';
     } else if (storageGarageException === true) {
+      caveats.push("NBC 3.2.4.1.(2)/(3)/(6): this exception's conformance to its referenced sub-clause was taken as given from the input, not independently verified");
       required = false;
       basis = 'Fire alarm not required — NBC 3.2.4.1.(6): qualifying storage-garage exemption is proven';
     } else if (provenCondition) {
+      if (provenCondition.sentence === '3.2.4.1.(4)(d)' || provenCondition.sentence === '3.2.4.1.(4)(e)') {
+        caveats.push('NBC 3.2.4.1.(4)(d)/(e): this occupant load figure has not been reduced by any open-air seating area load, which the Code excludes — verify manually if open-air seating areas are present');
+      }
+      caveats.push('NBC 3.2.4.2.(4): a separated-portion exception exists in the Code and was not evaluated — verify manually if this building has a fire-separated portion meeting that exception\'s conditions');
       required = true;
       basis = `Fire alarm required — NBC ${provenCondition.sentence}: ${provenCondition.description}`;
     } else if (unknownCondition || residentialException === undefined || storageGarageException === undefined) {
