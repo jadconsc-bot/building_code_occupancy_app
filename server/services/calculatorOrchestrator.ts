@@ -93,6 +93,14 @@ export interface OrchestratorInput {
   address?: string | null;
   municipality?: string | null;
   zoneCode?: string | null;
+  siteAnalysis?: {
+    lotAreaSqm: number | null;
+    lotWidthM: number | null;
+    siteCoveragePct: number | null;
+    frontSetbackM: number | null;
+    rearSetbackM: number | null;
+    sideSetbackM: number | null;
+  } | null;
   totalDwellingUnits?: number;
   calibrationConfidence: 'high' | 'low' | 'none';
   /**
@@ -943,10 +951,18 @@ export function runCalculatorOrchestrator(
   // fireSeparation.requiredFRR is number in OrchestratorResult but string
   // in ConflictDetectorInput — cast at call site.
   let zoneMaxStoreys: number | null = null;
+  let zoneMaxCoveragePct: number | null = null;
+  let zoneMinLotAreaSqm: number | null = null;
+  let zoneMinLotWidthM: number | null = null;
+  let zoneSetbacks: { front: number; rear: number; sideInterior: number } | null = null;
   if (input.zoneCode && input.municipality) {
     const municipalityId = input.municipality.trim().toLowerCase();
     const zone = getZoneByCode(municipalityId, input.zoneCode);
     zoneMaxStoreys = zone?.height.maxStoreys ?? null;
+    zoneMaxCoveragePct = zone?.coverage.maxSiteCoverage ?? null;
+    zoneMinLotAreaSqm = zone?.lotRequirements.minArea ?? null;
+    zoneMinLotWidthM = zone?.lotRequirements.minWidth ?? null;
+    zoneSetbacks = zone?.setbacks ? { front: zone.setbacks.front, rear: zone.setbacks.rear, sideInterior: zone.setbacks.sideInterior } : null;
   }
 
   const codeConflicts = detectCodeConflicts({
@@ -963,6 +979,11 @@ export function runCalculatorOrchestrator(
     province: input.province ?? 'CA',
     zoneCode: input.zoneCode ?? undefined,
     zoneMaxStoreys,
+    siteAnalysis: input.siteAnalysis ?? null,
+    zoneMaxCoveragePct,
+    zoneMinLotAreaSqm,
+    zoneMinLotWidthM,
+    zoneSetbacks,
     jurisdictionSource: input.jurisdictionSource,
   });
   // ── End conflict detection ──────────────────────────────────────────────

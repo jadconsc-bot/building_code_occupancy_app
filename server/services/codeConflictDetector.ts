@@ -57,6 +57,18 @@ export interface ConflictDetectorInput {
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
   zoneCode?: string | null;
   zoneMaxStoreys?: number | null;
+  siteAnalysis?: {
+    lotAreaSqm: number | null;
+    lotWidthM: number | null;
+    siteCoveragePct: number | null;
+    frontSetbackM: number | null;
+    rearSetbackM: number | null;
+    sideSetbackM: number | null;
+  } | null;
+  zoneMaxCoveragePct?: number | null;
+  zoneMinLotAreaSqm?: number | null;
+  zoneMinLotWidthM?: number | null;
+  zoneSetbacks?: { front: number; rear: number; sideInterior: number } | null;
 }
 
 // ─── Output ──────────────────────────────────────────────────────────────────
@@ -314,6 +326,64 @@ export function detectCodeConflicts(
       evaluationTimestamp: timestamp,
       jurisdictionSource: input.jurisdictionSource,
     });
+  }
+
+  // ── CONFLICT CHECK 7 ─────────────────────────────────────────────────────
+  if (input.siteAnalysis?.siteCoveragePct != null && input.zoneMaxCoveragePct != null && input.siteAnalysis.siteCoveragePct > input.zoneMaxCoveragePct) {
+    conflicts.push({
+      conflictId: 'CONFLICT-ZONING-COVERAGE-001', severity: 'major',
+      conflictingRules: [`Zoning district ${input.zoneCode ?? 'unknown'}`],
+      description: `Site coverage is ${input.siteAnalysis.siteCoveragePct}% but zoning district ${input.zoneCode ?? 'unknown'} permits a maximum of ${input.zoneMaxCoveragePct}%`,
+      valueA: `Site coverage: ${input.siteAnalysis.siteCoveragePct}%`,
+      valueB: `Zone ${input.zoneCode ?? 'unknown'} maximum coverage: ${input.zoneMaxCoveragePct}%`,
+      recommendation: `Reduce building footprint to meet the ${input.zoneMaxCoveragePct}% coverage limit, or confirm the zoning district and variance options with the municipality`,
+      nbcRef: `Municipal zoning bylaw — ${input.zoneCode ?? 'unknown'}`, codeEdition, evaluationTimestamp: timestamp, jurisdictionSource: input.jurisdictionSource,
+    });
+  }
+
+  // ── CONFLICT CHECK 8 ─────────────────────────────────────────────────────
+  if (input.siteAnalysis?.lotAreaSqm != null && input.zoneMinLotAreaSqm != null && input.siteAnalysis.lotAreaSqm < input.zoneMinLotAreaSqm) {
+    conflicts.push({
+      conflictId: 'CONFLICT-ZONING-LOTAREA-001', severity: 'major',
+      conflictingRules: [`Zoning district ${input.zoneCode ?? 'unknown'}`],
+      description: `Lot area is ${input.siteAnalysis.lotAreaSqm} m² but zoning district ${input.zoneCode ?? 'unknown'} requires a minimum of ${input.zoneMinLotAreaSqm} m²`,
+      valueA: `Lot area: ${input.siteAnalysis.lotAreaSqm} m²`, valueB: `Zone ${input.zoneCode ?? 'unknown'} minimum lot area: ${input.zoneMinLotAreaSqm} m²`,
+      recommendation: 'Confirm lot area and minimum-lot-area variance options with the municipality',
+      nbcRef: `Municipal zoning bylaw — ${input.zoneCode ?? 'unknown'}`, codeEdition, evaluationTimestamp: timestamp, jurisdictionSource: input.jurisdictionSource,
+    });
+  }
+  if (input.siteAnalysis?.lotWidthM != null && input.zoneMinLotWidthM != null && input.siteAnalysis.lotWidthM < input.zoneMinLotWidthM) {
+    conflicts.push({
+      conflictId: 'CONFLICT-ZONING-LOTWIDTH-001', severity: 'major',
+      conflictingRules: [`Zoning district ${input.zoneCode ?? 'unknown'}`],
+      description: `Lot width is ${input.siteAnalysis.lotWidthM} m but zoning district ${input.zoneCode ?? 'unknown'} requires a minimum of ${input.zoneMinLotWidthM} m`,
+      valueA: `Lot width: ${input.siteAnalysis.lotWidthM} m`, valueB: `Zone ${input.zoneCode ?? 'unknown'} minimum lot width: ${input.zoneMinLotWidthM} m`,
+      recommendation: 'Confirm lot width and minimum-lot-width variance options with the municipality',
+      nbcRef: `Municipal zoning bylaw — ${input.zoneCode ?? 'unknown'}`, codeEdition, evaluationTimestamp: timestamp, jurisdictionSource: input.jurisdictionSource,
+    });
+  }
+
+  // ── CONFLICT CHECK 9 ─────────────────────────────────────────────────────
+  if (input.siteAnalysis && input.zoneSetbacks) {
+    const sides = [
+      { key: 'frontSetbackM' as const, zoneKey: 'front' as const, label: 'Front' },
+      { key: 'rearSetbackM' as const, zoneKey: 'rear' as const, label: 'Rear' },
+      { key: 'sideSetbackM' as const, zoneKey: 'sideInterior' as const, label: 'Side interior' },
+    ];
+    for (const side of sides) {
+      const actual = input.siteAnalysis[side.key];
+      const required = input.zoneSetbacks[side.zoneKey];
+      if (actual != null && actual < required) {
+        conflicts.push({
+          conflictId: `CONFLICT-ZONING-SETBACK-001-${side.zoneKey}`, severity: 'major',
+          conflictingRules: [`Zoning district ${input.zoneCode ?? 'unknown'}`],
+          description: `${side.label} setback is ${actual} m but zoning district ${input.zoneCode ?? 'unknown'} requires a minimum of ${required} m`,
+          valueA: `${side.label} setback: ${actual} m`, valueB: `Zone ${input.zoneCode ?? 'unknown'} minimum ${side.label.toLowerCase()} setback: ${required} m`,
+          recommendation: `Increase the ${side.label.toLowerCase()} setback to at least ${required} m, or confirm variance options with the municipality`,
+          nbcRef: `Municipal zoning bylaw — ${input.zoneCode ?? 'unknown'}`, codeEdition, evaluationTimestamp: timestamp, jurisdictionSource: input.jurisdictionSource,
+        });
+      }
+    }
   }
 
   // ── Assemble result ──────────────────────────────────────────────────────

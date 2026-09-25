@@ -33,6 +33,7 @@ import {
   detectedFeatures,
   complianceResults,
   users,
+  siteAnalyses,
 } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { extractDrawingData, EXTRACTION_PROMPT_VERSION } from "../services/drawingExtractionService";
@@ -1928,11 +1929,32 @@ export const drawingAnalysisRouter = router({
       })
         .from(projects).where(eq(projects.id, analysisRow.projectId)).limit(1);
       const projectUnits = readProvenancedFact({ wrapper: projectRow?.totalDwellingUnitsJson, scalar: projectRow?.totalDwellingUnits, field: 'totalDwellingUnits', entityType: 'project', entityId: analysisRow.projectId, isValue: (v): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 }).value ?? undefined;
+      const [siteAnalysisRow] = await db
+        .select({
+          lotAreaSqm: siteAnalyses.lotAreaSqm,
+          lotWidthM: siteAnalyses.lotWidthM,
+          siteCoveragePct: siteAnalyses.siteCoveragePct,
+          frontSetbackM: siteAnalyses.frontSetbackM,
+          rearSetbackM: siteAnalyses.rearSetbackM,
+          sideSetbackM: siteAnalyses.sideSetbackM,
+        })
+        .from(siteAnalyses)
+        .where(eq(siteAnalyses.projectId, analysisRow.projectId))
+        .orderBy(desc(siteAnalyses.createdAt))
+        .limit(1);
       const result = runCalculatorOrchestrator({
         ...input,
         projectId: analysisRow.projectId,
         totalDwellingUnits: projectUnits,
         zoneCode: projectRow?.zoneCode ?? null,
+        siteAnalysis: siteAnalysisRow ? {
+          lotAreaSqm: siteAnalysisRow.lotAreaSqm != null ? Number(siteAnalysisRow.lotAreaSqm) : null,
+          lotWidthM: siteAnalysisRow.lotWidthM != null ? Number(siteAnalysisRow.lotWidthM) : null,
+          siteCoveragePct: siteAnalysisRow.siteCoveragePct != null ? Number(siteAnalysisRow.siteCoveragePct) : null,
+          frontSetbackM: siteAnalysisRow.frontSetbackM != null ? Number(siteAnalysisRow.frontSetbackM) : null,
+          rearSetbackM: siteAnalysisRow.rearSetbackM != null ? Number(siteAnalysisRow.rearSetbackM) : null,
+          sideSetbackM: siteAnalysisRow.sideSetbackM != null ? Number(siteAnalysisRow.sideSetbackM) : null,
+        } : null,
         stackConfirmedAt: projectRow?.stackConfirmedAt ?? null,
       }, input.province);
       const frrCandidates = result.complianceRequirements.filter(c => c.requirementType.startsWith('orchestrator-frr.'));
