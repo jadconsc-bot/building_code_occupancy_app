@@ -9,7 +9,7 @@ import {
   checkHeightCompliance,
   checkLotCompliance,
   compareZonesAcrossMunicipalities,
-} from '@/lib/municipalBylawsData';
+} from '@shared/municipalBylawsData';
 
 describe('Municipal Bylaws Data', () => {
   describe('municipalities data structure', () => {

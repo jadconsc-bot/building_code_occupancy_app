@@ -94,7 +94,7 @@ import { ProfessionalReviewPanel } from "@/components/ProfessionalReviewPanel";
 import { AnalysisStatusBanner } from "@/components/AnalysisStatusBanner";
 import { SaveCalculatorResultDialog } from "@/components/SaveCalculatorResultDialog";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { municipalities, Municipality, ZoneRegulation } from "@/lib/municipalBylawsData";
+import { municipalities, Municipality, ZoneRegulation } from "@shared/municipalBylawsData";
 import {
   ScaleSystem,
   ArchitecturalScale,

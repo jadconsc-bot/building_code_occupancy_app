@@ -9,7 +9,7 @@ import {
   checkCoverageCompliance,
   checkHeightCompliance,
   checkLotCompliance
-} from '../lib/municipalBylawsData';
+} from '@shared/municipalBylawsData';
 
 describe('Municipal Bylaws Data - Commercial and Industrial Zones', () => {
   describe('Edmonton Commercial/Industrial Zones', () => {

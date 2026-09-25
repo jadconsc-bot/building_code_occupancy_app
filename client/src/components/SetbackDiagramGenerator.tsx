@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, CheckCircle2, Download, RefreshCw, Maximize2, Building2, Ruler, Info, Save, Loader2 } from "lucide-react";
-import { municipalities, getMunicipalityById, getZoneByCode, ZoneRegulation } from "@/lib/municipalBylawsData";
+import { municipalities, getMunicipalityById, getZoneByCode, ZoneRegulation } from "@shared/municipalBylawsData";
 import { trpc } from "@/lib/trpc";
 import { useProject } from "@/contexts/ProjectContext";
 import { toast } from "sonner";

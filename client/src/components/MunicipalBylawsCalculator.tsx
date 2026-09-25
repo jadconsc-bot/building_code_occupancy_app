@@ -41,7 +41,7 @@ import {
   compareZonesAcrossMunicipalities,
   Municipality,
   ZoneRegulation,
-} from '@/lib/municipalBylawsData';
+} from '@shared/municipalBylawsData';
 
 // Airdrie GIS returns codes without hyphens (R1, C2); static data uses R-1, C-2
 function normalizeZoneCode(raw: string): string {

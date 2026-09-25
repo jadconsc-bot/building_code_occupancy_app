@@ -24,6 +24,7 @@ import {
 import { scoreCARLItems } from './carl/carlScorer';
 import type { CARLReport } from './carl/carlTypes';
 import { getAccessoryLoadFactor, getDefaultLoadFactor } from '@shared/occupantLoadFactors';
+import { getZoneByCode } from '@shared/municipalBylawsData';
 import { determineOccupantLoad } from '../engine/occupantLoadDetermination';
 import { Constraints } from '../engine/constraints';
 import {
@@ -91,6 +92,7 @@ export interface OrchestratorInput {
   projectId?: number | null;
   address?: string | null;
   municipality?: string | null;
+  zoneCode?: string | null;
   totalDwellingUnits?: number;
   calibrationConfidence: 'high' | 'low' | 'none';
   /**
@@ -940,6 +942,13 @@ export function runCalculatorOrchestrator(
   // hasBlockingConflicts: true gates permit package generation.
   // fireSeparation.requiredFRR is number in OrchestratorResult but string
   // in ConflictDetectorInput — cast at call site.
+  let zoneMaxStoreys: number | null = null;
+  if (input.zoneCode && input.municipality) {
+    const municipalityId = input.municipality.trim().toLowerCase();
+    const zone = getZoneByCode(municipalityId, input.zoneCode);
+    zoneMaxStoreys = zone?.height.maxStoreys ?? null;
+  }
+
   const codeConflicts = detectCodeConflicts({
     occupantLoad,
     travelDistance,
@@ -952,6 +961,8 @@ export function runCalculatorOrchestrator(
     sprinklered: input.sprinklered,
     storeys: input.storeys,
     province: input.province ?? 'CA',
+    zoneCode: input.zoneCode ?? undefined,
+    zoneMaxStoreys,
     jurisdictionSource: input.jurisdictionSource,
   });
   // ── End conflict detection ──────────────────────────────────────────────

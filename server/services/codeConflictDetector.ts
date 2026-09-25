@@ -55,6 +55,8 @@ export interface ConflictDetectorInput {
   storeys: number;
   province: string;
   jurisdictionSource?: 'geocoded' | 'manual' | 'device' | 'fallback';
+  zoneCode?: string | null;
+  zoneMaxStoreys?: number | null;
 }
 
 // ─── Output ──────────────────────────────────────────────────────────────────
@@ -289,6 +291,25 @@ export function detectCodeConflicts(
       valueB: `Barrier-free analysis: not evaluated (H3 pending)`,
       recommendation: `Complete barrier-free requirements analysis (NBC 3.8) before permit submission`,
       nbcRef: 'NBC 2020 Article 3.8.3.8',
+      codeEdition,
+      evaluationTimestamp: timestamp,
+      jurisdictionSource: input.jurisdictionSource,
+    });
+  }
+
+  // ── CONFLICT CHECK 6 ─────────────────────────────────────────────────────
+  // Storeys vs zoning district height cap. Only compare when the zone has a
+  // numeric storey cap; height-only zones and unknown zones remain silent.
+  if (input.zoneMaxStoreys != null && input.storeys > input.zoneMaxStoreys) {
+    conflicts.push({
+      conflictId: 'CONFLICT-ZONING-STOREYS-001',
+      severity: 'major',
+      conflictingRules: [`Zoning district ${input.zoneCode ?? 'unknown'}`],
+      description: `Design has ${input.storeys} storeys but zoning district ${input.zoneCode ?? 'unknown'} permits a maximum of ${input.zoneMaxStoreys}`,
+      valueA: `Design storeys: ${input.storeys}`,
+      valueB: `Zone ${input.zoneCode ?? 'unknown'} maximum storeys: ${input.zoneMaxStoreys}`,
+      recommendation: `Reduce building height to ${input.zoneMaxStoreys} storeys, or confirm the zoning district and rezoning/variance options with the municipality`,
+      nbcRef: `Municipal zoning bylaw — ${input.zoneCode ?? 'unknown'}`,
       codeEdition,
       evaluationTimestamp: timestamp,
       jurisdictionSource: input.jurisdictionSource,
