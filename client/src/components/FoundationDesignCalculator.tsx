@@ -3,323 +3,45 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Home, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Home } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
+import { trpc } from "@/lib/trpc";
+
+type FoundationType = "strip" | "spread" | "pier" | "helical";
 
 export function FoundationDesignCalculator() {
-  const [soilType, setSoilType] = useState<string>("medium");
-  const [wallLoad, setWallLoad] = useState<string>("");
-  const [wallLength, setWallLength] = useState<string>("");
-  const [region, setRegion] = useState<string>("calgary");
-  const [foundationType, setFoundationType] = useState<string>("strip");
-  const [results, setResults] = useState<any>(null);
-
-  const calculateFoundation = () => {
-    const load = parseFloat(wallLoad);
-    const length = parseFloat(wallLength);
-
-    if (isNaN(load) || isNaN(length) || load <= 0 || length <= 0) {
-      setResults(null);
-      return;
-    }
-
-    // Generic soil-category estimate; NBC 9.15.3.2 addresses footing substrate, not a capacity table.
-    const soilCapacities: Record<string, number> = {
-      rock: 500,
-      gravel: 200,
-      medium: 100, // Sand, silt
-      clay: 75,
-      soft: 50
-    };
-
-    const bearingCapacity = soilCapacities[soilType] || 100;
-
-    // Regional estimate; minimum foundation depth is governed by NBC 9.12.2.2 / Table 9.12.2.2.
-    const frostDepths: Record<string, number> = {
-      calgary: 1800,
-      edmonton: 1800,
-      red_deer: 1800,
-      lethbridge: 1500,
-      fort_mcmurray: 2100
-    };
-
-    const frostDepth = frostDepths[region] || 1800;
-
-    // Calculate required footing width
-    const totalLoad = load; // kN
-    const linearLoad = totalLoad / length; // kN/m
-    const requiredArea = (linearLoad / bearingCapacity) * 1000; // m² per meter of wall
-    const footingWidth = Math.ceil(requiredArea / 100) * 100; // Round up to nearest 100mm
-
-    // Footing width/area: NBC 9.15.3.3-9.15.3.7, especially Table 9.15.3.4.
-    const minWidth = foundationType === "strip" ? 400 : 600;
-    const minThickness = 150;
-    const actualWidth = Math.max(footingWidth, minWidth);
-    const footingThickness = Math.max(Math.ceil(actualWidth / 3), minThickness);
-
-    // Foundation wall thickness: NBC 9.15.4.2 / Table 9.15.4.2-A.
-    const wallThickness = actualWidth <= 600 ? 200 : 250;
-
-    // Reinforcement requirements
-    const requiresRebar = actualWidth > 600 || footingThickness > 200;
-    const rebarSize = requiresRebar ? "15M" : "None";
-    const rebarSpacing = requiresRebar ? 400 : 0;
-
-    // Drainage requirements: NBC 9.14.2.1 and 9.14.3.2.
-    const drainageRequired = frostDepth > 1200;
-    const drainPipeSize = 100; // mm diameter
-
-    // Dampproofing: NBC 9.13.2.1.
-    const dampproofing = "Dampproofing compound or membrane required";
-
-    // Compliance check
-    const compliant = actualWidth >= minWidth && 
-                     footingThickness >= minThickness && 
-                     frostDepth >= 1200;
-
-    setResults({
-      footingWidth: actualWidth,
-      footingThickness,
-      wallThickness,
-      frostDepth,
-      bearingCapacity,
-      bearingPressure: (linearLoad / (actualWidth / 1000)).toFixed(1),
-      rebarSize,
-      rebarSpacing,
-      drainageRequired,
-      drainPipeSize,
-      dampproofing,
-      compliant,
-      minDepth: frostDepth + 150, // Add 150mm below frost line
-      concreteVolume: ((actualWidth / 1000) * (footingThickness / 1000) * length).toFixed(2)
-    });
-  };
-
-  return (
-    <Card className="border-border shadow-sm">
-      <CardHeader className="pb-2 bg-muted/30 border-b border-border/50">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <Home className="w-4 h-4 text-primary" /> Foundation Design Calculator
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              NBC 9.15 - Strip and spread footing design for residential construction
-            </CardDescription>
-          </div>
-          <CalculatorActions
-            calculatorId="foundation_design"
-            calculatorName="Foundation Design"
-            exportData={() => ({
-              filename: `Foundation_Design_${new Date().toISOString().split('T')[0]}`,
-              sheetName: "Foundation",
-              data: results ? [
-                ["Parameter", "Value"],
-                ["Soil Type", soilType],
-                ["Wall Load", `${wallLoad} kN`],
-                ["Wall Length", `${wallLength} m`],
-                ["Region", region],
-                ["Foundation Type", foundationType],
-                ["", ""],
-                ["RESULTS", ""],
-                ["Footing Width", `${results.footingWidth} mm`],
-                ["Footing Thickness", `${results.footingThickness} mm`],
-                ["Wall Thickness", `${results.wallThickness} mm`],
-                ["Frost Depth", `${results.frostDepth} mm`],
-                ["Min Depth Below Grade", `${results.minDepth} mm`],
-                ["Bearing Capacity", `${results.bearingCapacity} kPa`],
-                ["Bearing Pressure", `${results.bearingPressure} kPa`],
-                ["Rebar Size", results.rebarSize],
-                ["Rebar Spacing", results.rebarSpacing > 0 ? `${results.rebarSpacing} mm` : "N/A"],
-                ["Drainage Required", results.drainageRequired ? "Yes" : "No"],
-                ["Drain Pipe Size", `${results.drainPipeSize} mm`],
-                ["Dampproofing", results.dampproofing],
-                ["Concrete Volume", `${results.concreteVolume} m³`],
-                ["", ""],
-                ["NBC Reference", "NBC 9.15.3.3-9.15.3.7 / 9.15.4.2; generic soil and frost estimates require site verification"],
-              ] : []
-            })}
-            currentState={{ soilType, wallLoad, wallLength, region, foundationType }}
-            onLoadPreset={(data) => {
-              setSoilType(data.soilType);
-              setWallLoad(data.wallLoad);
-              setWallLength(data.wallLength);
-              setRegion(data.region);
-              setFoundationType(data.foundationType);
-            }}
-            hasResults={!!results}
-          />
-        </div>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="soil-type" className="text-sm font-medium">
-              Soil Type <span className="text-destructive">*</span>
-            </Label>
-            <Select value={soilType} onValueChange={setSoilType}>
-              <SelectTrigger id="soil-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="rock">Rock (500 kPa)</SelectItem>
-                <SelectItem value="gravel">Gravel/Coarse Sand (200 kPa)</SelectItem>
-                <SelectItem value="medium">Medium Sand/Silt (100 kPa)</SelectItem>
-                <SelectItem value="clay">Stiff Clay (75 kPa)</SelectItem>
-                <SelectItem value="soft">Soft Clay/Silt (50 kPa)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="foundation-type" className="text-sm font-medium">
-              Foundation Type <span className="text-destructive">*</span>
-            </Label>
-            <Select value={foundationType} onValueChange={setFoundationType}>
-              <SelectTrigger id="foundation-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="strip">Strip Footing (Continuous)</SelectItem>
-                <SelectItem value="spread">Spread Footing (Isolated)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="wall-load" className="text-sm font-medium">
-              Total Wall Load (kN) <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="wall-load"
-              type="number"
-              placeholder="e.g., 150"
-              value={wallLoad}
-              onChange={(e) => setWallLoad(e.target.value)}
-              min="0"
-              step="10"
-            />
-            <p className="text-xs text-muted-foreground">
-              Dead load + live load + snow load
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="wall-length" className="text-sm font-medium">
-              Wall Length (m) <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="wall-length"
-              type="number"
-              placeholder="e.g., 10"
-              value={wallLength}
-              onChange={(e) => setWallLength(e.target.value)}
-              min="0"
-              step="0.1"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="region" className="text-sm font-medium">
-              Alberta Region <span className="text-destructive">*</span>
-            </Label>
-            <Select value={region} onValueChange={setRegion}>
-              <SelectTrigger id="region">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="calgary">Calgary (1800mm frost)</SelectItem>
-                <SelectItem value="edmonton">Edmonton (1800mm frost)</SelectItem>
-                <SelectItem value="red_deer">Red Deer (1800mm frost)</SelectItem>
-                <SelectItem value="lethbridge">Lethbridge (1500mm frost)</SelectItem>
-                <SelectItem value="fort_mcmurray">Fort McMurray (2100mm frost)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <Button onClick={calculateFoundation} className="w-full" size="lg">
-          Calculate Foundation Requirements
-        </Button>
-
-        {results && (
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b">
-              {results.compliant ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-destructive" />
-              )}
-              <h3 className="font-semibold">
-                {results.compliant ? "Design Compliant" : "Review Required"}
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Footing Width</p>
-                <p className="text-lg font-bold">{results.footingWidth} mm</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Footing Thickness</p>
-                <p className="text-lg font-bold">{results.footingThickness} mm</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Wall Thickness</p>
-                <p className="text-lg font-bold">{results.wallThickness} mm</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Min Depth Below Grade</p>
-                <p className="text-lg font-bold">{results.minDepth} mm</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Bearing Pressure</p>
-                <p className="text-lg font-bold">{results.bearingPressure} kPa</p>
-                <p className="text-xs text-muted-foreground">
-                  Capacity: {results.bearingCapacity} kPa
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Concrete Volume</p>
-                <p className="text-lg font-bold">{results.concreteVolume} m³</p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Reinforcement:</span>
-                <Badge variant={results.rebarSize !== "None" ? "default" : "secondary"}>
-                  {results.rebarSize}
-                  {results.rebarSpacing > 0 && ` @ ${results.rebarSpacing}mm o.c.`}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Drainage:</span>
-                <Badge variant={results.drainageRequired ? "default" : "secondary"}>
-                  {results.drainageRequired ? `${results.drainPipeSize}mm drain required` : "Not required"}
-                </Badge>
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">Dampproofing:</span>
-                <p className="text-muted-foreground mt-1">{results.dampproofing}</p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <div className="p-4 mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded text-xs text-amber-800 dark:text-amber-200">
-                <p className="font-bold text-amber-900 dark:text-amber-100 mb-2">Simplified sizing estimate</p>
-                <p>This is a simplified sizing estimate for early planning purposes only. It does not implement the complete NBC prescriptive tables and does not account for site-specific geotechnical soil-bearing capacity or full frost-depth table conditions. Final sizing must be confirmed by a qualified designer or, where required by the applicable authority, a professional engineer.</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <strong>NBC References:</strong> 9.15.3.2 (substrate; soil capacity is generic/unverified), 9.15.3.3-9.15.3.7 (footing width/area), 9.15.4.2 (foundation wall thickness),
-                9.12.2.2 / Table 9.12.2.2 (foundation depth), 9.14.2.1 and 9.14.3.2 (drainage), 9.13.2.1 (dampproofing)
-              </p>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+  const [soilType, setSoilType] = useState("medium");
+  const [foundationType, setFoundationType] = useState<FoundationType>("strip");
+  const [wallLoad, setWallLoad] = useState("");
+  const [wallLength, setWallLength] = useState("");
+  const [pointLoad, setPointLoad] = useState("");
+  const [region, setRegion] = useState("calgary");
+  const enabled = foundationType === "helical" || (foundationType === "strip" ? Number(wallLoad) > 0 && Number(wallLength) > 0 : Number(pointLoad) > 0);
+  const query = trpc.calculationsPackage.determineFoundationDesign.useQuery({
+    soilType: soilType as "rock" | "gravel" | "medium" | "clay" | "soft",
+    region: region as "calgary" | "edmonton" | "red_deer" | "lethbridge" | "fort_mcmurray",
+    foundationType,
+    wallLoadKn: foundationType === "strip" ? Number(wallLoad) : undefined,
+    wallLengthM: foundationType === "strip" ? Number(wallLength) : undefined,
+    pointLoadKn: foundationType === "spread" || foundationType === "pier" ? Number(pointLoad) : undefined,
+  }, { enabled });
+  const results = query.data;
+  const exportData = () => ({ filename: `Foundation_Design_${new Date().toISOString().split("T")[0]}`, sheetName: "Foundation", data: results ? [["Parameter", "Value"], ["Foundation Type", foundationType], ["Footing", results.footingShape === "square" ? `${results.footingWidth}mm × ${results.footingWidth}mm` : results.footingShape === "circular" ? `Ø${results.footingWidth}mm` : `${results.footingWidth}mm`], ["Frost Depth", `${results.frostDepth}mm`], ["Minimum Depth", `${results.minDepth}mm`], ["Bearing Capacity", `${results.bearingCapacity} kPa`], ["Caveats", results.caveats.join(" ")]] : [] });
+  const inputs = { soilType, foundationType, wallLoad, wallLength, pointLoad, region };
+  return <Card className="border-border shadow-sm">
+    <CardHeader className="pb-2 bg-muted/30 border-b border-border/50"><div className="flex items-start justify-between"><div><CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2"><Home className="w-4 h-4 text-primary" /> Foundation Design Calculator</CardTitle><CardDescription className="text-xs mt-1">NBC 9.15 foundation sizing estimate</CardDescription></div><div className="flex gap-2"><SaveButton calculatorType="foundationDesign" inputs={inputs} results={(results ?? {}) as Record<string, unknown>} /><CalculatorActions calculatorId="foundation_design" calculatorName="Foundation Design" exportData={exportData} currentState={inputs} onLoadPreset={(data) => { setSoilType(data.soilType ?? "medium"); setFoundationType(data.foundationType ?? "strip"); setWallLoad(data.wallLoad ?? ""); setWallLength(data.wallLength ?? ""); setPointLoad(data.pointLoad ?? ""); setRegion(data.region ?? "calgary"); }} hasResults={!!results} /></div></div></CardHeader>
+    <CardContent className="pt-4 space-y-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2"><Label>Soil Type</Label><Select value={soilType} onValueChange={setSoilType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="rock">Rock (500 kPa)</SelectItem><SelectItem value="gravel">Gravel/coarse sand (200 kPa)</SelectItem><SelectItem value="medium">Medium sand/silt (100 kPa)</SelectItem><SelectItem value="clay">Stiff clay (75 kPa)</SelectItem><SelectItem value="soft">Soft clay/silt (50 kPa)</SelectItem></SelectContent></Select></div>
+      <div className="space-y-2"><Label>Foundation Type</Label><Select value={foundationType} onValueChange={(v) => setFoundationType(v as FoundationType)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="strip">Strip Footing (Continuous)</SelectItem><SelectItem value="spread">Spread/Pad Footing</SelectItem><SelectItem value="pier">Pier/Sonotube</SelectItem><SelectItem value="helical">Helical/Screw Pile</SelectItem></SelectContent></Select></div>
+      {foundationType === "strip" && <><div className="space-y-2"><Label>Wall Load (kN)</Label><Input type="number" value={wallLoad} onChange={e => setWallLoad(e.target.value)} /></div><div className="space-y-2"><Label>Wall Length (m)</Label><Input type="number" value={wallLength} onChange={e => setWallLength(e.target.value)} /></div></>}
+      {(foundationType === "spread" || foundationType === "pier") && <div className="space-y-2"><Label>Point Load (kN)</Label><Input type="number" value={pointLoad} onChange={e => setPointLoad(e.target.value)} /></div>}
+      <div className="space-y-2"><Label>Alberta Region</Label><Select value={region} onValueChange={setRegion}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="calgary">Calgary</SelectItem><SelectItem value="edmonton">Edmonton</SelectItem><SelectItem value="red_deer">Red Deer</SelectItem><SelectItem value="lethbridge">Lethbridge</SelectItem><SelectItem value="fort_mcmurray">Fort McMurray</SelectItem></SelectContent></Select></div>
+    </div>
+    <p className="text-xs text-muted-foreground">Simplified sizing estimate for early planning only; soil capacity and frost depth require site verification.</p>
+    {results && !results.computable && <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{results.caveats.join(" ")}</div>}
+    {results?.computable && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">{[["Footing", results.footingShape === "square" ? `${results.footingWidth} × ${results.footingWidth} mm` : results.footingShape === "circular" ? `Ø${results.footingWidth} mm` : `${results.footingWidth} mm`], ["Thickness", `${results.footingThickness} mm`], ["Frost depth", `${results.frostDepth} mm`], ["Min depth", `${results.minDepth} mm`], ["Bearing", `${results.bearingCapacity} kPa`], ["Rebar", results.rebarSize ?? "N/A"], ["Drainage", results.drainageRequired ? "Required" : "Not required"], ["Status", results.compliant ? "Compliant" : "Review"]].map(([label, value]) => <div key={label} className="rounded border p-2"><div className="text-muted-foreground">{label}</div><div className="font-semibold">{value}</div></div>)}</div>}
+    {results?.computable && <Badge variant={results.compliant ? "default" : "destructive"}>{results.compliant ? "Sizing checks passed" : "Review required"}</Badge>}
+    </CardContent></Card>;
 }

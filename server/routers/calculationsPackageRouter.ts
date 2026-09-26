@@ -23,6 +23,10 @@ import { evaluateExitCount } from '../engine/rules/egress';
 import { evaluateFireAlarm } from '../engine/rules/fire';
 import { evaluateEmergencyLighting } from '../engine/rules/emergencyLighting';
 import { evaluateGuardHandrail } from '../engine/rules/guardHandrail';
+import { evaluateSnowLoad } from '../engine/rules/snowLoad';
+import { evaluateStudSpacing } from '../engine/rules/studSpacing';
+import { evaluateLintelSpan } from '../engine/rules/lintelSpan';
+import { evaluateFoundationDesign } from '../engine/rules/foundationDesign';
 import { inferAccessorySpaceType, reclassifyAccessoryOccupancy } from '../engine/spatial/accessoryOccupancyReclassifier';
 import { readProvenancedFact } from '../services/factProvenance';
 
@@ -172,6 +176,22 @@ export const calculationsPackageRouter = router({
       is_within_high_building_scope: input.isWithinHighBuildingScope ?? undefined,
       is_3_2_2_51_or_60_construction: input.is32251Or60Construction ?? undefined,
     }, input.occupantLoad)),
+
+  determineSnowLoad: protectedProcedure
+    .input(z.object({ location: z.enum(['calgary', 'edmonton', 'red-deer', 'lethbridge', 'fort-mcmurray', 'grande-prairie']), roofType: z.enum(['sloped', 'flat']), roofSlopeDegrees: z.number().optional(), importance: z.enum(['low', 'normal', 'high', 'post-disaster']), exposure: z.enum(['sheltered', 'normal', 'exposed']) }))
+    .query(({ input }) => evaluateSnowLoad(input)),
+
+  determineStudSpacing: protectedProcedure
+    .input(z.object({ studSize: z.enum(['38x89', '38x140', '38x184']), wallHeightMm: z.number().positive(), wallType: z.enum(['load-bearing', 'non-load-bearing']), species: z.enum(['spf', 'hem-fir', 'd-fir']).optional(), grade: z.enum(['no2', 'no1', 'select']).optional() }))
+    .query(({ input }) => evaluateStudSpacing(input)),
+
+  determineLintelSpan: protectedProcedure
+    .input(z.object({ openingWidthMm: z.number().positive(), wallType: z.enum(['exterior', 'interior', 'partition']), floorsAbove: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(), supportsRoof: z.boolean().optional(), species: z.enum(['spf', 'hem-fir', 'd-fir']).optional() }))
+    .query(({ input }) => evaluateLintelSpan(input)),
+
+  determineFoundationDesign: protectedProcedure
+    .input(z.object({ soilType: z.enum(['rock', 'gravel', 'medium', 'clay', 'soft']), region: z.enum(['calgary', 'edmonton', 'red_deer', 'lethbridge', 'fort_mcmurray']), foundationType: z.enum(['strip', 'spread', 'pier', 'helical']), wallLoadKn: z.number().positive().optional(), wallLengthM: z.number().positive().optional(), pointLoadKn: z.number().positive().optional() }))
+    .query(({ input }) => evaluateFoundationDesign(input)),
 
   determineFireAlarm: protectedProcedure
     .input(z.object({

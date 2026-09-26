@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Columns, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
+import { trpc } from "@/lib/trpc";
 
 export function StudSpacingCalculator() {
   const [studSize, setStudSize] = useState<string>("38x140");
@@ -16,54 +18,15 @@ export function StudSpacingCalculator() {
   const [grade, setGrade] = useState<string>("no2");
   const [results, setResults] = useState<any>(null);
 
-  const calculateSpacing = () => {
-    const height = parseFloat(wallHeight);
-    if (isNaN(height) || height <= 0) return;
-
-    // NBC 9.23.10.1 / Table 9.23.10.1 (Size and Spacing of Studs)
-    // Simplified lookup based on stud size, height, and wall type
-    
-    const spacingData: Record<string, Record<string, number>> = {
-      "38x89": {
-        "load-bearing": height <= 2400 ? 400 : height <= 2700 ? 300 : 0,
-        "non-load-bearing": height <= 3000 ? 600 : height <= 3600 ? 400 : 0
-      },
-      "38x140": {
-        "load-bearing": height <= 2700 ? 600 : height <= 3000 ? 400 : 0,
-        "non-load-bearing": height <= 3600 ? 600 : height <= 4200 ? 400 : 0
-      },
-      "38x184": {
-        "load-bearing": height <= 3000 ? 600 : height <= 3600 ? 400 : 0,
-        "non-load-bearing": height <= 4200 ? 600 : height <= 4800 ? 400 : 0
-      }
-    };
-
-    const maxSpacing = spacingData[studSize]?.[wallType] || 0;
-    const compliant = maxSpacing > 0;
-
-    // Calculate number of studs for a 10m wall
-    const wallLength = 10000; // 10m in mm
-    const numStuds = maxSpacing > 0 ? Math.ceil(wallLength / maxSpacing) + 1 : 0;
-
-    // Stud grade adjustments
-    let gradeNote = "";
-    if (grade === "no2") {
-      gradeNote = "No. 2 or better grade required for load-bearing walls";
-    } else if (grade === "no1") {
-      gradeNote = "No. 1 grade allows slightly taller walls or wider spacing";
-    } else if (grade === "select") {
-      gradeNote = "Select Structural grade provides maximum capacity";
-    }
-
-    setResults({
-      maxSpacing: maxSpacing > 0 ? maxSpacing : "N/A",
-      compliant,
-      numStuds,
-      gradeNote,
-      studSizeDisplay: studSize.replace("x", " × ") + " mm",
-      wallHeightDisplay: height.toFixed(0)
-    });
-  };
+  const wallHeightMm = parseFloat(wallHeight);
+  const { data: determination } = trpc.calculationsPackage.determineStudSpacing.useQuery({
+    studSize: studSize as any, wallHeightMm: Number.isFinite(wallHeightMm) ? wallHeightMm : 0,
+    wallType: wallType as any, species: species as any, grade: grade as any,
+  }, { enabled: Number.isFinite(wallHeightMm) && wallHeightMm > 0 });
+  useEffect(() => {
+    if (determination) setResults({ maxSpacing: determination.maxSpacingMm ?? "N/A", compliant: determination.compliant, numStuds: determination.numStudsFor10mWall, gradeNote: determination.gradeNote, studSizeDisplay: studSize.replace("x", " × ") + " mm", wallHeightDisplay: wallHeightMm.toFixed(0) });
+    else setResults(null);
+  }, [determination, studSize, wallHeightMm]);
 
   return (
     <Card className="border-border shadow-sm">
@@ -77,6 +40,7 @@ export function StudSpacingCalculator() {
               NBC 9.23.10.1 / Table 9.23.10.1 - Determine maximum stud spacing for wood-frame walls
             </CardDescription>
           </div>
+          {results !== null && <SaveButton calculatorType="studSpacing" inputs={{ studSize, wallHeight, wallType, species, grade }} results={results} />}
           <CalculatorActions
             calculatorId="stud_spacing"
             calculatorName="Stud Spacing"
@@ -183,14 +147,6 @@ export function StudSpacingCalculator() {
             </Select>
           </div>
         </div>
-
-        <Button 
-          onClick={calculateSpacing} 
-          className="w-full bg-primary hover:bg-primary/90"
-          disabled={!wallHeight}
-        >
-          Calculate Maximum Spacing
-        </Button>
 
         {results && (
           <div className="mt-6 space-y-4">

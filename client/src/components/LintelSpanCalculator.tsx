@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Minus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
+import { SaveButton } from "@/components/CalculatorWithSave";
+import { trpc } from "@/lib/trpc";
 
 export function LintelSpanCalculator() {
   const [openingWidth, setOpeningWidth] = useState<string>("");
@@ -16,85 +18,16 @@ export function LintelSpanCalculator() {
   const [species, setSpecies] = useState<string>("spf");
   const [results, setResults] = useState<any>(null);
 
-  const calculateLintel = () => {
-    const width = parseFloat(openingWidth);
-    if (isNaN(width) || width <= 0) return;
-
-    const floors = parseInt(floorsAbove);
-    const hasRoof = roofLoad === "yes";
-
-    // NBC Span Tables 9.23.12.3.-A to -D (simplified)
-    // Load calculation: roof + floors above
-    let loadFactor = 0;
-    if (hasRoof) loadFactor += 1;
-    loadFactor += floors;
-
-    // Determine required lintel size based on span and load
-    let lintelSize = "";
-    let lintelType = "";
-    let compliant = true;
-
-    // Simplified lintel sizing (actual NBC tables are more detailed)
-    if (width <= 1200) {
-      if (loadFactor <= 1) {
-        lintelSize = "2 × 38 × 184 mm (2-2×8)";
-        lintelType = "Double 2×8";
-      } else if (loadFactor <= 2) {
-        lintelSize = "2 × 38 × 235 mm (2-2×10)";
-        lintelType = "Double 2×10";
-      } else {
-        lintelSize = "2 × 38 × 286 mm (2-2×12)";
-        lintelType = "Double 2×12";
-      }
-    } else if (width <= 1800) {
-      if (loadFactor <= 1) {
-        lintelSize = "2 × 38 × 235 mm (2-2×10)";
-        lintelType = "Double 2×10";
-      } else if (loadFactor <= 2) {
-        lintelSize = "2 × 38 × 286 mm (2-2×12)";
-        lintelType = "Double 2×12";
-      } else {
-        lintelSize = "Engineered beam required";
-        lintelType = "LVL or Steel";
-        compliant = false;
-      }
-    } else if (width <= 2400) {
-      if (loadFactor <= 1) {
-        lintelSize = "2 × 38 × 286 mm (2-2×12)";
-        lintelType = "Double 2×12";
-      } else {
-        lintelSize = "Engineered beam required";
-        lintelType = "LVL or Steel";
-        compliant = false;
-      }
-    } else {
-      lintelSize = "Engineered beam required";
-      lintelType = "LVL, Glulam, or Steel";
-      compliant = false;
-    }
-
-    // Calculate bearing length required (minimum 90mm each end)
-    const minBearing = 90; // mm
-    const totalLength = width + (2 * minBearing);
-
-    // Estimate weight (for handling)
-    let weight = 0;
-    if (lintelType.includes("Double")) {
-      const depth = parseInt(lintelSize.match(/\d{3}/)?.[0] || "0");
-      weight = (totalLength / 1000) * (depth / 1000) * 0.076 * 2 * 9.81; // kg (approximate)
-    }
-
-    setResults({
-      lintelSize,
-      lintelType,
-      compliant,
-      loadFactor,
-      minBearing,
-      totalLength: totalLength.toFixed(0),
-      weight: weight > 0 ? weight.toFixed(1) : "N/A",
-      openingWidth: width.toFixed(0)
-    });
-  };
+  const openingWidthMm = parseFloat(openingWidth);
+  const { data: determination } = trpc.calculationsPackage.determineLintelSpan.useQuery({
+    openingWidthMm: Number.isFinite(openingWidthMm) ? openingWidthMm : 0,
+    wallType: wallType as any, floorsAbove: Number(floorsAbove) as 0 | 1 | 2,
+    supportsRoof: roofLoad === "yes", species: species as any,
+  }, { enabled: Number.isFinite(openingWidthMm) && openingWidthMm > 0 });
+  useEffect(() => {
+    if (determination) setResults({ ...determination, totalLength: determination.totalLengthMm.toFixed(0), minBearing: determination.minBearingMm, weight: determination.weightKg == null ? "N/A" : determination.weightKg.toFixed(1), openingWidth: openingWidthMm.toFixed(0) });
+    else setResults(null);
+  }, [determination, openingWidthMm]);
 
   return (
     <Card className="border-border shadow-sm">
@@ -108,6 +41,7 @@ export function LintelSpanCalculator() {
               NBC Span Tables 9.23.12.3.-A to -D - Determine required lintel size for openings
             </CardDescription>
           </div>
+          {results !== null && <SaveButton calculatorType="lintelSpan" inputs={{ openingWidth, wallType, floorsAbove, roofLoad, species }} results={results} />}
           <CalculatorActions
             calculatorId="lintel_span"
             calculatorName="Lintel Span"
@@ -223,14 +157,6 @@ export function LintelSpanCalculator() {
             </Select>
           </div>
         </div>
-
-        <Button 
-          onClick={calculateLintel} 
-          className="w-full bg-primary hover:bg-primary/90"
-          disabled={!openingWidth}
-        >
-          Calculate Required Lintel
-        </Button>
 
         {results && (
           <div className="mt-6 space-y-4">

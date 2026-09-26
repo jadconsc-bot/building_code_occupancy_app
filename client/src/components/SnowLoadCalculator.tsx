@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CloudSnow, AlertCircle } from "lucide-react";
 import { CalculatorActions } from "@/components/CalculatorActions";
 import { SaveButton } from "@/components/CalculatorWithSave";
+import { trpc } from "@/lib/trpc";
 
 export function SnowLoadCalculator() {
   const [location, setLocation] = useState<string>("calgary");
@@ -17,90 +18,16 @@ export function SnowLoadCalculator() {
   const [exposure, setExposure] = useState<string>("normal");
   const [results, setResults] = useState<any>(null);
 
-  const calculateSnowLoad = () => {
-    // Ground snow load Ss (kPa) - NBC 4.1.6.2
-    const groundSnowLoads: Record<string, number> = {
-      calgary: 1.1,
-      edmonton: 1.7,
-      "red-deer": 1.8,
-      lethbridge: 1.2,
-      "fort-mcmurray": 1.5,
-      "grande-prairie": 2.2
-    };
-
-    const associatedRainLoads: Record<string, number> = {
-      calgary: 0.1,
-      edmonton: 0.1,
-      "red-deer": 0.1,
-      lethbridge: 0.1,
-      "fort-mcmurray": 0.1,
-      "grande-prairie": 0.1,
-    };
-
-    const Ss = groundSnowLoads[location] || 1.5;
-
-    // Importance factor Is (NBC 4.1.6.2.(1), Table 4.1.6.2.-A)
-    const importanceFactors: Record<string, number> = {
-      low: 0.8,
-      normal: 1.0,
-      high: 1.15,
-      "post-disaster": 1.25
-    };
-    const Is = importanceFactors[importance];
-
-    // Roof slope factor Cs (NBC 4.1.6.2)
-    let Cs = 1.0;
-    const slope = parseFloat(roofSlope);
-    if (!isNaN(slope)) {
-      if (roofType === "sloped") {
-        if (slope <= 30) {
-          Cs = 1.0;
-        } else if (slope <= 70) {
-          Cs = (70 - slope) / 40;
-        } else {
-          Cs = 0;
-        }
-      }
-    }
-
-    // Wind exposure factor Cw (NBC 4.1.6.2)
-    const Cw = importance === "low" || importance === "normal"
-      ? (exposure === "exposed" ? 0.75 : 1.0)
-      : 1.0;
-
-    // Associated rain load Sr (NBC 4.1.6.2.(1), Appendix C Table C-2)
-    const Sr = associatedRainLoads[location] ?? 0.1;
-
-    const Cb = 1.0;
-    const Ca = 1.0;
-
-    // Total specified load
-    const roofSnowLoad = Is * Ss * (Cb * Cw * Cs * Ca);
-    const totalLoad = roofSnowLoad + Is * Sr;
-    const additionalRequirements = [
-      "Cb = 1.0 is assumed (NBC 4.1.6.2.(2)(c), low-profile-roof case). For roofs that do not meet this height condition, Cb must be determined from Table 4.1.6.2.-B; this calculator does not implement that table.",
-      "Ca = 1.0 (uniform snow load) is assumed. This does not account for drifting, roof projections, valleys, gable/curved/dome roof shapes, sliding, or meltwater accumulation (NBC 4.1.6.2.(8)/(9), Articles 4.1.6.5-4.1.6.12).",
-      "The steeper Sentence 4.1.6.2.(6) reduction for qualifying unobstructed slippery roofs is not modeled.",
-    ];
-    if (Cw === 0.75) additionalRequirements.push(
-      "The 0.75 wind-exposure reduction (NBC 4.1.6.2.(4)) requires full exposure on all sides, no significant roof obstructions, and no drifting accumulation from adjacent surfaces — confirm these conditions apply before relying on this reduction."
-    );
-
-    setResults({
-      Ss: Ss.toFixed(2),
-      Is: Is.toFixed(2),
-      Cs: Cs.toFixed(2),
-      Cw: Cw.toFixed(2),
-      Cb: Cb.toFixed(2),
-      Ca: Ca.toFixed(2),
-      Sr: Sr.toFixed(2),
-      rainLoad: Sr.toFixed(2),
-      roofSnowLoad: roofSnowLoad.toFixed(2),
-      totalLoad: totalLoad.toFixed(2),
-      additionalRequirements,
-      location: location.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())
-    });
-  };
+  const roofSlopeDegrees = parseFloat(roofSlope);
+  const { data: determination } = trpc.calculationsPackage.determineSnowLoad.useQuery({
+    location: location as any, roofType: roofType as any,
+    roofSlopeDegrees: Number.isFinite(roofSlopeDegrees) ? roofSlopeDegrees : undefined,
+    importance: importance as any, exposure: exposure as any,
+  }, { enabled: roofType === "flat" || Number.isFinite(roofSlopeDegrees) });
+  useEffect(() => {
+    if (!determination) { setResults(null); return; }
+    setResults({ ...determination, Ss: determination.Ss.toFixed(2), Is: determination.Is.toFixed(2), Cs: determination.Cs.toFixed(2), Cw: determination.Cw.toFixed(2), Cb: determination.Cb.toFixed(2), Ca: determination.Ca.toFixed(2), Sr: determination.Sr.toFixed(2), rainLoad: determination.Sr.toFixed(2), roofSnowLoad: determination.roofSnowLoad.toFixed(2), totalLoad: determination.totalLoad.toFixed(2), location: location.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase()) });
+  }, [determination, location]);
 
   return (
     <Card className="border-border shadow-sm">
@@ -245,13 +172,6 @@ export function SnowLoadCalculator() {
             </Select>
           </div>
         </div>
-
-        <Button 
-          onClick={calculateSnowLoad} 
-          className="w-full bg-primary hover:bg-primary/90"
-        >
-          Calculate Snow Load
-        </Button>
 
         {results && (
           <div className="mt-6 space-y-4">
