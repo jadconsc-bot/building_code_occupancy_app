@@ -72,7 +72,7 @@ function ProjectDetailPage({ params }: { params: { projectId: string } }) {
     <ProjectTabView
       projectId={params.projectId ?? ''}
       onNavigate={(route) => setLocation(route)}
-      onBack={() => setLocation('/')}
+      onBack={() => setLocation('/projects')}
     />
   );
 }
