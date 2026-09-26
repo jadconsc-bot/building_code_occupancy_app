@@ -7,8 +7,14 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Building, Upload, Loader2, LayoutGrid, Sun, Wind, Leaf, Award } from "lucide-react";
 import { toast } from "sonner";
+import { SpaceAnalyzerPDFExport } from "@/components/SpaceAnalyzerPDFExport";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+const scoreColorClass = (score: number) => score >= 80 ? "text-green-600" : score >= 60 ? "text-amber-600" : "text-red-600";
+const scoreBarClass = (score: number) => score >= 80 ? "bg-green-600" : score >= 60 ? "bg-amber-500" : "bg-red-600";
+const scoreBorderClass = (score: number) => score >= 80 ? "border-green-600" : score >= 60 ? "border-amber-500" : "border-red-600";
+const ratingLabel = (score: number) => score >= 85 ? "Excellent" : score >= 70 ? "Good" : score >= 50 ? "Needs Improvement" : "Poor";
 
 export function SpaceAnalyzerTool() {
   const [spaceAnalysisImage, setSpaceAnalysisImage] = useState<string | null>(null);
@@ -158,19 +164,13 @@ export function SpaceAnalyzerTool() {
     {spaceAnalysisResult && (
       <div className="space-y-6 mt-4">
 
-        {/* Overall Score */}
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold text-lg">Overall Design Score</span>
-            <span className="text-2xl font-bold text-primary">{spaceAnalysisResult.overallScore}/100</span>
-          </div>
-          <Progress value={spaceAnalysisResult.overallScore} className="h-2" />
-          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-            <span>Drawing: {spaceAnalysisResult.drawingType}</span>
-            <span>Climate Zone: {spaceAnalysisResult.climateZone}</span>
-          </div>
+        {/* Executive summary and overall score */}
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3"><div><span className="font-semibold text-lg">Executive Summary</span><p className="text-xs text-muted-foreground">{spaceAnalysisResult.drawingType} · Climate Zone {spaceAnalysisResult.climateZone}</p></div><SpaceAnalyzerPDFExport result={spaceAnalysisResult} /></div>
+          <div className="flex items-center gap-3"><span className={`text-3xl font-bold ${scoreColorClass(spaceAnalysisResult.overallScore)}`}>{spaceAnalysisResult.overallScore}/100</span><span className={`font-semibold ${scoreColorClass(spaceAnalysisResult.overallScore)}`}>{ratingLabel(spaceAnalysisResult.overallScore)}</span></div>
+          <div className="h-2 rounded bg-muted overflow-hidden"><div className={`h-full ${scoreBarClass(spaceAnalysisResult.overallScore)}`} style={{ width: `${spaceAnalysisResult.overallScore}%` }} /></div>
+          <p className="text-xs text-muted-foreground">{Object.values(spaceAnalysisResult).filter((v: any) => v?.findings).reduce((n: number, v: any) => n + (v.findings?.length ?? 0), 0)} findings · {Object.values(spaceAnalysisResult).filter((v: any) => v?.recommendations).reduce((n: number, v: any) => n + (v.recommendations?.length ?? 0), 0)} recommendations · ~{spaceAnalysisResult.leedGapAnalysis?.estimatedPoints ?? 0} LEED points identified</p>
         </div>
-
         {/* Six Dimension Cards */}
         {[
           { key: 'spaceDistribution', label: 'Space Distribution', icon: LayoutGrid },
@@ -182,15 +182,15 @@ export function SpaceAnalyzerTool() {
           const section = spaceAnalysisResult[key];
           if (!section) return null;
           return (
-            <div key={key} className="border border-border rounded-lg p-4 space-y-3">
+            <div key={key} className={`border border-border border-l-4 ${scoreBorderClass(section.score)} rounded-lg p-4 space-y-3`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4 text-primary" />
                   <span className="font-medium">{label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Progress value={section.score} className="w-24 h-1.5" />
-                  <span className="text-sm font-semibold">{section.score}/100</span>
+                  <div className="w-24 h-1.5 rounded bg-muted overflow-hidden"><div className={`h-full ${scoreBarClass(section.score)}`} style={{ width: `${section.score}%` }} /></div>
+                  <span className={`text-sm font-semibold ${scoreColorClass(section.score)}`}>{section.score}/100</span>
                 </div>
               </div>
               {section.findings?.length > 0 && (
