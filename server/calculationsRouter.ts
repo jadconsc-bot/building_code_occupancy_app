@@ -12,6 +12,7 @@ import { getDb } from './db';
 import { calculationResults, calculationAuditLog, users } from '../drizzle/schema';
 import { eq, and, desc, like, gte, lte, inArray, isNull, isNotNull } from 'drizzle-orm';
 import { certificateManager } from './digitalCertificateManager';
+import { CalculationEngine } from './calculationEngine';
 import { TRPCError } from '@trpc/server';
 import { saveCalculationResult, getProjectCalculations } from './calculationsProcedures';
 // TODO: FRR calculator rebuild — see
@@ -247,21 +248,28 @@ export const calculationsRouter = router({
           });
         }
 
-        // Verify certificate is still valid
-        const isValid = await certificateManager.validateCertificate(result.certificateChain || '');
-
-        // Get certificate chain
-        const certChain = await certificateManager.getCertificateChain(result.certificateChain || '');
+        const certPublicKey = await certificateManager.getCertificateChain(result.certificateChain || '');
+        const certStillValid = await certificateManager.validateCertificate(result.certificateChain || '');
+        let isValid = false;
+        try {
+          const engine = new CalculationEngine();
+          const inputs = JSON.parse(result.inputData);
+          const outputs = JSON.parse(result.resultData);
+          isValid = certPublicKey
+            ? engine.verifySignature(inputs, outputs, result.userId, result.createdAt.getTime(), result.cryptographicSignature, certPublicKey)
+            : false;
+        } catch { isValid = false; }
 
         return {
           calculationResultId: result.id,
           isValid,
-          signatureVerified: result.signatureVerified,
-          certificateChain: certChain,
+          signatureVerified: isValid,
+          certificateValid: certStillValid,
+          certificateChain: certPublicKey,
           timestamp: result.createdAt,
           message: isValid
-            ? 'Calculation signature is valid and certificate is active'
-            : 'Certificate has expired but calculation remains immutably stored',
+            ? (certStillValid ? 'Calculation signature is valid and certificate is active' : 'Signature is cryptographically valid but the signing certificate has since expired')
+            : 'Signature verification failed — calculation data may have been altered since it was recorded',
         };
       } catch (error) {
         if (error instanceof TRPCError) throw error;

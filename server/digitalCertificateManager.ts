@@ -126,6 +126,12 @@ export class DigitalCertificateManager {
     };
   }
 
+  async getOrCreateActiveCertificate(): Promise<DigitalCertificate> {
+    const existing = await this.getActiveCertificate();
+    if (existing) return existing;
+    return this.generateCertificate({ organizationName: 'CodeComply', commonName: 'calculation-signing', validityDays: 365 });
+  }
+
   /**
    * Check if certificate rotation is needed
    */

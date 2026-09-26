@@ -12,6 +12,7 @@ import { getDb } from './db';
 import { calculationResults, calculationAuditLog } from '../drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { CalculationEngine } from './calculationEngine';
+import { certificateManager } from './digitalCertificateManager';
 import { TRPCError } from '@trpc/server';
 
 /**
@@ -40,12 +41,12 @@ export const saveCalculationResult = protectedProcedure
       });
     }
 
-    const engine = new CalculationEngine();
-
     try {
-      // Create calculation signature
-      const signature = engine.signCalculation(input.inputs, input.outputs, ctx.user.id);
-
+      const cert = await certificateManager.getOrCreateActiveCertificate();
+      const createdAt = new Date();
+      const engine = new CalculationEngine();
+      const signature = engine.signCalculation(input.inputs, input.outputs, ctx.user.id, createdAt.getTime(), cert.privateKey);
+      const verifiedNow = engine.verifySignature(input.inputs, input.outputs, ctx.user.id, createdAt.getTime(), signature, cert.publicKey);
       const id = randomUUID();
 
       // Save to database
@@ -59,8 +60,9 @@ export const saveCalculationResult = protectedProcedure
         resultData: JSON.stringify(input.outputs),
         calculationTrace: JSON.stringify({ inputs: input.inputs, outputs: input.outputs }),
         cryptographicSignature: signature,
-        signatureVerified: false,
-        createdAt: new Date(),
+        certificateChain: cert.id,
+        signatureVerified: verifiedNow,
+        createdAt,
         createdBy: ctx.user.id,
         ipAddress: ctx.req.ip || 'unknown',
         userAgent: ctx.req.headers['user-agent'] || 'unknown',
@@ -85,7 +87,7 @@ export const saveCalculationResult = protectedProcedure
         inputs: input.inputs,
         outputs: input.outputs,
         signature,
-        createdAt: new Date(),
+        createdAt,
       };
     } catch (error) {
       console.error('Error saving calculation result:', error);
@@ -143,65 +145,3 @@ export const getProjectCalculations = protectedProcedure
     }
   });
 
-/**
- * Verify calculation signature
- */
-export const verifyCalculationSignature = protectedProcedure
-  .input(z.object({ calculationId: z.string() }))
-  .query(async ({ ctx, input }) => {
-    if (!ctx.user) {
-      throw new TRPCError({ code: 'UNAUTHORIZED' });
-    }
-
-    const db = await getDb();
-    if (!db) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Database connection failed',
-      });
-    }
-
-    try {
-      const result = await db
-        .select()
-        .from(calculationResults)
-        .where(
-          and(
-            eq(calculationResults.id, input.calculationId),
-            eq(calculationResults.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
-
-      if (!result[0]) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Calculation not found',
-        });
-      }
-
-      const engine = new CalculationEngine();
-      const inputs = JSON.parse(result[0].inputData);
-      const outputs = JSON.parse(result[0].resultData);
-      
-      const isValid = engine.verifySignature(
-        inputs,
-        outputs,
-        result[0].createdBy,
-        result[0].cryptographicSignature
-      );
-
-      return {
-        id: result[0].id,
-        isValid,
-        signatureVerified: result[0].signatureVerified,
-        createdAt: result[0].createdAt,
-      };
-    } catch (error) {
-      console.error('Error verifying calculation signature:', error);
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to verify calculation signature',
-      });
-    }
-  });

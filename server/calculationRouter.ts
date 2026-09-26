@@ -49,7 +49,8 @@ export const calculationRouter = router({
           resultData,
           ctx.user.id,
           input.projectId,
-          input.rulesetVersion
+          input.rulesetVersion,
+          ""
         );
 
         return {

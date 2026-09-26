@@ -8,6 +8,7 @@ import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
 import { feedbacks, projects, projectCalculatorResults, projectChecklistItems, complianceSnapshots, auditLog, userSubscriptions, calculationResults, calculationAuditLog } from "../drizzle/schema";
 import { CalculationEngine } from "./calculationEngine";
+import { certificateManager } from "./digitalCertificateManager";
 import { randomUUID } from "crypto";
 import { getDb } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -653,8 +654,11 @@ Return ONLY a valid JSON object in this exact format:
             const inputs = JSON.parse(input.inputData);
             const outputs = JSON.parse(input.resultData);
 
+            const cert = await certificateManager.getOrCreateActiveCertificate();
+            const createdAt = new Date();
             const engine = new CalculationEngine();
-            const signature = engine.signCalculation(inputs, outputs, ctx.user.id);
+            const signature = engine.signCalculation(inputs, outputs, ctx.user.id, createdAt.getTime(), cert.privateKey);
+            const verifiedNow = engine.verifySignature(inputs, outputs, ctx.user.id, createdAt.getTime(), signature, cert.publicKey);
             const calcId = randomUUID();
 
             await db.insert(calculationResults).values({
@@ -667,8 +671,9 @@ Return ONLY a valid JSON object in this exact format:
               resultData: input.resultData,
               calculationTrace: JSON.stringify({ inputs, outputs }),
               cryptographicSignature: signature,
-              signatureVerified: false,
-              createdAt: new Date(),
+              certificateChain: cert.id,
+              signatureVerified: verifiedNow,
+              createdAt,
               createdBy: ctx.user.id,
               ipAddress: ctx.req.ip || null,
               userAgent: ctx.req.headers['user-agent'] || null,
