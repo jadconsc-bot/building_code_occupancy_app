@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LintelSketch } from "@/components/LintelSketch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -172,6 +173,8 @@ export function LintelSpanCalculator() {
                   : "Engineered Beam Required - Consult Engineer"}
               </span>
             </div>
+
+            <LintelSketch result={determination!} openingWidthMm={openingWidthMm} />
 
             <div className="p-4 bg-primary/10 border-2 border-primary rounded">
               <p className="text-xs text-muted-foreground mb-1">Required Lintel Size</p>

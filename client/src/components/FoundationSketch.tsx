@@ -1,0 +1,18 @@
+import type { FoundationDesignResult, FoundationType } from '../../../server/engine/rules/foundationDesign';
+
+interface Props { result: FoundationDesignResult; foundationType: FoundationType; }
+export function FoundationSketch({ result, foundationType }: Props) {
+  if (foundationType === 'helical' || !result.computable) return <svg viewBox="0 0 520 220" className="w-full h-52 text-muted-foreground" role="img" aria-label="Schematic helical pile"><line x1="260" y1="25" x2="260" y2="180" stroke="currentColor" strokeWidth="5" /><path d="M210 110 Q260 140 310 110 M210 140 Q260 170 310 140" fill="none" stroke="currentColor" strokeWidth="3" /><line x1="80" y1="25" x2="440" y2="25" stroke="currentColor" strokeWidth="2" /><text x="260" y="205" textAnchor="middle" className="fill-current text-sm">Helical pile — engineered sizing required</text></svg>;
+  const footing = Math.min(240, Math.max(90, (result.footingWidth ?? 400) / 4));
+  const frostY = 55 + Math.min(85, result.frostDepth / 25);
+  const bottomY = 55 + Math.min(125, result.minDepth / 16);
+  const wallW = Math.min(90, Math.max(35, (result.wallThickness ?? 200) / 4));
+  return <svg viewBox="0 0 520 250" className="w-full h-60 text-muted-foreground" role="img" aria-label={`${foundationType} foundation sketch`}>
+    <defs><marker id="foundation-arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="currentColor" /></marker></defs>
+    <line x1="40" y1="55" x2="480" y2="55" stroke="currentColor" strokeWidth="2" /><text x="45" y="45" className="fill-current text-xs">Grade</text>
+    <line x1="40" y1={frostY} x2="480" y2={frostY} stroke="currentColor" strokeDasharray="6 5" /><text x="45" y={frostY - 5} className="fill-current text-xs">Frost depth ({result.frostDepth} mm)</text>
+    {foundationType === 'pier' ? <><rect x={260 - wallW / 3} y="55" width={wallW / 1.5} height={bottomY - 55} fill="currentColor" fillOpacity=".12" stroke="currentColor" strokeWidth="2" /><ellipse cx="260" cy={bottomY} rx={footing / 2} ry={footing / 4} fill="currentColor" fillOpacity=".15" stroke="currentColor" strokeWidth="2" /><line x1={260 - footing / 2} y1={bottomY + 25} x2={260 + footing / 2} y2={bottomY + 25} stroke="currentColor" markerStart="url(#foundation-arrow)" markerEnd="url(#foundation-arrow)" /><text x="260" y={bottomY + 43} textAnchor="middle" className="fill-current text-xs">Ø {result.footingWidth} mm</text></> : <><rect x={260 - footing / 2} y={bottomY - 25} width={footing} height="25" fill="currentColor" fillOpacity=".18" stroke="currentColor" strokeWidth="2" /><rect x={260 - wallW / 2} y="55" width={wallW} height={bottomY - 55} fill="currentColor" fillOpacity=".1" stroke="currentColor" strokeWidth="2" /><line x1={260 - footing / 2} y1={bottomY + 15} x2={260 + footing / 2} y2={bottomY + 15} stroke="currentColor" markerStart="url(#foundation-arrow)" markerEnd="url(#foundation-arrow)" /><text x="260" y={bottomY + 33} textAnchor="middle" className="fill-current text-xs">{foundationType === 'spread' ? `${result.footingWidth} × ${result.footingWidth} mm square pad` : `${result.footingWidth} mm footing width`}</text><text x={260 + wallW / 2 + 8} y={bottomY - 8} className="fill-current text-xs">wall {result.wallThickness} mm</text></>}
+    <line x1="420" y1="55" x2="420" y2={bottomY} stroke="currentColor" markerStart="url(#foundation-arrow)" markerEnd="url(#foundation-arrow)" /><text x="428" y={(55 + bottomY) / 2} className="fill-current text-xs">min depth {result.minDepth} mm</text>
+    {foundationType !== 'pier' && <text x="260" y="235" textAnchor="middle" className="fill-current text-xs">Footing thickness: {result.footingThickness} mm</text>}
+  </svg>;
+}

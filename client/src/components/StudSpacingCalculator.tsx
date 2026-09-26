@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { StudSpacingSketch } from "@/components/StudSpacingSketch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -162,6 +163,8 @@ export function StudSpacingCalculator() {
                   : "Exceeds Maximum Height - Use Larger Studs or Closer Spacing"}
               </span>
             </div>
+
+            {results.compliant && <StudSpacingSketch result={determination!} wallHeightMm={wallHeightMm} wallType={wallType as "load-bearing" | "non-load-bearing"} />}
 
             {results.compliant && (
               <>
