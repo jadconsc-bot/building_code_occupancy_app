@@ -84,7 +84,7 @@ const NAV_FEATURES: NavFeature[] = [
   {
     label: 'Projects',
     icon: FolderOpen,
-    href: '/',
+    href: '/projects',
     description: 'Create and manage projects',
     requiredRole: 'basic',
     upgradeMessage: 'Upgrade to Basic to manage projects',

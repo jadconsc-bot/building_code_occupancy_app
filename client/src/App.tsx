@@ -18,6 +18,7 @@ import Home from "./pages/Home";
 import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
 import SpaceAnalyzerPage from "./pages/SpaceAnalyzerPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
+import Projects from "./pages/Projects";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
 import CalculationHistory from "./pages/CalculationHistory";
@@ -97,6 +98,7 @@ function Router() {
         <Route path={"/space-analyzer"} component={SpaceAnalyzerPage} />
         <Route path={"/calculators"} component={CalculatorsRedirect} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
+        <Route path={"/projects"} component={Projects} />
         <Route path={"/brief"} component={BriefPage} />
         <Route path={"/compliance/:projectId"}>
           <RequireRole minRole="professional" featureName="Compliance Engine">
