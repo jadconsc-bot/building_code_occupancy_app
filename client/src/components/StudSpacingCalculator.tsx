@@ -164,7 +164,7 @@ export function StudSpacingCalculator() {
               </span>
             </div>
 
-            {results.compliant && <StudSpacingSketch result={determination!} wallHeightMm={wallHeightMm} wallType={wallType as "load-bearing" | "non-load-bearing"} />}
+            <StudSpacingSketch result={determination!} wallHeightMm={wallHeightMm} wallType={wallType as "load-bearing" | "non-load-bearing"} />
 
             {results.compliant && (
               <>

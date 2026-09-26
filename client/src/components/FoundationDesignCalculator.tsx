@@ -59,7 +59,7 @@ export function FoundationDesignCalculator() {
     </div>
     <p className="text-xs text-muted-foreground">Simplified sizing estimate for early planning only; soil capacity and frost depth require site verification.</p>
     {results && !results.computable && <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{results.caveats.join(" ")}</div>}
-    {results?.computable && <FoundationSketch result={results} foundationType={foundationType} />}
+    {results && <FoundationSketch result={results} foundationType={foundationType} />}
     {results?.computable && <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">{[["Footing", results.footingShape === "square" ? `${results.footingWidth} × ${results.footingWidth} mm` : results.footingShape === "circular" ? `Ø${results.footingWidth} mm` : `${results.footingWidth} mm`], ["Thickness", `${results.footingThickness} mm`], ["Wall thickness", `${results.wallThickness} mm`], ["Concrete volume", `${results.concreteVolume?.toFixed(2)} m³`], ["Frost depth", `${results.frostDepth} mm`], ["Min depth", `${results.minDepth} mm`], ["Bearing", `${results.bearingCapacity} kPa`], ["Rebar", results.rebarSize ?? "N/A"], ["Rebar spacing", results.rebarSpacing ? `${results.rebarSpacing} mm` : "N/A"], ["Drainage", results.drainageRequired ? "Required" : "Not required"], ["Drain pipe", `${results.drainPipeSize} mm`], ["Status", results.compliant ? "Compliant" : "Review"]].map(([label, value]) => <div key={label} className="rounded border p-2"><div className="text-muted-foreground">{label}</div><div className="font-semibold">{value}</div></div>)}</div>
       <p className="text-sm"><span className="font-semibold">Dampproofing:</span> {results.dampproofing}</p>
