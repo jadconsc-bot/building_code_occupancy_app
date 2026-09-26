@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -15,6 +16,7 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { HelpPanel } from "./components/HelpPanel";
 import Home from "./pages/Home";
 import OccupancyClassifierPage from "./pages/OccupancyClassifierPage";
+import SpaceAnalyzerPage from "./pages/SpaceAnalyzerPage";
 import ProjectChecklists from "./pages/ProjectChecklists";
 import Compliance from "./pages/Compliance";
 import RuleManagement from "./pages/RuleManagement";
@@ -74,6 +76,15 @@ function ProjectDetailPage({ params }: { params: { projectId: string } }) {
   );
 }
 
+function CalculatorsRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    localStorage.setItem("active_tab", "design-tools");
+    navigate("/occupancy-classifier", { replace: true });
+  }, [navigate]);
+  return null;
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   // ProjectTabView route added for individual project detail views
@@ -83,6 +94,8 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Dashboard} />
         <Route path={"/occupancy-classifier"} component={OccupancyClassifierPage} />
+        <Route path={"/space-analyzer"} component={SpaceAnalyzerPage} />
+        <Route path={"/calculators"} component={CalculatorsRedirect} />
         <Route path={"/project-checklists"} component={ProjectChecklists} />
         <Route path={"/brief"} component={BriefPage} />
         <Route path={"/compliance/:projectId"}>
