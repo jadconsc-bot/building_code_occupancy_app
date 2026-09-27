@@ -14,11 +14,12 @@ export async function lookupZone(
   address: string,
   municipality: string,
   province: string,
-): Promise<ZoneLookupResult | null> {
+): Promise<ZoneLookupResult | { error: string }> {
   const geo = await geocodeAddress(`${address}, ${municipality}, ${province}, Canada`);
   if (!geo || 'error' in geo) {
-    console.log(`[ZoneLookup] Geocoding failed for: ${address}, ${municipality}${geo && 'error' in geo ? ` — ${geo.error}` : ''}`);
-    return null;
+    const reason = geo && 'error' in geo ? geo.error : 'Geocoding returned no result';
+    console.log(`[ZoneLookup] Geocoding failed for: ${address}, ${municipality} — ${reason}`);
+    return { error: reason };
   }
   const coords = { lat: geo.latitude, lng: geo.longitude };
 
@@ -26,41 +27,41 @@ export async function lookupZone(
 
   const mun = municipality.toLowerCase();
   if (mun.includes('calgary')) {
-    return lookupCalgary(coords.lat, coords.lng);
+    return (await lookupCalgary(coords.lat, coords.lng)) ?? { error: "No zoning data found for this location in Calgary's open data" };
   }
   if (mun.includes('edmonton')) {
-    return lookupEdmonton(coords.lat, coords.lng);
+    return (await lookupEdmonton(coords.lat, coords.lng)) ?? { error: "No zoning data found for this location in Edmonton's open data" };
   }
   if (mun.includes('airdrie')) {
-    return lookupAirdrie(address);
+    return (await lookupAirdrie(address)) ?? { error: "No zoning data found for this location in Airdrie's open data" };
   }
   if (mun.includes('chestermere')) {
-    return lookupChestermere(address);
+    return (await lookupChestermere(address)) ?? { error: "No zoning data found for this location in Chestermere's open data" };
   }
   if (mun.includes('st. albert') || mun.includes('st albert') || mun.includes('stalbert')) {
-    return lookupStAlbert(coords.lat, coords.lng);
+    return (await lookupStAlbert(coords.lat, coords.lng)) ?? { error: "No zoning data found for this location in St. Albert's open data" };
   }
   if (mun.includes('strathcona')) {
-    return lookupStrathcona(coords.lat, coords.lng);
+    return (await lookupStrathcona(coords.lat, coords.lng)) ?? { error: "No zoning data found for this location in Strathcona County's open data" };
   }
   if (mun.includes('okotoks')) {
-    return lookupOkotoks(coords.lat, coords.lng);
+    return (await lookupOkotoks(coords.lat, coords.lng)) ?? { error: "No zoning data found for this location in Okotoks's open data" };
   }
   if (mun.includes('rocky view') || mun.includes('rocky_view')) {
     console.log('[ZoneLookup] Rocky View County — no public API, manual selection required');
-    return null;
+    return { error: 'Rocky View County zone lookup is not available; select a zone manually' };
   }
   if (mun.includes('red deer')) {
     console.log('[ZoneLookup] Red Deer — no public API, manual selection required');
-    return null;
+    return { error: 'Red Deer zone lookup is not available; select a zone manually' };
   }
   if (mun.includes('spruce grove')) {
     console.log('[ZoneLookup] Spruce Grove — no public API, manual selection required');
-    return null;
+    return { error: 'Spruce Grove zone lookup is not available; select a zone manually' };
   }
 
   console.log(`[ZoneLookup] No zone API for municipality: ${municipality}`);
-  return null;
+  return { error: `No zoning lookup API is available for ${municipality}` };
 }
 
 async function lookupCalgary(

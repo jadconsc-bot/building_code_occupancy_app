@@ -20,7 +20,7 @@ export const zoneLookupRouter = router({
         input.municipality,
         input.province,
       );
-      return result ?? { error: 'Zone not found for this address' };
+      return result ?? { error: 'Zone lookup returned no result' };
     }),
 
   lookupParcelArea: protectedProcedure

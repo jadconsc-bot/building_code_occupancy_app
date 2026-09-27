@@ -787,6 +787,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Zone auto-lookup state
   const [addressInput, setAddressInput] = useState('');
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const [addressManuallyEdited, setAddressManuallyEdited] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [zoneResult, setZoneResult] = useState<{
@@ -797,6 +798,38 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [zoneConfirmed, setZoneConfirmed] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [jurisdictionSource, setJurisdictionSource] = useState<'geocoded' | 'manual'>('manual');
+
+  useEffect(() => {
+    if ((window as any).google?.maps?.places || document.querySelector('script[data-gm-places]')) return;
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.setAttribute('data-gm-places', '1');
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!addressInputRef.current) return;
+    let attached = false;
+    const attach = () => {
+      if (attached || !(window as any).google?.maps?.places || !addressInputRef.current) return;
+      attached = true;
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
+        componentRestrictions: { country: 'ca' },
+        fields: ['formatted_address', 'geometry'],
+        types: ['address'],
+      });
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place.geometry && place.formatted_address) {
+          setAddressInput(place.formatted_address);
+          setAddressManuallyEdited(true);
+        }
+      });
+    };
+    if ((window as any).google?.maps?.places) attach();
+    else document.querySelector('script[data-gm-places]')?.addEventListener('load', attach);
+  }, []);
 
   const [analysisProgress, setAnalysisProgress] = useState<{
     stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
@@ -8818,6 +8851,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <Label className="text-xs font-medium">Project Address</Label>
                         <div className="flex gap-1.5">
                           <Input
+                            ref={addressInputRef}
                             value={addressInput}
                             onChange={e => {
                               setAddressInput(e.target.value);
