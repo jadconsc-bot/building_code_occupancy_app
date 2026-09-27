@@ -3144,9 +3144,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const imgCy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
         const cx = imgCx * zoom + pan.x;
         const cy = imgCy * zoom + pan.y;
+        const fallbackAreaM2 = calculatePolygonArea(pts);
         const areaLabel = compliance && compliance.areaM2 > 0
           ? `${compliance.areaM2.toFixed(1)} m²`
-          : `${calculatePolygonArea(pts).toFixed(0)} px²`;
+          : `${fallbackAreaM2.toFixed(1)} m²${pixelsPerDrawingUnit > 0 ? '' : ' (est.)'}`;
         ctx.fillStyle = hexColor + 'ee';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
