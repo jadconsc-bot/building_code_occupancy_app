@@ -15,6 +15,34 @@ function buildInput(overrides: Partial<Parameters<typeof runCalculatorOrchestrat
 }
 
 describe('runCalculatorOrchestrator — Group C dwelling unit occupant load', () => {
+  it('explains when occupant load is unavailable because rooms are uncalibrated', () => {
+    const result = runCalculatorOrchestrator(
+      buildInput({
+        calibrationConfidence: 'none',
+        rooms: [
+          { label: 'Bedroom 1', occupancyGroup: 'C', areaM2: null },
+          { label: 'Office', occupancyGroup: 'D', areaM2: null },
+        ],
+      }),
+      'AB',
+    );
+
+    expect(result.summary.totalOccupants).toBe(0);
+    expect(result.findings.filter(f => f.issueId === 'OCC-CALIBRATION-001')).toHaveLength(1);
+    expect(result.findings.find(f => f.issueId === 'OCC-CALIBRATION-001')?.actual).toContain('2 room(s) detected');
+  });
+
+  it('does not add the calibration advisory without rooms or for high-confidence calibration', () => {
+    const emptyResult = runCalculatorOrchestrator(buildInput({ calibrationConfidence: 'none' }), 'AB');
+    const calibratedResult = runCalculatorOrchestrator(buildInput({
+      calibrationConfidence: 'high',
+      rooms: [{ label: 'Bedroom 1', occupancyGroup: 'C', areaM2: null }],
+    }), 'AB');
+
+    expect(emptyResult.findings.some(f => f.issueId === 'OCC-CALIBRATION-001')).toBe(false);
+    expect(calibratedResult.findings.some(f => f.issueId === 'OCC-CALIBRATION-001')).toBe(false);
+  });
+
   it('fails when a detected bedroom is below the NBC 9.5.2.3 minimum area', () => {
     const result = runCalculatorOrchestrator(
       buildInput({ rooms: [{ label: 'Bedroom 1', occupancyGroup: 'C', areaM2: 6.5 }] }),

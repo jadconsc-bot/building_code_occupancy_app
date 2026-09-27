@@ -500,6 +500,18 @@ export function runCalculatorOrchestrator(
     });
   }
 
+  if (input.calibrationConfidence !== 'high' && occupantLoad.length === 0 && effectiveRooms.length > 0) {
+    findings.push({
+      issueId: 'OCC-CALIBRATION-001',
+      severity: 'advisory',
+      description: 'Occupant load not computed — drawing scale is not calibrated',
+      actual: `${effectiveRooms.length} room(s) detected, but their areas are unavailable until the drawing scale is set`,
+      required: 'Calibrate the drawing scale and re-run Full Analysis to compute occupant load',
+      citation: 'Drawing calibration prerequisite',
+    });
+    advisoryCount++;
+  }
+
   for (const room of normalizedRooms) {
     if (room.manualOverride || room.areaM2 === null || room.areaM2 <= 0) continue;
     const accessorySpaceType = inferAccessorySpaceType(room.spaceType, room.label);

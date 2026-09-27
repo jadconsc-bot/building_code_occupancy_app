@@ -2,7 +2,7 @@ export interface RoomComplianceResult {
   roomId: string;
   roomLabel: string;
   polygon: Array<{ x: number; y: number }>;
-  areaM2: number;
+  areaM2: number | null;
 
   egress: {
     hasEgressWindow: boolean;
@@ -121,11 +121,11 @@ export function calculateRoomCompliance(
   }
   areaPx2 = Math.abs(areaPx2) / 2;
 
-  const areaM2 = pixelsPerM ? areaPx2 / (pixelsPerM * pixelsPerM) : 0;
+  const areaM2 = pixelsPerM ? areaPx2 / (pixelsPerM * pixelsPerM) : null;
 
   const isSleeping = /bed|sleep|master|bedroom|bdrm|mstr/i.test(roomLabel);
   const minAreaM2 = isSleeping ? 7.4 : 4.65;
-  const areaCompliant = pixelsPerM ? areaM2 >= minAreaM2 : true;
+  const areaCompliant = pixelsPerM ? areaM2 !== null && areaM2 >= minAreaM2 : true;
 
   // ── Egress window check (NBC 9.10.7) ──────────────────────────────────
   let egressResult = {

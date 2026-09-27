@@ -3145,8 +3145,9 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
         const cx = imgCx * zoom + pan.x;
         const cy = imgCy * zoom + pan.y;
         const fallbackAreaM2 = calculatePolygonArea(pts);
-        const areaLabel = compliance && compliance.areaM2 > 0
-          ? `${compliance.areaM2.toFixed(1)} m²`
+        const complianceAreaM2 = compliance?.areaM2;
+        const areaLabel = complianceAreaM2 != null && complianceAreaM2 > 0
+          ? `${complianceAreaM2.toFixed(1)} m²`
           : `${fallbackAreaM2.toFixed(1)} m²${pixelsPerDrawingUnit > 0 ? '' : ' (est.)'}`;
         ctx.fillStyle = hexColor + 'ee';
         ctx.font = 'bold 11px sans-serif';
@@ -9549,7 +9550,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
                               let idx = 1;
                               for (const [key, result] of ddaRoomCompliance.entries()) {
-                                if (result.severity === 'fail' && result.areaM2 > 0) {
+                                if (result.severity === 'fail' && result.areaM2 != null && result.areaM2 > 0) {
                                   const isSleepingRoom = /bed|sleep|master|bedroom|bdrm|mstr/i.test(result.roomLabel);
                                   const minArea = isSleepingRoom ? 7.4 : 4.65;
                                   if (result.areaM2 < minArea) {
