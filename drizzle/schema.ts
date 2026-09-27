@@ -19,6 +19,8 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["free", "home_user", "basic", "professional", "rule_editor", "admin", "org_admin"]).notNull().default("free"),
   areaUnit: mysqlEnum("areaUnit", ["m2", "ft2"]).notNull().default("m2"),
+  trainingConsent: int("trainingConsent").notNull().default(0),
+  trainingConsentUpdatedAt: timestamp("trainingConsentUpdatedAt"),
   orgId: int("orgId"),
   orgRole: mysqlEnum("orgRole", ["org_admin", "member"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

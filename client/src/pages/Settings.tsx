@@ -25,6 +25,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { trpc } from "@/lib/trpc";
 
 export default function Settings() {
   const [, navigate] = useLocation();
@@ -34,6 +35,13 @@ export default function Settings() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [analysisAlerts, setAnalysisAlerts] = useState(true);
   const [projectUpdates, setProjectUpdates] = useState(false);
+  const trainingConsentQuery = trpc.user.getTrainingConsent.useQuery();
+  const utils = trpc.useUtils();
+  const setTrainingConsent = trpc.user.setTrainingConsent.useMutation({
+    onSuccess: async () => {
+      await utils.user.getTrainingConsent.invalidate();
+    },
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -249,6 +257,36 @@ export default function Settings() {
                     Sign Out
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Model Improvement Privacy</CardTitle>
+                <CardDescription>Control whether your drawing corrections may contribute image crops to future detection-model training.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {trainingConsentQuery.data?.isExempt ? (
+                  <p className="text-sm text-muted-foreground">Not applicable — platform admin account.</p>
+                ) : (
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Allow my drawing corrections to improve detection models</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Only boundary corrections can contribute image crops. Images are never captured without this turned on.
+                      </p>
+                      {trainingConsentQuery.data?.updatedAt && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Last changed {new Date(trainingConsentQuery.data.updatedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <Switch
+                      checked={trainingConsentQuery.data?.trainingConsent ?? false}
+                      disabled={trainingConsentQuery.isLoading || setTrainingConsent.isPending}
+                      onCheckedChange={(checked) => setTrainingConsent.mutate({ trainingConsent: checked })}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

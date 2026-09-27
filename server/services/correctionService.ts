@@ -26,6 +26,7 @@ export interface CorrectionPayload {
   pageId: number;
   correctedBy: number;
   orgId?: number | null;
+  trainingImageConsent: boolean;
   correctionType: CorrectionType;
   previousValue: Record<string, unknown>;
   correctedValue: Record<string, unknown>;
@@ -170,7 +171,7 @@ async function generateTrainingExample(
   // TRAINING-001: capture image crop for boundary_redraw corrections only —
   // these contain the corrected polygonJson which is the segmentation label.
   let imageCropBase64: string | null = null;
-  if (payload.correctionType === 'boundary_redraw') {
+  if (payload.correctionType === 'boundary_redraw' && payload.trainingImageConsent === true) {
     try {
       imageCropBase64 = await captureRoomCrop(
         payload.pageId,

@@ -43,7 +43,7 @@ export const correctionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const [userRow] = await db
-        .select({ orgId: users.orgId })
+        .select({ orgId: users.orgId, role: users.role, trainingConsent: users.trainingConsent })
         .from(users)
         .where(eq(users.id, ctx.user.id))
         .limit(1);
@@ -52,6 +52,7 @@ export const correctionRouter = router({
         ...input,
         correctedBy: ctx.user.id,
         orgId: userRow?.orgId ?? null,
+        trainingImageConsent: userRow?.role === "admin" || userRow?.trainingConsent === 1,
       });
 
       return { success: true, correctionId };
