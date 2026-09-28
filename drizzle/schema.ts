@@ -876,6 +876,7 @@ export const drawingPages = mysqlTable("drawingPages", {
   cropRegionInheritedFrom: int("cropRegionInheritedFrom"),
   cropRegionSetAt: timestamp("cropRegionSetAt"),
   detectionComplete: tinyint("detectionComplete").notNull().default(0),
+  detectionError: text("detectionError"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   // LLM-judge eval results written asynchronously after detection
   evalAccuracy: float("evalAccuracy"),

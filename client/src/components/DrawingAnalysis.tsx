@@ -1201,6 +1201,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     evalData === null &&
     roomPollCount < 80;
   const roomsData = detectedRoomsResponse;
+  const detectionError = (roomsData?.pages ?? []).find((page: any) => page.detectionError)?.detectionError as string | undefined;
 
   // Compute pixelsPerMm from calibration state for travel distance calculation
   const pixelsPerMm = pixelsPerDrawingUnit > 0
@@ -2561,7 +2562,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           allNotes.push(...mappedRecs);
           lastData = data;
         } catch (error) {
-          toast.error(`Failed to analyze page ${pageNum}`);
+          toast.error(error instanceof Error ? error.message : `Failed to analyze page ${pageNum}`);
         }
       }
 
@@ -7388,7 +7389,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     }
                     Full Analysis
                   </Button>
-                  {!detectionComplete && currentPageId && (
+                  {!detectionComplete && currentPageId && detectionError ? (
+                    <span role="alert" className="text-xs text-red-700" data-detection-error>
+                      {detectionError}
+                    </span>
+                  ) : !detectionComplete && currentPageId && (
                     <span role="status" className="text-xs text-amber-700" data-detection-gate-message>
                       Room detection is still in progress. Full Analysis unlocks when all rooms finish processing.
                     </span>

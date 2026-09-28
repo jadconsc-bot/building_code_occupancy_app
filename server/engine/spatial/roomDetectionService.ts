@@ -129,7 +129,7 @@ async function safeParseRoomJSON(raw: string): Promise<{ rooms: any[]; metadata:
   }
 }
 
-export async function detectRoomsFromPage(
+async function detectRoomsFromPageInternal(
   pageBase64: string,
   pageId: number,
   projectId: number,
@@ -152,7 +152,7 @@ export async function detectRoomsFromPage(
     throw new Error('Database unavailable');
   }
   await dbForReset.update(drawingPages)
-    .set({ detectionComplete: 0 })
+    .set({ detectionComplete: 0, detectionError: null })
     .where(eq(drawingPages.id, pageId));
 
   // Inject org-specific training examples into prompt context (org-first, global fallback)
@@ -456,6 +456,36 @@ export async function detectRoomsFromPage(
     processingTimeMs: Date.now() - startTime,
     flaggedForReview,
   };
+}
+
+/**
+ * Run page detection with a durable, fail-closed status. Detached callers
+ * cannot return an exception to the browser, so persist a safe message and
+ * leave detectionComplete at 0 when any stage fails.
+ */
+export async function detectRoomsFromPage(
+  ...args: Parameters<typeof detectRoomsFromPageInternal>
+): Promise<RoomDetectionResult> {
+  const pageId = args[1];
+  try {
+    return await detectRoomsFromPageInternal(...args);
+  } catch (error) {
+    console.error('[RoomDetection] Detection failed for page', pageId, error);
+    const message = error instanceof Error && error.message.startsWith('The AI analysis service')
+      ? error.message
+      : 'Room detection failed. Please try the analysis again.';
+    try {
+      const db = await getDb();
+      if (db) {
+        await db.update(drawingPages)
+          .set({ detectionComplete: 0, detectionError: message })
+          .where(eq(drawingPages.id, pageId));
+      }
+    } catch (persistError) {
+      console.error('[RoomDetection] Could not persist detection failure for page', pageId, persistError);
+    }
+    throw error;
+  }
 }
 
 function reduceOverlap(rooms: any[]): void {
