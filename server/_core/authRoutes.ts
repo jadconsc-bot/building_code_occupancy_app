@@ -5,6 +5,9 @@ import { sdk } from './sdk';
 import { COOKIE_NAME, SESSION_DURATION_MS } from '@shared/const';
 import { getSessionCookieOptions } from './cookies';
 import { ENV } from './env';
+import { and, eq, isNull } from 'drizzle-orm';
+import { userInvites } from '../../drizzle/schema';
+import { getDb } from '../db';
 
 const clerkClient = createClerkClient({ secretKey: ENV.clerkSecretKey });
 
@@ -44,6 +47,20 @@ export function registerAuthRoutes(app: Express) {
         .join(' ');
       const loginMethod = clerkUser.externalAccounts[0]?.provider ?? 'email';
 
+      const existingUser = await db.getUserByOpenId(userId);
+      let matchedInvite: typeof userInvites.$inferSelect | undefined;
+      if (!existingUser && email) {
+        const database = await getDb();
+        if (database) {
+          const [invite] = await database
+            .select()
+            .from(userInvites)
+            .where(and(eq(userInvites.email, email), isNull(userInvites.consumedAt)))
+            .limit(1);
+          matchedInvite = invite;
+        }
+      }
+
       // Upsert user in database
       try {
         await db.upsertUser({
@@ -51,6 +68,7 @@ export function registerAuthRoutes(app: Express) {
           name: name || null,
           email,
           loginMethod,
+          ...(matchedInvite ? { role: matchedInvite.role } : {}),
           lastSignedIn: new Date(),
         });
         console.log('[Auth] User upserted successfully:', userId);
@@ -64,6 +82,20 @@ export function registerAuthRoutes(app: Express) {
       if (!user) {
         console.error('[Auth] User not found after upsert:', userId);
         return res.status(500).json({ error: 'User creation failed' });
+      }
+
+      if (user.bannedAt) {
+        return res.status(403).json({ error: 'Your account has been suspended. Contact support if you believe this is a mistake.' });
+      }
+
+      if (matchedInvite) {
+        const database = await getDb();
+        if (database) {
+          await database.update(userInvites).set({
+            consumedAt: new Date(),
+            consumedByUserId: user.id,
+          }).where(eq(userInvites.id, matchedInvite.id));
+        }
       }
 
       console.log('[Auth] User verified in DB:', user.id, user.openId);

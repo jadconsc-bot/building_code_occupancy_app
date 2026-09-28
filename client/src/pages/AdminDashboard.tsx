@@ -5,15 +5,23 @@
  * and analytics capabilities
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Users, BarChart3, Settings, LogOut, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { toast } from 'sonner';
+import { trpc } from '@/lib/trpc';
 
 interface SystemMetrics {
   totalUsers: number;
@@ -22,16 +30,6 @@ interface SystemMetrics {
   totalProjects: number;
   systemUptime: string;
   lastBackup: Date;
-}
-
-interface UserStats {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  lastActive: Date;
-  calculationsCount: number;
-  projectsCount: number;
 }
 
 /**
@@ -48,40 +46,20 @@ export default function AdminDashboard() {
     lastBackup: new Date(),
   });
 
-  const [users, setUsers] = useState<UserStats[]>([
-    {
-      id: 1,
-      name: 'Jose Acevedo',
-      email: 'jadconsc@gmail.com',
-      role: 'admin',
-      lastActive: new Date(),
-      calculationsCount: 156,
-      projectsCount: 42,
-    },
-    {
-      id: 2,
-      name: 'John Smith',
-      email: 'john@example.com',
-      role: 'architect',
-      lastActive: new Date(Date.now() - 3600000),
-      calculationsCount: 89,
-      projectsCount: 23,
-    },
-    {
-      id: 3,
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      role: 'consultant',
-      lastActive: new Date(Date.now() - 7200000),
-      calculationsCount: 45,
-      projectsCount: 12,
-    },
-  ]);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportingLogs, setIsExportingLogs] = useState(false);
   const [isViewingAudit, setIsViewingAudit] = useState(false);
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [banTarget, setBanTarget] = useState<{ id: number; name: string | null } | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'free' | 'home_user' | 'basic' | 'professional' | 'rule_editor' | 'admin' | 'org_admin'>('free');
+  const utils = trpc.useUtils();
+  const usersQuery = trpc.admin.listUsers.useQuery({ search: searchQuery });
+  const invitesQuery = trpc.admin.listInvites.useQuery();
+  const banMutation = trpc.admin.banUser.useMutation({ onSuccess: async () => { await utils.admin.listUsers.invalidate(); setBanTarget(null); setBanReason(''); toast.success('User banned'); }, onError: (error) => toast.error(error.message) });
+  const unbanMutation = trpc.admin.unbanUser.useMutation({ onSuccess: async () => { await utils.admin.listUsers.invalidate(); toast.success('User unbanned'); }, onError: (error) => toast.error(error.message) });
+  const inviteMutation = trpc.admin.createInvite.useMutation({ onSuccess: async () => { await utils.admin.listInvites.invalidate(); setInviteEmail(''); toast.success('Invite saved'); }, onError: (error) => toast.error(error.message) });
+  const revokeInviteMutation = trpc.admin.revokeInvite.useMutation({ onSuccess: async () => { await utils.admin.listInvites.invalidate(); toast.success('Invite revoked'); }, onError: (error) => toast.error(error.message) });
 
   // Check if user is admin
   if (!loading && user?.role !== 'admin') {
@@ -103,20 +81,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  const handleEditUser = async (userId: number) => {
-    setEditingUserId(userId);
-    try {
-      // TODO: Wire to tRPC mutation for editing user
-      // const result = await trpc.admin.editUser.mutate({ userId, ... });
-      
-      toast.success("User updated successfully");
-    } catch (error) {
-      toast.error("Failed to update user");
-    } finally {
-      setEditingUserId(null);
-    }
-  };
 
   const handleExportLogs = async () => {
     setIsExportingLogs(true);
@@ -145,11 +109,6 @@ export default function AdminDashboard() {
       setIsViewingAudit(false);
     }
   };
-
-  const filteredUsers = users.filter(u =>
-    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -214,6 +173,35 @@ export default function AdminDashboard() {
           <TabsContent value="users" className="space-y-4">
             <Card>
               <CardHeader>
+                <CardTitle>Invite a user</CardTitle>
+                <CardDescription>Pre-provision a role for a user's first sign-in.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="user@example.com" type="email" />
+                  <Select value={inviteRole} onValueChange={(value) => setInviteRole(value as typeof inviteRole)}>
+                    <SelectTrigger className="sm:w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['free', 'home_user', 'basic', 'professional', 'rule_editor', 'admin', 'org_admin'].map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })} disabled={inviteMutation.isPending || !inviteEmail}>Send Invite</Button>
+                </div>
+                {invitesQuery.data && invitesQuery.data.length > 0 && (
+                  <div className="space-y-2 border-t pt-3">
+                    <p className="text-sm font-medium">Pending invites</p>
+                    {invitesQuery.data.map((invite) => (
+                      <div key={invite.id} className="flex items-center justify-between text-sm">
+                        <span>{invite.email} <Badge variant="outline" className="ml-2">{invite.role}</Badge></span>
+                        <Button variant="ghost" size="sm" onClick={() => revokeInviteMutation.mutate({ inviteId: invite.id })}>Revoke</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
                 <CardTitle>User Management</CardTitle>
                 <CardDescription>Manage system users and their permissions</CardDescription>
               </CardHeader>
@@ -231,42 +219,43 @@ export default function AdminDashboard() {
                         <th className="py-2 px-4 text-left">Name</th>
                         <th className="py-2 px-4 text-left">Email</th>
                         <th className="py-2 px-4 text-left">Role</th>
-                        <th className="py-2 px-4 text-left">Calculations</th>
-                        <th className="py-2 px-4 text-left">Projects</th>
-                        <th className="py-2 px-4 text-xs text-muted-foreground">Last Active</th>
+                        <th className="py-2 px-4 text-left">Status</th>
+                        <th className="py-2 px-4 text-xs text-muted-foreground">Last signed in</th>
                         <th className="py-2 px-4">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map((u) => (
+                      {usersQuery.data?.map((u) => (
                         <tr key={u.id} className="border-b hover:bg-muted/50">
-                          <td className="py-2 px-4 font-medium">{u.name}</td>
-                          <td className="py-2 px-4 text-muted-foreground">{u.email}</td>
+                          <td className="py-2 px-4 font-medium">{u.name || '—'}</td>
+                          <td className="py-2 px-4 text-muted-foreground">{u.email || '—'}</td>
                           <td className="py-2 px-4">
                             <Badge variant="outline">{u.role}</Badge>
                           </td>
-                          <td className="py-2 px-4">{u.calculationsCount}</td>
-                          <td className="py-2 px-4">{u.projectsCount}</td>
+                          <td className="py-2 px-4">
+                            {u.bannedAt ? <span title={u.banReason ?? undefined}><Badge variant="destructive">Banned</Badge>{u.banReason && <p className="text-xs text-muted-foreground mt-1 max-w-xs">{u.banReason}</p>}</span> : <Badge variant="secondary">Active</Badge>}
+                          </td>
                           <td className="py-2 px-4 text-xs text-muted-foreground">
-                            {u.lastActive.toLocaleString()}
+                            {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleString() : 'Never'}
                           </td>
                           <td className="py-2 px-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditUser(u.id)}
-                              disabled={editingUserId === u.id}
-                            >
-                              {editingUserId === u.id ? "Editing..." : "Edit"}
-                            </Button>
+                            {u.id !== user?.id && (u.bannedAt ? <Button variant="outline" size="sm" onClick={() => unbanMutation.mutate({ userId: u.id })}>Unban</Button> : <Button variant="destructive" size="sm" onClick={() => { setBanTarget({ id: u.id, name: u.name }); setBanReason(''); }}>Ban</Button>)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Loading users…</p>}
               </CardContent>
             </Card>
+            <Dialog open={!!banTarget} onOpenChange={(open) => !open && setBanTarget(null)}>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Ban {banTarget?.name || 'user'}</DialogTitle><DialogDescription>This immediately blocks the account from making authenticated requests.</DialogDescription></DialogHeader>
+                <Textarea value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Reason for suspension" maxLength={500} />
+                <DialogFooter><Button variant="outline" onClick={() => setBanTarget(null)}>Cancel</Button><Button variant="destructive" disabled={!banReason.trim() || banMutation.isPending} onClick={() => banTarget && banMutation.mutate({ userId: banTarget.id, reason: banReason.trim() })}>Confirm Ban</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Analytics Tab */}

@@ -21,6 +21,9 @@ export const users = mysqlTable("users", {
   areaUnit: mysqlEnum("areaUnit", ["m2", "ft2"]).notNull().default("m2"),
   trainingConsent: int("trainingConsent").notNull().default(0),
   trainingConsentUpdatedAt: timestamp("trainingConsentUpdatedAt"),
+  bannedAt: timestamp("bannedAt"),
+  banReason: varchar("banReason", { length: 500 }),
+  bannedBy: int("bannedBy"),
   orgId: int("orgId"),
   orgRole: mysqlEnum("orgRole", ["org_admin", "member"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -723,6 +726,20 @@ export const verificationTokens = mysqlTable("verificationTokens", {
 
 export type VerificationToken = typeof verificationTokens.$inferSelect;
 export type InsertVerificationToken = typeof verificationTokens.$inferInsert;
+
+/** Pre-provisioned roles for users on their first Clerk sign-in. */
+export const userInvites = mysqlTable("userInvites", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  role: mysqlEnum("role", ["free", "home_user", "basic", "professional", "rule_editor", "admin", "org_admin"]).notNull().default("free"),
+  invitedBy: int("invitedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  consumedAt: timestamp("consumedAt"),
+  consumedByUserId: int("consumedByUserId"),
+});
+
+export type UserInvite = typeof userInvites.$inferSelect;
+export type InsertUserInvite = typeof userInvites.$inferInsert;
 
 /**
  * ============================================================================

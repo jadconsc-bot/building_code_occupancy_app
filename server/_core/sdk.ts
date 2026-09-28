@@ -147,7 +147,7 @@ class SDKServer {
     // Get user from database
     const user = await db.getUserByOpenId(sessionUserId);
 
-    if (!user) {
+    if (!user || user.bannedAt) {
       throw ForbiddenError("User not found");
     }
 
