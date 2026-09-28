@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useClerk } from "@clerk/clerk-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import { trpc } from "@/lib/trpc";
 export default function Settings() {
   const [, navigate] = useLocation();
   const { user, logout } = useAuth();
+  const { signOut } = useClerk();
   const { theme, toggleTheme, switchable } = useTheme();
 
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -42,6 +44,11 @@ export default function Settings() {
       await utils.user.getTrainingConsent.invalidate();
     },
   });
+
+  const handleSignOut = async () => {
+    await logout();
+    await signOut({ redirectUrl: "/" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -142,7 +149,7 @@ export default function Settings() {
                 <Button
                   variant="destructive"
                   className="gap-2"
-                  onClick={logout}
+                  onClick={handleSignOut}
                 >
                   <LogOut className="w-4 h-4" />
                   Sign Out
@@ -252,7 +259,7 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground mb-3">
                     You are currently signed in. Signing out will end your session on this device.
                   </p>
-                  <Button variant="outline" className="gap-2" onClick={logout}>
+                  <Button variant="outline" className="gap-2" onClick={handleSignOut}>
                     <LogOut className="w-4 h-4" />
                     Sign Out
                   </Button>
