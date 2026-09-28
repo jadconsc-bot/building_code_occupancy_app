@@ -9386,7 +9386,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                         <span>
                           <span className="font-semibold">
-                            {detectedRoomsData.length} room{detectedRoomsData.length !== 1 ? 's' : ''} detected
+                            {detectedPolygons.size} room{detectedPolygons.size !== 1 ? 's' : ''} detected
                           </span>
                           {complianceInputSlice?.province && (
                             <span className="ml-1 text-emerald-600">
@@ -9780,7 +9780,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                   {/* Basic count row */}
                   <div className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground">
                     <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                    <span>{detectedRoomsData.length} room(s) detected</span>
+                    <span>{detectedPolygons.size} room(s) detected</span>
                     {detectedRoomsData.filter((r: any) => r.flaggedForReview).length > 0 && (
                       <span className="text-amber-600">
                         · {detectedRoomsData.filter((r: any) => r.flaggedForReview).length} flagged for review
