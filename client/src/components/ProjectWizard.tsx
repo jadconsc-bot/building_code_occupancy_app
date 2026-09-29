@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
@@ -28,7 +28,7 @@ interface ProjectWizardProps {
   onSuccess?: (projectId: number) => void;
 }
 
-type Province = "AB" | "BC" | "ON" | "OTHER";
+type Province = "AB" | "BC" | "SK" | "MB" | "ON" | "QC" | "NB" | "NS" | "PE" | "NL" | "YT" | "NT" | "NU" | "OTHER";
 
 const BUILDING_TYPES = [
   { value: "part9_single_family", label: "Part 9 — Single Family Residential" },
@@ -62,34 +62,12 @@ const CODE_EDITIONS: Record<string, string> = {
   OTHER: "NBC 2020",
 };
 
-const PROVINCE_CODE_MAP: Record<string, Province> = {
-  'Alberta': 'AB',
-  'British Columbia': 'BC',
-  'Ontario': 'ON',
-  'Quebec': 'OTHER',
-  'Manitoba': 'OTHER',
-  'Saskatchewan': 'OTHER',
-  'Nova Scotia': 'OTHER',
-  'New Brunswick': 'OTHER',
-  'Prince Edward Island': 'OTHER',
-  'Newfoundland and Labrador': 'OTHER',
-  'Northwest Territories': 'OTHER',
-  'Nunavut': 'OTHER',
-  'Yukon': 'OTHER',
-};
-
 const STEP_LABELS = ["Project Identity", "Pre-Design", "Code Strategy", "Jurisdiction", "Risk Summary", "Confirm & Create"];
 
 type RiskSeverity = "critical" | "warning" | "info";
 interface RiskFlag {
   severity: RiskSeverity;
   message: string;
-}
-
-function extractMunicipality(address: string): string {
-  const known = ["Vancouver", "Victoria", "Kelowna", "Prince George", "Calgary", "Edmonton", "Toronto", "Ottawa"];
-  const lower = address.toLowerCase();
-  return known.find(city => lower.includes(city.toLowerCase())) ?? "";
 }
 
 function determinePart(storeys: number, area: number, occupancyCode: string): string {
@@ -205,9 +183,11 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   const [name, setName] = useState("");
   const [projectCode, setProjectCode] = useState("");
   const [address, setAddress] = useState("");
+  const [addressMunicipality, setAddressMunicipality] = useState("");
   const [addressGeocoded, setAddressGeocoded] = useState(false);
   const [notes, setNotes] = useState("");
-  const addressInputRef = useRef<HTMLInputElement>(null);
+  const [addressQuery, setAddressQuery] = useState("");
+  const [addressSessionToken, setAddressSessionToken] = useState(() => globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
 
   // Step 2
   const [province, setProvince] = useState<Province | "">("");
@@ -245,52 +225,33 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
     }
   }, [province, codeEditionOverride]);
 
-  // Load Google Maps Places script once
+  const addressAutocomplete = trpc.geo.autocomplete.useQuery(
+    { query: addressQuery, sessionToken: addressSessionToken },
+    { enabled: addressQuery.trim().length >= 2 },
+  );
+  const addressResolve = trpc.geo.resolveAddress.useMutation();
   useEffect(() => {
-    if ((window as any).google?.maps?.places) return;
-    const existing = document.querySelector('script[data-gm-places]');
-    if (existing) return;
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.setAttribute('data-gm-places', '1');
-    document.head.appendChild(script);
-  }, []);
+    const timer = window.setTimeout(() => setAddressQuery(address), 250);
+    return () => window.clearTimeout(timer);
+  }, [address]);
 
-  // Attach Places Autocomplete to address input once Maps is ready
-  useEffect(() => {
-    if (!addressInputRef.current) return;
-    let attached = false;
-    function attach() {
-      if (attached || !(window as any).google?.maps?.places) return;
-      attached = true;
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(
-        addressInputRef.current!,
-        { componentRestrictions: { country: 'ca' }, fields: ['address_components', 'formatted_address', 'geometry'], types: ['address'] }
-      );
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry) return;
-        const comps: any[] = place.address_components ?? [];
-        const provinceComp = comps.find((c: any) => c.types.includes('administrative_area_level_1'));
-        const cityComp = comps.find((c: any) => c.types.includes('locality') || c.types.includes('sublocality'));
-        const provinceCode = PROVINCE_CODE_MAP[provinceComp?.long_name ?? ''];
-        if (provinceCode) {
-          setProvince(provinceCode);
-          setAddressGeocoded(true);
-        }
-        // municipality is set via extractMunicipality from address in handleSubmit; store it if needed
-        setAddress(place.formatted_address ?? '');
-      });
+  const selectAddressSuggestion = async (placeId: string) => {
+    try {
+      const resolved = await addressResolve.mutateAsync({ placeId, sessionToken: addressSessionToken });
+      if (resolved.formattedAddress) setAddress(resolved.formattedAddress);
+      if (resolved.municipality) setAddressMunicipality(resolved.municipality);
+      if (resolved.provinceFull) {
+        const supported = ["AB", "BC", "SK", "MB", "ON", "QC", "NB", "NS", "PE", "NL", "YT", "NT", "NU"];
+        setProvince((supported.includes(resolved.provinceFull) ? resolved.provinceFull : "OTHER") as Province);
+        setAddressGeocoded(true);
+      }
+    } catch {
+      // Manual entry remains available when Places is unavailable.
+    } finally {
+      setAddressQuery("");
+      setAddressSessionToken(globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
     }
-    // If already loaded, attach immediately; otherwise wait for script onload
-    if ((window as any).google?.maps?.places) {
-      attach();
-    } else {
-      const script = document.querySelector('script[data-gm-places]');
-      if (script) script.addEventListener('load', attach);
-    }
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   const determinationQuery = trpc.occupancyAdvisor.determinePart.useQuery({
     footprintM2: buildingFootprintM2 ?? null,
@@ -374,7 +335,7 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
   function resetForm() {
     setStep(1);
     setCreatedProjectId(null);
-    setName(""); setProjectCode(""); setAddress(""); setAddressGeocoded(false); setNotes("");
+    setName(""); setProjectCode(""); setAddress(""); setAddressMunicipality(""); setAddressGeocoded(false); setNotes("");
     setProvince(""); setCodeEdition(""); setCodeEditionOverride(false);
     setZoningCategory(""); setSiteConstraints([]);
     setShowAdvisor(false);
@@ -406,10 +367,10 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
       return;
     }
 
-    const municipality = extractMunicipality(address);
-    const detectionProvince = province as "AB" | "BC";
+    const municipality = addressMunicipality;
+    const detectionProvince = province as "AB" | "BC" | "ON" | "SK" | "MB";
 
-    if (municipality && (province === "AB" || province === "BC")) {
+    if (municipality && ["AB", "BC", "ON", "SK", "MB"].includes(province)) {
       detectMutation.mutate({ municipality, province: detectionProvince, address });
     } else {
       setDetectError("Could not detect municipality from address. Please enter jurisdiction details manually.");
@@ -497,14 +458,29 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
               <Label htmlFor="wiz-address">Building Address *</Label>
               <div className="relative">
                 <input
-                  ref={addressInputRef}
                   id="wiz-address"
                   type="text"
                   placeholder="Start typing a Canadian address..."
                   value={address}
-                  onChange={e => { setAddress(e.target.value); setAddressGeocoded(false); }}
+                  onChange={e => { setAddress(e.target.value); setAddressMunicipality(""); setAddressGeocoded(false); }}
                   className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
+                {addressQuery.trim().length >= 2 && (addressAutocomplete.data?.predictions?.length ?? 0) > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-popover shadow-md">
+                    {addressAutocomplete.data!.predictions.map((prediction: { placeId: string; description: string; mainText?: string; secondaryText?: string }) => (
+                      <button
+                        key={prediction.placeId}
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => void selectAddressSuggestion(prediction.placeId)}
+                      >
+                        <span className="block">{prediction.mainText ?? prediction.description}</span>
+                        {prediction.secondaryText && <span className="block text-xs text-muted-foreground">{prediction.secondaryText}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {addressGeocoded && (
                   <span className="absolute right-3 top-2.5 text-green-600 text-xs flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Jurisdiction detected
@@ -552,7 +528,17 @@ export function ProjectWizard({ open, onOpenChange, onSuccess }: ProjectWizardPr
                 <option value="">Select province...</option>
                 <option value="AB">Alberta</option>
                 <option value="BC">British Columbia</option>
+                <option value="SK">Saskatchewan</option>
+                <option value="MB">Manitoba</option>
                 <option value="ON">Ontario</option>
+                <option value="QC">Quebec</option>
+                <option value="NB">New Brunswick</option>
+                <option value="NS">Nova Scotia</option>
+                <option value="PE">Prince Edward Island</option>
+                <option value="NL">Newfoundland and Labrador</option>
+                <option value="YT">Yukon</option>
+                <option value="NT">Northwest Territories</option>
+                <option value="NU">Nunavut</option>
                 <option value="OTHER">Other Province / Territory</option>
               </select>
             </div>

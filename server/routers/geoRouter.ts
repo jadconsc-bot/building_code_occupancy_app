@@ -29,6 +29,16 @@ export function mapGoogleProvince(shortCode?: string | null): SupportedProvince 
   return null;
 }
 
+const CANADIAN_PROVINCE_CODES = new Set(["AB", "BC", "SK", "MB", "ON", "QC", "NB", "NS", "PE", "NL", "YT", "NT", "NU"]);
+
+/** Maps Google's province code to every Canadian province/territory code. */
+export function mapGoogleProvinceFull(shortCode?: string | null): string | null {
+  if (!shortCode) return null;
+  const normalized = shortCode.trim().toUpperCase();
+  if (CANADIAN_PROVINCE_CODES.has(normalized)) return normalized;
+  return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+}
+
 function clientIp(ctx: { req?: { ip?: string } }): string {
   return ctx.req?.ip ?? "unknown";
 }
@@ -113,8 +123,10 @@ export const geoRouter = router({
       const municipalityComponent = findComponent("locality")
         ?? findComponent("sublocality")
         ?? findComponent("postal_town");
+      const provinceShortCode = provinceComponent?.shortText ?? provinceComponent?.longText;
       return {
-        province: mapGoogleProvince(provinceComponent?.shortText ?? provinceComponent?.longText),
+        province: mapGoogleProvince(provinceShortCode),
+        provinceFull: mapGoogleProvinceFull(provinceShortCode),
         municipality: municipalityComponent?.longText ?? null,
         formattedAddress: body.formattedAddress ?? null,
         lat: typeof body.location?.latitude === "number" ? body.location.latitude : null,

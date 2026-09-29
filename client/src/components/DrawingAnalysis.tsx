@@ -787,7 +787,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   // Zone auto-lookup state
   const [addressInput, setAddressInput] = useState('');
-  const addressInputRef = useRef<HTMLInputElement>(null);
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressSessionToken, setAddressSessionToken] = useState(() => globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
   const [addressManuallyEdited, setAddressManuallyEdited] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [zoneResult, setZoneResult] = useState<{
@@ -799,37 +800,30 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [jurisdictionSource, setJurisdictionSource] = useState<'geocoded' | 'manual'>('manual');
 
+  const addressAutocomplete = trpc.geo.autocomplete.useQuery(
+    { query: addressQuery, sessionToken: addressSessionToken },
+    { enabled: addressQuery.trim().length >= 2 },
+  );
+  const addressResolve = trpc.geo.resolveAddress.useMutation();
   useEffect(() => {
-    if ((window as any).google?.maps?.places || document.querySelector('script[data-gm-places]')) return;
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.setAttribute('data-gm-places', '1');
-    document.head.appendChild(script);
-  }, []);
+    const timer = window.setTimeout(() => setAddressQuery(addressInput), 250);
+    return () => window.clearTimeout(timer);
+  }, [addressInput]);
 
-  useEffect(() => {
-    if (!addressInputRef.current) return;
-    let attached = false;
-    const attach = () => {
-      if (attached || !(window as any).google?.maps?.places || !addressInputRef.current) return;
-      attached = true;
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
-        componentRestrictions: { country: 'ca' },
-        fields: ['formatted_address', 'geometry'],
-        types: ['address'],
-      });
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.geometry && place.formatted_address) {
-          setAddressInput(place.formatted_address);
-          setAddressManuallyEdited(true);
-        }
-      });
-    };
-    if ((window as any).google?.maps?.places) attach();
-    else document.querySelector('script[data-gm-places]')?.addEventListener('load', attach);
-  }, []);
+  const selectAddressSuggestion = async (placeId: string) => {
+    try {
+      const resolved = await addressResolve.mutateAsync({ placeId, sessionToken: addressSessionToken });
+      if (resolved.formattedAddress) {
+        setAddressInput(resolved.formattedAddress);
+        setAddressManuallyEdited(true);
+      }
+    } catch {
+      // Manual typing and the explicit zone lookup remain available.
+    } finally {
+      setAddressQuery('');
+      setAddressSessionToken(globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
+    }
+  };
 
   const [analysisProgress, setAnalysisProgress] = useState<{
     stage: 'idle' | 'uploading' | 'ocr' | 'detecting' | 'polygons' | 'evaluating' | 'complete';
@@ -8856,9 +8850,8 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                       {/* Address → Zone auto-lookup */}
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Project Address</Label>
-                        <div className="flex gap-1.5">
+                        <div className="relative flex gap-1.5">
                           <Input
-                            ref={addressInputRef}
                             value={addressInput}
                             onChange={e => {
                               setAddressInput(e.target.value);
@@ -8868,6 +8861,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                             placeholder="109 Silverhorn Terrace SW"
                             className="text-sm h-8 flex-1"
                           />
+                          {addressQuery.trim().length >= 2 && (addressAutocomplete.data?.predictions?.length ?? 0) > 0 && (
+                            <div className="absolute left-0 right-10 top-full z-20 mt-1 rounded-md border bg-popover shadow-md">
+                              {addressAutocomplete.data!.predictions.map((prediction: { placeId: string; description: string; mainText?: string; secondaryText?: string }) => (
+                                <div
+                                  key={prediction.placeId}
+                                  role="option"
+                                  tabIndex={0}
+                                  className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-accent"
+                                  onMouseDown={(event) => { event.preventDefault(); void selectAddressSuggestion(prediction.placeId); }}
+                                >
+                                  <span className="block">{prediction.mainText ?? prediction.description}</span>
+                                  {prediction.secondaryText && <span className="block text-xs text-muted-foreground">{prediction.secondaryText}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"

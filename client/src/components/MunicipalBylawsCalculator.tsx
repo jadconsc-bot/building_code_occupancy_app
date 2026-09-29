@@ -97,6 +97,8 @@ export function MunicipalBylawsCalculator() {
   // Zone auto-detection
   const [zoneSource, setZoneSource] = useState<'manual' | 'project' | 'gis'>('manual');
   const [addressInput, setAddressInput] = useState('');
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressSessionToken, setAddressSessionToken] = useState(() => globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
 
   const { activeProjectId } = useProject();
   const { data: project } = trpc.projects.get.useQuery(
@@ -104,6 +106,28 @@ export function MunicipalBylawsCalculator() {
     { enabled: !!activeProjectId },
   );
   const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
+  const addressAutocomplete = trpc.geo.autocomplete.useQuery(
+    { query: addressQuery, sessionToken: addressSessionToken },
+    { enabled: addressQuery.trim().length >= 2 },
+  );
+  const addressResolve = trpc.geo.resolveAddress.useMutation();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAddressQuery(addressInput), 250);
+    return () => window.clearTimeout(timer);
+  }, [addressInput]);
+
+  const selectAddressSuggestion = async (placeId: string) => {
+    try {
+      const resolved = await addressResolve.mutateAsync({ placeId, sessionToken: addressSessionToken });
+      if (resolved.formattedAddress) setAddressInput(resolved.formattedAddress);
+    } catch {
+      // Manual typing and the explicit lookup button remain available.
+    } finally {
+      setAddressQuery('');
+      setAddressSessionToken(globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
+    }
+  };
 
   // Pre-populate from saved project zone on mount / project change
   useEffect(() => {
@@ -289,7 +313,7 @@ export function MunicipalBylawsCalculator() {
           {/* Address lookup */}
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Auto-detect zone from address</Label>
-            <div className="flex gap-2">
+            <div className="relative flex gap-2">
               <Input
                 placeholder={`e.g. 100 Main St NE — uses selected municipality`}
                 value={addressInput}
@@ -297,6 +321,22 @@ export function MunicipalBylawsCalculator() {
                 onKeyDown={e => { if (e.key === 'Enter') handleAddressLookup(); }}
                 className="flex-1"
               />
+              {addressQuery.trim().length >= 2 && (addressAutocomplete.data?.predictions?.length ?? 0) > 0 && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-popover shadow-md">
+                  {addressAutocomplete.data!.predictions.map((prediction: { placeId: string; description: string; mainText?: string; secondaryText?: string }) => (
+                    <button
+                      key={prediction.placeId}
+                      type="button"
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => void selectAddressSuggestion(prediction.placeId)}
+                    >
+                      <span className="block">{prediction.mainText ?? prediction.description}</span>
+                      {prediction.secondaryText && <span className="block text-xs text-muted-foreground">{prediction.secondaryText}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
               <Button
                 variant="outline"
                 onClick={handleAddressLookup}
