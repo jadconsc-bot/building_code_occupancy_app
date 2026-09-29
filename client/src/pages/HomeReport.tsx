@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle, XCircle, FileText, Calendar } from "lucide-react";
 import { checkSuitePermission } from "@/lib/secondarySuiteRules";
-import { groupComplianceItems, type HomeReportComplianceItem } from "../../../server/services/homeReportTypes";
+import { groupComplianceItems, selectHomeReportDiagrams, type HomeReportComplianceItem } from "../../../server/services/homeReportTypes";
 
 type Result = "pass" | "conditional" | "fail" | "not_applicable";
 
@@ -108,6 +108,7 @@ export default function HomeReport() {
     codeRef: item.codeReference,
   })) as HomeReportComplianceItem[];
   const groupedItems = groupComplianceItems(items);
+  const applicableDiagrams = selectHomeReportDiagrams(items);
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-10 pb-20">
@@ -201,6 +202,26 @@ export default function HomeReport() {
               Not applicable to your project: {groupedItems.notApplicable.map((item) => item.title).join(", ")}.
             </p>
           )}
+        </section>
+      )}
+
+      {applicableDiagrams.length > 0 && (
+        <section className="mb-10 print:break-before-page">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1">Visual Reference</h2>
+          <p className="text-sm text-gray-600 mb-4">Illustrative diagrams for concepts addressed in this report.</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-8">
+            {applicableDiagrams.map((diagram) => (
+              <figure key={diagram.file} className="min-w-0">
+                <figcaption className="text-sm font-semibold text-gray-700 mb-2">{diagram.title}</figcaption>
+                <img
+                  src={`/home-report-diagrams/${diagram.file}`}
+                  alt={diagram.title}
+                  className="w-[50.8mm] h-[50.8mm] max-w-full object-contain border border-gray-200 rounded"
+                />
+                <p className="text-[11px] leading-tight text-gray-500 mt-2">Illustrative only — not to scale. Not a substitute for a stamped drawing.</p>
+              </figure>
+            ))}
+          </div>
         </section>
       )}
 

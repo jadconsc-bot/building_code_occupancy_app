@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="white"/>
+  <g fill="none" stroke="#1e40af" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="135" y="105" width="330" height="300" fill="#eff6ff"/>
+    <rect x="190" y="160" width="220" height="190" stroke="#4b5563"/>
+    <path d="M190 255h220M300 160v190" stroke="#9ca3af" stroke-width="5"/>
+    <path d="M145 455h310M145 445v20M455 445v20"/>
+    <path d="M190 135h220M190 125v20M410 125v20"/>
+    <path d="M175 455l15-8v16zM425 455l-15-8v16zM190 135l15-8v16zM410 135l-15-8v16z" fill="#1e40af" stroke="none"/>
+    <path d="M95 350v-190M85 350h20M85 160h20M95 350l-8-15h16zM95 160l-8 15h16z"/>
+  </g>
+  <g fill="#374151" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="300" y="95" font-size="25" font-weight="bold">EGRESS WINDOW</text>
+    <text x="300" y="440" font-size="23">min. 380 mm clear width</text>
+    <text x="300" y="495" font-size="23">min. 380 mm clear height</text>
+    <text x="95" y="385" font-size="21" transform="rotate(-90 95 385)">sill ≤ 900 mm</text>
+    <text x="300" y="555" font-size="19">NBC 9.10.7.1</text>
+  </g>
+</svg>

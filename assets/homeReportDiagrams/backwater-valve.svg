@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="white"/>
+  <g fill="none" stroke="#1e40af" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M90 115v390h110V115" fill="#f3f4f6" stroke="#4b5563"/>
+    <path d="M200 405h315"/>
+    <path d="M320 370v70M275 370h90l-45 70z" fill="#dbeafe"/>
+    <path d="M235 340h110M235 330v20M345 330v20M235 340l14-8v16zM345 340l-14-8v16z" fill="#1e40af" stroke="none"/>
+    <path d="M420 380l55 0M475 380l-15-9v18z" fill="#1e40af" stroke="none"/>
+  </g>
+  <g fill="#374151" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="300" y="75" font-size="25" font-weight="bold">BACKWATER VALVE</text>
+    <text x="290" y="315" font-size="19">valve</text>
+    <text x="475" y="365" font-size="18">normal flow</text>
+    <text x="300" y="480" font-size="18">building drain</text>
+    <text x="300" y="540" font-size="18">valve closes to block sewer backup</text>
+    <text x="300" y="575" font-size="19">NBC 7.4.4.7</text>
+  </g>
+</svg>

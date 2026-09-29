@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="white"/>
+  <g fill="none" stroke="#1e40af" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M90 150h180v350H90z" fill="#f3f4f6" stroke="#4b5563"/>
+    <rect x="125" y="215" width="110" height="95" fill="#dbeafe"/>
+    <path d="M270 190h245v310H270" fill="#eff6ff"/>
+    <path d="M270 190v310M515 190v310"/>
+    <path d="M270 355h245M270 500h245" stroke="#9ca3af" stroke-width="5"/>
+    <path d="M270 535h245M270 525v20M515 525v20"/>
+    <path d="M270 535l15-8v16zM515 535l-15-8v16z" fill="#1e40af" stroke="none"/>
+    <path d="M555 190v310M545 190h20M545 500h20M555 190l-8 15h16zM555 500l-8-15h16z"/>
+  </g>
+  <g fill="#374151" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="300" y="90" font-size="25" font-weight="bold">WINDOW WELL</text>
+    <text x="392" y="520" font-size="21">projection (min. 760 mm)</text>
+    <text x="575" y="360" font-size="20" transform="rotate(-90 575 360)">depth</text>
+    <text x="300" y="575" font-size="19">ladder required if &gt;1200 mm</text>
+  </g>
+</svg>

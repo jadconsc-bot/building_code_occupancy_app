@@ -13,7 +13,9 @@
  */
 
 import { jsPDF } from "jspdf";
-import { groupComplianceItems, type HomeReportComplianceReport as ComplianceReport, type HomeReportComplianceItem as ComplianceItem } from "./homeReportTypes.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { groupComplianceItems, selectHomeReportDiagrams, type HomeReportComplianceReport as ComplianceReport, type HomeReportComplianceItem as ComplianceItem } from "./homeReportTypes.js";
 
 type RGB = [number, number, number];
 const BRAND_COLOR: RGB = [30, 64, 175];   // indigo-800
@@ -317,6 +319,49 @@ export async function generateHomeReportPdf(
   }
 
   y = dy + 8;
+
+  // ─── Visual reference diagrams ─────────────────────────────────────────────
+  // These are committed PNGs so report generation never depends on an SVG
+  // renderer at runtime. Only diagrams for rules that actually fired are shown.
+  const applicableDiagrams = selectHomeReportDiagrams(report.items);
+  if (applicableDiagrams.length > 0) {
+    doc.addPage();
+    y = 22;
+    doc.setTextColor(...GRAY);
+    doc.setFontSize(15);
+    doc.setFont("helvetica", "bold");
+    doc.text("Visual Reference", margin, y);
+    y += 7;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Illustrative diagrams for concepts addressed in this report.", margin, y);
+    y += 12;
+
+    const diagramW = 50.8;
+    const colGap = 28;
+    const caption = "Illustrative only — not to scale. Not a substitute for a stamped drawing.";
+    for (let i = 0; i < applicableDiagrams.length; i++) {
+      const diagram = applicableDiagrams[i];
+      const col = i % 2;
+      if (i > 0 && col === 0) y += 86;
+      const x = margin + col * (diagramW + colGap);
+      try {
+        const assetPath = path.resolve(process.cwd(), "client/public/home-report-diagrams", diagram.file);
+        const png = await readFile(assetPath);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GRAY);
+        doc.text(diagram.title, x, y);
+        doc.addImage(`data:image/png;base64,${png.toString("base64")}`, "PNG", x, y + 3, diagramW, diagramW);
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(caption, diagramW);
+        doc.text(lines, x, y + diagramW + 7);
+      } catch (error) {
+        console.error(`[HomeReport] Visual reference asset unavailable: ${diagram.file}`, error);
+      }
+    }
+  }
 
   // ─── Footer on all pages ─────────────────────────────────────────────────────
   const pageCount = doc.getNumberOfPages();
