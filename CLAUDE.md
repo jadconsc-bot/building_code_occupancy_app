@@ -5,9 +5,18 @@ jadconsc-bot/building_code_occupancy_app
 Production: complycode.ca (Railway, MySQL 8)
 
 ## Branch Rules
-- Always start: git checkout main && git pull origin main
-- All pushes: git push origin HEAD:main
-- Never push to feature branches
+- Production work starts from `main`: `git checkout main && git pull origin main`
+- After staging verification, production changes push with `git push origin HEAD:main`
+- Staging work pushes with `git push origin HEAD:staging`
+- Never push unverified work directly to `main` or to arbitrary feature branches
+
+### Staging environment
+- The `staging` branch deploys to a separate Railway environment with its own database and the existing Clerk Development instance, fully isolated from production.
+- New work lands on `staging` first. Push to `staging`, verify the change there (including sign-in and any affected core flows), then merge to `main` to reach production.
+- Never push a schema or auth change straight to `main` without testing it on staging first. This practice gap caused the September 28, 2026 production outage (an unapplied migration broke authenticated requests) and the Clerk-key identity mismatch that followed it.
+- Staging's database starts empty and is not kept in sync with production data; it verifies code behavior rather than testing against real records.
+- Staging uses Stripe test-mode keys; no real charges occur there.
+- When a change needs raw SQL (see the users-table exception below), apply it to staging first, confirm it, then apply the same SQL to production after `main` is updated.
 
 ## Locked Files — NEVER touch without Jose's explicit approval
 - client/index.html
