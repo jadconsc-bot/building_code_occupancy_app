@@ -42,12 +42,14 @@ function requireApiKey(): string {
 
 async function googleJson(url: string, init: RequestInit, apiKey: string): Promise<any> {
   try {
+    const appUrl = process.env.APP_URL;
     const response = await fetch(url, {
       ...init,
       headers: {
         ...(init.headers ?? {}),
         "X-Goog-Api-Key": apiKey,
         "Content-Type": "application/json",
+        ...(appUrl ? { Referer: `${appUrl.replace(/\/$/, "")}/` } : {}),
       },
     });
     const body = await response.json().catch(() => ({}));
