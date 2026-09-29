@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -593,6 +593,20 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
   const [step, setStep] = useState<"email" | "form" | "review">("email");
   const [explanationTerm, setExplanationTerm] = useState<string | null>(null);
   const [explanationText, setExplanationText] = useState<string | null>(null);
+  const [addressInput, setAddressInput] = useState("");
+  const [debouncedAddress, setDebouncedAddress] = useState("");
+  const [addressSessionToken, setAddressSessionToken] = useState(() => globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedAddress(addressInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [addressInput]);
+
+  const addressAutocomplete = trpc.geo.autocomplete.useQuery(
+    { query: debouncedAddress, sessionToken: addressSessionToken },
+    { enabled: debouncedAddress.length >= 2, retry: false },
+  );
+  const resolveAddress = trpc.geo.resolveAddress.useMutation();
 
   const createReport = trpc.home.createReport.useMutation();
   const explainTerm = trpc.home.explainTerm.useMutation({
@@ -616,6 +630,22 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
 
   function setValue(key: string, value: unknown) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleAddressSelect(placeId: string) {
+    try {
+      const resolved = await resolveAddress.mutateAsync({ placeId, sessionToken: addressSessionToken });
+      if (resolved.formattedAddress) setAddressInput(resolved.formattedAddress);
+      if (resolved.province) {
+        setValue("province", resolved.province);
+        if (resolved.municipality) setValue("municipality", resolved.municipality);
+      }
+      setDebouncedAddress("");
+      setAddressSessionToken(globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
+    } catch {
+      // Address lookup is an aid only; manual province and municipality remain available.
+      setDebouncedAddress("");
+    }
   }
 
   function validateForm(): boolean {
@@ -793,6 +823,35 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                         <div className="flex-1 h-px bg-border" />
                       </div>
                       {field.helpText && <p className="text-xs text-muted-foreground mt-1">{field.helpText}</p>}
+                      {field.key === "_s_property" && (
+                        <div className="mt-4 relative">
+                          <Label htmlFor="propertyAddress">Property address</Label>
+                          <Input
+                            id="propertyAddress"
+                            value={addressInput}
+                            onChange={(event) => setAddressInput(event.target.value)}
+                            placeholder="Start typing a Canadian property address"
+                            autoComplete="street-address"
+                            className="mt-1"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Used only to identify your province and municipality for this report.</p>
+                          {addressAutocomplete.data?.predictions && addressAutocomplete.data.predictions.length > 0 && (
+                            <div className="absolute z-20 left-0 right-0 mt-1 rounded-md border bg-background shadow-lg overflow-hidden">
+                              {addressAutocomplete.data.predictions.map((prediction: { placeId: string; description: string; mainText?: string; secondaryText?: string }) => (
+                                <button
+                                  key={prediction.placeId}
+                                  type="button"
+                                  className="block w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                                  onClick={() => void handleAddressSelect(prediction.placeId)}
+                                >
+                                  <span className="block font-medium">{prediction.mainText ?? prediction.description}</span>
+                                  {prediction.secondaryText && <span className="block text-xs text-muted-foreground">{prediction.secondaryText}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -42,6 +42,7 @@ import { fireAssemblyRouter } from "./routers/fireAssemblyRouter";
 import { apsRouter } from "./routers/apsRouter";
 import { userRouter } from "./routers/userRouter";
 import { adminUserRouter } from "./routers/adminUserRouter";
+import { geoRouter } from "./routers/geoRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 export { handleAPSWebhook } from "./routers/apsRouter";
 
@@ -83,6 +84,7 @@ export const appRouter = router({
   aps: apsRouter,
   user: userRouter,
   admin: adminUserRouter,
+  geo: geoRouter,
   auth: router({
     me: protectedProcedure.query(async (opts) => {
       const db = await getDb();
