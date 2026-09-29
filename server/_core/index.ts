@@ -16,6 +16,7 @@ import { exchangeCode } from "../services/apsAuthService";
 import { getDb } from "../db";
 import { apsConnections } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { runStagingMigrationsOnce } from "../runStagingMigrationsOnce";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -40,6 +41,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  if (process.env.RUN_STAGING_MIGRATIONS === "true") {
+    await runStagingMigrationsOnce();
+  }
+
   const app = express();
   app.set('trust proxy', 1); // Trust Railway's reverse proxy for correct protocol detection
   const server = createServer(app);
