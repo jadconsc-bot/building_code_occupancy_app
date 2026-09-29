@@ -13,7 +13,7 @@
  */
 
 import { jsPDF } from "jspdf";
-import type { ComplianceReport, ComplianceItem } from "./homeComplianceEngine.js";
+import type { HomeReportComplianceReport as ComplianceReport, HomeReportComplianceItem as ComplianceItem } from "./homeReportTypes.js";
 
 type RGB = [number, number, number];
 const BRAND_COLOR: RGB = [30, 64, 175];   // indigo-800

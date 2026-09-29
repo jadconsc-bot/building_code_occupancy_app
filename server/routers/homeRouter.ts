@@ -22,6 +22,7 @@ import { homeReports, userSubscriptions } from "../../drizzle/schema.js";
 import { eq, sql, desc } from "drizzle-orm";
 import { createHash, randomBytes } from "crypto";
 import { createPaymentIntent } from "../services/stripeService.js";
+import { callAnthropicText } from "../services/anthropicTextService.js";
 import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
 import {
   evaluateHomeCompliance,
@@ -40,6 +41,17 @@ function homeReportRateLimited(ip: string): boolean {
   if (hits.length >= max) return true;
   hits.push(now);
   homeReportBucket.set(ip, hits);
+  return false;
+}
+
+const termExplanationBucket = new Map<string, number[]>();
+
+function termExplanationRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (termExplanationBucket.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (hits.length >= 12) return true;
+  hits.push(now);
+  termExplanationBucket.set(ip, hits);
   return false;
 }
 
@@ -94,6 +106,7 @@ const rawFormSchema = z.object({
   limitingDistanceM:     z.number().positive().optional(),
   exposingFaceAreaM2:    z.number().positive().optional(),
   totalOpeningAreaM2:    z.number().nonnegative().optional(),
+  individualOpeningAreaM2: z.number().nonnegative().optional(),
   facesStreet:           z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
   fireResponseOver10Min: z.union([z.boolean(), z.enum(["yes", "no"])]).optional(),
   // CEC electrical
@@ -123,6 +136,35 @@ const rawFormSchema = z.object({
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const homeRouter = router({
+
+  explainTerm: publicProcedure
+    .input(z.object({
+      term: z.string().trim().min(1).max(120),
+      context: z.string().trim().max(240).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ip = (ctx as any).req?.ip ?? "unknown";
+      if (termExplanationRateLimited(ip)) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Please wait before requesting another explanation." });
+      }
+      if (!/^[\w\s./()'’&-]+$/u.test(input.term)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Term contains unsupported characters." });
+      }
+      try {
+        const result = await callAnthropicText({
+          systemPrompt:
+            "You provide plain-language definitions of building and design terms only. " +
+            "Do not determine compliance, interpret the user's project, invent numeric requirements, " +
+            "or give project-specific advice. Keep the answer under 80 words and say when a term depends on context.",
+          userPrompt: `Explain the term "${input.term}"${input.context ? ` in the general context of ${input.context}.` : "."}`,
+          maxTokens: 180,
+        });
+        return { explanation: result.text.trim().slice(0, 600) };
+      } catch {
+        // Explanations are additive assistance; an unavailable provider must not block the form.
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Explanation unavailable" });
+      }
+    }),
 
   /**
    * 1. createReport

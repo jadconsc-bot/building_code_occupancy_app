@@ -22,7 +22,7 @@ import { generateHomeReportPdf, getProjectTypeLabel } from "../services/homePdfS
 import { sendReportEmail } from "../services/homeEmailService.js";
 import { evaluateHomeCompliance } from "../engine/home/part9Rules.js";
 import { adaptFormAnswers, type RawFormSubmission } from "../services/homeReportAdapter.js";
-import type { ComplianceReport } from "../services/homeComplianceEngine.js";
+import type { HomeReportComplianceReport as ComplianceReport } from "../services/homeReportTypes.js";
 import {
   STRIPE_PRO_MONTHLY_PRICE_ID,
   STRIPE_PRO_ANNUAL_PRICE_ID,

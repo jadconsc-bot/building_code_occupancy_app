@@ -80,6 +80,8 @@ export interface HomeFormAnswers {
   limitingDistanceM?: number;
   exposingFaceAreaM2?: number;
   totalOpeningAreaM2?: number;
+  /** Optional area of one opening, when measured separately from the total. */
+  individualOpeningAreaM2?: number;
   facesStreet?: boolean;
   fireResponseOver10Min?: boolean;
   // CEC electrical
@@ -153,23 +155,44 @@ const CEILING_HEIGHT_RULES: Part9Rule[] = [
     },
   },
   {
-    ruleId: "P9-CEILING-BC",
+    ruleId: "P9-CEILING-BC-SUITE",
     description: "Minimum ceiling height",
     province: "BC",
-    projectTypes: ["secondary_suite", "basement_development"],
+    projectTypes: ["secondary_suite"],
     evaluate: (answers) => {
       const heightM = (answers.ceilingHeightFt ?? 0) * 0.3048;
-      const MIN = 2.0; // BC requires 5cm more than AB/ON
+      const MIN = 1.95;
       if (heightM >= MIN) return {
         result: "pass",
-        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) meets BC's minimum 6ft 7in (2.0m) requirement.`,
-        codeReference: "BCBC 2024 Section 9.7.2",
+        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) meets BC's minimum 1.95m requirement for a secondary suite.`,
+        codeReference: "BCBC 2024 Div. A, alternative compliance table / 9.5.3.1",
       };
       return {
         result: "fail",
-        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) is below BC's minimum 6ft 7in (2.0m). Note: BC requires 5cm more than Alberta.`,
-        whatToDo: "Increase ceiling height to at least 2.0m (6ft 7in). BC's requirement is 5cm higher than most other provinces.",
-        codeReference: "BCBC 2024 Section 9.7.2",
+        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) is below BC's minimum 1.95m for a secondary suite.`,
+        whatToDo: "Increase ceiling height to at least 1.95m, or verify an applicable BCBC alternative compliance path.",
+        codeReference: "BCBC 2024 Div. A, alternative compliance table / 9.5.3.1",
+      };
+    },
+  },
+  {
+    ruleId: "P9-CEILING-BC-BASEMENT",
+    description: "Minimum ceiling height",
+    province: "BC",
+    projectTypes: ["basement_development"],
+    evaluate: (answers) => {
+      const heightM = (answers.ceilingHeightFt ?? 0) * 0.3048;
+      const MIN = 2.1;
+      if (heightM >= MIN) return {
+        result: "pass",
+        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) meets BC's minimum 2.1m requirement for a basement development.`,
+        codeReference: "BCBC 2024 s.9.5.3.1(1)",
+      };
+      return {
+        result: "fail",
+        plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) is below BC's minimum 2.1m for a basement development.`,
+        whatToDo: "Increase ceiling height to at least 2.1m, or obtain a professional review of any applicable alternative compliance path.",
+        codeReference: "BCBC 2024 s.9.5.3.1(1)",
       };
     },
   },
@@ -785,6 +808,45 @@ const SPATIAL_SEPARATION_RULE: Part9Rule = {
   },
 };
 
+// BCBC Table 9.10.14.4.-B contains additional limits for an individual
+// opening. Only three anchor rows were reliably recovered from the physical
+// PDF; keep this advisory until the intermediate rows are re-extracted.
+const INDIVIDUAL_OPENING_SIZE_RULE: Part9Rule = {
+  ruleId: "P9-SPATIAL-INDIVIDUAL-OPENING",
+  description: "Individual opening size near a short limiting distance",
+  province: "BC",
+  projectTypes: ["secondary_suite", "basement_development"],
+  evaluate: (answers) => {
+    const limitingDistance = answers.limitingDistanceM;
+    const openingArea = answers.individualOpeningAreaM2 ?? answers.totalOpeningAreaM2;
+    if (limitingDistance === undefined || limitingDistance >= 2.0 || openingArea === undefined) {
+      return {
+        result: "not_applicable",
+        plainLanguage: "Individual-opening size review applies only below a 2.0m limiting distance when an opening area is provided.",
+        codeReference: "BCBC 2024 Table 9.10.14.4.-B",
+      };
+    }
+
+    const anchors = [
+      { distance: 1.2, area: 0.35 },
+      { distance: 1.5, area: 0.78 },
+      { distance: 2.0, area: 1.88 },
+    ];
+    const upperIndex = anchors.findIndex((anchor) => anchor.distance >= limitingDistance);
+    const upper = anchors[upperIndex < 0 ? anchors.length - 1 : upperIndex];
+    const lower = anchors[Math.max(0, anchors.indexOf(upper) - 1)];
+    return {
+      result: "conditional",
+      plainLanguage:
+        `An opening area of ${openingArea.toFixed(2)}m² was provided at a ${limitingDistance.toFixed(2)}m limiting distance. ` +
+        `The nearest confirmed Table 9.10.14.4.-B anchors are ${lower.distance}m → ${lower.area}m² and ${upper.distance}m → ${upper.area}m². ` +
+        "Verify each individual opening directly against the complete table; no interpolated pass/fail determination was made.",
+      whatToDo: "Check the physical BCBC Table 9.10.14.4.-B for each opening on this exposing face before relying on the result.",
+      codeReference: "BCBC 2024 Table 9.10.14.4.-B",
+    };
+  },
+};
+
 // ─── CEC Electrical Rules ────────────────────────────────────────────────────
 
 const ELEC_GFCI_KITCHEN_RULE: Part9Rule = {
@@ -1118,6 +1180,7 @@ export const PART9_RULES: Part9Rule[] = [
   CO_DETECTOR_RULE,
   FIRE_SEPARATION_RULE,
   SPATIAL_SEPARATION_RULE,
+  INDIVIDUAL_OPENING_SIZE_RULE,
   DECK_GUARD_RAIL_RULE,
   DECK_FOOTING_RULE,
   CALGARY_SMOKE_ALARM_RULE,

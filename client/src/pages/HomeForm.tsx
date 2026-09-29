@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Loader2, Info } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Info, HelpCircle } from "lucide-react";
 import { checkSuitePermission, type SuitePermissionResult } from "@/lib/secondarySuiteRules";
 
 interface FieldConfig {
@@ -165,7 +166,7 @@ const SPATIAL_SEPARATION_FIELDS: FieldConfig[] = [
     type: "number",
     unit: "m",
     col: "half",
-    helpText: "Distance from building face to property line",
+    helpText: "Measure from the exposing building face to the property line on your site plan or survey.",
   },
   { key: "facesStreet", label: "Street-facing face?", type: "yesno", col: "half" },
   { key: "fireResponseOver10Min", label: "Rural fire response (>10 min)?", type: "yesno", col: "half" },
@@ -175,6 +176,7 @@ const SPATIAL_SEPARATION_FIELDS: FieldConfig[] = [
     type: "number",
     unit: "m²",
     col: "half",
+    helpText: "Measure the area of the exposing wall face from your plans or site survey.",
     showIf: (a) => !!a.limitingDistanceM,
   },
   {
@@ -183,6 +185,7 @@ const SPATIAL_SEPARATION_FIELDS: FieldConfig[] = [
     type: "number",
     unit: "m²",
     col: "half",
+    helpText: "Add the unprotected opening areas on this face from your window and door schedule.",
     showIf: (a) => !!a.limitingDistanceM,
   },
 ];
@@ -537,9 +540,19 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
   const fields = QUESTIONS[projectType];
   const [email, setEmail] = useState("");
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [step, setStep] = useState<"email" | "form">("email");
+  const [step, setStep] = useState<"email" | "form" | "review">("email");
+  const [explanationTerm, setExplanationTerm] = useState<string | null>(null);
+  const [explanationText, setExplanationText] = useState<string | null>(null);
 
   const createReport = trpc.home.createReport.useMutation();
+  const explainTerm = trpc.home.explainTerm.useMutation({
+    onSuccess: (data) => {
+      setExplanationText(data.explanation);
+    },
+    onError: () => {
+      setExplanationText(null);
+    },
+  });
 
   if (!fields) {
     return (
@@ -555,17 +568,24 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleFormSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  function validateForm(): boolean {
     const missing = visibleFields
       .filter((f) => f.type !== "section" && f.required === true && !answers[f.key] && answers[f.key] !== 0)
       .map((f) => f.label);
 
     if (missing.length > 0) {
       toast.error(`Please fill in: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`);
-      return;
+      return false;
     }
+    return true;
+  }
+
+  function handleFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (validateForm()) setStep("review");
+  }
+
+  async function handleCreateReport() {
 
     try {
       const result = await createReport.mutateAsync({
@@ -589,6 +609,27 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
   const isLoading = createReport.isPending;
 
   const sectionNames = fields.filter((f) => f.type === "section").map((f) => f.label);
+  const answerLabel = (field: FieldConfig, value: unknown) => {
+    if (value === undefined || value === "") return "Not provided";
+    if (field.type === "yesno") return value === "yes" ? "Yes" : "No";
+    const option = field.options?.find((item) => item.value === value);
+    return option?.label ?? `${value}${field.unit ? ` ${field.unit}` : ""}`;
+  };
+  const reviewGroups: Array<{ name: string; fields: FieldConfig[] }> = [];
+  let currentGroup = "Project details";
+  for (const field of visibleFields) {
+    if (field.type === "section") {
+      currentGroup = field.label;
+      continue;
+    }
+    if (field.type === "separator" || field.type === "infobox") continue;
+    let group = reviewGroups.find((item) => item.name === currentGroup);
+    if (!group) {
+      group = { name: currentGroup, fields: [] };
+      reviewGroups.push(group);
+    }
+    group.fields.push(field);
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-10 pb-20">
@@ -640,6 +681,36 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
             Continue <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </form>
+      ) : step === "review" ? (
+        <div className="space-y-5">
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Review your answers</h2>
+                <p className="text-sm text-muted-foreground">Check these details before continuing to payment.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setStep("form")}>Edit</Button>
+            </div>
+            <div className="space-y-5">
+              {reviewGroups.map((group) => (
+                <section key={group.name}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-1 mb-2">{group.name}</h3>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                    {group.fields.map((field) => (
+                      <div key={field.key} className="flex justify-between gap-3 text-sm">
+                        <dt className="text-muted-foreground">{field.label}</dt>
+                        <dd className="font-medium text-right">{answerLabel(field, answers[field.key])}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
+          </div>
+          <Button type="button" className="w-full" onClick={handleCreateReport} disabled={isLoading}>
+            {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing payment…</> : <>Confirm &amp; pay $29 <ArrowRight className="w-4 h-4 ml-1" /></>}
+          </Button>
+        </div>
       ) : (
         <form onSubmit={handleFormSubmit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
@@ -700,6 +771,29 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                       <Label htmlFor={field.key} className="flex items-center gap-1">
                         {field.label}
                         {field.required === true && <span className="text-red-500">*</span>}
+                        {(["limitingDistanceM", "exposingFaceAreaM2", "totalOpeningAreaM2"] as string[]).includes(field.key) && (
+                          <Popover open={explanationTerm === field.key} onOpenChange={(open) => { if (!open) { setExplanationTerm(null); setExplanationText(null); } }}>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={`Explain ${field.label}`}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  setExplanationTerm(field.key);
+                                  setExplanationText(null);
+                                  explainTerm.mutate({ term: field.label, context: "BCBC spatial separation" });
+                                }}
+                              >
+                                <HelpCircle className="w-3.5 h-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="text-sm">
+                              <p className="font-semibold mb-2">General explanation — not a compliance answer for your project.</p>
+                              {explainTerm.isPending && <p className="text-muted-foreground">Loading explanation…</p>}
+                              {explanationText && explanationTerm === field.key && <p>{explanationText}</p>}
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </Label>
 
                       {field.helpText && (
