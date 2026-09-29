@@ -379,7 +379,7 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
       items: complianceItems.map((i) => ({
         ruleId: i.ruleId,
         title: i.description,
-        result: i.result === "not_applicable" ? "conditional" : i.result,
+        result: i.result,
         message: i.plainLanguage,
         whatToDo: i.whatToDo,
         codeRef: i.codeReference,

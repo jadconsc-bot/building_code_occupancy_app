@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, AlertTriangle, XCircle, FileText, Calendar } from "lucide-react";
 import { checkSuitePermission } from "@/lib/secondarySuiteRules";
+import { groupComplianceItems, type HomeReportComplianceItem } from "../../../server/services/homeReportTypes";
 
 type Result = "pass" | "conditional" | "fail" | "not_applicable";
 
@@ -35,6 +36,29 @@ function resultTextColor(result: Result) {
   if (result === "pass") return "text-green-700";
   if (result === "fail") return "text-red-700";
   return "text-amber-700";
+}
+
+function ComplianceRow({ item }: { item: HomeReportComplianceItem }) {
+  return (
+    <div className={`rounded-lg border p-4 ${resultBg(item.result)}`}>
+      <div className="flex items-start gap-3">
+        <ResultIcon result={item.result} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-gray-900 text-sm">{item.title}</span>
+            <span className={`text-xs font-bold ${resultTextColor(item.result)}`}>{resultLabel(item.result)}</span>
+            {item.codeRef && <span className="text-xs text-gray-400 ml-auto">{item.codeRef}</span>}
+          </div>
+          <p className="text-sm text-gray-700 mt-1">{item.message}</p>
+          {item.whatToDo && (
+            <div className={`mt-2 text-sm font-medium ${resultTextColor(item.result)}`}>
+              What to do: <span className="font-normal text-gray-700">{item.whatToDo}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HomeReport() {
@@ -75,14 +99,15 @@ export default function HomeReport() {
   }
 
   const overallResult = data.overallResult as Result | null;
-  const items = (data.complianceItems ?? []) as Array<{
-    ruleId: string;
-    description: string;
-    result: Result;
-    plainLanguage: string;
-    whatToDo?: string;
-    codeReference: string;
-  }>;
+  const items = (data.complianceItems ?? []).map((item) => ({
+    ruleId: item.ruleId,
+    title: item.description,
+    result: item.result,
+    message: item.plainLanguage,
+    whatToDo: item.whatToDo,
+    codeRef: item.codeReference,
+  })) as HomeReportComplianceItem[];
+  const groupedItems = groupComplianceItems(items);
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-10 pb-20">
@@ -154,28 +179,28 @@ export default function HomeReport() {
       {items.length > 0 && (
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Compliance Matrix</h2>
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item.ruleId} className={`rounded-lg border p-4 ${resultBg(item.result)}`}>
-                <div className="flex items-start gap-3">
-                  <ResultIcon result={item.result} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 text-sm">{item.description}</span>
-                      <span className={`text-xs font-bold ${resultTextColor(item.result)}`}>{resultLabel(item.result)}</span>
-                      {item.codeReference && <span className="text-xs text-gray-400 ml-auto">{item.codeReference}</span>}
-                    </div>
-                    <p className="text-sm text-gray-700 mt-1">{item.plainLanguage}</p>
-                    {item.whatToDo && (
-                      <div className={`mt-2 text-sm font-medium ${resultTextColor(item.result)}`}>
-                        What to do: <span className="font-normal text-gray-700">{item.whatToDo}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {groupedItems.resolved.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-base font-semibold text-gray-800 mb-2">Your Results</h3>
+              <div className="space-y-3">
+                {groupedItems.resolved.map((item) => <ComplianceRow key={item.ruleId} item={item} />)}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+          {groupedItems.needsInput.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-amber-800 mb-1">Needs Your Input</h3>
+              <p className="text-sm text-gray-600 mb-3">These need one more detail from you or confirmation from a licensed professional before they’re resolved.</p>
+              <div className="space-y-3">
+                {groupedItems.needsInput.map((item) => <ComplianceRow key={item.ruleId} item={item} />)}
+              </div>
+            </div>
+          )}
+          {groupedItems.notApplicable.length > 0 && (
+            <p className="text-xs text-gray-500 border-t pt-3">
+              Not applicable to your project: {groupedItems.notApplicable.map((item) => item.title).join(", ")}.
+            </p>
+          )}
         </section>
       )}
 

@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, Info, HelpCircle } from "lucide-react";
 import { checkSuitePermission, type SuitePermissionResult } from "@/lib/secondarySuiteRules";
+import { getReportRelevantBlankSummary } from "@/lib/homeReportCompleteness";
 
 interface FieldConfig {
   key: string;
@@ -191,7 +192,12 @@ const SPATIAL_SEPARATION_FIELDS: FieldConfig[] = [
 ];
 
 const ELECTRICAL_FIELDS: FieldConfig[] = [
-  { key: "_s_electrical", label: "Electrical", type: "section" },
+  {
+    key: "_s_electrical",
+    label: "Electrical",
+    type: "section",
+    helpText: "These answers resolve up to 4 electrical checks — skip them and your report will ask you to confirm with an electrician instead.",
+  },
   { key: "hasSubPanel", label: "Dedicated sub-panel?", type: "yesno", col: "half" },
   {
     key: "serviceAmps",
@@ -231,7 +237,7 @@ const PLUMBING_FIELDS: FieldConfig[] = [
     key: "_s_suite_plumbing",
     label: "Suite Fixtures Only",
     type: "separator",
-    helpText: "Count only fixtures in the new suite",
+    helpText: "Count only fixtures in the new suite. Fixture counts resolve 4 plumbing checks in your report — skip them and those checks stay unresolved.",
   },
   {
     key: "hasBackwaterValve",
@@ -630,6 +636,9 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
     }
     group.fields.push(field);
   }
+  const blankSummary = getReportRelevantBlankSummary(visibleFields.map((field) => field.key), answers);
+  const blankRelevantFields = visibleFields.filter((field) => blankSummary.blankKeys.includes(field.key));
+  const affectedUnresolvedChecks = blankSummary.affectedUnresolvedChecks;
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-10 pb-20">
@@ -691,6 +700,11 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => setStep("form")}>Edit</Button>
             </div>
+            {blankRelevantFields.length > 0 && (
+              <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {blankRelevantFields.length} optional answer{blankRelevantFields.length === 1 ? "" : "s"} left blank — your report will include {affectedUnresolvedChecks} item{affectedUnresolvedChecks === 1 ? "" : "s"} to confirm yourself instead of a resolved answer. <button type="button" className="font-semibold underline" onClick={() => setStep("form")}>Go back and fill these in</button>
+              </div>
+            )}
             <div className="space-y-5">
               {reviewGroups.map((group) => (
                 <section key={group.name}>
@@ -727,11 +741,14 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                 >
                   {/* Section header */}
                   {isSection && (
-                    <div className={`flex items-center gap-3 pt-4 mt-3 ${field.sectionClassName ?? ""}`}>
-                      <span className="text-xs font-bold uppercase tracking-wider text-foreground/70 whitespace-nowrap">
-                        {field.label}
-                      </span>
-                      <div className="flex-1 h-px bg-border" />
+                    <div className={`pt-4 mt-3 ${field.sectionClassName ?? ""}`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-foreground/70 whitespace-nowrap">
+                          {field.label}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                      {field.helpText && <p className="text-xs text-muted-foreground mt-1">{field.helpText}</p>}
                     </div>
                   )}
 

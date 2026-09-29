@@ -13,7 +13,7 @@
  */
 
 import { jsPDF } from "jspdf";
-import type { HomeReportComplianceReport as ComplianceReport, HomeReportComplianceItem as ComplianceItem } from "./homeReportTypes.js";
+import { groupComplianceItems, type HomeReportComplianceReport as ComplianceReport, type HomeReportComplianceItem as ComplianceItem } from "./homeReportTypes.js";
 
 type RGB = [number, number, number];
 const BRAND_COLOR: RGB = [30, 64, 175];   // indigo-800
@@ -152,52 +152,65 @@ export async function generateHomeReportPdf(
   doc.text("Compliance Matrix", margin, y);
   y += 6;
 
-  for (const item of report.items) {
-    if (y > 245) {
-      doc.addPage();
-      y = 20;
-    }
-    const color = resultColor(item.result);
-    const label = resultSymbol(item.result);
-
-    // Row background
-    doc.setFillColor(item.result === "pass" ? 240 : item.result === "conditional" ? 254 : 254, 249, 239);
-    doc.rect(margin, y, contentW, item.whatToDo ? 20 : 14, "F");
-
-    // Result badge
-    doc.setFillColor(...color);
-    doc.rect(margin, y, 24, item.whatToDo ? 20 : 14, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text(label, margin + 2, y + (item.whatToDo ? 11 : 8));
-
-    // Title + message
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(item.title, margin + 27, y + 6);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const msgLines = doc.splitTextToSize(item.message, contentW - 28);
-    doc.text(msgLines[0], margin + 27, y + 11);
-
-    if (item.whatToDo) {
-      doc.setTextColor(...color);
-      const wtdLines = doc.splitTextToSize(`What to do: ${item.whatToDo}`, contentW - 28);
-      doc.text(wtdLines[0], margin + 27, y + 16);
-      doc.setTextColor(...GRAY);
-    }
-
-    if (item.codeRef) {
+  const groupedItems = groupComplianceItems(report.items);
+  const drawItems = (items: ComplianceItem[]) => {
+    for (const item of items) {
+      if (y > 245) { doc.addPage(); y = 20; }
+      const color = resultColor(item.result);
+      const label = resultSymbol(item.result);
+      const rowHeight = item.whatToDo ? 20 : 14;
+      doc.setFillColor(item.result === "pass" ? 240 : 254, 249, 239);
+      doc.rect(margin, y, contentW, rowHeight, "F");
+      doc.setFillColor(...color);
+      doc.rect(margin, y, 24, rowHeight, "F");
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(7);
-      doc.setTextColor(156, 163, 175);
-      doc.text(item.codeRef, pw - margin - 2, y + 5, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.text(label, margin + 2, y + (item.whatToDo ? 11 : 8));
       doc.setTextColor(...GRAY);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(item.title, margin + 27, y + 6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const msgLines = doc.splitTextToSize(item.message, contentW - 28);
+      doc.text(msgLines[0], margin + 27, y + 11);
+      if (item.whatToDo) {
+        doc.setTextColor(...color);
+        const wtdLines = doc.splitTextToSize(`What to do: ${item.whatToDo}`, contentW - 28);
+        doc.text(wtdLines[0], margin + 27, y + 16);
+        doc.setTextColor(...GRAY);
+      }
+      if (item.codeRef) {
+        doc.setFontSize(7);
+        doc.setTextColor(156, 163, 175);
+        doc.text(item.codeRef, pw - margin - 2, y + 5, { align: "right" });
+        doc.setTextColor(...GRAY);
+      }
+      y += rowHeight + 2;
     }
+  };
 
-    y += (item.whatToDo ? 22 : 16);
+  if (groupedItems.resolved.length > 0) {
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...GRAY);
+    doc.text("Your Results", margin, y); y += 6;
+    drawItems(groupedItems.resolved);
+  }
+  if (groupedItems.needsInput.length > 0) {
+    if (y > 225) { doc.addPage(); y = 20; }
+    y += 4;
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COND_COLOR);
+    doc.text("Needs Your Input", margin, y); y += 5;
+    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...GRAY);
+    const intro = doc.splitTextToSize("These need one more detail from you or confirmation from a licensed professional before they're resolved.", contentW);
+    doc.text(intro, margin, y); y += intro.length * 4 + 3;
+    drawItems(groupedItems.needsInput);
+  }
+  if (groupedItems.notApplicable.length > 0) {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...GRAY);
+    const na = doc.splitTextToSize(`Not applicable to your project: ${groupedItems.notApplicable.map((item) => item.title).join(", ")}.`, contentW);
+    doc.text(na, margin, y); y += na.length * 4 + 2;
   }
 
   y += 4;
