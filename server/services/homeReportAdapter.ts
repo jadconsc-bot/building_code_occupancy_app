@@ -30,6 +30,8 @@ export interface RawFormSubmission {
   projectType: string;
   // Common
   ceilingHeightFt?: number | string;
+  lowestBeamClearanceFt?: number | string;
+  suiteDoorHeightMm?: number | string;
   suiteAreaSqFt?: number | string;
   suiteLocation?: string;
   yearBuilt?: number | string;
@@ -150,6 +152,8 @@ export function adaptFormAnswers(raw: RawFormSubmission): HomeFormAnswers {
 
     // Suite / basement
     ceilingHeightFt: toNum(raw.ceilingHeightFt),
+    lowestBeamClearanceFt: toNum(raw.lowestBeamClearanceFt),
+    suiteDoorHeightMm: toNum(raw.suiteDoorHeightMm),
     suiteAreaSqFt: toNum(raw.suiteAreaSqFt),
     suiteLocation: raw.suiteLocation as HomeFormAnswers["suiteLocation"],
     yearBuilt: toNum(raw.yearBuilt),

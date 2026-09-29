@@ -32,6 +32,10 @@ export interface HomeFormAnswers {
   projectType: HomeProjectType;
   // Suite / basement
   ceilingHeightFt?: number;
+  /** Optional lowest clear height under a beam or duct drop (AB secondary suites). */
+  lowestBeamClearanceFt?: number;
+  /** Optional clear height of an interior suite doorway. */
+  suiteDoorHeightMm?: number;
   suiteAreaSqFt?: number;
   suiteLocation?: "basement" | "above_grade" | "attached_garage";
   yearBuilt?: number;
@@ -151,6 +155,57 @@ const CEILING_HEIGHT_RULES: Part9Rule[] = [
         plainLanguage: `Your ${answers.ceilingHeightFt}ft ceiling (${heightM.toFixed(2)}m) is below the minimum 6ft 5in (1.95m).`,
         whatToDo: "Increase ceiling height to at least 1.95m (6ft 5in). Options: lower the floor slab or remove the existing ceiling finish if borderline.",
         codeReference: "NBC(AE) 2023 s.9.5.3.1(2)",
+      };
+    },
+  },
+  {
+    ruleId: "P9-CEILING-AB-BEAM",
+    description: "Minimum clear height under beams and ducting",
+    province: "AB",
+    projectTypes: ["secondary_suite", "basement_development"],
+    evaluate: (answers) => {
+      if (answers.lowestBeamClearanceFt === undefined) return {
+        result: "not_applicable",
+        plainLanguage: "No separate beam or duct clearance was provided.",
+        codeReference: "NBC(AE) 2023 s.9.5.3.1(3)",
+      };
+      const heightM = answers.lowestBeamClearanceFt * 0.3048;
+      const MIN = 1.85;
+      if (heightM >= MIN) return {
+        result: "pass",
+        plainLanguage: `Your ${answers.lowestBeamClearanceFt}ft clearance (${heightM.toFixed(2)}m) meets the 1.85m minimum clear height under beams and ducting in an Alberta secondary suite.`,
+        codeReference: "NBC(AE) 2023 s.9.5.3.1(3)",
+      };
+      return {
+        result: "fail",
+        plainLanguage: `Your ${answers.lowestBeamClearanceFt}ft clearance (${heightM.toFixed(2)}m) is below the 1.85m minimum clear height under beams and ducting in an Alberta secondary suite.`,
+        whatToDo: "Increase the clear height under the beam or ducting to at least 1.85m, or obtain a professional review.",
+        codeReference: "NBC(AE) 2023 s.9.5.3.1(3)",
+      };
+    },
+  },
+  {
+    ruleId: "P9-DOOR-HEIGHT-AB",
+    description: "Minimum secondary-suite doorway height",
+    province: "AB",
+    projectTypes: ["secondary_suite", "basement_development"],
+    evaluate: (answers) => {
+      if (answers.suiteDoorHeightMm === undefined) return {
+        result: "not_applicable",
+        plainLanguage: "No reduced interior suite doorway height was provided.",
+        codeReference: "NBC(AE) 2023 s.9.5.5.1(2)",
+      };
+      const MIN = 1890;
+      if (answers.suiteDoorHeightMm >= MIN) return {
+        result: "pass",
+        plainLanguage: `Your ${answers.suiteDoorHeightMm}mm interior suite doorway meets the 1,890mm minimum for secondary-suite doorways.`,
+        codeReference: "NBC(AE) 2023 s.9.5.5.1(2)",
+      };
+      return {
+        result: "fail",
+        plainLanguage: `Your ${answers.suiteDoorHeightMm}mm interior suite doorway is below the 1,890mm minimum for secondary-suite doorways.`,
+        whatToDo: "Increase the clear doorway height to at least 1,890mm. The required entrance width remains governed separately by Table 9.5.5.1.",
+        codeReference: "NBC(AE) 2023 s.9.5.5.1(2); Table 9.5.5.1",
       };
     },
   },

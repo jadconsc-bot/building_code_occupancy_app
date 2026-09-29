@@ -38,4 +38,41 @@ describe("Part 9 home rules", () => {
     const rule = result.find((item) => item.ruleId === "P9-SPATIAL-INDIVIDUAL-OPENING");
     expect(rule?.result).toBe("not_applicable");
   });
+
+  it("evaluates Alberta beam clearance for secondary suites", () => {
+    const missing = evaluateHomeCompliance(answers({ province: "AB", lowestBeamClearanceFt: undefined }))
+      .find((item) => item.ruleId === "P9-CEILING-AB-BEAM");
+    const pass = evaluateHomeCompliance(answers({ province: "AB", lowestBeamClearanceFt: 6.1 }))
+      .find((item) => item.ruleId === "P9-CEILING-AB-BEAM");
+    const fail = evaluateHomeCompliance(answers({ province: "AB", lowestBeamClearanceFt: 6 }))
+      .find((item) => item.ruleId === "P9-CEILING-AB-BEAM");
+    expect(missing?.result).toBe("not_applicable");
+    expect(pass?.result).toBe("pass");
+    expect(fail?.result).toBe("fail");
+    expect(pass?.codeReference).toBe("NBC(AE) 2023 s.9.5.3.1(3)");
+  });
+
+  it("evaluates Alberta secondary-suite doorway height", () => {
+    const missing = evaluateHomeCompliance(answers({ province: "AB", suiteDoorHeightMm: undefined }))
+      .find((item) => item.ruleId === "P9-DOOR-HEIGHT-AB");
+    const pass = evaluateHomeCompliance(answers({ province: "AB", suiteDoorHeightMm: 1890 }))
+      .find((item) => item.ruleId === "P9-DOOR-HEIGHT-AB");
+    const fail = evaluateHomeCompliance(answers({ province: "AB", suiteDoorHeightMm: 1889 }))
+      .find((item) => item.ruleId === "P9-DOOR-HEIGHT-AB");
+    expect(missing?.result).toBe("not_applicable");
+    expect(pass?.result).toBe("pass");
+    expect(fail?.result).toBe("fail");
+    expect(fail?.codeReference).toContain("9.5.5.1(2)");
+  });
+
+  it("applies both optional Alberta checks to basement developments", () => {
+    const result = evaluateHomeCompliance(answers({
+      province: "AB",
+      projectType: "basement_development",
+      lowestBeamClearanceFt: 6.1,
+      suiteDoorHeightMm: 1890,
+    }));
+    expect(result.find((item) => item.ruleId === "P9-CEILING-AB-BEAM")?.result).toBe("pass");
+    expect(result.find((item) => item.ruleId === "P9-DOOR-HEIGHT-AB")?.result).toBe("pass");
+  });
 });
