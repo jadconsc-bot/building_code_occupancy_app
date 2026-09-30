@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
+import { getNonPositiveHomeFields, parseHomeNumberInput } from "@/lib/homeFormValidation";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, Info, HelpCircle } from "lucide-react";
 import { checkSuitePermission, type SuitePermissionResult } from "@/lib/secondarySuiteRules";
@@ -657,6 +658,11 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
       toast.error(`Please fill in: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`);
       return false;
     }
+    const nonPositive = getNonPositiveHomeFields(answers);
+    if (nonPositive.length > 0) {
+      toast.error(`${nonPositive.join(" and ")} must be greater than 0.`);
+      return false;
+    }
     return true;
   }
 
@@ -971,7 +977,7 @@ export default function HomeForm({ params }: { params?: { projectType?: string }
                               onChange={(e) =>
                                 setValue(
                                   field.key,
-                                  field.type === "number" ? (parseFloat(e.target.value) || "") : e.target.value,
+                                  field.type === "number" ? parseHomeNumberInput(e.target.value) : e.target.value,
                                 )
                               }
                               className={field.unit ? "pr-14" : ""}
