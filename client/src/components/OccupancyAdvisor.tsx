@@ -411,6 +411,11 @@ interface OccupancyAdvisorProps {
   initialFootprint?: number;
   initialStoreys?: number;
   initialOccupancy?: string;
+  initialBuildingDescription?: string;
+  initialMixedUseZones?: { use: string; area: string }[];
+  initialPrimaryUse?: string;
+  initialIsMixedUse?: boolean;
+  sourcedFromDrawing?: boolean;
   projectId?: number;
   projectName?: string;
 }
@@ -428,8 +433,13 @@ export function OccupancyAdvisor({
   initialFootprint,
   initialStoreys,
   initialOccupancy,
+  initialBuildingDescription,
+  initialMixedUseZones,
+  initialPrimaryUse,
+  initialIsMixedUse,
   projectId,
   projectName,
+  sourcedFromDrawing = false,
 }: OccupancyAdvisorProps) {
   const [screen, setScreen] = useState<Screen>(1);
 
@@ -478,12 +488,16 @@ export function OccupancyAdvisor({
   // useState initial values only capture props at first mount, so re-sync is needed here.
   useEffect(() => {
     if (open) {
+      setBuildingDescription(initialBuildingDescription ?? "");
+      setPrimaryUse(initialPrimaryUse ?? "");
       setEstimatedArea(initialArea?.toString() ?? "");
       setEstimatedFootprint(initialFootprint?.toString() ?? initialArea?.toString() ?? "");
       setStoreysStr(initialStoreys?.toString() ?? "");
       setSelectedProvince(province ?? "");
+      setMixedUseZones(initialMixedUseZones ?? []);
+      setIsMixedUse(initialIsMixedUse ?? (initialMixedUseZones?.length ?? 0) > 1);
     }
-  }, [open, projectId, initialArea, initialFootprint, initialStoreys, province]);
+  }, [open, projectId, initialArea, initialFootprint, initialStoreys, province, initialBuildingDescription, initialMixedUseZones, initialPrimaryUse, initialIsMixedUse]);
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
@@ -662,7 +676,15 @@ export function OccupancyAdvisor({
       }
     }
     if (projectId) {
-      updateProjectMutation.mutate({ id: projectId, occupancyCode: selectedCode });
+      updateProjectMutation.mutate({
+        id: projectId,
+        occupancyCode: selectedCode,
+        ...(sourcedFromDrawing ? {
+          grossFloorArea: Number(estimatedArea),
+          storeys: Math.max(1, Math.round(Number(storeysStr))),
+          buildingFootprintJson: { value: Number(estimatedFootprint), confirmed: true, source: "ai-extracted" as const },
+        } : {}),
+      });
     }
 
     let stackData: Parameters<NonNullable<typeof onConfirm>>[1] | undefined;

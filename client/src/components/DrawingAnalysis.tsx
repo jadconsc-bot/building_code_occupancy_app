@@ -126,7 +126,9 @@ import { ConstructionTypePanel } from '@/components/ConstructionTypePanel';
 import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
 import { CARLScorerPanel } from '@/components/CARLScorerPanel';
 import { BarrierFreePanel } from '@/components/BarrierFreePanel';
+import { OccupancyAdvisor } from '@/components/OccupancyAdvisor';
 import { detectSharedWalls, type SharedWall } from '@/lib/ddaRayCast';
+import { summarizeDrawingForOccupancyAdvisor } from '@shared/occupancyAdvisorDrawingBridge';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
 
 // Worker must be assigned after all imports (ES module parse order requirement)
@@ -568,6 +570,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     missedRooms: string[];
   } | null>(null);
   const [detectedRoomsData, setDetectedRoomsData] = useState<any[]>([]);
+  const [showOccupancyAdvisor, setShowOccupancyAdvisor] = useState(false);
   const [doorFeaturesData, setDoorFeaturesData] = useState<any[]>([]);
   const [analyzedPageDims, setAnalyzedPageDims] = useState<{ width: number; height: number } | null>(null);
   const [roomPollCount, setRoomPollCount] = useState(0);
@@ -1196,6 +1199,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     roomPollCount < 80;
   const roomsData = detectedRoomsResponse;
   const detectionError = (roomsData?.pages ?? []).find((page: any) => page.detectionError)?.detectionError as string | undefined;
+  const occupancyDrawingSummary = useMemo(
+    () => summarizeDrawingForOccupancyAdvisor(
+      detectedRoomsData,
+      (detectedRoomsResponse?.pages ?? []) as any[],
+      project?.storeys ?? activeProjectRecord?.storeys ?? undefined,
+    ),
+    [detectedRoomsData, detectedRoomsResponse?.pages, project?.storeys, activeProjectRecord?.storeys],
+  );
 
   // Compute pixelsPerMm from calibration state for travel distance calculation
   const pixelsPerMm = pixelsPerDrawingUnit > 0
@@ -7417,6 +7428,17 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     Check Separations
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                    disabled={detectedRoomsData.length === 0 || !activeProjectId}
+                    onClick={() => setShowOccupancyAdvisor(true)}
+                    title="Send detected rooms to Occupancy Advisor"
+                  >
+                    <Building className="w-3.5 h-3.5 mr-1.5" />
+                    Send to Occupancy Advisor
+                  </Button>
+                  <Button
                     onClick={handleSendToPermitting}
                     disabled={detectedRoomsData.length === 0 || !activeProjectId || isSendingToPermitting || (orchestratorResult?.codeConflicts?.hasBlockingConflicts ?? false) || (orchestratorResult?.carlReport?.hasBlockingFailures ?? false)}
                     variant="outline"
@@ -9990,6 +10012,22 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
           }}
         />
       )}
+
+      <OccupancyAdvisor
+        open={showOccupancyAdvisor}
+        onOpenChange={setShowOccupancyAdvisor}
+        projectId={activeProjectId ?? undefined}
+        province={activeProjectRecord?.province ?? project?.province ?? ""}
+        initialArea={occupancyDrawingSummary.estimatedArea}
+        initialFootprint={occupancyDrawingSummary.estimatedFootprint}
+        initialStoreys={occupancyDrawingSummary.storeys}
+        initialBuildingDescription={occupancyDrawingSummary.buildingDescription}
+        initialPrimaryUse={occupancyDrawingSummary.primaryUse}
+        initialMixedUseZones={occupancyDrawingSummary.mixedUseZones}
+        initialIsMixedUse={occupancyDrawingSummary.isMixedUse}
+        sourcedFromDrawing
+        onConfirm={() => setShowOccupancyAdvisor(false)}
+      />
 
       {/* Analysis requires an explicit project choice. */}
       <AlertDialog open={showNoProjectWarning} onOpenChange={setShowNoProjectWarning}>
