@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { checkSuitePermission, getMinSuiteCeilingHeight, type SuitePermissionResult, type SuiteProvince } from '@/lib/secondarySuiteRules';
+import { trpc } from '@/lib/trpc';
 
 const MUNICIPALITY_OPTIONS = [
   { value: 'calgary',   label: 'Calgary'   },
@@ -51,6 +52,9 @@ function PermBadge({ r }: { r: SuitePermissionResult }) {
 export function SuiteCheckerTool() {
   const [province, setProvince] = useState<SuiteProvince>('AB');
   const [municipality, setMunicipality] = useState('');
+  const [addressInput, setAddressInput] = useState('');
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressSessionToken, setAddressSessionToken] = useState(() => globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
   const [zoneCode, setZoneCode] = useState('');
   const [ceilingMm, setCeilingMm] = useState(2134);
   const [hasEgress, setHasEgress] = useState<boolean | null>(null);
@@ -58,6 +62,37 @@ export function SuiteCheckerTool() {
   const [smokeAlarms, setSmokeAlarms] = useState<boolean | null>(null);
   const [coDetectors, setCoDetectors] = useState<boolean | null>(null);
   const [fireSep, setFireSep] = useState<boolean | null>(null);
+
+  const addressAutocomplete = trpc.geo.autocomplete.useQuery(
+    { query: addressQuery, sessionToken: addressSessionToken },
+    { enabled: addressQuery.trim().length >= 2 },
+  );
+  const addressResolve = trpc.geo.resolveAddress.useMutation();
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAddressQuery(addressInput), 250);
+    return () => window.clearTimeout(timer);
+  }, [addressInput]);
+
+  const selectAddressSuggestion = async (placeId: string) => {
+    try {
+      const resolved = await addressResolve.mutateAsync({ placeId, sessionToken: addressSessionToken });
+      if (resolved.formattedAddress) setAddressInput(resolved.formattedAddress);
+      if (resolved.province === 'AB' || resolved.province === 'BC' || resolved.province === 'ON') {
+        setProvince(resolved.province);
+      }
+      if (resolved.municipality) {
+        const normalized = resolved.municipality.trim().toLowerCase();
+        const known = MUNICIPALITY_OPTIONS.find(option => option.value !== 'other' && option.label.toLowerCase() === normalized);
+        setMunicipality(known?.value ?? resolved.municipality.trim());
+        setZoneCode('');
+      }
+    } catch {
+      // The tool remains fully usable offline through its existing manual controls.
+    } finally {
+      setAddressQuery('');
+      setAddressSessionToken(globalThis.crypto?.randomUUID?.() ?? "00000000-0000-4000-8000-000000000000");
+    }
+  };
 
   const egressArea = parseFloat(egressAreaM2) || 0;
   const minCeilingMm = Math.round(getMinSuiteCeilingHeight(province) * 1000);
@@ -140,11 +175,39 @@ export function SuiteCheckerTool() {
   const permResult = municipality && municipality !== 'other'
     ? checkSuitePermission(municipality, zoneCode || undefined)
     : null;
+  const municipalityIsKnown = MUNICIPALITY_OPTIONS.some(option => option.value === municipality && option.value !== 'other');
 
   return (
     <div className="space-y-5 px-4 py-4 max-w-md mx-auto">
       {/* Province selector */}
       <div className="space-y-1.5">
+        <label className="text-sm font-medium">Property address <span className="font-normal text-gray-400">(optional)</span></label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Start typing a Canadian address..."
+            value={addressInput}
+            onChange={e => setAddressInput(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base"
+          />
+          {addressQuery.trim().length >= 2 && (addressAutocomplete.data?.predictions?.length ?? 0) > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border bg-white shadow-md">
+              {addressAutocomplete.data!.predictions.map((prediction: { placeId: string; description: string; mainText?: string; secondaryText?: string }) => (
+                <div
+                  key={prediction.placeId}
+                  role="option"
+                  tabIndex={0}
+                  className="block w-full cursor-pointer px-4 py-3 text-left text-sm hover:bg-gray-50"
+                  onMouseDown={event => { event.preventDefault(); void selectAddressSuggestion(prediction.placeId); }}
+                >
+                  <span className="block">{prediction.mainText ?? prediction.description}</span>
+                  {prediction.secondaryText && <span className="block text-xs text-gray-500">{prediction.secondaryText}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-gray-400">Autocomplete is optional; manual selections work without a connection.</p>
         <p className="text-sm font-semibold text-gray-700">Province</p>
         <div className="flex gap-2">
           {PROVINCE_OPTIONS.map(opt => (
@@ -163,6 +226,15 @@ export function SuiteCheckerTool() {
       <div className="space-y-2">
         <p className="text-sm font-semibold text-gray-700">Zone check (optional)</p>
         <div className="grid grid-cols-2 gap-2">
+          {!municipalityIsKnown && municipality && municipality !== 'other' && (
+            <button
+              type="button"
+              onClick={() => { setMunicipality(municipality); setZoneCode(''); }}
+              className="col-span-2 py-2.5 px-3 rounded-xl text-sm font-medium border bg-blue-600 text-white border-blue-600"
+            >
+              {municipality} (from address)
+            </button>
+          )}
           {MUNICIPALITY_OPTIONS.map(opt => (
             <button
               key={opt.value}
