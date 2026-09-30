@@ -6138,6 +6138,14 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
 
   return (
     <div className="space-y-4">
+      {isLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" role="status" aria-live="polite">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-background px-8 py-6 text-center shadow-2xl">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden="true" />
+            <span className="text-base font-medium">Loading your drawing…</span>
+          </div>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
