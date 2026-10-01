@@ -4,3 +4,4 @@ export const STRIPE_TEAM_PRICE_ID              = process.env.STRIPE_TEAM_PRICE_I
 export const STRIPE_FOUNDING_PRICE_ID          = process.env.STRIPE_FOUNDING_PRICE_ID          ?? "";
 export const STRIPE_CONTRACTOR_SUB_PRICE_ID    = process.env.STRIPE_CONTRACTOR_SUB_PRICE_ID    ?? "";
 export const STRIPE_CONTRACTOR_PACK_PRICE_ID   = process.env.STRIPE_CONTRACTOR_PACK_PRICE_ID   ?? "";
+export const STRIPE_BILLING_PORTAL_CONFIG_ID   = process.env.STRIPE_BILLING_PORTAL_CONFIG_ID   ?? "bpc_1TdwD2AqM4TPeb3egS1ndTNg";

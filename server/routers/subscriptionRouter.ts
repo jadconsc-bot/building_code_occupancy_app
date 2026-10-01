@@ -20,6 +20,7 @@ import {
   STRIPE_FOUNDING_PRICE_ID,
   STRIPE_CONTRACTOR_SUB_PRICE_ID,
   STRIPE_CONTRACTOR_PACK_PRICE_ID,
+  STRIPE_BILLING_PORTAL_CONFIG_ID,
 } from '../_core/stripeEnv';
 
 const contractorSessionBucket = new Map<string, number[]>();
@@ -211,7 +212,7 @@ export const subscriptionRouter = router({
           .onDuplicateKeyUpdate({ set: { stripeCustomerId } });
       }
 
-      const appRoot = "https://buildingcodeoccupancyapp-production-4adf.up.railway.app";
+      const appRoot = process.env.APP_URL ?? "https://complycode.ca";
       const subscriptionMeta: Record<string, string> = { userId: String(ctx.user.id) };
       if (isFoundingPurchase) subscriptionMeta.foundingMember = "true";
 
@@ -259,11 +260,11 @@ export const subscriptionRouter = router({
       }
 
       const stripe = createStripeClient();
-      const appRoot = "https://buildingcodeoccupancyapp-production-4adf.up.railway.app";
+      const appRoot = process.env.APP_URL ?? "https://complycode.ca";
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: sub.stripeCustomerId,
         return_url: `${appRoot}/billing`,
-        configuration: "bpc_1TdwD2AqM4TPeb3egS1ndTNg",
+        configuration: STRIPE_BILLING_PORTAL_CONFIG_ID,
       });
 
       return { url: portalSession.url };
@@ -307,7 +308,7 @@ export const subscriptionRouter = router({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Contractor pricing not configured' });
       }
 
-      const appRoot = 'https://buildingcodeoccupancyapp-production-4adf.up.railway.app';
+      const appRoot = process.env.APP_URL ?? "https://complycode.ca";
       const session = await stripe.checkout.sessions.create({
         mode: input.type === 'subscription' ? 'subscription' : 'payment',
         line_items: [{ price: priceId, quantity: 1 }],

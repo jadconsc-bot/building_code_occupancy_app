@@ -360,7 +360,7 @@ async function processSuccessfulPayment(paymentIntentId: string): Promise<void> 
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
 
   // Generate PDF
-  const appUrl = process.env.APP_URL ?? "https://app.codecomply.ca";
+  const appUrl = process.env.APP_URL ?? "https://complycode.ca";
   const downloadUrl = `${appUrl}/home/report/${rawToken}`;
   const projectTypeLabel = getProjectTypeLabel(report.projectType as any);
 
