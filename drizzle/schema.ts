@@ -227,6 +227,28 @@ export type ComplianceSnapshot = typeof complianceSnapshots.$inferSelect;
 export type InsertComplianceSnapshot = typeof complianceSnapshots.$inferInsert;
 
 /**
+ * Record-only professional annotations attached to a specific snapshot trace.
+ * These rows are intentionally never read by the compliance engine.
+ */
+export const projectConstraintOverrides = mysqlTable("projectConstraintOverrides", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  snapshotId: varchar("snapshotId", { length: 100 }).notNull(),
+  constraintId: varchar("constraintId", { length: 255 }).notNull(),
+  assertedValue: text("assertedValue").notNull(),
+  justification: text("justification").notNull(),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  credentialEngineerName: varchar("credentialEngineerName", { length: 255 }).notNull(),
+  credentialLicenseNumber: varchar("credentialLicenseNumber", { length: 100 }).notNull(),
+  credentialAssociation: varchar("credentialAssociation", { length: 100 }).notNull(),
+  credentialAssociationProvince: varchar("credentialAssociationProvince", { length: 50 }),
+});
+
+export type ProjectConstraintOverride = typeof projectConstraintOverrides.$inferSelect;
+export type InsertProjectConstraintOverride = typeof projectConstraintOverrides.$inferInsert;
+
+/**
  * Rule changelog for governance and audit
  */
 export const ruleChangelog = mysqlTable("ruleChangelog", {

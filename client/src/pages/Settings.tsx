@@ -3,7 +3,7 @@
  * User account and application preferences
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
@@ -44,6 +44,24 @@ export default function Settings() {
       await utils.user.getTrainingConsent.invalidate();
     },
   });
+  const professionalSealQuery = trpc.professionalSeal.getMine.useQuery();
+  const professionalSealMutation = trpc.professionalSeal.upsert.useMutation({
+    onSuccess: async () => {
+      await utils.professionalSeal.getMine.invalidate();
+    },
+  });
+  const [sealForm, setSealForm] = useState({
+    engineerName: "",
+    licenseNumber: "",
+    association: "",
+    associationProvince: "",
+    licenseExpiry: "",
+  });
+
+  useEffect(() => {
+    const seal = professionalSealQuery.data;
+    if (seal) setSealForm({ engineerName: seal.engineerName, licenseNumber: seal.licenseNumber, association: seal.association, associationProvince: seal.associationProvince ?? "", licenseExpiry: seal.licenseExpiry ? new Date(seal.licenseExpiry).toISOString().slice(0, 10) : "" });
+  }, [professionalSealQuery.data]);
 
   const handleSignOut = async () => {
     await logout();
@@ -294,6 +312,22 @@ export default function Settings() {
                     />
                   </div>
                 )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Professional Seal</CardTitle>
+                <CardDescription>Keep your professional credentials on file for record-only compliance annotations.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); professionalSealMutation.mutate(sealForm); }}>
+                  <div className="space-y-1"><Label htmlFor="seal-engineer-name">Engineer / architect name</Label><Input id="seal-engineer-name" value={sealForm.engineerName} onChange={(e) => setSealForm((v) => ({ ...v, engineerName: e.target.value }))} required /></div>
+                  <div className="space-y-1"><Label htmlFor="seal-license-number">License number</Label><Input id="seal-license-number" value={sealForm.licenseNumber} onChange={(e) => setSealForm((v) => ({ ...v, licenseNumber: e.target.value }))} required /></div>
+                  <div className="space-y-1"><Label htmlFor="seal-association">Association</Label><Input id="seal-association" value={sealForm.association} onChange={(e) => setSealForm((v) => ({ ...v, association: e.target.value }))} placeholder="APEGA, EGBC, AIBC..." required /></div>
+                  <div className="space-y-1"><Label htmlFor="seal-province">Association province</Label><Input id="seal-province" value={sealForm.associationProvince} onChange={(e) => setSealForm((v) => ({ ...v, associationProvince: e.target.value }))} /></div>
+                  <div className="space-y-1"><Label htmlFor="seal-expiry">License expiry</Label><Input id="seal-expiry" type="date" value={sealForm.licenseExpiry} onChange={(e) => setSealForm((v) => ({ ...v, licenseExpiry: e.target.value }))} /></div>
+                  <div className="sm:col-span-2"><Button type="submit" disabled={professionalSealMutation.isPending}>{professionalSealMutation.isPending ? "Saving…" : "Save professional seal"}</Button></div>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>

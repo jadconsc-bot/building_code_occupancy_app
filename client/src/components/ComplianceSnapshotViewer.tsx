@@ -4,6 +4,8 @@
  */
 
 import { useState } from "react";
+import { useLocation } from "wouter";
+import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { trpc } from "@/lib/trpc";
@@ -16,6 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, AlertCircle, Download, Trash2 } from "lucide-react";
 
 const KNOWN_OUTPUT_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [
@@ -40,8 +46,12 @@ const OUTPUT_PDF_LABELS: Record<string, string> = {
 
 export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [overrideStep, setOverrideStep] = useState<any | null>(null);
+  const [assertedValue, setAssertedValue] = useState("");
+  const [justification, setJustification] = useState("");
 
   const snapshots = trpc.compliance.getProjectSnapshots.useQuery(
     { projectId },
@@ -76,6 +86,20 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
 
   const snapshotList = snapshots.data ?? [];
   const selected = selectedSnapshot !== null ? snapshotList[parseInt(selectedSnapshot)] : null;
+  const overridesQuery = trpc.projectOverrides.listForSnapshot.useQuery(
+    { snapshotId: selected?.snapshotId ?? "" },
+    { enabled: !!selected?.snapshotId }
+  );
+  const sealQuery = trpc.professionalSeal.getMine.useQuery();
+  const utils = trpc.useUtils();
+  const createOverride = trpc.projectOverrides.create.useMutation({
+    onSuccess: async () => {
+      await utils.projectOverrides.listForSnapshot.invalidate({ snapshotId: selected?.snapshotId ?? "" });
+      setOverrideStep(null); setAssertedValue(""); setJustification("");
+      toast.success("Professional annotation added.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const handleExport = () => {
     if (!selected) return;
@@ -417,6 +441,24 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-500 align-top">
                               {step.severity || "—"}
+                              {step.result !== "pass" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2 whitespace-nowrap"
+                                  onClick={() => { setOverrideStep(step); setAssertedValue(""); setJustification(""); }}
+                                >
+                                  Add professional override
+                                </Button>
+                              )}
+                              {(overridesQuery.data ?? [])
+                                .filter((item) => item.constraintId === (step.constraintId ?? step.rule))
+                                .map((item) => (
+                                  <div key={item.id} className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-950">
+                                    <strong>Professional override on file</strong> — {item.credentialEngineerName}, {item.credentialLicenseNumber} ({item.credentialAssociation}) — {new Date(item.createdAt).toLocaleDateString()}.<br />
+                                    Does not change this system&apos;s determination. Justification: {item.justification}
+                                  </div>
+                                ))}
                             </td>
                           </tr>
                         ))}
@@ -456,6 +498,37 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
           </CardContent>
         </Card>
       )}
+      <Dialog open={!!overrideStep} onOpenChange={(open) => !open && setOverrideStep(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add professional override annotation</DialogTitle>
+            <DialogDescription>This is record-only and does not change the system&apos;s determination.</DialogDescription>
+          </DialogHeader>
+          {!sealQuery.data ? (
+            <div className="space-y-4 text-sm">
+              <p>You need a professional seal on file to add an override.</p>
+              <Button variant="outline" onClick={() => navigate("/settings")}>Open Settings</Button>
+            </div>
+          ) : (
+            <form className="space-y-4" onSubmit={(event) => {
+              event.preventDefault();
+              if (!selected || !overrideStep) return;
+              createOverride.mutate({
+                projectId,
+                snapshotId: selected.snapshotId,
+                constraintId: overrideStep.constraintId ?? overrideStep.rule,
+                assertedValue,
+                justification,
+              });
+            }}>
+              <div className="space-y-2"><Label>Professional seal</Label><p className="text-sm text-muted-foreground">{sealQuery.data.engineerName} · {sealQuery.data.licenseNumber} ({sealQuery.data.association})</p></div>
+              <div className="space-y-2"><Label htmlFor="override-value">Asserted acceptable value</Label><Input id="override-value" value={assertedValue} onChange={(event) => setAssertedValue(event.target.value)} required /></div>
+              <div className="space-y-2"><Label htmlFor="override-justification">Justification</Label><Textarea id="override-justification" minLength={20} value={justification} onChange={(event) => setJustification(event.target.value)} required /></div>
+              <DialogFooter><Button type="submit" disabled={createOverride.isPending}>{createOverride.isPending ? "Saving…" : "Save annotation"}</Button></DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
