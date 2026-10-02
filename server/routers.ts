@@ -43,6 +43,7 @@ import { apsRouter } from "./routers/apsRouter";
 import { userRouter } from "./routers/userRouter";
 import { adminUserRouter } from "./routers/adminUserRouter";
 import { geoRouter } from "./routers/geoRouter";
+import { travelDistanceRouter } from "./routers/travelDistanceRouter";
 export { handleStripeWebhook } from "./routers/stripeWebhookRouter";
 export { handleAPSWebhook } from "./routers/apsRouter";
 
@@ -85,6 +86,7 @@ export const appRouter = router({
   user: userRouter,
   admin: adminUserRouter,
   geo: geoRouter,
+  travelDistance: travelDistanceRouter,
   auth: router({
     me: protectedProcedure.query(async (opts) => {
       const db = await getDb();

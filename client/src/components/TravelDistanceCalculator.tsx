@@ -21,23 +21,7 @@ import {
   DidYouConsider,
   RegionalNote
 } from "@/components/FiveCsComponents";
-
-// NBC 3.4.2.5 - Maximum Travel Distance
-const travelDistanceLimits: Record<string, { sprinklered: number; unsprinklered: number }> = {
-  "A-1": { sprinklered: 60, unsprinklered: 40 },
-  "A-2": { sprinklered: 60, unsprinklered: 40 },
-  "A-3": { sprinklered: 60, unsprinklered: 40 },
-  "A-4": { sprinklered: 60, unsprinklered: 40 },
-  "B-1": { sprinklered: 45, unsprinklered: 30 },
-  "B-2": { sprinklered: 45, unsprinklered: 30 },
-  "B-3": { sprinklered: 45, unsprinklered: 30 },
-  "C": { sprinklered: 45, unsprinklered: 30 },
-  "D": { sprinklered: 45, unsprinklered: 30 },
-  "E": { sprinklered: 45, unsprinklered: 30 },
-  "F-1": { sprinklered: 45, unsprinklered: 30 },
-  "F-2": { sprinklered: 45, unsprinklered: 30 },
-  "F-3": { sprinklered: 45, unsprinklered: 30 }
-};
+import { trpc } from "@/lib/trpc";
 
 const occupancyNames: Record<string, string> = {
   "A-1": "Assembly - Performing Arts",
@@ -60,6 +44,9 @@ export function TravelDistanceCalculator() {
   const [sprinklered, setSprinklered] = useState<string>("no");
   const [actualDistance, setActualDistance] = useState<string>("");
   const [deadEndCorridor, setDeadEndCorridor] = useState<string>("no");
+  const { data: travelLimits } = trpc.travelDistance.getLimits.useQuery({
+    occupancyMajor: occupancy || null,
+  });
 
   const calculateCompliance = (): {
     maxAllowed: number;
@@ -72,8 +59,10 @@ export function TravelDistanceCalculator() {
       return { maxAllowed: 0, actual: 0, compliant: false, margin: 0, deadEndLimit: 0 };
     }
 
-    const limits = travelDistanceLimits[occupancy];
-    const maxAllowed = sprinklered === "yes" ? limits.sprinklered : limits.unsprinklered;
+    const limits = travelLimits?.limits;
+    const maxAllowed = limits
+      ? sprinklered === "yes" ? limits.sprinklered : limits.unsprinklered
+      : 0;
     const actual = parseFloat(actualDistance);
     const compliant = actual <= maxAllowed;
     const margin = maxAllowed - actual;
