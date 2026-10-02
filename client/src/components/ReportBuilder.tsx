@@ -323,9 +323,15 @@ export function ReportBuilder({ open, onClose, projectId: initialProjectId }: Re
 
           // Rule trace
           const traceRows = (snap.ruleTrace || []).map((step: any) => [
-            step.rule_id ?? '',
-            step.clause ?? '',
-            step.fired ? 'PASS' : 'FAIL',
+            step.constraintId ?? step.rule ?? '',
+            step.rule ?? '',
+            step.result === 'pass'
+              ? 'PASS'
+              : step.result === 'not_applicable'
+                ? 'N/A'
+                : step.result === 'warning'
+                  ? 'WARNING'
+                  : 'FAIL',
           ]);
           if (traceRows.length > 0) {
             if (y > maxY - 40) { doc.addPage(); freshHeader('Compliance Analysis'); }

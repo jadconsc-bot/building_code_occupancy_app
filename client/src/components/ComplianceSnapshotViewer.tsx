@@ -175,9 +175,15 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
 
       // Rule trace
       const traceRows = (selected.ruleTrace || []).map((step: any) => [
-        step.rule_id ?? "",
-        step.clause ?? "",
-        step.fired ? "PASS" : "FAIL",
+        step.constraintId ?? step.rule ?? "",
+        step.rule ?? "",
+        step.result === "pass"
+          ? "PASS"
+          : step.result === "not_applicable"
+            ? "N/A"
+            : step.result === "warning"
+              ? "WARNING"
+              : "FAIL",
       ]);
       if (traceRows.length > 0) {
         if (y > maxY - 40) { doc.addPage(); y = drawHeader(doc, "Compliance Snapshot Report", today, analystName); }
@@ -382,27 +388,35 @@ export function ComplianceSnapshotViewer({ projectId }: { projectId: number }) {
                         {(selected.ruleTrace || []).map((step: any, idx: number) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">
-                              {step.rule_id || `rule-${idx + 1}`}
+                              {step.constraintId || step.rule || `rule-${idx + 1}`}
                             </td>
                             <td className="px-3 py-2 text-gray-800 align-top">
-                              {step.clause || "—"}
+                              {step.rule || "—"}
                             </td>
                             <td className="px-3 py-2 text-center align-top">
                               <Badge
                                 variant="outline"
                                 className={
-                                  step.fired
+                                  step.result === "pass"
                                     ? "text-green-700 border-green-300 bg-green-50"
-                                    : "text-red-700 border-red-300 bg-red-50"
+                                    : step.result === "warning"
+                                      ? "text-amber-700 border-amber-300 bg-amber-50"
+                                      : step.result === "not_applicable"
+                                        ? "text-gray-600 border-gray-300 bg-gray-50"
+                                        : "text-red-700 border-red-300 bg-red-50"
                                 }
                               >
-                                {step.fired ? "PASS" : "FAIL"}
+                                {step.result === "pass"
+                                  ? "PASS"
+                                  : step.result === "not_applicable"
+                                    ? "N/A"
+                                    : step.result === "warning"
+                                      ? "WARNING"
+                                      : "FAIL"}
                               </Badge>
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-500 align-top">
-                              {step.conditions_met !== undefined
-                                ? `Conditions ${step.conditions_met ? "met" : "not met"}`
-                                : "—"}
+                              {step.severity || "—"}
                             </td>
                           </tr>
                         ))}

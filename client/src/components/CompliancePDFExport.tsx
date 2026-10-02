@@ -19,9 +19,10 @@ interface ComplianceSnapshot {
   inputs: Record<string, any>;
   outputs: Record<string, any>;
   ruleTrace: Array<{
-    rule_id: string;
-    clause: string;
-    fired: boolean;
+    constraintId: string;
+    rule: string;
+    result: "pass" | "fail" | "warning" | "not_applicable";
+    severity: string;
   }>;
   createdAt: Date;
 }
