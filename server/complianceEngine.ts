@@ -25,6 +25,7 @@ export type { ComplianceInput, EvaluationContext } from './engine/types/context'
 export type { EvaluationResult } from './engine/EvaluationContract';
 import type { ComplianceInput } from './engine/types/context';
 import { determineBuildingPart } from './engine/buildingPartDetermination';
+import { getLimits } from './services/travelDistanceService';
 
 export interface Rule {
   rule_id: string;
@@ -120,9 +121,10 @@ export class ComplianceEvaluator {
     outputs.exits_required = exitCountTrace.evaluatedInputs.required;
 
     // Travel distance max (for backward-compat consumers of outputs)
+    const { limits: travelDistanceLimits } = getLimits(inputs.occupancy_major ?? null);
     outputs.travel_distance_max = inputs.sprinklers
-      ? Constraints.egress.travel_distance.sprinklered.value
-      : Constraints.egress.travel_distance.unsprinklered.value;
+      ? travelDistanceLimits.sprinklered
+      : travelDistanceLimits.unsprinklered;
 
     // Fire resistance rating (no dedicated rule function — inline derivation)
     if (inputs.occupancy_major && inputs.construction_type) {
@@ -143,8 +145,8 @@ export class ComplianceEvaluator {
         ? Constraints.egress.travel_distance.sprinklered.ref
         : Constraints.egress.travel_distance.unsprinklered.ref,
       inputs.sprinklers
-        ? Constraints.egress.travel_distance.sprinklered.value as number
-        : Constraints.egress.travel_distance.unsprinklered.value as number,
+        ? travelDistanceLimits.sprinklered
+        : travelDistanceLimits.unsprinklered,
       'm',
       inputs.sprinklers
         ? Constraints.egress.travel_distance.sprinklered.ref

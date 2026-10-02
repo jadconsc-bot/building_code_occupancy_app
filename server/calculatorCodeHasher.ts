@@ -38,7 +38,6 @@ export class CalculatorCodeHasher {
    */
   private initializeHashes(): void {
     const calculators = [
-      'fireExitCalculator',
       'plumbingFixtureUnitsCalculator',
       'electricalServiceLoadCalculator',
       'stairDesignCalculator',

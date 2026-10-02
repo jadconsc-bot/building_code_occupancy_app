@@ -5,7 +5,6 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { FireExitCalculator } from './calculators/fireExitCalculator';
 import { PlumbingFixtureUnitsCalculator } from './calculators/plumbingFixtureUnitsCalculator';
 import { ElectricalServiceLoadCalculator } from './calculators/electricalServiceLoadCalculator';
 
@@ -19,113 +18,6 @@ const mockRuleset = {
     minTreadDepth: 10,
   },
 };
-
-describe('FireExitCalculator', () => {
-  const calculator = new FireExitCalculator();
-
-  it('should calculate fire exits for small occupancy', async () => {
-    const result = await calculator.execute(
-      {
-        occupantLoad: 30,
-        floorNumber: 0,
-        buildingHeight: 5,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.exitsRequired).toBe(1);
-    expect(result.results.stairwellsRequired).toBe(1);
-  });
-
-  it('should calculate fire exits for medium occupancy', async () => {
-    const result = await calculator.execute(
-      {
-        occupantLoad: 200,
-        floorNumber: 2,
-        buildingHeight: 10,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.exitsRequired).toBe(2);
-    expect(result.results.stairwellsRequired).toBe(2);
-  });
-
-  it('should calculate fire exits for large occupancy', async () => {
-    const result = await calculator.execute(
-      {
-        occupantLoad: 600,
-        floorNumber: 5,
-        buildingHeight: 20,
-      },
-      mockRuleset
-    );
-
-    expect(result.results.exitsRequired).toBe(3);
-    expect(result.results.stairwellsRequired).toBe(3);
-  });
-
-  it('should provide complete calculation trace', async () => {
-    const result = await calculator.execute(
-      {
-        occupantLoad: 100,
-        floorNumber: 1,
-        buildingHeight: 8,
-      },
-      mockRuleset
-    );
-
-    expect(result.steps.length).toBeGreaterThanOrEqual(6);
-    expect(result.steps.some((s) => s.description.toLowerCase().includes('exit'))).toBe(true);
-  });
-
-  it('should validate positive occupant load', async () => {
-    try {
-      await calculator.execute(
-        {
-          occupantLoad: -50,
-          floorNumber: 0,
-          buildingHeight: 5,
-        },
-        mockRuleset
-      );
-      expect.fail('Should have thrown an error');
-    } catch (error) {
-      expect(error).toBeDefined();
-    }
-  });
-
-  // NBC 3.4.3.2.(1)(b): Group B uses 18.4 mm/person (care/treatment/detention override)
-  it('NBC 3.4.3.2.(1)(b): Group B uses 18.4 mm/person — ~3× larger than 6.1 default', async () => {
-    const [resultB, resultD] = await Promise.all([
-      calculator.execute({ occupantLoad: 100, floorNumber: 1, buildingHeight: 8, occupancyCode: 'B' }, mockRuleset),
-      calculator.execute({ occupantLoad: 100, floorNumber: 1, buildingHeight: 8, occupancyCode: 'D' }, mockRuleset),
-    ]);
-    expect(resultB.results.totalExitWidth).toBe(1840); // 100 × 18.4
-    expect(resultD.results.totalExitWidth).toBe(610);  // 100 × 6.1
-  });
-
-  // NBC 3.4.3.2.(7): when 2+ exits required, each exit ≤50% of total (cap = total / 2)
-  it('NBC 3.4.3.2.(7): half-width cap — 2 exits: each exit = totalWidth / 2, not / 2', async () => {
-    // occupantLoad 200 → exitsRequired 2, totalWidth = 200 × 6.1 = 1220
-    const result = await calculator.execute(
-      { occupantLoad: 200, floorNumber: 1, buildingHeight: 8, occupancyCode: 'D' },
-      mockRuleset
-    );
-    expect(result.results.totalExitWidth).toBe(1220);  // 200 × 6.1
-    expect(result.results.exitWidthPerExit).toBe(610); // 1220 / 2, not 1220 / 2 = 610 ✓
-  });
-
-  it('NBC 3.4.3.2.(7): 1 exit carries full required width (no halving)', async () => {
-    // occupantLoad 30 → exitsRequired 1, totalWidth = 30 × 6.1 = 183
-    const result = await calculator.execute(
-      { occupantLoad: 30, floorNumber: 0, buildingHeight: 5, occupancyCode: 'D' },
-      mockRuleset
-    );
-    expect(result.results.totalExitWidth).toBe(183);  // 30 × 6.1
-    expect(result.results.exitWidthPerExit).toBe(183); // full width, no halving
-  });
-});
 
 describe('PlumbingFixtureUnitsCalculator', () => {
   const calculator = new PlumbingFixtureUnitsCalculator();
@@ -320,24 +212,6 @@ describe('ElectricalServiceLoadCalculator', () => {
 });
 
 describe('Calculator Traces', () => {
-  it('FireExitCalculator should have detailed trace', async () => {
-    const calc = new FireExitCalculator();
-    const result = await calc.execute(
-      {
-        occupantLoad: 100,
-        floorNumber: 1,
-        buildingHeight: 8,
-      },
-      mockRuleset
-    );
-
-    result.steps.forEach((step) => {
-      expect(step.description).toBeTruthy();
-      expect(step.inputs).toBeDefined();
-      expect(step.output).toBeDefined();
-    });
-  });
-
   it('PlumbingFixtureUnitsCalculator should have detailed trace', async () => {
     const calc = new PlumbingFixtureUnitsCalculator();
     const result = await calc.execute(
