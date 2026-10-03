@@ -157,21 +157,23 @@ export default function AdminDashboard() {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="w-full">
-          <TabsList>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="w-4 h-4" />
-              Settings
-            </TabsTrigger>
-            <TabsTrigger value="sources">Monitored Sources</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="users" className="gap-2">
+                <Users className="w-4 h-4" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings className="w-4 h-4" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="sources">Monitored Sources</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-4">
