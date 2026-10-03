@@ -15,7 +15,7 @@ const SOURCES = [
   { id: 'OBC',      url: 'https://www.ontario.ca/laws/statute/92b23',                                                jurisdiction: 'ON' },
   { id: 'SK',       url: 'https://publications.saskatchewan.ca',                                                     jurisdiction: 'SK' },
   { id: 'MB',       url: 'https://www.gov.mb.ca/housing/pubs/index.html',                                           jurisdiction: 'MB' },
-  { id: 'YK',       url: 'https://yukon.ca/en/housing-and-property/building-and-renovating/building-and-renovating-information', jurisdiction: 'YK' },
+  { id: 'YK',       url: 'https://yukon.ca/en/housing-and-property/building-and-renovating/get-yukon-related-updates-national-building-code', jurisdiction: 'YK', manualOnly: true },
 ] as const;
 
 function hashContent(content: string): string {
@@ -138,6 +138,7 @@ export async function runComplianceMonitor(): Promise<{
 
   for (const source of SOURCES) {
     try {
+      if ("manualOnly" in source && source.manualOnly) continue;
       results.sourcesChecked++;
 
       const { content, status, error } = await fetchSource(source.url);
