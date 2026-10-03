@@ -56,6 +56,9 @@ export default function AdminDashboard() {
   const utils = trpc.useUtils();
   const usersQuery = trpc.admin.listUsers.useQuery({ search: searchQuery });
   const invitesQuery = trpc.admin.listInvites.useQuery();
+  const sourcesQuery = trpc.complianceMonitor.getSources.useQuery(undefined, {
+    enabled: !loading && user?.role === 'admin',
+  });
   const banMutation = trpc.admin.banUser.useMutation({ onSuccess: async () => { await utils.admin.listUsers.invalidate(); setBanTarget(null); setBanReason(''); toast.success('User banned'); }, onError: (error) => toast.error(error.message) });
   const unbanMutation = trpc.admin.unbanUser.useMutation({ onSuccess: async () => { await utils.admin.listUsers.invalidate(); toast.success('User unbanned'); }, onError: (error) => toast.error(error.message) });
   const inviteMutation = trpc.admin.createInvite.useMutation({ onSuccess: async () => { await utils.admin.listInvites.invalidate(); setInviteEmail(''); toast.success('Invite saved'); }, onError: (error) => toast.error(error.message) });
@@ -167,6 +170,7 @@ export default function AdminDashboard() {
               <Settings className="w-4 h-4" />
               Settings
             </TabsTrigger>
+            <TabsTrigger value="sources">Monitored Sources</TabsTrigger>
           </TabsList>
 
           {/* Users Tab */}
@@ -276,6 +280,49 @@ export default function AdminDashboard() {
                     <p className="text-sm font-semibold mt-1">{metrics.lastBackup.toLocaleDateString()}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="sources" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Monitored Sources</CardTitle>
+                <CardDescription>Configured compliance sources. This view does not show run status.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {sourcesQuery.isLoading && <p className="text-sm text-muted-foreground">Loading sources…</p>}
+                {sourcesQuery.isError && <p role="alert" className="text-sm text-destructive">Unable to load monitored sources.</p>}
+                {sourcesQuery.data && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b">
+                        <tr>
+                          <th scope="col" className="py-2 px-4 text-left">Source ID</th>
+                          <th scope="col" className="py-2 px-4 text-left">Jurisdiction</th>
+                          <th scope="col" className="py-2 px-4 text-left">Review</th>
+                          <th scope="col" className="py-2 px-4 text-left">Link</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sourcesQuery.data.map((source) => (
+                          <tr key={source.id} className="border-b hover:bg-muted/50">
+                            <td className="py-2 px-4 font-medium">{source.id}</td>
+                            <td className="py-2 px-4">{source.jurisdiction}</td>
+                            <td className="py-2 px-4">
+                              {'manualOnly' in source && source.manualOnly && <Badge variant="outline">Manual review required</Badge>}
+                            </td>
+                            <td className="py-2 px-4">
+                              <Button asChild variant="outline" size="sm">
+                                <a href={source.url} target="_blank" rel="noopener noreferrer" aria-label={`Open source ${source.id}`}>Open source</a>
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

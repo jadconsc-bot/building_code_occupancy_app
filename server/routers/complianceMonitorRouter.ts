@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../_core/trpc';
+import { router, protectedProcedure, adminProcedure } from '../_core/trpc';
 import { getDb } from '../db';
 import { complianceNotifications } from '../../drizzle/schema';
 import { eq, desc } from 'drizzle-orm';
-import { runComplianceMonitor } from '../services/complianceMonitorService';
+import { runComplianceMonitor, SOURCES } from '../services/complianceMonitorService';
 
 export const complianceMonitorRouter = router({
+
+  getSources: adminProcedure.query(() => SOURCES),
 
   getNotifications: protectedProcedure
     .input(z.object({

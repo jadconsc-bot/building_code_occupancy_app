@@ -5,7 +5,7 @@ import { complianceMonitorSnapshots, complianceNotifications } from '../../drizz
 import { eq, desc, and, isNull } from 'drizzle-orm';
 import { ENV } from '../_core/env';
 
-const SOURCES = [
+export const SOURCES = [
   { id: 'RAIC',     url: 'https://raic.org/resources/',                                                               jurisdiction: 'National' },
   { id: 'NRC',      url: 'https://nrc-cnrc.gc.ca/eng/publications/codes_centre',                                     jurisdiction: 'National' },
   { id: 'CBHCC',   url: 'https://cbhcc-cchcc.ca/en/significant-technical-changes-2020-national-model-codes/',        jurisdiction: 'National' },
