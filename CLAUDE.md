@@ -33,8 +33,9 @@ Production: complycode.ca (Railway, MySQL 8)
 ## these or adding a new caller of them should be flagged in the spec before implementing)
 - server/engine/rules/fire.ts
 - server/engine/rules/egress.ts
-- server/routers/complianceRouter.ts  (thin wrapper — kept separate from the locked engine above
-  since it's lower-stakes, but still worth a heads-up before editing)
+- server/routers/complianceRouter.ts  (dead/unmounted as of 2026-10-03: not imported in the live app.
+  The live, locked router is server/complianceRouter.ts above. Low risk to edit; deletion has not
+  been decided — flag before deleting.)
 
 ## Standing Disciplines
 - RECON before implementation — always read current state first
