@@ -78,3 +78,9 @@ Roboflow workflow integrations live in `server/services/codeComplyWorkflowServic
   (ceiling height 1.95m, beam clearance 1.85m, door height 1890mm)
 - shared/occupantLoadFactors.ts is the canonical occupant load source
 - Never duplicate occupant load values in other files
+
+## Intentionally Pinned Evaluator Behaviors
+`server/engine/__tests__/complianceEvaluator.characterization.test.ts` pins three behaviors; do not "fix" them without Jose's decision:
+- Strict mode does not check area inside the evaluator; the router enforces it.
+- Runtime APPEND/INCREMENT can make `sprinklers_required` a non-boolean.
+- Derived values overwrite JSON-assigned outputs. Production `rulesData` is `[]`, so the last two behaviors are latent.
