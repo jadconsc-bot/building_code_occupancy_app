@@ -197,13 +197,30 @@ describe('ComplianceEvaluator characterization', () => {
       expect(withoutTimestamps(strict)).toEqual(withoutTimestamps(soft));
     });
 
-    it('critical exit-width failure is non_compliant in both modes while legacy status passes', async () => {
-      // CHARACTERIZATION: current behavior, possible defect — see Sprint C notes
+    it('critical exit-width failure is non_compliant in both modes while legacy status fails', async () => {
       for (const mode of ['soft', 'strict'] as const) {
         const result = await evaluate([], { exit_width_mm: 800 }, mode);
         expect(result.complianceStatus).toBe('non_compliant');
-        expect(result.outputs.compliance_status).toBe('pass');
+        expect(result.outputs.compliance_status).toBe('fail');
         expect(result.summary).toEqual({ passed: 6, failed: 1, warnings: 0, critical: 1 });
+      }
+    });
+
+    it('850 mm exit width keeps legacy pass and top-level compliant in both modes', async () => {
+      for (const mode of ['soft', 'strict'] as const) {
+        const result = await evaluate([], { exit_width_mm: 850 }, mode);
+        expect(result.outputs.compliance_status).toBe('pass');
+        expect(result.complianceStatus).toBe('compliant');
+      }
+    });
+
+    it('missing exit width preserves the pre-fix legacy status for the same other inputs', async () => {
+      for (const mode of ['soft', 'strict'] as const) {
+        const result = await evaluate([], { exit_width_mm: undefined }, mode);
+        // Before the fix these same other inputs had legacy status pass.
+        expect(result.outputs.compliance_status).toBe('pass');
+        expect(result.complianceStatus).toBe('compliant');
+        expect(result.traces.find(t => t.constraintId === 'egress.exit_width.minimum')?.result).toBe('not_applicable');
       }
     });
   });

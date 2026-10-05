@@ -195,6 +195,7 @@ export class ComplianceEvaluator {
     complianceFlags["fire_alarm_ok"]      = fireAlarmTrace.result !== 'fail';
     complianceFlags["exits_ok"]           = exitCountTrace.result !== 'fail';
     complianceFlags["travel_distance_ok"] = travelDistanceTrace.result !== 'fail';
+    complianceFlags["exit_width_ok"]      = exitWidthTrace.result !== 'fail';
 
     const allPass = Object.values(complianceFlags).every((f) => f === true);
     const anyFail = Object.values(complianceFlags).some((f) => f === false);
