@@ -37,6 +37,9 @@ Production: complycode.ca (Railway, MySQL 8)
   The live, locked router is server/complianceRouter.ts above. Low risk to edit; deletion has not
   been decided — flag before deleting.)
 
+## Locked-File Approval Records
+- server/_core/env.ts in 223c322 (2026-09-29): approved retroactively by Jose on 2026-10-05; the original commit message lacked the [LOCKED] tag.
+
 ## Standing Disciplines
 - RECON before implementation — always read current state first
 - Never implement before reading the files being changed
