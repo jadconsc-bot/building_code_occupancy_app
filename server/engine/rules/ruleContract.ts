@@ -1,4 +1,4 @@
-// Shadow-mode contract (Sprint C step 1). Not wired into ComplianceEvaluator. See CLAUDE.md.
+// Per-rule contract (Sprint C). exitWidthRule is used by ComplianceEvaluator (Sprint C2); travelDistanceRule is shadow-mode only: covered by parity tests, not yet called by the evaluator. See CLAUDE.md.
 import type { ComplianceInput } from '../types/context';
 import type { ComplianceTrace } from '../types/trace';
 import type { ResolvedRule } from '../RuleResolver';
