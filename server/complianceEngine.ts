@@ -9,7 +9,8 @@
 
 import { Constraints } from './engine/constraints';
 import { ComplianceTrace, buildFederalTrace, computeMargin } from './engine/types/trace';
-import { evaluateTravelDistance, evaluateExitCount, evaluateExitWidth } from './engine/rules/egress';
+import { evaluateTravelDistance, evaluateExitCount } from './engine/rules/egress';
+import { exitWidthRule } from './engine/rules/ruleContract';
 import { evaluateSprinklerRequirement, evaluateFireAlarm } from './engine/rules/fire';
 import { evaluateOccupantLoad } from './engine/rules/occupancy';
 import { ruleResolver } from './engine/RuleResolver';
@@ -164,7 +165,7 @@ export class ComplianceEvaluator {
     const travelDistanceTrace = evaluateTravelDistance(inputs, travelDistanceRule);
     const sprinklersTrace     = evaluateSprinklerRequirement(inputs);
     const fireAlarmTrace      = evaluateFireAlarm(inputs, occupantLoad);
-    const exitWidthTrace      = evaluateExitWidth(inputs);
+    const exitWidthTrace      = exitWidthRule.evaluate({ inputs });
 
     // Area check (no dedicated rule file — uses building_limits constraint)
     const areaLimit  = Constraints.building_limits.part9_threshold.max_area.value as number;

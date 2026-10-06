@@ -89,4 +89,19 @@ describe('shadow-mode EngineRule parity', () => {
     const constraintIds = engineRules.flatMap(rule => rule.constraintIds);
     expect(new Set(constraintIds).size).toBe(constraintIds.length);
   });
+
+  it('routes evaluator exit width through the rule exactly once and returns its trace', async () => {
+    const inputs: ComplianceInput = { occupancy_major: 'D', exit_width_mm: 850 };
+    const spy = vi.spyOn(exitWidthRule, 'evaluate');
+    try {
+      const result = await new ComplianceEvaluator([], 'soft').evaluate(inputs);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({ inputs });
+      const traces = result.traces.filter(trace => exitWidthRule.constraintIds.includes(trace.constraintId));
+      expect(traces).toHaveLength(1);
+      expect(traces[0]).toBe(spy.mock.results[0].value);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
