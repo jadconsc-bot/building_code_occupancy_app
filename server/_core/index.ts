@@ -15,7 +15,7 @@ import { handleStripeWebhook, handleAPSWebhook } from "../routers";
 import { exchangeCode } from "../services/apsAuthService";
 import { getDb } from "../db";
 import { apsConnections } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 // Validate environment variables at startup
 logEnvStatus();
@@ -75,6 +75,28 @@ async function startServer() {
   app.use("/api", generalLimiter);
   app.use("/api/trpc/home.createReport", paymentLimiter);
   app.use("/api/trpc/subscriptions.createContractorSession", paymentLimiter);
+  app.get("/api/health", async (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    const commit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || null;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        (async () => {
+          const db = await getDb();
+          if (!db) throw new Error("Database unavailable");
+          await db.execute(sql`SELECT 1`);
+        })(),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(() => reject(new Error("Database ping timed out")), 2000);
+        }),
+      ]);
+      res.status(200).json({ status: "ok", db: "ok", commit });
+    } catch {
+      res.status(503).json({ status: "degraded", db: "error", commit });
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
   // Clerk auth session endpoint
   registerAuthRoutes(app);
 
