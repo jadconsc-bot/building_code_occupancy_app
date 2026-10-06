@@ -35,7 +35,6 @@ print_file "server/_core/env.ts"
 print_file "server/_core/middleware/auth.ts"
 print_file "server/services/complianceEngine.ts"
 print_file "server/services/compliancePathwayGenerator.ts"
-print_file "server/routers/complianceRouter.ts"
 print_file "server/routers/drawingAnalysisRouter.ts"
 
 # ─── Engine ───

@@ -33,12 +33,10 @@ Production: complycode.ca (Railway, MySQL 8)
 ## these or adding a new caller of them should be flagged in the spec before implementing)
 - server/engine/rules/fire.ts
 - server/engine/rules/egress.ts
-- server/routers/complianceRouter.ts  (dead/unmounted as of 2026-10-03: not imported in the live app.
-  The live, locked router is server/complianceRouter.ts above. Low risk to edit; deletion has not
-  been decided — flag before deleting.)
 
 ## Locked-File Approval Records
 - server/_core/env.ts in 223c322 (2026-09-29): approved retroactively by Jose on 2026-10-05; the original commit message lacked the [LOCKED] tag.
+- server/routers/complianceRouter.ts was deleted 2026-10-05 (dead/unmounted since the 2026-03-29 rollback). The live router is server/complianceRouter.ts.
 
 ## Standing Disciplines
 - RECON before implementation — always read current state first
