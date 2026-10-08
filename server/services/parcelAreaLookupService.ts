@@ -85,11 +85,11 @@ function parseArea(row: CalgaryRow): number | null {
   return Number.isFinite(area) && area > 0 ? area : null;
 }
 
-function classifyRows(rows: CalgaryRow[], matchType: 'exact' | 'prefix', limit: number, quadrant: string | null): ParcelAreaResult | AmbiguousParcelAreaResult {
+function classifyRows(rows: CalgaryRow[], matchType: 'exact' | 'prefix', limit: number, quadrant: string | null, rawRowCount: number): ParcelAreaResult | AmbiguousParcelAreaResult {
   const rollNumbers = [...new Set(rows.map(row => row.roll_number))];
   const areas = rows.map(parseArea);
   const addresses = new Set(rows.map(row => row.address?.trim().toUpperCase()));
-  const truncated = rows.length >= limit;
+  const truncated = rawRowCount >= limit;
   const matchesQuadrant = (row: CalgaryRow) => !quadrant || row.address?.trim().toUpperCase().endsWith(` ${quadrant}`);
   if (truncated || rows.some(row => !matchesQuadrant(row)) || rollNumbers.length !== 1 || !rollNumbers[0] ||
       areas.includes(null) || new Set(areas).size !== 1 ||
@@ -123,18 +123,21 @@ async function lookupCalgaryParcelArea(address: string): Promise<ParcelAreaResul
     const { normalized, quadrant } = normalizeCalgaryAddress(address);
     const escaped = escapeSoql(normalized);
     let rows = await fetchCalgary(`upper(address) = '${escaped}'`, 100);
+    let rawRowCount = rows?.length ?? 0;
     let matchType: 'exact' | 'prefix' = 'exact';
     if (!rows?.length) {
       const civicMatch = normalized.match(/^(\d+[A-Z]?)\s+(.+)$/);
       if (civicMatch) {
-        const streetPrefix = civicMatch[2].trim().split(/\s+/)[0];
+        const key = quadrant ? normalized.slice(0, -quadrant.length).trimEnd() : normalized;
         matchType = 'prefix';
-        rows = await fetchCalgary(`upper(address) like '${escapeSoql(`${civicMatch[1]} ${streetPrefix}`.toUpperCase())}%'`, 25);
+        rows = await fetchCalgary(`upper(address) like '${escapeSoql(key)} %'`, 25);
+        rawRowCount = rows?.length ?? 0;
+        rows = rows?.filter(row => row.address?.trim().toUpperCase().startsWith(`${key} `)) ?? null;
       }
     }
     if (!rows?.length) return null;
 
-    const result = classifyRows(rows, matchType, matchType === 'exact' ? 100 : 25, quadrant);
+    const result = classifyRows(rows, matchType, matchType === 'exact' ? 100 : 25, quadrant, rawRowCount);
     if (!result.ambiguous) {
       console.log(`[ParcelArea] Calgary parcel area found: ${result.lotAreaSqm} m² for ${result.confirmedAddress ?? address}`);
     }

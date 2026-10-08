@@ -74,7 +74,7 @@ describe('parcel area match safety (mock fetch; no network or DB)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const url = new URL(String(fetchMock.mock.calls[1][0]));
     expect(url.searchParams.get('$limit')).toBe('25');
-    expect(url.searchParams.get('$where')).toBe("upper(address) like '800 MACLEOD%'");
+    expect(url.searchParams.get('$where')).toBe("upper(address) like '800 MACLEOD TR %'");
   });
 
   it('rejects different prefix addresses instead of using the first row', async () => {
@@ -186,7 +186,7 @@ describe('parcel area match safety (mock fetch; no network or DB)', () => {
     const exact = new URL(String(fetchMock.mock.calls[0][0])).searchParams.get('$where');
     const prefix = new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where')!;
     expect(exact).toBe("upper(address) = '800 MACLEOD TR SE'");
-    expect(prefix).toBe("upper(address) like '800 MACLEOD%'");
+    expect(prefix).toBe("upper(address) like '800 MACLEOD TR %'");
     expect(prefix.match(/%/g)).toHaveLength(1);
     expect(prefix).not.toContain('_');
   });
@@ -198,9 +198,9 @@ describe('parcel area match safety (mock fetch; no network or DB)', () => {
     const exactUrl = String(fetchMock.mock.calls[0][0]);
     const prefixUrl = String(fetchMock.mock.calls[1][0]);
     expect(new URL(exactUrl).searchParams.get('$where')).toBe("upper(address) = '100 O''BRIEN RD SE'");
-    expect(new URL(prefixUrl).searchParams.get('$where')).toBe("upper(address) like '100 O''BRIEN%'");
+    expect(new URL(prefixUrl).searchParams.get('$where')).toBe("upper(address) like '100 O''BRIEN RD %'");
     expect(exactUrl).toContain('O%27%27BRIEN');
-    expect(prefixUrl).toContain('O%27%27BRIEN%25');
+    expect(prefixUrl).toContain('O%27%27BRIEN+RD+%25');
     expect(exactUrl).not.toContain("'");
   });
 
@@ -210,7 +210,91 @@ describe('parcel area match safety (mock fetch; no network or DB)', () => {
     expect(await lookupParcelArea('823 5 St NE', 'Calgary')).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
-      .toBe("upper(address) like '823 5%'");
+      .toBe("upper(address) like '823 5 ST %'");
+  });
+
+  it('rejects a street-type mismatch returned by the prefix API', async () => {
+    respond([]);
+    respond([{ ...row, address: '100 8 AV SW' }]);
+    expect(await lookupParcelArea('100 8 St SW', 'Calgary')).toBeNull();
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '100 8 ST %'");
+  });
+
+  it('excludes unrelated numbered addresses and keeps only the two full-street candidates', async () => {
+    respond([]);
+    respond([
+      { ...row, address: '100 1010 8 AV SW', roll_number: '000000001' },
+      { ...row, address: '100 1 ST SE', roll_number: '000000002' },
+      { ...row, address: '100 1 ST NW', roll_number: '000000003' },
+    ]);
+    const result = await lookupParcelArea('100 1 St', 'Calgary');
+    expect(result).toMatchObject({ ambiguous: true, matchType: 'prefix', parcelCount: 2 });
+    expect(result).not.toHaveProperty('lotAreaSqm');
+    if (!result?.ambiguous) throw new Error('Expected ambiguity');
+    expect(result.candidates).toEqual([
+      { address: '100 1 ST SE', rollNumber: '000000002', landSizeSqm: 23044.9 },
+      { address: '100 1 ST NW', rollNumber: '000000003', landSizeSqm: 23044.9 },
+    ]);
+  });
+
+  it('returns null when the prefix API returns only an unrelated numbered address', async () => {
+    respond([]);
+    respond([{ ...row, address: '100 1010 8 AV SW' }]);
+    expect(await lookupParcelArea('100 1 St', 'Calgary')).toBeNull();
+  });
+
+  it('accepts a complete street-name token without type or quadrant as an unambiguous prefix', async () => {
+    respond([]);
+    respond([row]);
+    expect(await lookupParcelArea('800 Macleod', 'Calgary')).toEqual({
+      lotAreaSqm: 23044.9, confirmedAddress: address, source: 'calgary_assessment',
+      parcelCount: 1, rollNumbers: ['068088293'], ambiguous: false, matchType: 'prefix',
+    });
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '800 MACLEOD %'");
+  });
+
+  it('rejects a partial street word instead of accepting its longer dataset name', async () => {
+    respond([]);
+    respond([row]);
+    expect(await lookupParcelArea('800 Mac', 'Calgary')).toBeNull();
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '800 MAC %'");
+  });
+
+  it('matches an explicitly marked unit through the full normalized prefix key', async () => {
+    respond([]);
+    respond([{ ...row, address: '101 823 5 ST NE' }]);
+    expect(await lookupParcelArea('#101 823 5 St NE', 'Calgary')).toMatchObject({
+      confirmedAddress: '101 823 5 ST NE', ambiguous: false, matchType: 'prefix', lotAreaSqm: 23044.9,
+    });
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '101 823 5 ST %'");
+  });
+
+  it('uses the raw 25-row cap even when prefix filtering leaves only one matching row', async () => {
+    respond([]);
+    respond([...Array.from({ length: 24 }, () => ({ ...row, address: '100 1010 8 AV SW' })),
+      { ...row, address: '100 1 ST SE' }]);
+    const result = await lookupParcelArea('100 1 St', 'Calgary');
+    expect(result).toMatchObject({ ambiguous: true, matchType: 'prefix', parcelCount: 1 });
+    expect(result).toHaveProperty('error', expect.stringMatching(/truncated/i));
+    expect(result).not.toHaveProperty('lotAreaSqm');
+  });
+
+  it('returns null when all 25 raw prefix rows are excluded, even at the cap', async () => {
+    respond([]);
+    respond(Array.from({ length: 25 }, () => ({ ...row, address: '100 1010 8 AV SW' })));
+    expect(await lookupParcelArea('100 1 St', 'Calgary')).toBeNull();
+  });
+
+  it('does not guess a singular or unmapped street type from the dataset token', async () => {
+    respond([]);
+    respond([{ ...row, address: '100 EXAMPLE GD SE' }]);
+    expect(await lookupParcelArea('100 Example Garden', 'Calgary')).toBeNull();
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '100 EXAMPLE GARDEN %'");
   });
 });
 
