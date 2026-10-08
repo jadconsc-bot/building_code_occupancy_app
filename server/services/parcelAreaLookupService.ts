@@ -20,6 +20,53 @@ export interface AmbiguousParcelAreaResult {
 const CALGARY_URL = 'https://data.calgary.ca/resource/4bsw-nn7w.json';
 type CalgaryRow = Record<string, string>;
 
+// Calgary's published street types: https://www.calgary.ca/311/standard-address-format.html
+// Aliases: Canada Post's symbols-and-abbreviations reference; TRL/CT/PKWY are common address forms.
+const STREET_TYPES: Record<string, string> = {
+  ALLEY: 'AL', AVENUE: 'AV', AVE: 'AV', BAY: 'BA', BOULEVARD: 'BV', BLVD: 'BV',
+  CAPE: 'CA', CENTRE: 'CE', CTR: 'CE', CIRCLE: 'CI', CIR: 'CI', CLOSE: 'CL', COMMON: 'CM',
+  COURT: 'CO', CT: 'CO', CRT: 'CO', CRESCENT: 'CR', CRES: 'CR', COVE: 'CV', DRIVE: 'DR',
+  GATE: 'GA', GARDENS: 'GD', GDNS: 'GD', GREEN: 'GR', GROVE: 'GV', HEATH: 'HE',
+  HIGHWAY: 'HI', HWY: 'HI', HILL: 'HL', HEIGHTS: 'HT', HTS: 'HT', ISLAND: 'IS',
+  LANDING: 'LD', LANDNG: 'LD', LINK: 'LI', LANE: 'LN', MEWS: 'ME', MANOR: 'MR', MOUNT: 'MT',
+  PARK: 'PA', PK: 'PA', PATH: 'PH', PLACE: 'PL', PARADE: 'PR', PASSAGE: 'PS', PASS: 'PS',
+  POINT: 'PT', PARKWAY: 'PY', PKY: 'PY', PKWY: 'PY', PLAZA: 'PZ', ROAD: 'RD', RISE: 'RI',
+  ROW: 'RO', SQUARE: 'SQ', STREET: 'ST', TERRACE: 'TC', TERR: 'TC', TRAIL: 'TR', TRL: 'TR',
+  VILLAS: 'VI', VIEW: 'VW', WALK: 'WK', WAY: 'WY',
+};
+
+export function normalizeCalgaryAddress(input: string): { normalized: string; quadrant: string | null } {
+  let text = input.toUpperCase().trim().replace(/\s+/g, ' ');
+  // Explicit unit markers are handled before commas so "Unit 101, 823 ..." keeps the civic address.
+  text = text.replace(/^(?:UNIT|SUITE)\s+(\d+[A-Z]?)(?:\s*,\s*|\s+)(?=\d)/, '$1 ')
+    .replace(/^#\s*(\d+[A-Z]?)\s+(?=\d)/, '$1 ')
+    .replace(/^(\d+[A-Z]?)\s*-\s*(?=\d)/, '$1 ')
+    .split(',')[0].replace(/\./g, '').trim();
+
+  const quadrantMatch = [...text.matchAll(/\b(NORTH\s*EAST|NORTH\s*WEST|SOUTH\s*EAST|SOUTH\s*WEST|[NS]\s+[EW]|[NS][EW])\b/g)].at(-1);
+  const followingType = quadrantMatch ? text.slice(quadrantMatch.index! + quadrantMatch[0].length).trim().split(' ').at(-1) : '';
+  // A direction followed by a street type belongs to the name, not the quadrant. CA after a quadrant is a country suffix.
+  const directionInName = followingType && followingType !== 'CA' &&
+    (STREET_TYPES[followingType] || Object.values(STREET_TYPES).includes(followingType));
+  let quadrant: string | null = null;
+  if (quadrantMatch && !directionInName) {
+    quadrant = quadrantMatch[1].replace(/NORTH/g, 'N').replace(/SOUTH/g, 'S')
+      .replace(/EAST/g, 'E').replace(/WEST/g, 'W').replace(/\s/g, '');
+    text = `${text.slice(0, quadrantMatch.index).trim()} ${quadrant}`;
+  } else {
+    // Repeat to handle both "AB postal CANADA" and "CANADA postal". Bare CA is a street type.
+    const tail = /\s+(?:[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z]\s?\d[ABCEGHJ-NPRSTV-Z]\d|CANADA|ALBERTA|AB|CALGARY)$/;
+    while (tail.test(text)) text = text.replace(tail, '').trim();
+  }
+  text = text.replace(/\b(\d+)(?:ST|ND|RD|TH)\b/g, '$1');
+  // Remove user wildcards and every character outside the approved address alphabet.
+  text = text.replace(/[^\p{L}\p{N} '#\-/.&]/gu, '').replace(/\s+/g, ' ').trim();
+  const tokens = text.split(' ');
+  const typeIndex = tokens.length - (quadrant ? 2 : 1);
+  tokens[typeIndex] = STREET_TYPES[tokens[typeIndex]] ?? tokens[typeIndex];
+  return { normalized: tokens.join(' '), quadrant };
+}
+
 function escapeSoql(value: string): string {
   return value.replace(/'/g, "''");
 }
@@ -38,16 +85,17 @@ function parseArea(row: CalgaryRow): number | null {
   return Number.isFinite(area) && area > 0 ? area : null;
 }
 
-function classifyRows(rows: CalgaryRow[], matchType: 'exact' | 'prefix', limit: number): ParcelAreaResult | AmbiguousParcelAreaResult {
+function classifyRows(rows: CalgaryRow[], matchType: 'exact' | 'prefix', limit: number, quadrant: string | null): ParcelAreaResult | AmbiguousParcelAreaResult {
   const rollNumbers = [...new Set(rows.map(row => row.roll_number))];
   const areas = rows.map(parseArea);
   const addresses = new Set(rows.map(row => row.address?.trim().toUpperCase()));
   const truncated = rows.length >= limit;
-  if (truncated || rollNumbers.length !== 1 || !rollNumbers[0] ||
+  const matchesQuadrant = (row: CalgaryRow) => !quadrant || row.address?.trim().toUpperCase().endsWith(` ${quadrant}`);
+  if (truncated || rows.some(row => !matchesQuadrant(row)) || rollNumbers.length !== 1 || !rollNumbers[0] ||
       areas.includes(null) || new Set(areas).size !== 1 ||
       (matchType === 'prefix' && addresses.size !== 1)) {
     const seen = new Set<string>();
-    const candidates = rows.filter(row => {
+    const candidates = rows.filter(matchesQuadrant).filter(row => {
       if (seen.has(row.roll_number)) return false;
       seen.add(row.roll_number);
       return true;
@@ -72,11 +120,12 @@ function classifyRows(rows: CalgaryRow[], matchType: 'exact' | 'prefix', limit: 
 
 async function lookupCalgaryParcelArea(address: string): Promise<ParcelAreaResult | AmbiguousParcelAreaResult | null> {
   try {
-    const escaped = escapeSoql(address.trim().toUpperCase());
+    const { normalized, quadrant } = normalizeCalgaryAddress(address);
+    const escaped = escapeSoql(normalized);
     let rows = await fetchCalgary(`upper(address) = '${escaped}'`, 100);
     let matchType: 'exact' | 'prefix' = 'exact';
     if (!rows?.length) {
-      const civicMatch = address.match(/^\s*(\d+)\s+(.+)$/);
+      const civicMatch = normalized.match(/^(\d+[A-Z]?)\s+(.+)$/);
       if (civicMatch) {
         const streetPrefix = civicMatch[2].trim().split(/\s+/)[0];
         matchType = 'prefix';
@@ -85,7 +134,7 @@ async function lookupCalgaryParcelArea(address: string): Promise<ParcelAreaResul
     }
     if (!rows?.length) return null;
 
-    const result = classifyRows(rows, matchType, matchType === 'exact' ? 100 : 25);
+    const result = classifyRows(rows, matchType, matchType === 'exact' ? 100 : 25, quadrant);
     if (!result.ambiguous) {
       console.log(`[ParcelArea] Calgary parcel area found: ${result.lotAreaSqm} m² for ${result.confirmedAddress ?? address}`);
     }
