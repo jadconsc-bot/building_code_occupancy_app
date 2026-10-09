@@ -18,6 +18,9 @@ build/
 .env.test.local
 .env.production.local
 
+# Local Google API key file
+/docs/maps-platform-api-key.txt
+
 # IDE and editor files
 .vscode/
 .idea/
