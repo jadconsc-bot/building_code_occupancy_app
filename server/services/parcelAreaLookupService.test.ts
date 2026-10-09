@@ -244,6 +244,32 @@ describe('parcel area match safety (mock fetch; no network or DB)', () => {
     expect(await lookupParcelArea('100 1 St', 'Calgary')).toBeNull();
   });
 
+  it.each(['800 SE', '800', 'Macleod Trail SE'])('skips prefix fetch for an insufficient civic/street key: %s', async (input) => {
+    respond([]);
+    expect(await lookupParcelArea(input, 'Calgary')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get('$where'))
+      .toBe(`upper(address) = '${normalizeCalgaryAddress(input).normalized}'`);
+  });
+
+  it('keeps the two-token civic/street prefix fetch enabled', async () => {
+    respond([]);
+    respond([row]);
+    expect(await lookupParcelArea('800 Macleod', 'Calgary')).toMatchObject({ ambiguous: false, matchType: 'prefix' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '800 MACLEOD %'");
+  });
+
+  it('keeps the explicit-unit prefix fetch enabled', async () => {
+    respond([]);
+    respond([{ ...row, address: '101 823 5 ST NE' }]);
+    expect(await lookupParcelArea('#101 823 5 St NE', 'Calgary')).toMatchObject({ ambiguous: false, matchType: 'prefix' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where'))
+      .toBe("upper(address) like '101 823 5 ST %'");
+  });
+
   it('accepts a complete street-name token without type or quadrant as an unambiguous prefix', async () => {
     respond([]);
     respond([row]);

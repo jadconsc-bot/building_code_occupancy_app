@@ -126,9 +126,8 @@ async function lookupCalgaryParcelArea(address: string): Promise<ParcelAreaResul
     let rawRowCount = rows?.length ?? 0;
     let matchType: 'exact' | 'prefix' = 'exact';
     if (!rows?.length) {
-      const civicMatch = normalized.match(/^(\d+[A-Z]?)\s+(.+)$/);
-      if (civicMatch) {
-        const key = quadrant ? normalized.slice(0, -quadrant.length).trimEnd() : normalized;
+      const key = quadrant ? normalized.slice(0, -quadrant.length).trimEnd() : normalized;
+      if (key.split(/\s+/).length >= 2 && /^\d/.test(key)) {
         matchType = 'prefix';
         rows = await fetchCalgary(`upper(address) like '${escapeSoql(key)} %'`, 25);
         rawRowCount = rows?.length ?? 0;
