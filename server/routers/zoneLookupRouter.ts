@@ -6,6 +6,7 @@ import { projects } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { lookupZone } from "../services/zoneLookupService";
 import { lookupParcelArea as lookupParcelAreaService } from "../services/parcelAreaLookupService";
+import { discoverCalgaryParcels } from "../services/parcelDiscoveryService";
 
 export const zoneLookupRouter = router({
   lookup: protectedProcedure
@@ -31,6 +32,19 @@ export const zoneLookupRouter = router({
     .mutation(async ({ input }) => {
       const result = await lookupParcelAreaService(input.address, input.municipality);
       return result ?? { error: 'No parcel area data available for this address' };
+    }),
+
+  discoverParcels: protectedProcedure
+    .input(z.object({
+      address: z.string().min(5),
+      municipality: z.string().min(2),
+    }))
+    .mutation(async ({ input }) => {
+      if (!input.municipality.toLowerCase().includes('calgary')) {
+        return { status: 'unsupported_municipality' as const };
+      }
+      const result = await discoverCalgaryParcels(input.address);
+      return result ?? { error: 'No parcel discovery data available for this address' };
     }),
 
   saveToProject: protectedProcedure
