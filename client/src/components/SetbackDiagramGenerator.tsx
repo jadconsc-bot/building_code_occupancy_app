@@ -11,6 +11,7 @@ import { municipalities, getMunicipalityById, getZoneByCode, ZoneRegulation } fr
 import { trpc } from "@/lib/trpc";
 import { useProject } from "@/contexts/ProjectContext";
 import { toast } from "sonner";
+import { transitionCityLotArea, type CityLotAreaEvent } from './setbackCityArea';
 
 interface LotDimensions {
   width: number;
@@ -50,6 +51,29 @@ export function SetbackDiagramGenerator() {
   } | null>(null);
   const [lotAreaOverrideSqm, setLotAreaOverrideSqm] = useState<number | null>(null);
   const [isFetchingParcelArea, setIsFetchingParcelArea] = useState(false);
+  const projectAddress = activeProjectId ? getProject(activeProjectId)?.address : undefined;
+  const parcelContext = JSON.stringify([activeProjectId, projectAddress, selectedMunicipalityId]);
+  const previousParcelContext = useRef(parcelContext);
+  const currentParcelContext = useRef(parcelContext);
+  currentParcelContext.current = parcelContext;
+  const cityAreaState = useRef({ fetchedParcelArea, lotAreaOverrideSqm });
+  cityAreaState.current = { fetchedParcelArea, lotAreaOverrideSqm };
+
+  const updateCityArea = (event: CityLotAreaEvent) => {
+    const next = transitionCityLotArea(cityAreaState.current, event);
+    cityAreaState.current = next;
+    setFetchedParcelArea(next.fetchedParcelArea);
+    setLotAreaOverrideSqm(next.lotAreaOverrideSqm);
+    return next.message;
+  };
+
+  useEffect(() => {
+    if (previousParcelContext.current !== parcelContext) {
+      previousParcelContext.current = parcelContext;
+      const message = updateCityArea({ type: 'context-change' });
+      if (message) toast.info(message);
+    }
+  }, [parcelContext]);
   
   const [buildingDimensions, setBuildingDimensions] = useState<BuildingDimensions>({
     width: 10,
@@ -522,19 +546,24 @@ export function SetbackDiagramGenerator() {
       return;
     }
     setIsFetchingParcelArea(true);
+    const requestedContext = parcelContext;
     try {
       const result = await lookupParcelAreaMutation.mutateAsync({
         address: project.address,
         municipality: selectedMunicipalityId,
       });
+      // A response for a previous project/address/municipality cannot restore its city area.
+      if (currentParcelContext.current !== requestedContext) return;
       if ('error' in result) {
-        toast.info("No city lot-area data available for this address — enter dimensions manually");
-        setFetchedParcelArea(null);
+        const message = updateCityArea({ type: 'failure', ambiguous: 'ambiguous' in result && result.ambiguous === true });
+        if (message) toast.info(message);
       } else {
-        setFetchedParcelArea(result);
+        updateCityArea({ type: 'success', area: result });
       }
     } catch {
-      toast.error("Lot area lookup failed");
+      if (currentParcelContext.current !== requestedContext) return;
+      const message = updateCityArea({ type: 'failure', thrown: true });
+      if (message) toast.error(message);
     } finally {
       setIsFetchingParcelArea(false);
     }
@@ -671,7 +700,7 @@ export function SetbackDiagramGenerator() {
                     <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
                       <div>City records ({fetchedParcelArea.source}): {fetchedParcelArea.lotAreaSqm} m² for {fetchedParcelArea.confirmedAddress ?? 'confirmed address'}</div>
                       <div className="mt-2 flex gap-2">
-                        <Button type="button" size="sm" onClick={() => setLotAreaOverrideSqm(fetchedParcelArea.lotAreaSqm)}>Apply</Button>
+                        <Button type="button" size="sm" onClick={() => updateCityArea({ type: 'apply' })}>Apply</Button>
                         <Button type="button" size="sm" variant="ghost" onClick={() => setFetchedParcelArea(null)}>Dismiss</Button>
                       </div>
                     </div>
