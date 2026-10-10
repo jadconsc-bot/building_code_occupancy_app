@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { discoverCalgaryParcels, groupDiscoveryRows, type DiscoveryRow, type PublishedMultiPolygon } from './parcelDiscoveryService';
+import { normalizeCalgaryAddress } from './parcelAreaLookupService';
+
+vi.mock('./parcelAreaLookupService', async importOriginal => {
+  const actual = await importOriginal<typeof import('./parcelAreaLookupService')>();
+  return { ...actual, normalizeCalgaryAddress: vi.fn(actual.normalizeCalgaryAddress) };
+});
 
 const boundary: PublishedMultiPolygon = { type: 'MultiPolygon', coordinates: [[[[-114, 51], [-114.001, 51], [-114, 51.001], [-114, 51]]]] };
 const house: DiscoveryRow = {
@@ -82,11 +88,32 @@ describe('parcel discovery grouping (no network or DB)', () => {
     expect(result.counts).toEqual({ rows: 1, accounts: 1, parcels: 1 });
     expect(result.accounts[0].viaSharedParcel).toBe(false);
   });
+
+  it('retains parcels but creates no accounts for two empty or missing roll numbers', () => {
+    const result = group([{ ...house, roll_number: '' }, { ...house, roll_number: undefined, cpid: '100170856' }]);
+    expect(result.counts).toEqual({ rows: 2, accounts: 0, parcels: 2 });
+    expect(result.accounts).toEqual([]);
+    expect(result.parcels.map(p => p.accountRollNumbers)).toEqual([[], []]);
+    expect(result.warnings).toContain('2 rows without a roll number were ignored for accounts');
+  });
+
+  it('treats a whitespace-only roll number as missing without merging it into an account', () => {
+    const result = group([{ ...house, roll_number: '   ' }, house]);
+    expect(result.counts.accounts).toBe(1);
+    expect(result.warnings).toContain('1 rows without a roll number were ignored for accounts');
+  });
+
+  it('does not warn when identical geometry keys are published in a different order', () => {
+    const reordered: PublishedMultiPolygon = { coordinates: boundary.coordinates, type: 'MultiPolygon' };
+    const result = group([house, { ...house, multipolygon: reordered }]);
+    expect(result.parcels[0].geometry).toEqual(boundary);
+    expect(result.warnings.some(w => w.includes('geometries differed'))).toBe(false);
+  });
 });
 
 describe('parcel discovery queries (mock fetch; no network or DB)', () => {
   beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock); });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it('queries a house with the exact selected fields and one CPID expansion', async () => {
     respond([house]); respond([house]);
@@ -97,6 +124,9 @@ describe('parcel discovery queries (mock fetch; no network or DB)', () => {
     expect(url.searchParams.get('$limit')).toBe('200');
     expect(url.searchParams.get('$where')).toBe("upper(address) = '132 CORAL SHORES CA NE' OR upper(address) like '% 132 CORAL SHORES CA NE'");
     expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where')).toBe("cpid in ('100570855')");
+    for (const call of fetchMock.mock.calls) {
+      expect(new URL(String(call[0])).searchParams.get('$order')).toBe('address,roll_number,cpid');
+    }
   });
 
   it.each([
@@ -169,7 +199,7 @@ describe('parcel discovery queries (mock fetch; no network or DB)', () => {
   });
 
   it('quote-escapes and URL-encodes both queries while removing input wildcards', async () => {
-    const row = { ...house, address: "100 O'BRIEN RD SE", cpid: "00'12%_" };
+    const row = { ...house, address: "100 O'BRIEN RD SE", cpid: '00-12' };
     respond([row]); respond([row]);
     await discover("100 O'%_Brien Road SE");
     const first = new URL(String(fetchMock.mock.calls[0][0]));
@@ -177,15 +207,56 @@ describe('parcel discovery queries (mock fetch; no network or DB)', () => {
     expect(first.searchParams.get('$where')!.match(/%/g)).toHaveLength(1);
     expect(first.searchParams.get('$where')).not.toContain('_');
     const second = new URL(String(fetchMock.mock.calls[1][0]));
-    expect(second.searchParams.get('$where')).toBe("cpid in ('00''12%_')");
-    // CPID identifiers are preserved; IN uses literal equality, never LIKE wildcards.
+    expect(second.searchParams.get('$where')).toBe("cpid in ('00-12')");
     expect(second.toString()).toContain('%27');
   });
 
   it.each(['http', 'network', 'expansion'])('returns null on %s failure without logging dataset rows', async failure => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     if (failure === 'expansion') respond([house]);
-    if (failure === 'http') fetchMock.mockResolvedValueOnce({ ok: false } as Response);
+    if (failure === 'http') fetchMock.mockResolvedValueOnce({ ok: false, status: 500 } as Response);
     else fetchMock.mockRejectedValueOnce(new Error('failure'));
     expect(await discoverCalgaryParcels('132 Coral Shores CA NE')).toBeNull();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(failure === 'http' ? 'http_500' : 'network_error');
+  });
+
+  it.each([
+    ['132 CORAL% SHORES CA NE', 'NE'],
+    ['132 CORAL_SHORES CA NE', 'NE'],
+    ['132 CORAL SHORES CA N%', 'N%'],
+    ['132 CORAL SHORES CA N_', 'N_'],
+  ])('rejects wildcards left after normalization: %s', async (normalized, quadrant) => {
+    // Simulate a future normalizer regression without changing the real normalizer.
+    vi.mocked(normalizeCalgaryAddress).mockReturnValueOnce({ normalized, quadrant });
+    expect(await discoverCalgaryParcels('132 Coral Shores CA NE')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["00'12", '00 12', '00%12', '00_12', '123456789012345678901'])('skips invalid CPID %s and avoids expansion if it is the only identifier', async cpid => {
+    respond([{ ...house, cpid }]);
+    const result = await discover('132 Coral Shores CA NE');
+    expect(result.counts).toEqual({ rows: 1, accounts: 1, parcels: 1 });
+    expect(result.parcels[0].cpid).toBe(cpid);
+    expect(result.warnings).toContain(`Parcel ${cpid} was skipped for expansion because its identifier format is invalid.`);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('expands only valid CPIDs when the matched set also contains invalid identifiers', async () => {
+    respond([house, { ...house, cpid: "bad'id" }]); respond([house]);
+    const result = await discover('132 Coral Shores CA NE');
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get('$where')).toBe("cpid in ('100570855')");
+    expect(result.warnings).toContain("Parcel bad'id was skipped for expansion because its identifier format is invalid.");
+  });
+
+  it.each(['timeout', 'http_500', 'parse_error', 'network_error'])('logs one category-only line for %s and returns null', async category => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const privateDetail = `132 CORAL SHORES CA NE $where 507123305 ${JSON.stringify(boundary.coordinates)}`;
+    if (category === 'http_500') fetchMock.mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+    else if (category === 'parse_error') fetchMock.mockResolvedValueOnce({ ok: true, json: async () => { throw new SyntaxError(privateDetail); } } as unknown as Response);
+    else fetchMock.mockRejectedValueOnce(category === 'timeout' ? new DOMException(privateDetail, 'TimeoutError') : new Error(privateDetail));
+    expect(await discoverCalgaryParcels('132 Coral Shores CA NE')).toBeNull();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(category);
+    const logged = warn.mock.calls.flat().join(' ');
+    for (const value of ['132 CORAL SHORES CA NE', '$where', '507123305', JSON.stringify(boundary.coordinates)]) expect(logged).not.toContain(value);
   });
 });

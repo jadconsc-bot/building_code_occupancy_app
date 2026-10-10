@@ -65,6 +65,10 @@ export interface ParcelDiscoveryResult {
 
 const SELECT = 'roll_year,roll_number,address,assessment_class,assessment_class_description,land_use_designation,land_size_sm,short_legal,cpid,mod_date,multipolygon';
 const LIMIT = 200;
+const VALID_CPID = /^[0-9A-Za-z-]{1,20}$/;
+class DiscoveryRequestError extends Error {
+  constructor(readonly category: 'parse_error' | `http_${number}`) { super(category); }
+}
 const quote = (value: string) => value.replace(/'/g, "''");
 const numeric = (value: string | undefined): number | null => {
   if (value == null || value.trim() === '') return null;
@@ -106,25 +110,30 @@ export function groupDiscoveryRows(
   if (truncated) warnings.add('Results were truncated at the 200-row cap; the candidate set may be incomplete.');
   if (!quadrantSupplied) warnings.add('No quadrant was supplied; candidates may span several quadrants.');
   if ([...rows.values()].some(({ matched }) => !matched)) warnings.add('Additional accounts were found via shared-parcel expansion.');
+  let missingRollRows = 0;
 
   for (const { row, matched } of rows.values()) {
-    const roll = row.roll_number ?? '';
+    const roll = row.roll_number?.trim() ? row.roll_number : undefined;
     const cpid = row.cpid?.trim() ? row.cpid : undefined;
     const area = numeric(row.land_size_sm);
-    let account = accounts.get(roll);
-    if (!account) {
-      account = {
-        rollNumber: roll, address: row.address ?? '', assessmentClass: row.assessment_class ?? null,
-        rollYear: numeric(row.roll_year), landSizeSqm: area, cpids: [], viaSharedParcel: !matched,
-      };
-      accounts.set(roll, account);
-      areas.set(roll, new Set());
+    if (roll) {
+      let account = accounts.get(roll);
+      if (!account) {
+        account = {
+          rollNumber: roll, address: row.address ?? '', assessmentClass: row.assessment_class ?? null,
+          rollYear: numeric(row.roll_year), landSizeSqm: area, cpids: [], viaSharedParcel: !matched,
+        };
+        accounts.set(roll, account);
+        areas.set(roll, new Set());
+      }
+      if (matched) account.viaSharedParcel = false;
+      areas.get(roll)!.add(area);
+      add(account.cpids, cpid);
+    } else {
+      missingRollRows++;
     }
-    if (matched) account.viaSharedParcel = false;
-    areas.get(roll)!.add(area);
-    add(account.cpids, cpid);
     if (!cpid) {
-      warnings.add(`Account ${roll} has no parcel identifier.`);
+      if (roll) warnings.add(`Account ${roll} has no parcel identifier.`);
       continue;
     }
     let parcel = parcels.get(cpid);
@@ -136,16 +145,18 @@ export function groupDiscoveryRows(
       parcels.set(cpid, parcel);
     } else if (row.multipolygon) {
       if (!parcel.geometry) parcel.geometry = row.multipolygon;
-      else if (JSON.stringify(parcel.geometry) !== JSON.stringify(row.multipolygon)) {
+      else if (parcel.geometry.type !== row.multipolygon.type ||
+        JSON.stringify(parcel.geometry.coordinates) !== JSON.stringify(row.multipolygon.coordinates)) {
         warnings.add(`Parcel ${cpid} geometries differed; the first published boundary was retained.`);
       }
     }
     parcel.matchedRequestedAddress ||= matched;
     add(parcel.landUseDesignations, row.land_use_designation);
     add(parcel.shortLegals, row.short_legal);
-    add(parcel.accountRollNumbers, row.roll_number);
+    add(parcel.accountRollNumbers, roll);
     add(parcel.addresses, row.address);
   }
+  if (missingRollRows) warnings.add(`${missingRollRows} rows without a roll number were ignored for accounts`);
   for (const account of accounts.values()) {
     if (account.cpids.length > 1) warnings.add(`Account ${account.rollNumber} spans multiple CPIDs; its land area is not additive.`);
     const values = [...areas.get(account.rollNumber)!];
@@ -169,16 +180,22 @@ export function groupDiscoveryRows(
 }
 
 async function fetchRows(where: string): Promise<DiscoveryRow[]> {
-  const url = `https://data.calgary.ca/resource/4bsw-nn7w.json?${new URLSearchParams({ $select: SELECT, $where: where, $limit: String(LIMIT) })}`;
+  const url = `https://data.calgary.ca/resource/4bsw-nn7w.json?${new URLSearchParams({ $select: SELECT, $where: where, $limit: String(LIMIT), $order: 'address,roll_number,cpid' })}`;
   const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error('Public dataset request failed');
-  return await response.json() as DiscoveryRow[];
+  if (!response.ok) throw new DiscoveryRequestError(`http_${response.status}`);
+  try {
+    return await response.json() as DiscoveryRow[];
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new DiscoveryRequestError('parse_error');
+    throw error;
+  }
 }
 
 export async function discoverCalgaryParcels(address: string): Promise<ParcelDiscoveryResult | { status: 'no_data' } | null> {
   try {
     const { normalized, quadrant } = normalizeCalgaryAddress(address);
     const key = quadrant ? normalized.slice(0, -quadrant.length).trimEnd() : normalized;
+    if (/[%_]/.test(key) || /[%_]/.test(quadrant ?? '')) return null;
     const escaped = quote(key);
     const where = quadrant
       ? `upper(address) = '${escaped} ${quadrant}' OR upper(address) like '% ${escaped} ${quadrant}'`
@@ -186,12 +203,20 @@ export async function discoverCalgaryParcels(address: string): Promise<ParcelDis
     const raw = await fetchRows(where);
     const matched = raw.filter(row => matchesDiscoveryAddress(row.address ?? '', key, quadrant));
     if (!matched.length) return { status: 'no_data' };
-    const cpids = [...new Set(matched.map(row => row.cpid).filter((cpid): cpid is string => Boolean(cpid?.trim())))];
+    const publishedCpids = [...new Set(matched.map(row => row.cpid).filter((cpid): cpid is string => Boolean(cpid?.trim())))];
+    const cpids = publishedCpids.filter(cpid => VALID_CPID.test(cpid));
     const expanded = cpids.length ? await fetchRows(`cpid in (${cpids.map(cpid => `'${quote(cpid)}'`).join(',')})`) : [];
     // Only the CPIDs from the address query are eligible: no recursive or roll-number expansion.
-    return groupDiscoveryRows(matched, expanded.filter(row => cpids.includes(row.cpid ?? '')),
+    const result = groupDiscoveryRows(matched, expanded.filter(row => cpids.includes(row.cpid ?? '')),
       normalized, Boolean(quadrant), raw.length >= LIMIT || expanded.length >= LIMIT);
-  } catch {
+    for (const cpid of publishedCpids.filter(cpid => !VALID_CPID.test(cpid))) {
+      result.warnings.push(`Parcel ${cpid} was skipped for expansion because its identifier format is invalid.`);
+    }
+    return result;
+  } catch (error) {
+    const category = error instanceof DiscoveryRequestError ? error.category
+      : error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'network_error';
+    console.warn(category);
     return null;
   }
 }
