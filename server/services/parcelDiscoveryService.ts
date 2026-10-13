@@ -67,7 +67,7 @@ const SELECT = 'roll_year,roll_number,address,assessment_class,assessment_class_
 const LIMIT = 200;
 const VALID_CPID = /^[0-9A-Za-z-]{1,20}$/;
 class DiscoveryRequestError extends Error {
-  constructor(readonly category: 'parse_error' | `http_${number}`) { super(category); }
+  constructor(readonly category: 'parse_error' | 'timeout' | 'network_error' | `http_${number}`) { super(category); }
 }
 const quote = (value: string) => value.replace(/'/g, "''");
 const numeric = (value: string | undefined): number | null => {
@@ -113,7 +113,7 @@ export function groupDiscoveryRows(
   let missingRollRows = 0;
 
   for (const { row, matched } of rows.values()) {
-    const roll = row.roll_number?.trim() ? row.roll_number : undefined;
+    const roll = row.roll_number?.trim() || undefined;
     const cpid = row.cpid?.trim() ? row.cpid : undefined;
     const area = numeric(row.land_size_sm);
     if (roll) {
@@ -153,7 +153,7 @@ export function groupDiscoveryRows(
     parcel.matchedRequestedAddress ||= matched;
     add(parcel.landUseDesignations, row.land_use_designation);
     add(parcel.shortLegals, row.short_legal);
-    add(parcel.accountRollNumbers, roll);
+    if (roll) add(parcel.accountRollNumbers, roll);
     add(parcel.addresses, row.address);
   }
   if (missingRollRows) warnings.add(`${missingRollRows} rows without a roll number were ignored for accounts`);
@@ -181,13 +181,19 @@ export function groupDiscoveryRows(
 
 async function fetchRows(where: string): Promise<DiscoveryRow[]> {
   const url = `https://data.calgary.ca/resource/4bsw-nn7w.json?${new URLSearchParams({ $select: SELECT, $where: where, $limit: String(LIMIT), $order: 'address,roll_number,cpid' })}`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new DiscoveryRequestError(`http_${response.status}`);
   try {
-    return await response.json() as DiscoveryRow[];
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new DiscoveryRequestError(`http_${response.status}`);
+    try {
+      return await response.json() as DiscoveryRow[];
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new DiscoveryRequestError('parse_error');
+      throw error;
+    }
   } catch (error) {
-    if (error instanceof SyntaxError) throw new DiscoveryRequestError('parse_error');
-    throw error;
+    if (error instanceof DiscoveryRequestError) throw error;
+    throw new DiscoveryRequestError(error instanceof Error &&
+      (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'network_error');
   }
 }
 
@@ -214,8 +220,7 @@ export async function discoverCalgaryParcels(address: string): Promise<ParcelDis
     }
     return result;
   } catch (error) {
-    const category = error instanceof DiscoveryRequestError ? error.category
-      : error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'network_error';
+    const category = error instanceof DiscoveryRequestError ? error.category : 'internal_error';
     console.warn(category);
     return null;
   }

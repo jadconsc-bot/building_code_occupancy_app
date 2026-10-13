@@ -24,6 +24,18 @@ const discover = async (address: string) => {
 };
 
 describe('parcel discovery grouping (no network or DB)', () => {
+  it('serializes blank-roll parcel accounts as an empty array without null or undefined', () => {
+    const result = group([{ ...house, roll_number: '  ' }]);
+    expect(result.parcels[0].accountRollNumbers).toEqual([]);
+    expect(JSON.parse(JSON.stringify(result)).parcels[0].accountRollNumbers).toEqual([]);
+  });
+
+  it('keys accounts and parcel roll numbers by the trimmed roll number', () => {
+    const result = group([{ ...house, roll_number: ' 123' }, { ...house, roll_number: '123' }]);
+    expect(result.counts.accounts).toBe(1);
+    expect(result.accounts[0].rollNumber).toBe('123');
+    expect(result.parcels[0].accountRollNumbers).toEqual(['123']);
+  });
   it('groups a house as one parcel and one account, preserving raw zoning and identifiers', () => {
     const result = group([house]);
     expect(result.counts).toEqual({ rows: 1, accounts: 1, parcels: 1 });
@@ -114,6 +126,21 @@ describe('parcel discovery grouping (no network or DB)', () => {
 describe('parcel discovery queries (mock fetch; no network or DB)', () => {
   beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock); });
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it('logs internal_error for malformed data throwing inside grouping', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    respond([{ ...house, land_size_sm: 654.4 } as unknown as DiscoveryRow]); respond([house]);
+    expect(await discoverCalgaryParcels('132 Coral Shores CA NE')).toBeNull();
+    expect(warn).toHaveBeenCalledExactlyOnceWith('internal_error');
+  });
+
+  it('logs internal_error when normalization throws without fetching', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(normalizeCalgaryAddress).mockImplementationOnce(() => { throw new Error('internal detail'); });
+    expect(await discoverCalgaryParcels('132 Coral Shores CA NE')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledExactlyOnceWith('internal_error');
+  });
 
   it('queries a house with the exact selected fields and one CPID expansion', async () => {
     respond([house]); respond([house]);
