@@ -52,6 +52,7 @@ export function formatSqm(area: number | null | undefined): string {
   if (area == null || !Number.isFinite(area)) return '—';
   // toFixed fixes the decimal precision; separators are inserted without locale APIs.
   let fixed = area.toFixed(1);
+  if (fixed === '-0.0') fixed = '0.0';
   if (/[eE]/.test(fixed)) {
     const [coefficient, exponent] = fixed.toLowerCase().split('e');
     const digits = coefficient.replace('.', '');
@@ -114,14 +115,18 @@ export function parcelCandidatesReducer(state: ParcelCandidatesState, event: Par
   return { ...state, selectedRollNumbers: event.rollNumber == null ? [] : [event.rollNumber] };
 }
 
-export function applyEligibility(state: ParcelCandidatesState): { allowed: boolean; missingCpids: string[]; warning: string | null } {
-  if (state.status !== 'ok' || state.data.truncated || state.selectedRollNumbers.length !== 1) return { allowed: false, missingCpids: [], warning: null };
+export function applyEligibility(state: ParcelCandidatesState): { allowed: boolean; missingCpids: string[]; warning: string | null; reason: string | null } {
+  if (state.status !== 'ok' || state.data.truncated || state.selectedRollNumbers.length !== 1) return { allowed: false, missingCpids: [], warning: null, reason: null };
   const account = state.data.accounts.find(a => a.rollNumber === state.selectedRollNumbers[0]);
-  if (!account || account.landSizeSqm == null || !Number.isFinite(account.landSizeSqm) || account.landSizeSqm <= 0) return { allowed: false, missingCpids: [], warning: null };
+  if (!account) return { allowed: false, missingCpids: [], warning: null, reason: null };
+  if (account.landSizeSqm == null || !Number.isFinite(account.landSizeSqm) || account.landSizeSqm <= 0) {
+    return { allowed: false, missingCpids: [], warning: null, reason: 'Selected account has no usable assessed land area.' };
+  }
   const missingCpids = [...new Set(account.cpids.filter(c => !state.selectedCpids.includes(c)))].sort(compareCodeUnits);
   return {
     allowed: missingCpids.length === 0,
     missingCpids,
+    reason: null,
     warning: missingCpids.length ? `Tick all parcels of this account (${missingCpids.length} missing)`
       : account.cpids.length === 0 ? 'This account has no parcel identifier.' : null,
   };
@@ -142,8 +147,11 @@ export function getApplyPayload(state: ParcelCandidatesState): AppliedParcelArea
 type Ring = number[][];
 function geometryRings(geometry: ParcelGeometry | null): Ring[] {
   if (!geometry) return [];
-  const rings = geometry.type === 'Polygon' ? geometry.coordinates : geometry.coordinates.flat();
-  return rings.filter(ring => ring.length >= 3 && ring.every(point => point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])));
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  const validRing = (ring: Ring | undefined): ring is Ring => Array.isArray(ring)
+    && ring.length >= 3 && ring.every(point => Array.isArray(point) && point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]));
+  // Never promote a surviving hole to an outer boundary. Validate each polygon first.
+  return polygons.flatMap(polygon => validRing(polygon[0]) ? polygon.filter(validRing) : []);
 }
 
 export interface ParcelOutline { cpid: string; path: string }

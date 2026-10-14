@@ -50,6 +50,7 @@ describe('parcel candidate deterministic presentation', () => {
 
   it.each([
     [0, '0.0'], [654.4, '654.4'], [23044.9, '23,044.9'], [1234567.89, '1,234,567.9'],
+    [-0, '0.0'], [-0.01, '0.0'], [-0.049, '0.0'], [-0.05, '-0.1'],
     [-1234.5, '-1,234.5'], [1e21, '1,000,000,000,000,000,000,000.0'],
     [null, '—'], [undefined, '—'], [NaN, '—'], [Infinity, '—'],
   ])('formats %s as the fixed locale-free string %s', (input, expected) => expect(formatSqm(input)).toBe(expected));
@@ -83,7 +84,27 @@ describe('parcel candidate apply eligibility: one account, never an area total',
     const all = chosen(data);
     expect(canApply(all)).toBe(true);
     expect(canApply({ ...all, selectedCpids: all.selectedCpids.slice(1) })).toBe(false);
-    expect(applyEligibility({ ...all, selectedCpids: [] })).toEqual({ allowed: false, missingCpids: [...data.accounts[0].cpids].sort(compareCodeUnits), warning: `Tick all parcels of this account (${data.accounts[0].cpids.length} missing)` });
+    expect(applyEligibility({ ...all, selectedCpids: [] })).toEqual({ allowed: false, missingCpids: [...data.accounts[0].cpids].sort(compareCodeUnits), warning: `Tick all parcels of this account (${data.accounts[0].cpids.length} missing)`, reason: null });
+  });
+
+  it('reports exactly 2 missing CPIDs when the Macleod account is partly ticked', () => {
+    const data = successes.find(f => f.name === 'macleod')!.response;
+    const all = chosen(data);
+    expect(applyEligibility({ ...all, selectedCpids: all.selectedCpids.slice(2) })).toEqual({
+      allowed: false, missingCpids: all.selectedCpids.slice(0, 2).sort(compareCodeUnits),
+      warning: 'Tick all parcels of this account (2 missing)', reason: null,
+    });
+  });
+
+  it('ticking a parcel outside the chosen account leaves its exact apply payload unchanged', () => {
+    const data = { ...house, parcels: [...house.parcels, { ...house.parcels[0], cpid: 'outside-account' }] };
+    const state = chosen(data);
+    const payload = getApplyPayload(state);
+    const extra = parcelCandidatesReducer(state, { type: 'parcel', cpid: 'outside-account', checked: true });
+    expect(extra.selectedCpids).toContain('outside-account');
+    expect(canApply(extra)).toBe(true);
+    expect(getApplyPayload(extra)).toEqual(payload);
+    expect(getApplyPayload(extra)?.cpids).toEqual(house.accounts[0].cpids);
   });
 
   it.each(['idle', 'loading', 'no_data', 'unsupported', 'error'] as const)('blocks Apply in %s', status => {
@@ -104,12 +125,15 @@ describe('parcel candidate apply eligibility: one account, never an area total',
   });
 
   it.each([0, -1, NaN, Infinity, null])('blocks unusable account area %s', landSizeSqm => {
-    expect(canApply(chosen({ ...house, accounts: [{ ...house.accounts[0], landSizeSqm }] }))).toBe(false);
+    const state = chosen({ ...house, accounts: [{ ...house.accounts[0], landSizeSqm }] });
+    expect(canApply(state)).toBe(false);
+    expect(applyEligibility(state).reason).toBe('Selected account has no usable assessed land area.');
+    expect(getApplyPayload(state)).toBeNull();
   });
 
   it('allows an account without CPIDs only with the explicit missing-identifier warning', () => {
     const data = { ...house, accounts: [{ ...house.accounts[0], cpids: [] }] };
-    expect(applyEligibility(chosen(data))).toEqual({ allowed: true, missingCpids: [], warning: 'This account has no parcel identifier.' });
+    expect(applyEligibility(chosen(data))).toEqual({ allowed: true, missingCpids: [], warning: 'This account has no parcel identifier.', reason: null });
   });
 
   it.each(successes)('returns only the chosen account area and exact provenance for $name, never combined areas', ({ response }) => {
@@ -225,6 +249,33 @@ describe('parcel outline golden fixtures and deterministic output', () => {
     expect(parcelOutlines([{ ...parcel, geometry: { type: 'Polygon', coordinates: [outer, hole] } }])).toEqual(parcelOutlines([parcel]));
   });
 
+  it('uses cosine scaling near latitude 51 with a hand-calculated outline', () => {
+    // Center latitude = 51 degrees: cos(51°) = 0.6293203910498375.
+    // Height 0.01° fixes scale to 21600; width = 135.933204... px.
+    // Centered x = 92.033397... / 227.966602..., rounded to 92 / 228.
+    const parcel: CandidateParcel = { ...house.parcels[0], geometry: { type: 'Polygon', coordinates: [
+      [[-114, 50.995], [-113.99, 50.995], [-113.99, 51.005], [-114, 51.005], [-114, 50.995]],
+    ] } };
+    expect(parcelOutlines([parcel])[0].path).toBe('M92,228 L228,228 L228,12 L92,12 L92,228 Z');
+  });
+
+  it('drops a polygon with an invalid outer ring rather than drawing its valid hole', () => {
+    const hole = [[0.002, 0.002], [0.008, 0.002], [0.008, 0.008], [0.002, 0.002]];
+    for (const outer of [[], [[0, 0], [0.01, 0.01]], [[NaN, 0], [1, 1], [0, 0]]]) {
+      const parcel: CandidateParcel = { ...house.parcels[0], geometry: { type: 'Polygon', coordinates: [outer, hole] } };
+      expect(parcelOutlines([parcel])).toEqual([{ cpid: parcel.cpid, path: '' }]);
+    }
+  });
+
+  it('drops only the invalid polygon of a MultiPolygon, retaining the other outer ring and hole', () => {
+    const outer = [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01], [0, 0]];
+    const hole = [[0.002, 0.002], [0.008, 0.002], [0.008, 0.008], [0.002, 0.002]];
+    const base = house.parcels[0];
+    const valid: CandidateParcel = { ...base, geometry: { type: 'MultiPolygon', coordinates: [[outer, hole]] } };
+    const withInvalid: CandidateParcel = { ...base, geometry: { type: 'MultiPolygon', coordinates: [[[], hole], [outer, hole]] } };
+    expect(parcelOutlines([withInvalid])).toEqual(parcelOutlines([valid]));
+  });
+
   it('uses shared bounds for different parcels and a finite centered path for degenerate points', () => {
     const base = house.parcels[0];
     const rows: CandidateParcel[] = [
@@ -239,8 +290,17 @@ describe('parcel outline golden fixtures and deterministic output', () => {
   });
 
   it('keeps recorded metadata and raw per-account areas instead of estimating missing data', () => {
-    for (const { response } of successes) {
-      expect(response.counts).toEqual({ rows: response.counts.rows, accounts: response.accounts.length, parcels: response.parcels.length });
+    // Literal values independently recorded in the fixture README, not derived from the response under test.
+    const recordedCounts: Record<string, { rows: number; accounts: number; parcels: number }> = {
+      'coral-shores': { rows: 1, accounts: 1, parcels: 1 },
+      mcdougall: { rows: 2, accounts: 2, parcels: 1 },
+      macleod: { rows: 18, accounts: 1, parcels: 18 },
+      'auburn-bay': { rows: 96, accounts: 96, parcels: 1 },
+    };
+    for (const { name, response } of successes) {
+      expect(response.counts).toEqual(recordedCounts[name]);
+      expect(response.accounts).toHaveLength(recordedCounts[name].accounts);
+      expect(response.parcels).toHaveLength(recordedCounts[name].parcels);
       expect(response.areaSemantics).toBe('assessment_account_land_area_not_additive');
       expect(response.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     }
