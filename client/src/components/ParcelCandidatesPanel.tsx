@@ -47,6 +47,8 @@ export function ParcelCandidatesPanel({
   const sequence = useRef(0);
   const id = useId();
   const supported = isCalgary(municipality);
+  const selectedMunicipality = municipality?.trim() || "not selected";
+  const gateMessage = `Parcel search is available for Calgary only. Selected municipality: ${selectedMunicipality}. Enter or confirm the lot area manually.`;
 
   useEffect(() => {
     setAddress(searchAddressChoice(projectAddress, extractedAddress).address);
@@ -60,7 +62,8 @@ export function ParcelCandidatesPanel({
 
   async function search(event: React.FormEvent) {
     event.preventDefault();
-    if (!supported || address.trim().length < 5) return;
+    if (!supported || state.status === "loading" || address.trim().length < 5)
+      return;
     const requestId = ++sequence.current;
     dispatch({
       type: "search",
@@ -80,18 +83,26 @@ export function ParcelCandidatesPanel({
 
   const eligibility = applyEligibility(state);
   const data = state.status === "ok" ? state.data : null;
+  const searchMessage =
+    !supported || state.status === "unsupported"
+      ? gateMessage
+      : state.status === "no_data"
+        ? "No parcel candidates found. Enter or confirm the lot area manually."
+        : state.status === "error"
+          ? PARCEL_UNAVAILABLE_MESSAGE
+          : null;
   const reason = !supported
-    ? "Parcel search is available for Calgary only. Enter or confirm the lot area manually."
+    ? "Search is unavailable for the selected municipality."
     : state.status === "idle"
       ? "Search for an address, then select one assessment account."
       : state.status === "loading"
         ? "Wait for the parcel search to finish."
         : state.status === "no_data"
-          ? "No parcel candidates found. Enter or confirm the lot area manually."
+          ? "No results to apply. Enter or confirm the lot area manually."
           : state.status === "unsupported"
-            ? "Parcel search is available for Calgary only. Enter or confirm the lot area manually."
+            ? "Search is unavailable for the selected municipality."
             : state.status === "error"
-              ? PARCEL_UNAVAILABLE_MESSAGE
+              ? "No results to apply. Retry the search or enter the lot area manually."
               : data?.truncated
                 ? "Results are incomplete. Refine the address before applying an area."
                 : (eligibility.reason ??
@@ -110,6 +121,11 @@ export function ParcelCandidatesPanel({
       "h3",
       { id: `${id}-title`, className: "font-semibold" },
       "Parcel candidates"
+    ),
+    React.createElement(
+      "p",
+      { className: "text-sm font-medium" },
+      "Indicative public data · Not saved"
     ),
     React.createElement(
       "p",
@@ -137,19 +153,41 @@ export function ParcelCandidatesPanel({
         "button",
         {
           type: "submit",
-          disabled: !supported || address.trim().length < 5,
+          disabled:
+            !supported ||
+            state.status === "loading" ||
+            address.trim().length < 5,
           className: "rounded border px-3 py-2 disabled:opacity-50",
         },
         "Search parcels"
       )
     ),
+    searchMessage &&
+      React.createElement(
+        "p",
+        { role: "status", className: "text-sm", id: `${id}-search-status` },
+        searchMessage
+      ),
     prefill.drawingAddress &&
       React.createElement(
         "p",
         { className: "text-sm" },
         "Drawing address differs: ",
         prefill.drawingAddress,
-        ". Check which address describes this site."
+        ". Check which address describes this site. ",
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            className: "rounded border px-2 py-1",
+            onClick: () => {
+              setAddress(prefill.drawingAddress!);
+              sequence.current += 1;
+              dispatch({ type: "reset" });
+            },
+          },
+          "Use this"
+        )
       ),
     React.createElement(
       "div",
@@ -168,9 +206,19 @@ export function ParcelCandidatesPanel({
           React.createElement(
             "p",
             { className: "text-sm" },
-            "Searched address: ",
+            "Results for ",
             state.address
           ),
+          data.truncated &&
+            React.createElement(
+              "p",
+              {
+                role: "alert",
+                className:
+                  "rounded border border-amber-500 bg-amber-50 p-2 text-sm text-amber-950",
+              },
+              "Truncated results — not all candidates are shown. Refine the address before applying an area."
+            ),
           React.createElement(
             "p",
             { className: "text-sm" },
@@ -222,7 +270,44 @@ export function ParcelCandidatesPanel({
                   },
                   React.createElement("title", null, "Parcel ", outline.cpid)
                 )
-              )
+              ),
+            React.createElement(
+              "g",
+              {
+                "aria-label": "North arrow",
+                stroke: "#334155",
+                fill: "#334155",
+              },
+              React.createElement("title", null, "North arrow"),
+              React.createElement(
+                "text",
+                {
+                  x: 296,
+                  y: 12,
+                  textAnchor: "middle",
+                  stroke: "none",
+                  fontSize: 10,
+                },
+                "N"
+              ),
+              React.createElement("line", {
+                x1: 296,
+                y1: 42,
+                x2: 296,
+                y2: 18,
+                strokeWidth: 1.5,
+              }),
+              React.createElement("polyline", {
+                points: "291,25 296,18 301,25",
+                fill: "none",
+                strokeWidth: 1.5,
+              })
+            )
+          ),
+          React.createElement(
+            "p",
+            { className: "text-sm text-muted-foreground" },
+            "Outline only, not to scale for design"
           ),
           React.createElement(
             "fieldset",
@@ -313,7 +398,7 @@ export function ParcelCandidatesPanel({
                   React.createElement(
                     React.Fragment,
                     null,
-                    " · Found via a shared parcel"
+                    " · via shared parcel"
                   )
               )
             )

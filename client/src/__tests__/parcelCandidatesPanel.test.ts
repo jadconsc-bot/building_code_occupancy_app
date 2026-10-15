@@ -135,7 +135,7 @@ describe("ParcelCandidatesPanel", () => {
     expect(apply().disabled).toBe(true);
     await act(async () => pending.resolve(house));
     expect(
-      screen.getByText("Searched address: Another address SE", { exact: false })
+      screen.getByText("Results for Another address SE", { exact: false })
     ).toBeTruthy();
   });
 
@@ -153,36 +153,42 @@ describe("ParcelCandidatesPanel", () => {
     expect(accounts()[0].checked).toBe(false);
     expect(parcels()[0].checked).toBe(false);
     expect(apply().disabled).toBe(true);
+    expect(screen.getByText("Indicative public data · Not saved")).toBeTruthy();
+    expect(
+      screen.getByText(`Results for ${house.query.normalized}`)
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Outline only, not to scale for design")
+    ).toBeTruthy();
+    const north = screen
+      .getByRole("img")
+      .querySelector('[aria-label="North arrow"]')!;
+    expect(north.querySelector("text")?.textContent).toBe("N");
+    expect(north.querySelector("line")?.getAttribute("y2")).toBe("18");
+    expect(north.querySelector("polyline")?.getAttribute("points")).toBe(
+      "291,25 296,18 301,25"
+    );
   });
 
-  it("renders deterministic outline paths with evenodd fill so interior rings remain holes", async () => {
-    const outer = [
-      [0, 0],
-      [1, 0],
-      [1, 1],
-      [0, 0],
-    ];
-    const hole = [
-      [0.2, 0.2],
-      [0.8, 0.2],
-      [0.8, 0.8],
-      [0.2, 0.2],
-    ];
-    const data: CandidateDiscovery = {
-      ...house,
-      parcels: [
-        {
-          ...house.parcels[0],
-          geometry: { type: "MultiPolygon", coordinates: [[outer, hole]] },
-        },
-      ],
-    };
-    setup({ discover: vi.fn().mockResolvedValue(data) });
+  it("matches the literal recorded golden outline path with evenodd fill", async () => {
+    setup();
     await loaded();
+    // Recorded coral-shores path from outline-paths.golden.json; do not regenerate it.
+    const expected =
+      "M278.8,60.3 L268,50.2 L258.9,38.6 L251.6,25.8 L246.5,12 L41.2,72 L48.8,94.6 L58,116.6 L68.9,137.8 L81.4,158.1 L95.4,177.4 L110.8,195.5 L127.7,212.4 L145.7,228 L278.8,60.3 Z";
+    const golden = JSON.parse(
+      readFileSync(
+        new NodeURL(
+          "./fixtures/parcelDiscovery/outline-paths.golden.json",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+    expect(golden["coral-shores"][0].path).toBe(expected);
     const path = screen.getByRole("img").querySelector("path")!;
     expect(path.getAttribute("fill-rule")).toBe("evenodd");
-    expect(path.getAttribute("d")).toBe(parcelOutlines(data.parcels)[0].path);
-    expect(path.getAttribute("d")?.match(/M/g)).toHaveLength(2);
+    expect(path.getAttribute("d")).toBe(expected);
   });
 
   it("shows a missing-boundary message without inventing an outline", async () => {
@@ -232,9 +238,20 @@ describe("ParcelCandidatesPanel", () => {
     const roll =
       accounts()[1].parentElement!.textContent!.match(/Account (\S+)/)![1];
     const account = data.accounts.find(a => a.rollNumber === roll)!;
-    expect(props.onApply).toHaveBeenCalledWith(
-      expect.objectContaining({ areaM2: account.landSizeSqm, rollNumber: roll })
-    );
+    expect(account.rollNumber).toBe("069501484");
+    expect(props.onApply).toHaveBeenCalledExactlyOnceWith({
+      areaM2: 386,
+      rollNumber: "069501484",
+      rollYear: 2026,
+      cpids: ["100565132"],
+      searchedAddress: "132 CORAL SHORES CA NE",
+      retrievedAt: "2026-10-14T04:09:19.466Z",
+      source: {
+        dataset: "4bsw-nn7w",
+        name: "Current Year Property Assessments (Parcel)",
+        licenceUrl: "https://data.calgary.ca/d/Open-Data-Terms/u45n-7awa",
+      },
+    });
   });
 
   it("keeps truncated results blocked with the reason beside disabled Apply", async () => {
@@ -250,6 +267,9 @@ describe("ParcelCandidatesPanel", () => {
     )!;
     expect(reason.textContent).toContain("Results are incomplete");
     expect(reason.parentElement).toBe(apply().parentElement);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Truncated results"
+    );
   });
 
   it("shows an unusable-area reason beside disabled Apply", async () => {
@@ -298,6 +318,11 @@ describe("ParcelCandidatesPanel", () => {
       setup({ discover: vi.fn().mockResolvedValue(reply) });
       search();
       await screen.findByText(message, { exact: false });
+      const nearSearch = screen.getByRole("status");
+      expect(nearSearch.textContent).toContain(message);
+      expect(
+        screen.getByRole("textbox").closest("form")!.nextElementSibling
+      ).toBe(nearSearch);
       expect(apply().disabled).toBe(true);
       expect(screen.queryByRole("radio")).toBeNull();
       expect(screen.queryByText("private backend error")).toBeNull();
@@ -400,7 +425,7 @@ describe("ParcelCandidatesPanel", () => {
     fireEvent.click(parcels()[0]);
     fireEvent.click(accounts()[0]);
     await act(async () => first.resolve({ status: "no_data" }));
-    expect(screen.getByText("Searched address: Newer address SE")).toBeTruthy();
+    expect(screen.getByText("Results for Newer address SE")).toBeTruthy();
     expect(accounts()[0].checked).toBe(true);
     expect(apply().disabled).toBe(false);
     expect(screen.queryByText(/No parcel candidates found/)).toBeNull();
@@ -416,6 +441,9 @@ describe("ParcelCandidatesPanel", () => {
         .mockReturnValueOnce(second.promise),
     });
     search();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Newer address SE" },
+    });
     search();
     await act(async () => first.reject(new Error("old failure")));
     expect(screen.getByRole("status")).toBeTruthy();
@@ -440,5 +468,168 @@ describe("ParcelCandidatesPanel", () => {
     expect(apply().disabled).toBe(true);
     fireEvent.submit(screen.getByRole("textbox").closest("form")!);
     expect(props.discover).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Search while loading and prevents a duplicate form submission", async () => {
+    const pending = deferred();
+    const { props } = setup({
+      discover: vi.fn().mockReturnValue(pending.promise),
+    });
+    search();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Search parcels",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
+    search();
+    fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(house));
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Search parcels",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false);
+  });
+
+  it("names the selected municipality in the visible gate near search", () => {
+    const { props } = setup({ municipality: "Edmonton" });
+    const message = screen.getByRole("status");
+    expect(message.textContent).toContain("Selected municipality: Edmonton.");
+    expect(
+      screen.getByRole("textbox").closest("form")!.nextElementSibling
+    ).toBe(message);
+    search();
+    expect(props.discover).not.toHaveBeenCalled();
+  });
+
+  it("Use this copies the drawing address, clears previous results and does not discover until Search", async () => {
+    const { props } = setup({ extractedAddress: "  Drawing address NE  " });
+    await loaded();
+    fireEvent.click(parcels()[0]);
+    fireEvent.click(accounts()[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Use this" }));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
+      "  Drawing address NE  "
+    );
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(apply().disabled).toBe(true);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+    search();
+    await screen.findAllByRole("radio");
+    expect(props.discover).toHaveBeenLastCalledWith({
+      address: "  Drawing address NE  ",
+      municipality: "Calgary",
+    });
+  });
+
+  it("remount via a changed key clears the edited address, results and all selections", async () => {
+    const { props, rerender } = setup();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Edited address SE" },
+    });
+    await loaded();
+    fireEvent.click(parcels()[0]);
+    fireEvent.click(accounts()[0]);
+    fireEvent.click(apply());
+    rerender(
+      React.createElement(ParcelCandidatesPanel, {
+        ...props,
+        key: "another-project",
+      })
+    );
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe(
+      house.query.normalized
+    );
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(apply().disabled).toBe(true);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+    await loaded();
+    expect(accounts()[0].checked).toBe(false);
+    expect(parcels()[0].checked).toBe(false);
+  });
+
+  it("ticking, choosing and applying make no further discover call", async () => {
+    const { props } = setup();
+    await loaded();
+    fireEvent.click(parcels()[0]);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+    fireEvent.click(accounts()[0]);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+    fireEvent.click(apply());
+    expect(props.onApply).toHaveBeenCalledTimes(1);
+    expect(props.discover).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["resolve", "reject"] as const)(
+    "unmount during a pending request changes no state on late %s",
+    async completion => {
+      const pending = deferred();
+      const props: ParcelCandidatesPanelProps = {
+        projectAddress: house.query.normalized,
+        municipality: "Calgary",
+        discover: vi.fn().mockReturnValue(pending.promise),
+        onApply: vi.fn(),
+      };
+      const onRender = vi.fn();
+      const { unmount, container } = render(
+        React.createElement(
+          React.Profiler,
+          { id: "panel", onRender },
+          React.createElement(ParcelCandidatesPanel, props)
+        )
+      );
+      search();
+      unmount();
+      const commits = onRender.mock.calls.length;
+      await act(async () => {
+        if (completion === "resolve") pending.resolve(house);
+        else pending.reject(new Error("Late failure"));
+      });
+      expect(container.childElementCount).toBe(0);
+      expect(onRender).toHaveBeenCalledTimes(commits);
+      expect(props.onApply).not.toHaveBeenCalled();
+      expect(props.discover).toHaveBeenCalledTimes(1);
+      // A subsequent mount cannot inherit the completed request's state.
+      render(React.createElement(ParcelCandidatesPanel, props));
+      expect(screen.queryByRole("radio")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(apply().disabled).toBe(true);
+    }
+  );
+
+  it("preserves interior rings with evenodd fill", async () => {
+    const outer = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 0],
+    ];
+    const hole = [
+      [0.2, 0.2],
+      [0.8, 0.2],
+      [0.8, 0.8],
+      [0.2, 0.2],
+    ];
+    const data: CandidateDiscovery = {
+      ...house,
+      parcels: [
+        {
+          ...house.parcels[0],
+          geometry: { type: "MultiPolygon", coordinates: [[outer, hole]] },
+        },
+      ],
+    };
+    setup({ discover: vi.fn().mockResolvedValue(data) });
+    await loaded();
+    const path = screen.getByRole("img").querySelector("path")!;
+    expect(path.getAttribute("fill-rule")).toBe("evenodd");
+    expect(path.getAttribute("d")?.match(/M/g)).toHaveLength(2);
   });
 });
