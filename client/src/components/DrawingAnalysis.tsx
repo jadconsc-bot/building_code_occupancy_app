@@ -127,6 +127,8 @@ import { CodeConflictsPanel } from '@/components/CodeConflictsPanel';
 import { CARLScorerPanel } from '@/components/CARLScorerPanel';
 import { BarrierFreePanel } from '@/components/BarrierFreePanel';
 import { OccupancyAdvisor } from '@/components/OccupancyAdvisor';
+import { ParcelCandidatesPanel, type ParcelCandidatesPanelProps } from '@/components/ParcelCandidatesPanel';
+import type { AppliedParcelArea } from '@/components/parcelCandidates';
 import { detectSharedWalls, type SharedWall } from '@/lib/ddaRayCast';
 import { summarizeDrawingForOccupancyAdvisor } from '@shared/occupancyAdvisorDrawingBridge';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
@@ -171,10 +173,19 @@ interface SitePlanResult {
 function SitePlanResultsPanel({
   data,
   onClose,
+  contextKey,
+  projectAddress,
+  municipality,
+  discover,
 }: {
   data: SitePlanResult | null;
   onClose: () => void;
+  contextKey: string;
+  projectAddress: string | null;
+  municipality: string;
+  discover: ParcelCandidatesPanelProps['discover'];
 }) {
+  const [appliedArea, setAppliedArea] = useState<AppliedParcelArea | null>(null);
   const measurement = (value: number | null | undefined, unit: string) =>
     value == null ? '—' : `${value} ${unit}`;
   const value = (item: string | number | null | undefined) => item ?? '—';
@@ -212,7 +223,14 @@ function SitePlanResultsPanel({
       <CardContent className="space-y-4 pt-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Section title="Parcel">
-            <ResultRow label="Site Area">{measurement(data?.parcelAreaM2, 'm²')}</ResultRow>
+            <ResultRow label="Site Area">
+              {measurement(appliedArea?.areaM2 ?? data?.parcelAreaM2, 'm²')}
+              {appliedArea && <>
+                <Badge variant="outline" className="ml-2">City record (applied, not saved)</Badge>
+                <span className="block text-xs text-muted-foreground">Site plan value: {measurement(data?.parcelAreaM2, 'm²')}</span>
+                <Button type="button" variant="link" size="sm" onClick={() => setAppliedArea(null)}>Use site-plan value</Button>
+              </>}
+            </ResultRow>
             <ResultRow label="Lot Width">{measurement(data?.parcelWidthM, 'm')}</ResultRow>
             <ResultRow label="Lot Depth">{measurement(data?.parcelDepthM, 'm')}</ResultRow>
           </Section>
@@ -228,6 +246,7 @@ function SitePlanResultsPanel({
             <ResultRow label="Footprint Area">{measurement(data?.buildingFootprintM2, 'm²')}</ResultRow>
             <ResultRow label="Lot Coverage">
               {data?.lotCoveragePct == null ? '— (could not determine)' : `${data.lotCoveragePct}%`}
+              {appliedArea && <span className="block text-xs text-muted-foreground">Coverage is based on the site-plan area</span>}
             </ResultRow>
             {coverageWarning && (
               <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
@@ -258,6 +277,14 @@ function SitePlanResultsPanel({
           </Section>
         </div>
 
+        <ParcelCandidatesPanel
+          key={contextKey}
+          projectAddress={projectAddress}
+          extractedAddress={data?.municipalAddress ?? null}
+          municipality={municipality}
+          discover={discover}
+          onApply={setAppliedArea}
+        />
         <p className="border-t pt-3 text-xs text-muted-foreground">
           Site plan data extracted by AI — verify all dimensions against stamped drawings before permit submission.
         </p>
@@ -1064,6 +1091,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const utils = trpc.useUtils();
   const extractContextMutation = trpc.drawingSetContext.extractContext.useMutation();
   const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
+  const discoverParcelsMutation = trpc.zoneLookup.discoverParcels.useMutation();
   const saveZoneMutation = trpc.zoneLookup.saveToProject.useMutation();
   const saveMeasuredWindowMutation = trpc.drawingAnalysis.saveMeasuredWindow.useMutation();
   const deleteMeasuredWindowMutation = trpc.drawingAnalysis.deleteMeasuredWindow.useMutation();
@@ -1144,6 +1172,10 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
     [projectListQuery.data, selectedProjectId],
   );
   const activeProjectAddress = activeProjectRecord?.address ?? project?.address ?? '';
+  const parcelProjectAddress = activeProjectRecord
+    ? activeProjectRecord.address ?? null
+    : project && project.id === activeProjectId ? project.address : null;
+  const contextKey = JSON.stringify([activeProjectId ?? null, analysisId, selectedMunicipalityId, parcelProjectAddress]);
 
   const { data: measuredWindowsData } = trpc.drawingAnalysis.getMeasuredWindows.useQuery(
     { projectId: activeProjectId ?? 0, pageId: currentPageId ?? 0 },
@@ -9882,8 +9914,13 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
               {showAiResults && aiResults && (
                 aiResults.drawingType === 'site_plan' ? (
                   <SitePlanResultsPanel
+                    key={contextKey}
                     data={aiResults.sitePlan ?? null}
                     onClose={() => setShowAiResults(false)}
+                    contextKey={contextKey}
+                    projectAddress={parcelProjectAddress}
+                    municipality={selectedMunicipalityId}
+                    discover={discoverParcelsMutation.mutateAsync}
                   />
                 ) : (
                 <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
