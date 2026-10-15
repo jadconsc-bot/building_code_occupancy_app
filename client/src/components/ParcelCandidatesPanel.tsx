@@ -83,6 +83,15 @@ export function ParcelCandidatesPanel({
 
   const eligibility = applyEligibility(state);
   const data = state.status === "ok" ? state.data : null;
+  const rollYears = data
+    ? [...new Set(data.accounts.map(account => account.rollYear))]
+        .sort(
+          (a, b) =>
+            (a ?? Number.MAX_SAFE_INTEGER) - (b ?? Number.MAX_SAFE_INTEGER)
+        )
+        .map(year => year ?? "unavailable")
+        .join(", ") || "unavailable"
+    : "unavailable";
   const searchMessage =
     !supported || state.status === "unsupported"
       ? gateMessage
@@ -125,7 +134,12 @@ export function ParcelCandidatesPanel({
     React.createElement(
       "p",
       { className: "text-sm font-medium" },
-      "Indicative public data · Not saved"
+      "Indicative public data, not a survey."
+    ),
+    React.createElement(
+      "span",
+      { className: "inline-block rounded border px-2 py-1 text-xs" },
+      "Not saved"
     ),
     React.createElement(
       "p",
@@ -204,10 +218,14 @@ export function ParcelCandidatesPanel({
           React.Fragment,
           null,
           React.createElement(
-            "p",
-            { className: "text-sm" },
-            "Results for ",
-            state.address
+            "h4",
+            { className: "text-sm font-medium" },
+            "Results for: ",
+            state.address,
+            " · Roll year: ",
+            rollYears,
+            " · Retrieved ",
+            formatRetrievedAt(data.retrievedAt)
           ),
           data.truncated &&
             React.createElement(
@@ -235,8 +253,7 @@ export function ParcelCandidatesPanel({
             data.source.name,
             " (",
             data.source.dataset,
-            ") · Retrieved ",
-            formatRetrievedAt(data.retrievedAt)
+            ")"
           ),
           data.warnings.map((warning, index) =>
             React.createElement(

@@ -135,7 +135,7 @@ describe("ParcelCandidatesPanel", () => {
     expect(apply().disabled).toBe(true);
     await act(async () => pending.resolve(house));
     expect(
-      screen.getByText("Results for Another address SE", { exact: false })
+      screen.getByText("Results for: Another address SE", { exact: false })
     ).toBeTruthy();
   });
 
@@ -145,7 +145,9 @@ describe("ParcelCandidatesPanel", () => {
     expect(
       screen.getByText(/1 parcels · 1 accounts · 1 source rows/)
     ).toBeTruthy();
-    expect(screen.getByText(/4bsw-nn7w.*2026-10-14 04:09 UTC/)).toBeTruthy();
+    expect(
+      screen.getByText(/Current Year Property Assessments.*4bsw-nn7w/)
+    ).toBeTruthy();
     expect(screen.getByText(PARCEL_ATTRIBUTION, { exact: false })).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Licence" }).getAttribute("href")
@@ -153,10 +155,9 @@ describe("ParcelCandidatesPanel", () => {
     expect(accounts()[0].checked).toBe(false);
     expect(parcels()[0].checked).toBe(false);
     expect(apply().disabled).toBe(true);
-    expect(screen.getByText("Indicative public data · Not saved")).toBeTruthy();
-    expect(
-      screen.getByText(`Results for ${house.query.normalized}`)
-    ).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 4 }).textContent).toContain(
+      `Results for: ${house.query.normalized}`
+    );
     expect(
       screen.getByText("Outline only, not to scale for design")
     ).toBeTruthy();
@@ -408,27 +409,65 @@ describe("ParcelCandidatesPanel", () => {
     expect(apply().disabled).toBe(true);
   });
 
-  it("ignores an out-of-order response after the newer search has completed", async () => {
+  it("keeps B's results after searching A, editing to B, resolving B and then resolving A", async () => {
     const first = deferred(),
       second = deferred();
     const discover = vi
       .fn()
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
-    setup({ discover });
+    const responseA = fixture("mcdougall");
+    const responseB = house;
+    const { props } = setup({ projectAddress: "Address A SE", discover });
     search();
+    expect(discover).toHaveBeenNthCalledWith(1, {
+      address: "Address A SE",
+      municipality: "Calgary",
+    });
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Newer address SE" },
+      target: { value: "Address B SE" },
     });
     search();
-    await act(async () => second.resolve(house));
+    expect(discover).toHaveBeenNthCalledWith(2, {
+      address: "Address B SE",
+      municipality: "Calgary",
+    });
+    await act(async () => {
+      second.resolve(responseB);
+      await second.promise;
+    });
     fireEvent.click(parcels()[0]);
     fireEvent.click(accounts()[0]);
-    await act(async () => first.resolve({ status: "no_data" }));
-    expect(screen.getByText("Results for Newer address SE")).toBeTruthy();
+    await act(async () => {
+      first.resolve(responseA);
+      await first.promise;
+    });
+    expect(screen.getByRole("heading", { level: 4 }).textContent).toBe(
+      "Results for: Address B SE · Roll year: 2026 · Retrieved 2026-10-14 04:09 UTC"
+    );
+    expect(accounts()).toHaveLength(1);
+    expect(accounts()[0].parentElement!.textContent).toContain(
+      "Account 507123305"
+    );
+    expect(parcels()).toHaveLength(1);
+    expect(parcels()[0].parentElement!.textContent).toContain(
+      "Parcel 100570855"
+    );
+    expect(screen.queryByText(/Account 069501468/)).toBeNull();
     expect(accounts()[0].checked).toBe(true);
+    expect(parcels()[0].checked).toBe(true);
     expect(apply().disabled).toBe(false);
-    expect(screen.queryByText(/No parcel candidates found/)).toBeNull();
+    fireEvent.click(apply());
+    expect(props.onApply).toHaveBeenCalledExactlyOnceWith({
+      areaM2: 654.4,
+      rollNumber: "507123305",
+      rollYear: 2026,
+      cpids: ["100570855"],
+      searchedAddress: "Address B SE",
+      retrievedAt: responseB.retrievedAt,
+      source: responseB.source,
+    });
+    expect(discover).toHaveBeenCalledTimes(2);
   });
 
   it("ignores a stale rejection while the latest search is loading", async () => {
@@ -549,8 +588,11 @@ describe("ParcelCandidatesPanel", () => {
     expect(screen.queryByRole("radio")).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(apply().disabled).toBe(true);
+    // Remount itself makes no call. Only the explicit Search below does.
     expect(props.discover).toHaveBeenCalledTimes(1);
-    await loaded();
+    search();
+    await screen.findAllByRole("radio");
+    expect(props.discover).toHaveBeenCalledTimes(2);
     expect(accounts()[0].checked).toBe(false);
     expect(parcels()[0].checked).toBe(false);
   });
@@ -589,8 +631,16 @@ describe("ParcelCandidatesPanel", () => {
       unmount();
       const commits = onRender.mock.calls.length;
       await act(async () => {
-        if (completion === "resolve") pending.resolve(house);
-        else pending.reject(new Error("Late failure"));
+        if (completion === "resolve") {
+          pending.resolve(house);
+          await expect(pending.promise).resolves.toBe(house);
+        } else {
+          const settled = expect(pending.promise).rejects.toThrow(
+            "Late failure"
+          );
+          pending.reject(new Error("Late failure"));
+          await settled;
+        }
       });
       expect(container.childElementCount).toBe(0);
       expect(onRender).toHaveBeenCalledTimes(commits);
@@ -631,5 +681,59 @@ describe("ParcelCandidatesPanel", () => {
     const path = screen.getByRole("img").querySelector("path")!;
     expect(path.getAttribute("fill-rule")).toBe("evenodd");
     expect(path.getAttribute("d")?.match(/M/g)).toHaveLength(2);
+  });
+
+  it("shows the exact sentence Indicative public data, not a survey.", () => {
+    setup();
+    expect(
+      screen.getByText("Indicative public data, not a survey.", { exact: true })
+        .textContent
+    ).toBe("Indicative public data, not a survey.");
+  });
+
+  it("shows Not saved as its own separate label", () => {
+    setup();
+    const label = screen.getByText("Not saved", { exact: true });
+    expect(label.tagName).toBe("SPAN");
+    expect(label.textContent).toBe("Not saved");
+    expect(label).not.toBe(
+      screen.getByText("Indicative public data, not a survey.")
+    );
+  });
+
+  it("shows Results for: address followed by roll year and formatRetrievedAt time in the header", async () => {
+    // The offset instant must be rendered as UTC, rather than echoed or read from the clock.
+    setup({
+      discover: vi.fn().mockResolvedValue({
+        ...house,
+        retrievedAt: "2026-10-13T22:09:18-06:00",
+      }),
+    });
+    await loaded();
+    expect(screen.getByRole("heading", { level: 4 }).textContent).toBe(
+      "Results for: 132 CORAL SHORES CA NE · Roll year: 2026 · Retrieved 2026-10-14 04:09 UTC"
+    );
+  });
+
+  it("shows via shared parcel only on the shared account in a mixed pair", async () => {
+    const recorded = fixture("mcdougall");
+    const data: CandidateDiscovery = {
+      ...recorded,
+      accounts: [
+        { ...recorded.accounts[0], viaSharedParcel: false },
+        { ...recorded.accounts[1], viaSharedParcel: true },
+      ],
+    };
+    setup({ discover: vi.fn().mockResolvedValue(data) });
+    await loaded();
+    const direct = screen.getByRole("radio", {
+      name: /Account 069501468/,
+    }).parentElement!;
+    const shared = screen.getByRole("radio", {
+      name: /Account 069501484/,
+    }).parentElement!;
+    expect(direct.textContent).not.toContain("via shared parcel");
+    expect(shared.textContent).toContain("via shared parcel");
+    expect(screen.getAllByText(/via shared parcel/)).toHaveLength(1);
   });
 });
