@@ -128,7 +128,7 @@ import { CARLScorerPanel } from '@/components/CARLScorerPanel';
 import { BarrierFreePanel } from '@/components/BarrierFreePanel';
 import { OccupancyAdvisor } from '@/components/OccupancyAdvisor';
 import { ParcelCandidatesPanel, type ParcelCandidatesPanelProps } from '@/components/ParcelCandidatesPanel';
-import type { AppliedParcelArea } from '@/components/parcelCandidates';
+import { formatRetrievedAt, PARCEL_ATTRIBUTION, type AppliedParcelArea } from '@/components/parcelCandidates';
 import { detectSharedWalls, type SharedWall } from '@/lib/ddaRayCast';
 import { summarizeDrawingForOccupancyAdvisor } from '@shared/occupancyAdvisorDrawingBridge';
 // ddaRayCast, dpSimplify, and dpPerpDist are defined below at module scope (Phase C)
@@ -228,6 +228,8 @@ function SitePlanResultsPanel({
               {appliedArea && <>
                 <Badge variant="outline" className="ml-2">City record (applied, not saved)</Badge>
                 <span className="block text-xs text-muted-foreground">Site plan value: {measurement(data?.parcelAreaM2, 'm²')}</span>
+                <span className="block text-xs text-muted-foreground">City of Calgary assessment, roll {appliedArea.rollNumber}, {appliedArea.rollYear ?? 'unavailable'}, retrieved {formatRetrievedAt(appliedArea.retrievedAt)}</span>
+                <span className="block text-xs text-muted-foreground">{PARCEL_ATTRIBUTION}</span>
                 <Button type="button" variant="link" size="sm" onClick={() => setAppliedArea(null)}>Use site-plan value</Button>
               </>}
             </ResultRow>
@@ -1091,7 +1093,11 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
   const utils = trpc.useUtils();
   const extractContextMutation = trpc.drawingSetContext.extractContext.useMutation();
   const zoneLookupMutation = trpc.zoneLookup.lookup.useMutation();
-  const discoverParcelsMutation = trpc.zoneLookup.discoverParcels.useMutation();
+  const parcelDiscoveryClient = utils.client;
+  const discoverParcels = useCallback<ParcelCandidatesPanelProps['discover']>(
+    input => parcelDiscoveryClient.zoneLookup.discoverParcels.mutate(input),
+    [parcelDiscoveryClient],
+  );
   const saveZoneMutation = trpc.zoneLookup.saveToProject.useMutation();
   const saveMeasuredWindowMutation = trpc.drawingAnalysis.saveMeasuredWindow.useMutation();
   const deleteMeasuredWindowMutation = trpc.drawingAnalysis.deleteMeasuredWindow.useMutation();
@@ -9920,7 +9926,7 @@ export function DrawingAnalysis({ projectId }: DrawingAnalysisProps) {
                     contextKey={contextKey}
                     projectAddress={parcelProjectAddress}
                     municipality={selectedMunicipalityId}
-                    discover={discoverParcelsMutation.mutateAsync}
+                    discover={discoverParcels}
                   />
                 ) : (
                 <Card className="border-purple-200 dark:border-purple-800 mt-4" data-results-panel>
